@@ -148,7 +148,7 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<(A
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array1};
+    use ndarray::array;
     use polars::prelude::*;
     use crate::family::Family;
     use crate::LmeFit;

@@ -230,7 +230,7 @@ fn test_lib_rs_edge_cases() {
 
 #[test]
 fn test_lib_coverage_remaining() {
-    let mut df = load_sleepstudy();
+    let df = load_sleepstudy();
 
     // 1. LMM conditional prediction (identity link)
     let fit = lme_rs::lmer("Reaction ~ Days + (1|Subject)", &df, false).unwrap();

@@ -789,22 +789,22 @@ mod tests {
     fn test_family_properties_and_clones() {
         let bin = BinomialFamily::new();
         assert_eq!(bin.name(), "binomial");
-        assert_eq!(bin.uses_dispersion(), false);
+        assert!(!bin.uses_dispersion());
         let _ = bin.build_clone();
 
         let pois = PoissonFamily::new();
         assert_eq!(pois.name(), "poisson");
-        assert_eq!(pois.uses_dispersion(), false);
+        assert!(!pois.uses_dispersion());
         let _ = pois.build_clone();
 
         let gau = GaussianFamily::new();
         assert_eq!(gau.name(), "gaussian");
-        assert_eq!(gau.uses_dispersion(), true);
+        assert!(gau.uses_dispersion());
         let _ = gau.build_clone();
 
         let gam = GammaFamily::new();
         assert_eq!(gam.name(), "Gamma");
-        assert_eq!(gam.uses_dispersion(), true);
+        assert!(gam.uses_dispersion());
         let _ = gam.build_clone();
     }
 

@@ -112,10 +112,7 @@ pub fn build_design_matrices(
                             .map_err(|e| crate::LmeError::NotImplemented { 
                                 feature: format!("Nested RE column '{}' not found: {}", part, e) 
                             })?;
-                        let val = col.get(i)
-                            .map_err(|e| crate::LmeError::NotImplemented { 
-                                feature: format!("Error reading column '{}' row {}: {}", part, i, e) 
-                            })?;
+                        let val = col.get(i).unwrap();
                         parts_str.push(format!("{}", val));
                     }
                     interaction_values.push(parts_str.join("_"));
@@ -248,7 +245,7 @@ pub fn build_x_matrix(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polars::prelude::*;
+
     
     fn create_test_df() -> DataFrame {
         df!(

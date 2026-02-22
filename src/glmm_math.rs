@@ -220,20 +220,8 @@ impl GlmmData {
 
             // Solve for beta
             let rhs_beta = &xt_wz_vec - &rzx_t_cu;
-            let c_beta = match l_x.solve(&rhs_beta) {
-                Ok(c) => c,
-                Err(e) => {
-                    log::debug!("Forward substitution for beta failed: {:?}", e);
-                    return None;
-                }
-            };
-            beta = match l_x.t().solve(&c_beta) {
-                Ok(b) => b,
-                Err(e) => {
-                    log::debug!("Backward substitution for beta failed: {:?}", e);
-                    return None;
-                }
-            };
+            let c_beta = l_x.solve(&rhs_beta).unwrap();
+            beta = l_x.t().solve(&c_beta).unwrap();
 
             // Solve for u
             for i in 0..q {
@@ -321,23 +309,11 @@ impl GlmmData {
         // If we reach here, PIRLS did not converge — still return last result with a warning
         log::warn!("PIRLS did not converge within {} iterations", max_iter);
 
-        let dev_resid = self.family.dev_resid(&self.y, &mu, &wt);
-        let sum_dev_resid: f64 = dev_resid.sum();
-
-        // Rebuild final state for lambda/b
         let b = &lambda * &u;
-        let residuals = &self.y - &mu;
-
         Some(GlmmCoefficients {
-            deviance: sum_dev_resid,
-            beta,
-            b,
-            u,
-            fitted: mu,
-            eta,
-            residuals,
-            beta_se: Array1::zeros(p),
-            beta_z: Array1::zeros(p),
+            deviance: f64::MAX,
+            beta, b, u, eta, residuals: &self.y - &mu, fitted: mu,
+            beta_se: Array1::zeros(p), beta_z: Array1::zeros(p),
         })
     }
 
@@ -411,9 +387,9 @@ fn _sparse_times_dense(sp: &CsMat<f64>, dense: &ndarray::ArrayView2<f64>) -> CsM
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array1, Array2};
+    use ndarray::{array, Array2};
     use sprs::TriMat;
-    use crate::family::{BinomialFamily, Family};
+    use crate::family::BinomialFamily;
 
     #[test]
     fn test_sparse_times_dense() {

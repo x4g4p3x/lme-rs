@@ -302,7 +302,7 @@ fn weight_sparse_cols(sp: &CsMat<f64>, scale: &Array1<f64>) -> CsMat<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array1, Array2};
+    use ndarray::array;
     use sprs::TriMat;
     use crate::model_matrix::ReBlock;
 

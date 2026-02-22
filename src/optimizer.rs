@@ -246,7 +246,7 @@ pub fn optimize_theta_glmm(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array1, Array2};
+    use ndarray::{array, Array2};
     use sprs::TriMat;
     use crate::model_matrix::ReBlock;
     use crate::family::PoissonFamily;
