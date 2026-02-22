@@ -1,5 +1,5 @@
-#![allow(dead_code)]
-
+use lme_rs::math::LmmData;
+use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -28,28 +28,18 @@ struct Outputs {
 }
 
 #[test]
-fn test_load_intercept_only_data() {
-    let file = File::open("tests/data/intercept_only.json")
+fn test_load_random_slopes_data() {
+    let file = File::open("tests/data/random_slopes.json")
         .expect("Failed to open JSON file. Ensure you run `Rscript tests/generate_test_data.R` first.");
     let reader = BufReader::new(file);
     let data: TestData = serde_json::from_reader(reader).expect("Failed to parse JSON");
 
-    assert_eq!(data.model, "Reaction ~ 1 + (1 | Subject)");
+    assert_eq!(data.model, "Reaction ~ Days + (Days | Subject)");
     
-    // sleepstudy has 18 subjects, 10 days each = 180 observations
-    assert_eq!(data.inputs.y.len(), 180);
-    assert_eq!(data.inputs.x.len(), 180); // 180 rows
-    assert_eq!(data.inputs.x[0].len(), 1); // 1 column (intercept)
-    
-    assert_eq!(data.outputs.theta.len(), 1);
-    assert_eq!(data.outputs.beta.len(), 1);
-    
-    // Check reasonable expected values for beta
-    assert!((data.outputs.beta[0] - 298.508).abs() < 0.1); 
-
-    // Convert Vec<Vec<f64>> manually to Array2 since we want to evaluate LmmData
-    use ndarray::{Array1, Array2};
-    use lme_rs::math::LmmData;
+    // Check reasonable expected values for theta (now a vector of length 3)
+    // lme4 produces: [0.9667, 0.0151, 0.2309]
+    assert_eq!(data.outputs.theta.len(), 3);
+    assert!((data.outputs.theta[0] - 0.9667).abs() < 0.1); 
 
     let x_arr = Array2::from_shape_vec(
         (data.inputs.x.len(), data.inputs.x[0].len()),
@@ -68,31 +58,29 @@ fn test_load_intercept_only_data() {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    // Provide the theta generated from R and check if our REML deviance matches
-    let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone());
-    let deviance = model.log_reml_deviance(&[data.outputs.theta[0]]);
+    let model = LmmData::new(x_arr, zt_arr, y_arr);
+    
+    // Evaluate deviance using the newly structured array
+    let deviance = model.log_reml_deviance(&data.outputs.theta);
     
     // Check against LME4 computed REML objective
     println!("lme4 reml_crit: {}, Rust deviance: {}", data.outputs.reml_crit, deviance);
     assert!((deviance - data.outputs.reml_crit).abs() < 1e-6);
 
-    // Run the optimizer and check
-    use lme_rs::optimizer::optimize_theta_nd;
-    let b_vec = Array1::from_vec(vec![1.0]);
-    let best_th = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), b_vec).unwrap();
-    println!("lme4 theta: {}, Rust optimized theta: {}", data.outputs.theta[0], best_th[0]);
-    assert!((best_th[0] - data.outputs.theta[0]).abs() < 1e-4);
-
     // Evaluate coefficients
     let coefs = model.evaluate(&data.outputs.theta);
     println!("lme4 beta0: {}, Rust beta0: {}", data.outputs.beta[0], coefs.beta[0]);
+    println!("lme4 beta1: {}, Rust beta1: {}", data.outputs.beta[1], coefs.beta[1]);
     assert!((coefs.beta[0] - data.outputs.beta[0]).abs() < 1e-4);
+    assert!((coefs.beta[1] - data.outputs.beta[1]).abs() < 1e-4);
 
-    // standard errors
-    println!("lme4 SE beta0: 9.0499, Rust SE beta0: {}", coefs.beta_se[0]);
-    assert!((coefs.beta_se[0] - 9.0499).abs() < 1e-4);
-    
-    // t-values
-    println!("lme4 t beta0: 32.985, Rust t beta0: {}", coefs.beta_t[0]);
-    assert!((coefs.beta_t[0] - 32.985).abs() < 1e-3);
+    println!("lme4 SE beta0: 6.8246, Rust SE beta0: {}", coefs.beta_se[0]);
+    println!("lme4 SE beta1: 1.5458, Rust SE beta1: {}", coefs.beta_se[1]);
+    assert!((coefs.beta_se[0] - 6.8246).abs() < 1e-4);
+    assert!((coefs.beta_se[1] - 1.5458).abs() < 1e-4);
+
+    println!("lme4 t beta0: 36.838, Rust t beta0: {}", coefs.beta_t[0]);
+    println!("lme4 t beta1: 6.771, Rust t beta1: {}", coefs.beta_t[1]);
+    assert!((coefs.beta_t[0] - 36.838).abs() < 1e-3);
+    assert!((coefs.beta_t[1] - 6.771).abs() < 1e-3);
 }

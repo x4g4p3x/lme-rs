@@ -31,8 +31,13 @@ pub struct LmeFit {
     pub fitted: Array1<f64>,
     pub ranef: Option<DataFrame>,
     pub var_corr: Option<DataFrame>,
+    pub theta: Option<Array1<f64>>,
     pub sigma2: Option<f64>,
     pub log_likelihood: Option<f64>,
+    pub b: Option<Array1<f64>>,
+    pub u: Option<Array1<f64>>,
+    pub beta_se: Option<Array1<f64>>,
+    pub beta_t: Option<Array1<f64>>,
 }
 
 /// Fit a linear model `y = X * beta + e` using a QR decomposition.
@@ -96,8 +101,13 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         fitted,
         ranef: None,
         var_corr: None,
+        theta: None,
         sigma2,
         log_likelihood: None,
+        b: None,
+        u: None,
+        beta_se: None,
+        beta_t: None,
     })
 }
 
@@ -126,28 +136,38 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
     // 2. Build design matrices X, Zt, y from DataFrame and AST
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
 
-    // 3. Optimize theta
-    let best_theta = optimizer::optimize_theta_1d(
+    // 3. Setup initial theta vector (length depends on the random effects structure)
+    // We get theta_len from the factorization in Phase 2
+    let init_theta = Array1::from_vec(vec![1.0; matrices.theta_len]);
+
+    // 4. Optimize theta using Nelder-Mead
+    let best_theta = optimizer::optimize_theta_nd(
         matrices.x.clone(),
         matrices.zt.clone(),
         matrices.y.clone(),
-        1e-5,
-        10.0,
+        init_theta,
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("Optimizer failed: {}", e),
     })?;
 
-    // Optionally: Re-evaluate to get coefficients
-    // For now we just return a stub containing the optimized variance component
+    // 5. Re-evaluate to get coefficients
+    let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone());
+    let coefs = lmm.evaluate(best_theta.as_slice().unwrap());
+
     Ok(LmeFit {
-        coefficients: Array1::zeros(matrices.x.ncols()),
+        coefficients: coefs.beta,
         residuals: Array1::zeros(matrices.y.len()),
         fitted: Array1::zeros(matrices.y.len()),
         ranef: None,
         var_corr: None,
-        sigma2: Some(best_theta), // Hack: returning best_theta here for testing
+        theta: Some(best_theta),
+        sigma2: Some(coefs.sigma2),
         log_likelihood: None,
+        b: Some(coefs.b),
+        u: Some(coefs.u),
+        beta_se: Some(coefs.beta_se),
+        beta_t: Some(coefs.beta_t),
     })
 }
 

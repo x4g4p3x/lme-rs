@@ -1,86 +1,145 @@
 use ndarray::{Array1, Array2};
-use ndarray_linalg::{Cholesky, Solve};
+use ndarray_linalg::{Cholesky, Inverse, Solve};
 use ndarray_linalg::UPLO;
+use sprs::{CsMat, TriMat};
+
+#[derive(Debug, Clone)]
+pub struct ModelCoefficients {
+    pub reml_crit: f64,
+    pub sigma2: f64,
+    pub beta: Array1<f64>,
+    pub b: Array1<f64>,
+    pub u: Array1<f64>,
+    pub beta_se: Array1<f64>,
+    pub beta_t: Array1<f64>,
+}
 
 pub struct LmmData {
     pub x: Array2<f64>,
-    pub zt: Array2<f64>,
+    pub zt: CsMat<f64>,
     pub y: Array1<f64>,
 }
 
 impl LmmData {
-    pub fn new(x: Array2<f64>, zt: Array2<f64>, y: Array1<f64>) -> Self {
+    pub fn new(x: Array2<f64>, zt: CsMat<f64>, y: Array1<f64>) -> Self {
         LmmData { x, zt, y }
     }
 
-    /// Calculate REML deviance given a single scalar theta.
-    /// Assumes (1 | Group) structure so Lambda is theta * I.
-    pub fn log_reml_deviance(&self, theta: f64) -> f64 {
+    pub fn log_reml_deviance(&self, theta: &[f64]) -> f64 {
+        self.evaluate(theta).reml_crit
+    }
+
+    pub fn evaluate(&self, theta: &[f64]) -> ModelCoefficients {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
-        let q = self.zt.nrows();
+        let q = self.zt.rows();
 
         let zt = &self.zt;
         let x = &self.x;
         let y = &self.y;
+        
+        let l_len = theta.len();
+        let k = ((-1.0 + (1.0 + 8.0 * (l_len as f64)).sqrt()) / 2.0).round() as usize;
+        let m = q / k;
 
-        // 1. A = theta^2 * Zt * Zt^T + I
-        let mut a = zt.dot(&zt.t());
-        a *= theta * theta;
+        let mut lam_tri = TriMat::new((q, q));
+        for group in 0..m {
+            let offset = group * k;
+            let mut idx = 0;
+            for j in 0..k {
+                for i in j..k {
+                    lam_tri.add_triplet(offset + i, offset + j, theta[idx]);
+                    idx += 1;
+                }
+            }
+        }
+        let lambda: CsMat<f64> = lam_tri.to_csr();
+
+        // A = Lambda^T Z^T Z Lambda + I
+        let zt_z = zt * &zt.transpose_view();
+        let lam_t = lambda.transpose_view();
+        let a_part1 = &lam_t * &zt_z;
+        let a_part2 = &a_part1 * &lambda;
+
+        let mut eye_tri = TriMat::new((q, q));
         for i in 0..q {
-            a[[i, i]] += 1.0;
+            eye_tri.add_triplet(i, i, 1.0);
         }
+        let eye: CsMat<f64> = eye_tri.to_csr();
+        let a = &a_part2 + &eye;
 
-        // 2. L = Cholesky(A)
-        // using lower triangular
-        let l = a.cholesky(UPLO::Lower).expect("Cholesky of A failed");
+        // LDLT of A
+        use sprs_ldl::Ldl;
+        use sprs::SymmetryCheck;
+        let ldl = Ldl::new()
+            .check_symmetry(SymmetryCheck::DontCheckSymmetry)
+            .numeric(a.view())
+            .expect("LDLT of A failed");
 
-        // 3. cu = L^{-1} * (theta * Zt * y)
-        let zt_y = zt.dot(y) * theta;
-        // l is lower triangular. ndarray-linalg solve for Triangular
-        // Unfortunately ndarray_linalg does not have a convenient solve_triangular for general L.
-        // We can just use the generic solve.
-        let cu = l.solve(&zt_y).expect("Solve for cu failed");
+        // V_y = Lambda^T Z^T y
+        let zt_y = zt * y;
+        let v_y = &lam_t * &zt_y;
+        
+        // Use Vec for ldl.solve since sprs_ldl natively requires DenseVector (Vec implements it simply)
+        let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
+        let w_y = Array1::from_vec(w_y_vec);
 
-        // 4. Rzx = L^{-1} * (theta * Zt * X)
-        let zt_x = zt.dot(x) * theta;
+        // V = Lambda^T Z^T X
         let p_usize = p as usize;
-        let mut rzx = Array2::<f64>::zeros((q, p_usize));
+        let mut v_cols = Vec::with_capacity(p_usize);
+        let mut w_cols = Vec::with_capacity(p_usize);
+        
         for j in 0..p_usize {
-            let col = l.solve(&zt_x.column(j).to_owned()).expect("Solve for Rzx failed");
-            rzx.column_mut(j).assign(&col);
+            let x_col = x.column(j).to_owned();
+            let zt_x_j = zt * &x_col;
+            let v_j = &lam_t * &zt_x_j;
+            
+            let w_j_vec: Vec<f64> = ldl.solve(v_j.to_vec());
+            let w_j = Array1::from_vec(w_j_vec);
+            
+            v_cols.push(v_j);
+            w_cols.push(w_j);
         }
 
-        // 5. X^T X
+        let mut rzx_t_rzx = Array2::<f64>::zeros((p_usize, p_usize));
+        for i in 0..p_usize {
+            for j in 0..p_usize {
+                let dot = v_cols[i].dot(&w_cols[j]);
+                rzx_t_rzx[[i, j]] = dot;
+            }
+        }
+
+        let mut rzx_t_cu = Array1::<f64>::zeros(p_usize);
+        for i in 0..p_usize {
+            let dot = v_cols[i].dot(&w_y);
+            rzx_t_cu[i] = dot;
+        }
+
         let xt_x = x.t().dot(x);
-
-        // 6. Rzx^T * Rzx
-        let rzx_t_rzx = rzx.t().dot(&rzx);
-
-        // 7. A_x = X^T X - Rzx^T Rzx
         let a_x = xt_x - rzx_t_rzx;
-
-        // 8. L_x = Cholesky(A_x)
         let l_x = a_x.cholesky(UPLO::Lower).expect("Cholesky of A_x failed");
 
-        // 9. c_beta = L_x^{-1} * (X^T y - Rzx^T cu)
         let xt_y = x.t().dot(y);
-        let rhs_beta = xt_y - rzx.t().dot(&cu);
+        let rhs_beta = xt_y - &rzx_t_cu;
+        
+        // Solve A_x * beta = rhs_beta using L_x
+        // c_beta = L_x^{-1} rhs_beta
         let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
+        // beta = L_x^{-T} c_beta
+        let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
 
-        // 10. r^2 = ||y||^2 - ||cu||^2 - ||c_beta||^2
         let y_norm2 = y.dot(y);
-        let cu_norm2 = cu.dot(&cu);
-        let c_beta_norm2 = c_beta.dot(&c_beta);
+        let cu_norm2 = v_y.dot(&w_y);
+        let c_beta_norm2: f64 = beta.dot(&rhs_beta);
+        
         let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
 
         let reml_df = n - p;
         let sigma2 = r2 / reml_df;
 
-        // 11. REML deviance = (n - p) * log(2 * pi * sigma2) + 2 * sum(log(diag(L))) + 2 * sum(log(diag(L_x))) + (n - p)
-        let mut log_det_l = 0.0;
-        for i in 0..l.nrows() {
-            log_det_l += l[[i, i]].ln();
+        let mut log_det_a = 0.0;
+        for &d in ldl.d() {
+            log_det_a += d.ln();
         }
         
         let mut log_det_l_x = 0.0;
@@ -89,12 +148,45 @@ impl LmmData {
         }
 
         let twopi = std::f64::consts::PI * 2.0;
-
         let reml_crit = reml_df * (twopi * sigma2).ln()
-            + 2.0 * log_det_l
+            + log_det_a
             + 2.0 * log_det_l_x
             + reml_df;
 
-        reml_crit
+        let mut u = Array1::<f64>::zeros(q);
+        for i in 0..q {
+            let mut w_beta_i = 0.0;
+            for j in 0..p_usize {
+                w_beta_i += w_cols[j][i] * beta[j];
+            }
+            u[i] = w_y[i] - w_beta_i;
+        }
+        
+        let b = &lambda * &u;
+
+        // 15. Standard Errors for Fixed Effects
+        // Variance-Covariance Matrix V(beta) = sigma2 * A_x^{-1}
+        // Since A_x = L_x L_x^T, A_x^{-1} = L_x^{-T} L_x^{-1}
+        let mut beta_se = Array1::<f64>::zeros(p_usize);
+        let mut beta_t = Array1::<f64>::zeros(p_usize);
+        
+        let inv_lx = l_x.inv().expect("Inverse of L_x failed");
+        let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
+        
+        for i in 0..p_usize {
+            let var_i = sigma2 * v_beta_unscaled[[i, i]];
+            beta_se[i] = var_i.sqrt();
+            beta_t[i] = beta[i] / beta_se[i];
+        }
+
+        ModelCoefficients {
+            reml_crit,
+            sigma2,
+            beta,
+            b,
+            u,
+            beta_se,
+            beta_t,
+        }
     }
 }

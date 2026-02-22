@@ -23,6 +23,8 @@ pub struct RandomEffect {
     pub grouping_variable: String,
     pub has_intercept: bool,
     pub kind: String,
+    #[serde(default)]
+    pub variables: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]

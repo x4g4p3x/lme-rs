@@ -2,6 +2,6 @@ use fiasto::parse_formula;
 
 #[test]
 fn test_print_fiasto_output() {
-    let result = parse_formula("Reaction ~ Days + (Days | Subject)").unwrap();
+    let result = fiasto::parse_formula("Reaction ~ 1 + Days + (1 + Days | Subject)").unwrap();
     println!("{}", result);
 }
