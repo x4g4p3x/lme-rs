@@ -4,9 +4,12 @@ use lme_rs::math::LmmData;
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use serde::Deserialize;
-use std::fs::File;
 use std::io::BufReader;
+use std::fs::File;
 use sprs::{CsMat, TriMat};
+use rand::rngs::StdRng;
+use rand::{SeedableRng, Rng};
+use rand_distr::{Normal, Distribution};
 
 #[derive(Debug, Deserialize)]
 struct TestData {
@@ -123,5 +126,48 @@ fn bench_glmer_end_to_end(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_deviance_evaluation, bench_lmer_end_to_end, bench_glmer_end_to_end);
+fn generate_large_synthetic_df(n_obs: usize, n_groups: usize) -> DataFrame {
+    let mut rng = StdRng::seed_from_u64(42);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+
+    let mut y = Vec::with_capacity(n_obs);
+    let mut x1 = Vec::with_capacity(n_obs);
+    let mut group = Vec::with_capacity(n_obs);
+
+    for _ in 0..n_obs {
+        let g = rng.random_range(0..n_groups);
+        let current_x = normal.sample(&mut rng);
+        let current_y = 1.0 + 2.0 * current_x + normal.sample(&mut rng);
+
+        y.push(current_y);
+        x1.push(current_x);
+        group.push(format!("G{}", g));
+    }
+
+    df!(
+        "y" => &y,
+        "x" => &x1,
+        "group" => &group
+    ).unwrap()
+}
+
+fn bench_lmer_large_synthetic(c: &mut Criterion) {
+    let df_100k = generate_large_synthetic_df(100_000, 500);
+
+    let mut group = c.benchmark_group("large_scale");
+    group.sample_size(10); // Few samples because it's massive
+    
+    group.bench_function("lmer_100k_obs", |b| {
+        b.iter(|| {
+            black_box(lme_rs::lmer(
+                black_box("y ~ x + (1 | group)"),
+                black_box(&df_100k),
+                black_box(false),
+            ).unwrap());
+        })
+    });
+    group.finish();
+}
+
+criterion_group!(benches, bench_deviance_evaluation, bench_lmer_end_to_end, bench_glmer_end_to_end, bench_lmer_large_synthetic);
 criterion_main!(benches);
