@@ -79,7 +79,8 @@ fn test_load_intercept_only_data() {
     // Run the optimizer and check
     use lme_rs::optimizer::optimize_theta_nd;
     let b_vec = ndarray::Array1::from_vec(vec![1.0]);
-    let best_th = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), b_vec, true).unwrap();
+    let opt_result = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), b_vec, true).unwrap();
+    let best_th = opt_result.theta;
     println!("lme4 theta: {}, Rust optimized theta: {}", data.outputs.theta[0], best_th[0]);
     assert!((best_th[0] - data.outputs.theta[0]).abs() < 1e-4);
 

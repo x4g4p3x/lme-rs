@@ -19,6 +19,7 @@ argmin-math = { version = "0.5.1", features = ["ndarray_v0_16-nolinalg"] }
 fiasto = "0.2.7"
 sprs = "0.11.4"
 sprs-ldl = "0.10.0"
+log = "0.4"
 
 [dev-dependencies]
 criterion = "0.8.2"

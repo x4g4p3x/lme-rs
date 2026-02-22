@@ -13,6 +13,8 @@ pub struct ModelCoefficients {
     pub u: Array1<f64>,
     pub beta_se: Array1<f64>,
     pub beta_t: Array1<f64>,
+    pub fitted: Array1<f64>,
+    pub residuals: Array1<f64>,
 }
 
 /// Encapsulates the core dense/sparse design matrices for Linear Mixed-Effects modeling evaluations.
@@ -200,6 +202,22 @@ impl LmmData {
             beta_t[i] = beta[i] / beta_se[i];
         }
 
+        // 16. Compute Fitted Values and Residuals
+        // fitted = X*beta + Z*b where Z = zt^T (zt is q×n, so Z is n×q)
+        let x_beta = x.dot(&beta);
+        // Compute Z*b by iterating over zt (CSR, q×n): Z*b = zt^T * b
+        // For each row j of zt (random effect j), and each entry zt[j, i], contribute b[j] * zt[j, i] to result[i]
+        let n_obs = self.y.len();
+        let mut z_b_vec = vec![0.0f64; n_obs];
+        for (j, row_vec) in zt.outer_iterator().enumerate() {
+            for (i, &val) in row_vec.iter() {
+                z_b_vec[i] += val * b[j];
+            }
+        }
+        let z_b = Array1::from_vec(z_b_vec);
+        let fitted = &x_beta + &z_b;
+        let residuals = y - &fitted;
+
         ModelCoefficients {
             reml_crit,
             sigma2,
@@ -208,6 +226,8 @@ impl LmmData {
             u,
             beta_se,
             beta_t,
+            fitted,
+            residuals,
         }
     }
 }

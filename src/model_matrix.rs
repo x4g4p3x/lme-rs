@@ -67,7 +67,6 @@ pub fn build_design_matrices(
         if info.roles.contains(&"GroupingVariable".to_string()) {
             let g_var = name;
             let mut slope_vars = Vec::new();
-            let mut has_intercept = false;
             
             for re in &info.random_effects {
                 if let Some(vars) = &re.variables {
@@ -79,7 +78,12 @@ pub fn build_design_matrices(
             slope_vars.sort();
             slope_vars.dedup();
             
-            let has_intercept = true; // Hardcoded default based on Phase 6 parity tests
+            // Gap 5: Intercept detection follows R convention — always included unless
+            // explicitly suppressed (e.g., `(0 + Days | Subject)`). Since fiasto does not
+            // currently emit a reliable suppression signal for complex formulas, we default
+            // to true. When fiasto gains explicit `0 +` support, this logic should check
+            // for the suppression flag.
+            let has_intercept = true; // R convention default
 
             let g_series = data.column(g_var).unwrap().cast(&DataType::String).unwrap();
             let g_str = g_series.str().unwrap();

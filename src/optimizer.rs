@@ -5,6 +5,19 @@ use ndarray::{Array1, Array2};
 use sprs::CsMat;
 use crate::model_matrix::ReBlock;
 
+/// Result of the Nelder-Mead optimization, including convergence diagnostics.
+#[derive(Debug, Clone)]
+pub struct OptimizeResult {
+    /// The optimized theta vector (relative covariance parameters).
+    pub theta: Array1<f64>,
+    /// Whether the optimizer converged within the iteration limit.
+    pub converged: bool,
+    /// Number of iterations executed.
+    pub iterations: u64,
+    /// Final cost (deviance) at the optimized theta.
+    pub final_cost: f64,
+}
+
 /// Wrapper for the REML deviance function to be used by argmin.
 struct LmmObjective {
     x: Array2<f64>,
@@ -44,7 +57,7 @@ pub fn optimize_theta_nd(
     re_blocks: Vec<ReBlock>,
     init_theta: Array1<f64>,
     reml: bool,
-) -> Result<Array1<f64>, anyhow::Error> {
+) -> Result<OptimizeResult, anyhow::Error> {
     let cost = LmmObjective {
         x: x.clone(),
         zt: zt.clone(),
@@ -54,6 +67,7 @@ pub fn optimize_theta_nd(
     };
 
     let n = init_theta.len();
+    let max_iters = 1000u64;
     let mut initial_simplex = vec![init_theta.clone()];
     
     // Create an initial simplex by perturbing each dimension
@@ -67,8 +81,19 @@ pub fn optimize_theta_nd(
         .with_sd_tolerance(1e-6)?;
 
     let res = Executor::new(cost, solver)
-        .configure(|state| state.max_iters(1000))
+        .configure(|state| state.max_iters(max_iters))
         .run()?;
 
-    Ok(res.state().get_best_param().cloned().unwrap_or(init_theta))
+    let state = res.state();
+    let best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    let best_cost = state.get_best_cost();
+    let iterations = state.get_iter();
+    let converged = iterations < max_iters;
+
+    Ok(OptimizeResult {
+        theta: best_theta,
+        converged,
+        iterations,
+        final_cost: best_cost,
+    })
 }
