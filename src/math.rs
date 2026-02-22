@@ -18,11 +18,20 @@ pub struct LmmData {
     pub x: Array2<f64>,
     pub zt: CsMat<f64>,
     pub y: Array1<f64>,
+    
+    // Cached structural matrices that are independent of theta
+    pub zt_z: CsMat<f64>,
+    pub xt_x: Array2<f64>,
+    pub xt_y: Array1<f64>,
 }
 
 impl LmmData {
     pub fn new(x: Array2<f64>, zt: CsMat<f64>, y: Array1<f64>) -> Self {
-        LmmData { x, zt, y }
+        let zt_z = &zt * &zt.transpose_view();
+        let xt_x = x.t().dot(&x);
+        let xt_y = x.t().dot(&y);
+        
+        LmmData { x, zt, y, zt_z, xt_x, xt_y }
     }
 
     pub fn log_reml_deviance(&self, theta: &[f64]) -> f64 {
@@ -56,9 +65,8 @@ impl LmmData {
         let lambda: CsMat<f64> = lam_tri.to_csr();
 
         // A = Lambda^T Z^T Z Lambda + I
-        let zt_z = zt * &zt.transpose_view();
         let lam_t = lambda.transpose_view();
-        let a_part1 = &lam_t * &zt_z;
+        let a_part1 = &lam_t * &self.zt_z;
         let a_part2 = &a_part1 * &lambda;
 
         let mut eye_tri = TriMat::new((q, q));
@@ -115,12 +123,10 @@ impl LmmData {
             rzx_t_cu[i] = dot;
         }
 
-        let xt_x = x.t().dot(x);
-        let a_x = xt_x - rzx_t_rzx;
+        let a_x = &self.xt_x - &rzx_t_rzx;
         let l_x = a_x.cholesky(UPLO::Lower).expect("Cholesky of A_x failed");
 
-        let xt_y = x.t().dot(y);
-        let rhs_beta = xt_y - &rzx_t_cu;
+        let rhs_beta = &self.xt_y - &rzx_t_cu;
         
         // Solve A_x * beta = rhs_beta using L_x
         // c_beta = L_x^{-1} rhs_beta
