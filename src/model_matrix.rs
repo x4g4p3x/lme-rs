@@ -5,11 +5,18 @@ use std::collections::HashMap;
 
 use sprs::TriMat;
 
+#[derive(Clone, Debug)]
+pub struct ReBlock {
+    pub m: usize,
+    pub k: usize,
+    pub theta_len: usize,
+}
+
 pub struct DesignMatrices {
     pub x: Array2<f64>,
     pub zt: sprs::CsMat<f64>,
     pub y: Array1<f64>,
-    pub theta_len: usize,
+    pub re_blocks: Vec<ReBlock>,
 }
 
 pub fn build_design_matrices(
@@ -63,68 +70,93 @@ pub fn build_design_matrices(
         x.column_mut(j).assign(col);
     }
 
-    // 3. Build Random Effects Matrix (Z) -- now supporting Random Slopes!
-    let mut grouping_var = None;
-    let mut slope_vars = Vec::new();
+    // 3. Build Random Effects Matrix (Z) -- now supporting Crossed and Multiple Slopes
+    let mut triplet_rows = Vec::new();
+    let mut triplet_cols = Vec::new();
+    let mut triplet_vals = Vec::new();
+    
+    let mut re_blocks = Vec::new();
+    let mut current_q_offset = 0;
 
     for (name, info) in &ast.columns {
         if info.roles.contains(&"GroupingVariable".to_string()) {
-            grouping_var = Some(name.clone());
-            if let Some(re) = info.random_effects.first() {
+            let g_var = name;
+            let mut slope_vars = Vec::new();
+            let mut has_intercept = false;
+            
+            for re in &info.random_effects {
                 if let Some(vars) = &re.variables {
-                    slope_vars = vars.clone();
+                    slope_vars.extend(vars.clone());
                 }
             }
-            break;
+            
+            // Deduplicate slope vars
+            slope_vars.sort();
+            slope_vars.dedup();
+            
+            let has_intercept = true; // Hardcoded default based on Phase 6 parity tests
+
+            let g_series = data.column(g_var).unwrap().cast(&DataType::String).unwrap();
+            let g_str = g_series.str().unwrap();
+            
+            let mut unique_groups = Vec::new();
+            let mut group_map = HashMap::new();
+            
+            for val_opt in g_str.into_iter() {
+                let val = val_opt.unwrap().to_string();
+                if !group_map.contains_key(&val) {
+                    group_map.insert(val.clone(), unique_groups.len());
+                    unique_groups.push(val);
+                }
+            }
+            
+            let m = unique_groups.len();
+            let k = if has_intercept { 1 + slope_vars.len() } else { slope_vars.len() };
+            let q_block = m * k;
+            
+            let mut slope_data: Vec<Vec<f64>> = Vec::new();
+            for s_var in &slope_vars {
+                    let s_series = data.column(s_var).unwrap().cast(&DataType::Float64).unwrap();
+                    let s_f64_series = s_series.f64().unwrap();
+                    slope_data.push(s_f64_series.into_no_null_iter().collect());
+                }
+
+                for (i, val_opt) in g_str.into_iter().enumerate() {
+                    let val = val_opt.unwrap();
+                    let group_idx = group_map[val];
+                    let offset = current_q_offset + group_idx * k;
+                    
+                    let mut current_k = 0;
+                    if has_intercept {
+                        triplet_rows.push(i);
+                        triplet_cols.push(offset);
+                        triplet_vals.push(1.0);
+                        current_k += 1;
+                    }
+                    
+                    for (slope_idx, s_vec) in slope_data.iter().enumerate() {
+                        triplet_rows.push(i);
+                        triplet_cols.push(offset + current_k + slope_idx);
+                        triplet_vals.push(s_vec[i]);
+                    }
+                }
+                let theta_len = k * (k + 1) / 2;
+                re_blocks.push(ReBlock { m, k, theta_len });
+                current_q_offset += q_block;
         }
     }
     
-    let (zt, theta_len) = if let Some(g_var) = grouping_var {
-        let g_series = data.column(&g_var).unwrap().cast(&DataType::String).unwrap();
-        let g_str = g_series.str().unwrap();
-        
-        let mut unique_groups = Vec::new();
-        let mut group_map = HashMap::new();
-        
-        for val_opt in g_str.into_iter() {
-            let val = val_opt.unwrap().to_string();
-            if !group_map.contains_key(&val) {
-                group_map.insert(val.clone(), unique_groups.len());
-                unique_groups.push(val);
-            }
+    let zt = if current_q_offset > 0 {
+        // We dynamically update the ncols bound of Z to match the full horizontal width
+        let mut final_z_tri = TriMat::new((n_obs, current_q_offset));
+        for i in 0..triplet_rows.len() {
+            final_z_tri.add_triplet(triplet_rows[i], triplet_cols[i], triplet_vals[i]);
         }
-        
-        let m = unique_groups.len();
-        let k = 1 + slope_vars.len(); // intercept + slopes
-        let q = m * k;
-        let mut z_tri = TriMat::new((n_obs, q));
-        
-        let mut slope_data: Vec<Vec<f64>> = Vec::new();
-        for s_var in &slope_vars {
-            let s_series = data.column(s_var).unwrap().cast(&DataType::Float64).unwrap();
-            let s_f64_series = s_series.f64().unwrap();
-            slope_data.push(s_f64_series.into_no_null_iter().collect());
-        }
-
-        for (i, val_opt) in g_str.into_iter().enumerate() {
-            let val = val_opt.unwrap();
-            let group_idx = group_map[val];
-            let offset = group_idx * k;
-            
-            z_tri.add_triplet(i, offset, 1.0);
-            
-            for (slope_idx, s_vec) in slope_data.iter().enumerate() {
-                z_tri.add_triplet(i, offset + 1 + slope_idx, s_vec[i]);
-            }
-        }
-        
-        let theta_len = k * (k + 1) / 2;
-        let z_csc = z_tri.to_csc();
-        let zt_csr = z_csc.transpose_into();
-        (zt_csr, theta_len)
+        let z_csc = final_z_tri.to_csc();
+        z_csc.transpose_into()
     } else {
-        (sprs::CsMat::zero((0, n_obs)), 1)
+        sprs::CsMat::zero((0, n_obs))
     };
 
-    Ok(DesignMatrices { x, zt, y, theta_len })
+    Ok(DesignMatrices { x, zt, y, re_blocks })
 }

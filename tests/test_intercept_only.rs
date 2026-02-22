@@ -68,8 +68,8 @@ fn test_load_intercept_only_data() {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    // Provide the theta generated from R and check if our REML deviance matches
-    let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone());
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 1, theta_len: 1 }];
+    let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
     let deviance = model.log_reml_deviance(&[data.outputs.theta[0]]);
     
     // Check against LME4 computed REML objective
@@ -78,8 +78,8 @@ fn test_load_intercept_only_data() {
 
     // Run the optimizer and check
     use lme_rs::optimizer::optimize_theta_nd;
-    let b_vec = Array1::from_vec(vec![1.0]);
-    let best_th = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), b_vec).unwrap();
+    let b_vec = ndarray::Array1::from_vec(vec![1.0]);
+    let best_th = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), b_vec).unwrap();
     println!("lme4 theta: {}, Rust optimized theta: {}", data.outputs.theta[0], best_th[0]);
     assert!((best_th[0] - data.outputs.theta[0]).abs() < 1e-4);
 

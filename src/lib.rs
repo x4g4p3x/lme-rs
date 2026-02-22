@@ -137,14 +137,21 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
 
     // 3. Setup initial theta vector (length depends on the random effects structure)
-    // We get theta_len from the factorization in Phase 2
-    let init_theta = Array1::from_vec(vec![1.0; matrices.theta_len]);
+    let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
+    let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
+    
+    println!("Zt shape: {}x{}, nnz: {}, theta_len: {}", 
+        matrices.zt.rows(), matrices.zt.cols(), matrices.zt.nnz(), total_theta_len);
+    for block in &matrices.re_blocks {
+        println!("  block: m={}, k={}, theta={}", block.m, block.k, block.theta_len);
+    }
 
     // 4. Optimize theta using Nelder-Mead
     let best_theta = optimizer::optimize_theta_nd(
         matrices.x.clone(),
         matrices.zt.clone(),
         matrices.y.clone(),
+        matrices.re_blocks.clone(),
         init_theta,
     )
     .map_err(|e| LmeError::NotImplemented {
@@ -152,7 +159,7 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
     })?;
 
     // 5. Re-evaluate to get coefficients
-    let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone());
+    let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks);
     let coefs = lmm.evaluate(best_theta.as_slice().unwrap());
 
     Ok(LmeFit {

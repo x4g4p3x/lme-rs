@@ -3,6 +3,7 @@ use argmin::core::{CostFunction, Error, Executor, State};
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
 use sprs::CsMat;
+use crate::model_matrix::ReBlock;
 
 /// Wrapper for the REML deviance function to be used by argmin.
 struct DevfunCost<'a> {
@@ -30,9 +31,10 @@ pub fn optimize_theta_nd(
     x: Array2<f64>,
     zt: CsMat<f64>,
     y: Array1<f64>,
+    re_blocks: Vec<ReBlock>,
     init_theta: Array1<f64>,
 ) -> Result<Array1<f64>, Error> {
-    let lmm_data = LmmData::new(x, zt, y);
+    let lmm_data = LmmData::new(x, zt, y, re_blocks);
     let cost = DevfunCost { lmm_data: &lmm_data };
 
     let n = init_theta.len();

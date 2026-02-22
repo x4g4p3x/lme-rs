@@ -48,9 +48,15 @@ get_model_data <- function(model_str, fit) {
 out1 <- get_model_data("Reaction ~ 1 + (1 | Subject)", fm1)
 out2 <- get_model_data("Reaction ~ Days + (Days | Subject)", fm2)
 
+# Crossed random effects model
+data("Penicillin", package = "lme4")
+fm3 <- lmer(diameter ~ 1 + (1 | plate) + (1 | sample), data = Penicillin, REML = TRUE)
+out3 <- get_model_data("diameter ~ 1 + (1 | plate) + (1 | sample)", fm3)
+
 # Save to JSON
 dir.create("tests/data", recursive = TRUE, showWarnings = FALSE)
 write_json(out1, "tests/data/intercept_only.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out2, "tests/data/random_slopes.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out3, "tests/data/penicillin.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
 cat("Successfully generated test data.\n")

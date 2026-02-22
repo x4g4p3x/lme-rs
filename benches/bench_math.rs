@@ -49,7 +49,8 @@ fn load_test_data() -> (LmmData, Vec<f64>) {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    (LmmData::new(x_arr, zt_arr, y_arr), data.outputs.theta)
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 2, theta_len: 3 }];
+    (LmmData::new(x_arr, zt_arr, y_arr, re_blocks), data.outputs.theta)
 }
 
 fn bench_deviance_evaluation(c: &mut Criterion) {

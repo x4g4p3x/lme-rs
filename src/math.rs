@@ -18,6 +18,7 @@ pub struct LmmData {
     pub x: Array2<f64>,
     pub zt: CsMat<f64>,
     pub y: Array1<f64>,
+    pub re_blocks: Vec<crate::model_matrix::ReBlock>,
     
     // Cached structural matrices that are independent of theta
     pub zt_z: CsMat<f64>,
@@ -26,12 +27,12 @@ pub struct LmmData {
 }
 
 impl LmmData {
-    pub fn new(x: Array2<f64>, zt: CsMat<f64>, y: Array1<f64>) -> Self {
+    pub fn new(x: Array2<f64>, zt: CsMat<f64>, y: Array1<f64>, re_blocks: Vec<crate::model_matrix::ReBlock>) -> Self {
         let zt_z = &zt * &zt.transpose_view();
         let xt_x = x.t().dot(&x);
         let xt_y = x.t().dot(&y);
         
-        LmmData { x, zt, y, zt_z, xt_x, xt_y }
+        LmmData { x, zt, y, re_blocks, zt_z, xt_x, xt_y }
     }
 
     pub fn log_reml_deviance(&self, theta: &[f64]) -> f64 {
@@ -47,20 +48,27 @@ impl LmmData {
         let x = &self.x;
         let y = &self.y;
         
-        let l_len = theta.len();
-        let k = ((-1.0 + (1.0 + 8.0 * (l_len as f64)).sqrt()) / 2.0).round() as usize;
-        let m = q / k;
-
         let mut lam_tri = TriMat::new((q, q));
-        for group in 0..m {
-            let offset = group * k;
-            let mut idx = 0;
-            for j in 0..k {
-                for i in j..k {
-                    lam_tri.add_triplet(offset + i, offset + j, theta[idx]);
-                    idx += 1;
+        
+        let mut row_offset = 0;
+        let mut theta_offset = 0;
+        
+        for block in &self.re_blocks {
+            let m = block.m;
+            let k = block.k;
+            
+            for group in 0..m {
+                let offset = row_offset + group * k;
+                let mut idx = 0;
+                for j in 0..k {
+                    for i in j..k {
+                        lam_tri.add_triplet(offset + i, offset + j, theta[theta_offset + idx]);
+                        idx += 1;
+                    }
                 }
             }
+            row_offset += m * k;
+            theta_offset += block.theta_len;
         }
         let lambda: CsMat<f64> = lam_tri.to_csr();
 
