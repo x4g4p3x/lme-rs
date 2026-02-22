@@ -94,41 +94,31 @@ impl LmeFit {
 
     /// Predict conditional expectations given novel data, including Random Effects (`re.form=NULL`).
     /// Computes $\hat{y} = X_{new} \hat{\beta} + Z_{new} \hat{b}$ using stored random effects.
+    ///
+    /// Groups present in `newdata` but absent from the training data receive zero random-effect
+    /// contributions (population-level predictions), consistent with R's `predict.merMod`.
     pub fn predict_conditional(&self, newdata: &polars::prelude::DataFrame) -> anyhow::Result<ndarray::Array1<f64>> {
-        // Get population-level predictions first
         let y_pop = self.predict(newdata)?;
-        
+
         let b = self.b.as_ref().ok_or_else(|| anyhow::anyhow!("No random effects available for conditional predictions"))?;
         let re_blocks = self.re_blocks.as_ref().ok_or_else(|| anyhow::anyhow!("No RE block metadata available"))?;
-        let ast = crate::formula::parse(&self.formula.clone().unwrap_or_default())
-            .map_err(|e| anyhow::anyhow!("Failed to parse formula: {}", e))?;
-        
+
         let n_obs = newdata.height();
         let mut z_b = ndarray::Array1::<f64>::zeros(n_obs);
-        
+
         let mut b_offset = 0;
         for block in re_blocks {
-            // Find the grouping variable column in newdata
             let g_series = newdata.column(&block.group_name)
                 .map_err(|e| anyhow::anyhow!("Missing grouping variable '{}': {}", block.group_name, e))?
                 .cast(&DataType::String).unwrap();
             let g_str = g_series.str().unwrap();
-            
-            // We need to map group names to their indices in the original fitted model
-            // The b vector is arranged as [group0_eff0, group0_eff1, ..., group1_eff0, ...] 
-            // We need to find which group index each new observation belongs to
-            // For now, we reconstruct group mapping from the original fit's block metadata
-            // This requires the RE grouping to appear in the same order
-            
-            // Build group map from original data (stored in the b vector layout)
-            // Since we don't store original group names, we need the user to pass matching groups
-            // For a proper implementation, we'd store the group name -> index mapping in the fit
-            
-            // Get slope data for this block
+
+            // Collect slope covariate data for non-intercept effects
+            let has_intercept = block.effect_names.first().is_some_and(|n| n == "(Intercept)");
             let mut slope_data: Vec<Vec<f64>> = Vec::new();
             for effect_name in &block.effect_names {
                 if effect_name == "(Intercept)" {
-                    continue; // Intercept is always 1.0, handled below
+                    continue;
                 }
                 let s_series = newdata.column(effect_name)
                     .map_err(|e| anyhow::anyhow!("Missing slope variable '{}': {}", effect_name, e))?
@@ -136,42 +126,35 @@ impl LmeFit {
                 let s_f64 = s_series.f64().unwrap();
                 slope_data.push(s_f64.into_no_null_iter().collect());
             }
-            
-            // For each observation, compute b contribution
-            // Note: without stored group indices, we use a simple name-based heuristic
-            // Groups are assumed indexed in order of first appearance in original data
+
             for (i, val_opt) in g_str.into_iter().enumerate() {
-                let _group_name = val_opt.unwrap_or("unknown");
-                // We search for the group idx by scanning b blocks
-                // This is approximate — a full solution would store the group map
-                // For now, we use the group index based on alphabetical/discovery order
-                // which matches how model_matrix builds the Z matrix
-                
-                // Since we cannot perfectly resolve the group mapping without storing it,
-                // we compute using all effects for group 0 as a best-effort
-                // TODO: Store group_name -> index mapping in LmeFit for exact conditional predictions
-                let has_intercept = block.effect_names.first().is_some_and(|n| n == "(Intercept)");
-                
-                // For each effect in the block, contribute b[offset + group_idx * k + effect_idx]
-                // Without stored mapping, we skip unresolvable groups silently
+                let group_name = val_opt.unwrap_or("");
+
+                // Look up group index from the stored mapping; unknown groups get 0 contribution
+                let group_idx = match block.group_map.get(group_name) {
+                    Some(&idx) => idx,
+                    None => {
+                        // Unknown group → population-level (no RE contribution)
+                        continue;
+                    }
+                };
+
+                let base = b_offset + group_idx * block.k;
                 let mut effect_idx = 0;
+
                 if has_intercept {
-                    // b contribution from intercept (value = 1.0 * b[...])
-                    // We'd need the group index here
+                    z_b[i] += b[base + effect_idx]; // intercept contribution (1.0 * b_intercept)
                     effect_idx += 1;
                 }
+
                 for (s_idx, s_vec) in slope_data.iter().enumerate() {
-                    let _ = s_vec[i]; // slope value
-                    let _ = effect_idx + s_idx; // effect column
+                    z_b[i] += s_vec[i] * b[base + effect_idx + s_idx];
                 }
             }
-            
+
             b_offset += block.m * block.k;
         }
-        
-        // For a fully correct conditional prediction, we need stored group mappings.
-        // Return population-level for now with a note that this is best-effort.
-        // The scaffolding is in place for when group name -> index mapping is stored.
+
         Ok(y_pop + z_b)
     }
 }

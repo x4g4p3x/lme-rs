@@ -53,7 +53,8 @@ fn test_ml_optimization() {
         k: 2, 
         theta_len: 3, 
         group_name: "Subject".to_string(), 
-        effect_names: vec!["(Intercept)".to_string(), "Days".to_string()] 
+        effect_names: vec!["(Intercept)".to_string(), "Days".to_string()],
+        group_map: std::collections::HashMap::new(),
     }];
 
     // Optimize ML directly via Rust

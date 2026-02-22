@@ -13,6 +13,8 @@ pub struct ReBlock {
     pub theta_len: usize,
     pub group_name: String,
     pub effect_names: Vec<String>,
+    /// Maps group labels (e.g. subject IDs) to their positional index in the Z/b vectors.
+    pub group_map: HashMap<String, usize>,
 }
 
 /// Container encompassing the finalized design matrices and mapping arrays extracted from input DataFrames.
@@ -78,12 +80,24 @@ pub fn build_design_matrices(
             slope_vars.sort();
             slope_vars.dedup();
             
-            // Gap 5: Intercept detection follows R convention — always included unless
-            // explicitly suppressed (e.g., `(0 + Days | Subject)`). Since fiasto does not
-            // currently emit a reliable suppression signal for complex formulas, we default
-            // to true. When fiasto gains explicit `0 +` support, this logic should check
-            // for the suppression flag.
-            let has_intercept = true; // R convention default
+            // Determine has_intercept for this RE group.
+            // fiasto's `has_intercept` on `RandomEffect` means "intercept-only RE" (true only
+            // for `(1|g)`), NOT "RE group includes an intercept alongside slopes".
+            // R convention: intercept is always included unless explicitly suppressed with `0 +`.
+            // We detect suppression by scanning the raw formula for patterns like `(0 + ... | g)`
+            // or `(0+ ... | g)`.
+            let suppress_pattern = format!("| {}", g_var);
+            let has_zero_suppression = ast.formula
+                .split(&suppress_pattern)
+                .next()                // text before `| group`
+                .and_then(|before| before.rfind('('))  // find the opening `(`
+                .map(|paren_pos| {
+                    let inside = &ast.formula[paren_pos + 1..];
+                    let trimmed = inside.trim_start();
+                    trimmed.starts_with("0 +") || trimmed.starts_with("0+")
+                })
+                .unwrap_or(false);
+            let has_intercept = !has_zero_suppression;
 
             let g_series = data.column(g_var).unwrap().cast(&DataType::String).unwrap();
             let g_str = g_series.str().unwrap();
@@ -137,7 +151,7 @@ pub fn build_design_matrices(
                 }
                 effect_names.extend(slope_vars.iter().map(|s| s.to_string()));
                 
-                re_blocks.push(ReBlock { m, k, theta_len, group_name: g_var.to_string(), effect_names });
+                re_blocks.push(ReBlock { m, k, theta_len, group_name: g_var.to_string(), effect_names, group_map });
                 current_q_offset += q_block;
         }
     }

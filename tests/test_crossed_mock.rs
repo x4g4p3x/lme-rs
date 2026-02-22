@@ -53,8 +53,8 @@ fn test_mock_crossed_effects() {
     // Mock dataset has two crossed factors, A (k=1, m=2) and B (k=1, m=2). 
     // Both intercept-only, so theta_len = 1 each
     let re_blocks = vec![
-        lme_rs::model_matrix::ReBlock { m: 2, k: 1, theta_len: 1, group_name: "A".to_string(), effect_names: vec!["(Intercept)".to_string()] },
-        lme_rs::model_matrix::ReBlock { m: 2, k: 1, theta_len: 1, group_name: "B".to_string(), effect_names: vec!["(Intercept)".to_string()] },
+        lme_rs::model_matrix::ReBlock { m: 2, k: 1, theta_len: 1, group_name: "A".to_string(), effect_names: vec!["(Intercept)".to_string()], group_map: std::collections::HashMap::new() },
+        lme_rs::model_matrix::ReBlock { m: 2, k: 1, theta_len: 1, group_name: "B".to_string(), effect_names: vec!["(Intercept)".to_string()], group_map: std::collections::HashMap::new() },
     ];
 
     let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
