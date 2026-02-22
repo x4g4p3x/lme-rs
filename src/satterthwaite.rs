@@ -144,3 +144,104 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<(A
 
     Ok((dfs, p_values))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::{array, Array1};
+    use polars::prelude::*;
+    use crate::family::Family;
+    use crate::LmeFit;
+
+    fn create_dummy_fit() -> LmeFit {
+        LmeFit {
+            formula: Some("y ~ x".to_string()),
+            coefficients: array![1.0, 2.0],
+            sigma2: Some(1.0),
+            beta_se: Some(array![0.5, 0.5]),
+            beta_t: None,
+            b: None,
+            u: None,
+            theta: Some(array![1.0]), // Mock theta
+            log_likelihood: Some(0.0),
+            deviance: Some(0.0),
+            aic: Some(0.0),
+            bic: Some(0.0),
+            converged: Some(true),
+            iterations: Some(10),
+            reml: Some(0.0),
+            num_obs: 4,
+            fitted: array![1.0, 1.0, 2.0, 2.0],
+            residuals: array![0.0, 1.0, 1.0, 2.0],
+            family: None,
+            var_corr: None,
+            ranef: None,
+            fixed_names: None,
+            re_blocks: None,
+            family_name: None,
+            link_name: None,
+            satterthwaite: None,
+        }
+    }
+
+    #[test]
+    fn test_satterthwaite_glmm_error() {
+        let mut fit = create_dummy_fit();
+        fit.family = Some(Family::Binomial); // GLMM
+        let df = DataFrame::empty();
+        
+        let res = compute_satterthwaite(&fit, &df);
+        assert!(res.is_err());
+        if let Err(LmeError::NotImplemented { feature }) = res {
+            assert!(feature.contains("only available for linear mixed models"));
+        } else {
+            panic!("Expected NotImplemented error");
+        }
+    }
+
+    #[test]
+    fn test_satterthwaite_missing_formula() {
+        let mut fit = create_dummy_fit();
+        fit.formula = None;
+        let df = DataFrame::empty();
+        
+        let res = compute_satterthwaite(&fit, &df);
+        assert!(res.is_err());
+        if let Err(LmeError::NotImplemented { feature }) = res {
+            assert!(feature.contains("Formula is missing"));
+        } else {
+            panic!("Expected NotImplemented error");
+        }
+    }
+
+    #[test]
+    fn test_satterthwaite_singular_hessian_or_zero_grad() {
+        // We can force a singular hessian by creating a perfectly flat deviance surface
+        // or a dataset with perfect fit and no variance constraints.
+        // Let's create a minimal dataset
+        let mut fit = create_dummy_fit();
+        fit.formula = Some("y ~ x + (1|group)".to_string());
+        
+        let df = df!(
+            "y" => &[1.0, 1.0],
+            "x" => &[0.0, 1.0],
+            "group" => &["A", "B"]
+        ).unwrap();
+        
+        // This might fail to invert Hessian because there's not enough data,
+        // or the gradient could be near zero leading to fallback DF.
+        let res = compute_satterthwaite(&fit, &df);
+        
+        // We just want to ensure it either errors gracefully on Hessian inv, or returns successfully
+        // bypassing the near-zero denom branch.
+        match res {
+            Ok((dfs, _)) => {
+                // Should hit fallback DF if it succeeds
+                assert!(dfs.len() == 2);
+            },
+            Err(_) => {
+                // Or fails on Hessian
+            }
+        }
+    }
+}

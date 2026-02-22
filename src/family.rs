@@ -250,6 +250,12 @@ impl BinomialFamily {
     }
 }
 
+impl Default for BinomialFamily {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlmFamily for BinomialFamily {
     fn variance(&self, mu: &Array1<f64>) -> Array1<f64> {
         mu.mapv(|m| {
@@ -305,6 +311,12 @@ impl PoissonFamily {
     }
 }
 
+impl Default for PoissonFamily {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlmFamily for PoissonFamily {
     fn variance(&self, mu: &Array1<f64>) -> Array1<f64> {
         // V(mu) = mu for Poisson
@@ -354,6 +366,12 @@ impl GaussianFamily {
     }
 }
 
+impl Default for GaussianFamily {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlmFamily for GaussianFamily {
     fn variance(&self, mu: &Array1<f64>) -> Array1<f64> {
         Array1::ones(mu.len())
@@ -390,6 +408,12 @@ pub struct GammaFamily {
 impl GammaFamily {
     pub fn new() -> Self {
         GammaFamily { link: InverseLink }
+    }
+}
+
+impl Default for GammaFamily {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -530,7 +554,7 @@ mod tests {
 
     #[test]
     fn identity_roundtrip() {
-        let mu = array![-1.0, 0.0, 3.14];
+        let mu = array![-1.0, 0.0, std::f64::consts::PI];
         let link = IdentityLink;
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
@@ -729,5 +753,118 @@ mod tests {
         let d = fam.dev_resid(&y, &mu, &wt);
         let expected = 2.0 * (1.0 - 2.0f64.ln());
         assert!((d[0] - expected).abs() < 1e-10, "gamma dev_resid(y=2,mu=1) expected {}, got {}", expected, d[0]);
+    }
+
+    #[test]
+    fn test_link_names() {
+        assert_eq!(IdentityLink.name(), "identity");
+        assert_eq!(LogitLink.name(), "logit");
+        assert_eq!(LogLink.name(), "log");
+        assert_eq!(ProbitLink.name(), "probit");
+        assert_eq!(CloglogLink.name(), "cloglog");
+        assert_eq!(InverseLink.name(), "inverse");
+        assert_eq!(SqrtLink.name(), "sqrt");
+    }
+
+    #[test]
+    fn test_mu_eta_bounds() {
+        // Probit mu_eta
+        let d = ProbitLink.mu_eta(&array![0.0]);
+        assert!((d[0] - 0.3989422804).abs() < 1e-6);
+
+        // Cloglog mu_eta
+        let d = CloglogLink.mu_eta(&array![0.0]);
+        assert!((d[0] - 0.3678794411).abs() < 1e-6);
+
+        // Inverse mu_eta
+        let d = InverseLink.mu_eta(&array![1.0]);
+        assert!((d[0] - 1.0).abs() < 1e-6);
+
+        // Sqrt mu_eta
+        let d = SqrtLink.mu_eta(&array![2.0]);
+        assert!((d[0] - 4.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_family_properties_and_clones() {
+        let bin = BinomialFamily::new();
+        assert_eq!(bin.name(), "binomial");
+        assert_eq!(bin.uses_dispersion(), false);
+        let _ = bin.build_clone();
+
+        let pois = PoissonFamily::new();
+        assert_eq!(pois.name(), "poisson");
+        assert_eq!(pois.uses_dispersion(), false);
+        let _ = pois.build_clone();
+
+        let gau = GaussianFamily::new();
+        assert_eq!(gau.name(), "gaussian");
+        assert_eq!(gau.uses_dispersion(), true);
+        let _ = gau.build_clone();
+
+        let gam = GammaFamily::new();
+        assert_eq!(gam.name(), "Gamma");
+        assert_eq!(gam.uses_dispersion(), true);
+        let _ = gam.build_clone();
+    }
+
+    #[test]
+    fn test_initialize_mu() {
+        let y = array![0.0, 1.0];
+        
+        let mu_bin = BinomialFamily::new().initialize_mu(&y);
+        assert!((mu_bin[0] - 0.25).abs() < 1e-10);
+        assert!((mu_bin[1] - 0.75).abs() < 1e-10);
+
+        let mu_pois = PoissonFamily::new().initialize_mu(&y);
+        assert!((mu_pois[0] - 0.1).abs() < 1e-10);
+        assert!((mu_pois[1] - 1.1).abs() < 1e-10);
+
+        let mu_gau = GaussianFamily::new().initialize_mu(&y);
+        assert!((mu_gau[0] - 0.0).abs() < 1e-10);
+        assert!((mu_gau[1] - 1.0).abs() < 1e-10);
+
+        let mu_gam = GammaFamily::new().initialize_mu(&y);
+        assert!((mu_gam[1] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_binomial_bounds() {
+        let bin = BinomialFamily::new();
+        let mu = array![0.0, 1.0];
+        let var = bin.variance(&mu);
+        assert!(var[0] > 0.0); // Clamped away from 0
+        assert!(var[1] > 0.0);
+    }
+
+    #[test]
+    fn test_poisson_dev_resid_positive_y() {
+        let pois = PoissonFamily::new();
+        let d = pois.dev_resid(&array![2.0], &array![1.0], &array![1.0]);
+        // 2 * [ 2.0*ln(2.0/1.0) - (2.0 - 1.0) ] = 2 * (2*ln2 - 1)
+        let expected = 2.0 * (2.0 * 2.0f64.ln() - 1.0);
+        assert!((d[0] - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_family_enum_formatting() {
+        assert_eq!(format!("{}", Family::Binomial), "binomial");
+        assert_eq!(format!("{}", Family::Poisson), "poisson");
+        assert_eq!(format!("{}", Family::Gaussian), "gaussian");
+        assert_eq!(format!("{}", Family::Gamma), "Gamma");
+    }
+
+    #[test]
+    fn test_family_defaults_and_dispersion() {
+        let bin = BinomialFamily::default();
+        let poi = PoissonFamily::default();
+        let gau = GaussianFamily::default();
+        let gam = GammaFamily::default();
+        
+        assert!(gam.uses_dispersion());
+        let _c = gam.build_clone();
+        let _b = bin.build_clone();
+        let _p = poi.build_clone();
+        let _g = gau.build_clone();
     }
 }

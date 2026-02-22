@@ -242,3 +242,50 @@ pub fn optimize_theta_glmm(
         final_cost: best_cost,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::{array, Array1, Array2};
+    use sprs::TriMat;
+    use crate::model_matrix::ReBlock;
+    use crate::family::PoissonFamily;
+
+    #[test]
+    fn test_nan_deviance_cost() {
+        // Create an objective that will generate NaN deviance.
+        // Poisson family with y = -1.0 will produce NaN deviance residuals.
+        let y = array![-1.0, 0.0]; // invalid for Poisson
+        
+        let x = Array2::<f64>::ones((2, 2));
+        let mut zt_tri = TriMat::new((2, 2));
+        zt_tri.add_triplet(0, 0, 1.0);
+        zt_tri.add_triplet(1, 1, 1.0);
+        let zt = zt_tri.to_csr();
+        
+        let re_blocks = vec![ReBlock {
+            m: 2,
+            k: 1,
+            theta_len: 1,
+            group_name: "G".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        }];
+        
+        let family = Box::new(PoissonFamily::new());
+        let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+        
+        let cost_fn = GlmmObjective {
+            x,
+            zt,
+            y,
+            re_blocks,
+            family,
+            lower_bounds,
+        };
+        
+        let theta = array![1.0];
+        let cost = cost_fn.cost(&theta).unwrap();
+        assert_eq!(cost, f64::MAX);
+    }
+}

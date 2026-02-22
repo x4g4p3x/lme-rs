@@ -121,7 +121,7 @@ fn test_simulate_mean_close_to_fitted() {
     let n = fit.num_obs;
     let mut means = ndarray::Array1::<f64>::zeros(n);
     for s in &sim.simulations {
-        means = means + s;
+        means += s;
     }
     means /= nsim as f64;
 

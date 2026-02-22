@@ -18,6 +18,7 @@ struct Inputs {
     y: Vec<f64>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Outputs {
     theta: Vec<f64>,
@@ -67,7 +68,7 @@ fn test_ml_optimization() {
     let model = LmmData::new(x_arr, zt_arr, y_arr, re_blocks);
     
     // Evaluate DEV against REML constraint to verify divergence
-    let deviance = model.log_reml_deviance(&best_th.as_slice().unwrap(), false);
+    let deviance = model.log_reml_deviance(best_th.as_slice().unwrap(), false);
     
     println!("ML deviance: {}", deviance);
     println!("Optimized ML theta: {:?}", best_th.to_vec());
@@ -79,7 +80,7 @@ fn test_ml_optimization() {
     // ML estimates are slightly smaller than REML (REML theta0 ~ 0.9667)
     assert!(best_th[0] > 0.9 && best_th[0] < 0.96);
 
-    let coefs = model.evaluate(&best_th.as_slice().unwrap(), false);
+    let coefs = model.evaluate(best_th.as_slice().unwrap(), false);
     println!("ML beta: {:?}", coefs.beta.to_vec());
     assert!((coefs.beta[0] - data.outputs.beta[0]).abs() < 0.1);
     assert!((coefs.beta[1] - data.outputs.beta[1]).abs() < 0.1);

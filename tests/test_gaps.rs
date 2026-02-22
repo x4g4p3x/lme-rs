@@ -16,7 +16,7 @@ fn test_residuals_fitted_computed() {
     let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
     
     // Gap 1: residuals and fitted values should be non-zero
-    let residuals_sum: f64 = fit.residuals.iter().sum();
+    let _residuals_sum: f64 = fit.residuals.iter().sum();
     let fitted_sum: f64 = fit.fitted.iter().sum();
     
     // Fitted values must be non-trivial (not all zeros)
@@ -27,11 +27,11 @@ fn test_residuals_fitted_computed() {
     let y_f64 = y_series.f64().unwrap();
     let y_vec: Vec<f64> = y_f64.into_no_null_iter().collect();
     
-    for i in 0..y_vec.len() {
+    for (i, &y_val) in y_vec.iter().enumerate() {
         let reconstructed = fit.fitted[i] + fit.residuals[i];
         assert!(
-            (reconstructed - y_vec[i]).abs() < 1e-6,
-            "y[{}] = {} but fitted + residuals = {}", i, y_vec[i], reconstructed
+            (reconstructed - y_val).abs() < 1e-6,
+            "y[{}] = {} but fitted + residuals = {}", i, y_val, reconstructed
         );
     }
 }
@@ -73,10 +73,8 @@ fn test_var_corr_positive_definite() {
     for i in 0..variances.len() {
         if let Some(v) = variances.get(i) {
             // Diagonal variances should be positive
-            if let Some(sd) = stddev.get(i) {
-                if !sd.is_nan() {
-                    assert!(v >= 0.0, "Variance at row {} should be non-negative, got {}", i, v);
-                }
+            if stddev.get(i).is_some_and(|sd| !sd.is_nan()) {
+                assert!(v >= 0.0, "Variance at row {} should be non-negative, got {}", i, v);
             }
         }
     }
@@ -169,4 +167,88 @@ fn test_conditional_predictions() {
     
     println!("Population predictions: {:?}", pop_preds.to_vec());
     println!("Conditional predictions: {:?}", cond_preds.to_vec());
+}
+
+#[test]
+fn test_lib_rs_edge_cases() {
+    use lme_rs::family::Family;
+    use lme_rs::{glmer, lmer_weighted, anova, AnovaResult};
+
+    let df = load_sleepstudy();
+
+    // 1. Empty formula errors
+    assert!(glmer(" ", &df, Family::Binomial).is_err());
+    assert!(lmer_weighted(" ", &df, true, None).is_err());
+
+    // 2. Anova same parameters error
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+    let res = anova(&fit, &fit);
+    assert!(res.is_err());
+
+    // 3. GLMM Gaussian family and predict_response limits
+    let fit_gauss = glmer("Reaction ~ Days + (1 | Subject)", &df, Family::Gaussian).unwrap();
+    assert!(fit_gauss.sigma2.is_some()); // uses dispersion
+
+    let nd = DataFrame::new(vec![
+        Series::new("Days".into(), &[0.0, 1.0]).into(),
+        Series::new("Subject".into(), &["308", "308"]).into()
+    ]).unwrap();
+
+    let p_res = fit_gauss.predict_response(&nd).unwrap();
+    let pc_res = fit_gauss.predict_conditional_response(&nd).unwrap();
+    assert_eq!(p_res.len(), 2);
+    assert_eq!(pc_res.len(), 2);
+
+    // 4. confint without fixed names
+    use lme_rs::lm;
+    use ndarray::{array, Array2};
+    let y = array![1.0, 2.0];
+    let x = Array2::<f64>::ones((2, 1));
+    let mut lm_fit = lm(&y, &x).unwrap();
+    lm_fit.beta_se = Some(array![0.5]); // mock SE
+    let ci = lm_fit.confint(0.95).unwrap();
+    assert_eq!(ci.names[0], "beta_0");
+
+    // 5. Display GLMM and AnovaResult
+    let glmm_str = format!("{}", fit_gauss);
+    assert!(glmm_str.contains("Generalized linear mixed model fit"));
+    assert!(glmm_str.contains("Family: gaussian"));
+
+    let a_res = AnovaResult {
+        n_params_0: 1, n_params_1: 2,
+        deviance_0: 10.0, deviance_1: 5.0,
+        chi_sq: 5.0, df: 1, p_value: 0.05,
+        formula_0: "y ~ 1".into(), formula_1: "y ~ x".into(),
+    };
+    let a_str = format!("{}", a_res);
+    assert!(a_str.contains("  1     2      5.00"));
+
+    // 6. Simulate from GLMM
+    let sim = fit_gauss.simulate(2).unwrap();
+    assert_eq!(sim.simulations.len(), 2);
+}
+
+#[test]
+fn test_lib_coverage_remaining() {
+    let mut df = load_sleepstudy();
+
+    // 1. LMM conditional prediction (identity link)
+    let fit = lme_rs::lmer("Reaction ~ Days + (1|Subject)", &df, false).unwrap();
+    let nd = fit.predict_conditional_response(&df);
+    assert!(nd.is_ok());
+
+    // 2. ANOVA precise formatting and PR string (using unweighted LMM)
+    let fit_b = lme_rs::lmer("Reaction ~ 1 + (1|Subject)", &df, false).unwrap();
+    let res = lme_rs::anova(&fit_b, &fit).unwrap(); // Compare nested models
+    let s = format!("{}", res);
+    assert!(s.contains("Pr(>Chisq)"));
+
+    // 3. Nested RE with missing column
+    let bad_nested_ast = lme_rs::formula::parse("Reaction ~ Days + (1 | Subject:missing)").unwrap();
+    let res = lme_rs::model_matrix::build_design_matrices(&bad_nested_ast, &df);
+    assert!(res.is_err());
+    if let Err(e) = res {
+        assert!(e.to_string().contains("not found"));
+    }
+
 }

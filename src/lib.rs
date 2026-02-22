@@ -342,7 +342,7 @@ impl fmt::Display for LmeFit {
             writeln!(f)?;
             let mut metrics = Vec::new();
             if let Some(aic) = self.aic {
-                metrics.push(format!("AIC      BIC   logLik deviance"));
+                metrics.push("AIC      BIC   logLik deviance".to_string());
                 let bic = self.bic.unwrap_or(0.0);
                 let ll = self.log_likelihood.unwrap_or(0.0);
                 let dev = self.deviance.unwrap_or(0.0);

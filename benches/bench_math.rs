@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 use lme_rs::math::LmmData;
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
@@ -49,12 +50,19 @@ fn load_test_data() -> (LmmData, Vec<f64>) {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 2, theta_len: 3 }];
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock { 
+        m: 18, 
+        k: 2, 
+        theta_len: 3,
+        group_name: "Subject".to_string(), 
+        effect_names: vec!["(Intercept)".to_string(), "Days".to_string()],
+        group_map: std::collections::HashMap::new(),
+    }];
     (LmmData::new(x_arr, zt_arr, y_arr, re_blocks), data.outputs.theta)
 }
 
 fn bench_deviance_evaluation(c: &mut Criterion) {
-    let (model, theta) = load_test_data();
+    let (model, _theta) = load_test_data();
 
     c.bench_function("log_reml_deviance_random_slopes", |b| {
         b.iter(|| {

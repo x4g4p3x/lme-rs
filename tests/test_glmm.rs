@@ -5,10 +5,13 @@ use polars::prelude::*;
 use serde::Deserialize;
 use std::fs::File;
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct ModelInputs {
-    X: Vec<Vec<f64>>,
-    Zt: Vec<Vec<f64>>,
+    #[serde(rename = "X")]
+    x: Vec<Vec<f64>>,
+    #[serde(rename = "Zt")]
+    zt: Vec<Vec<f64>>,
     y: Vec<f64>,
 }
 
@@ -19,6 +22,7 @@ struct ModelOutputs {
     deviance: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct TestData {
     model: String,
@@ -27,12 +31,12 @@ struct TestData {
 }
 
 fn load_test_data(path: &str) -> TestData {
-    let file = File::open(path).expect(&format!("Could not open {}", path));
+    let file = File::open(path).unwrap_or_else(|_| panic!("Could not open {}", path));
     serde_json::from_reader(file).expect("Failed to parse JSON")
 }
 
 fn read_csv_data(path: &str) -> polars::prelude::DataFrame {
-    let mut file = File::open(path).expect(&format!("Could not open {}", path));
+    let mut file = File::open(path).unwrap_or_else(|_| panic!("Could not open {}", path));
     CsvReadOptions::default()
         .with_has_header(true)
         .into_reader_with_file_handle(&mut file)

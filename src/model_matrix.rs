@@ -219,25 +219,21 @@ pub fn build_x_matrix(
     
     // Ordered columns per the formula
     for col_name in ast.all_generated_columns.iter() {
-        if let Some(info) = ast.columns.get(col_name) {
-            if info.roles.contains(&"Identity".to_string()) && col_name != response_name {
-                let mut col_found = false;
-                if let Ok(s) = data.column(col_name) {
-                    if let Ok(s_cast) = s.cast(&DataType::Float64) {
-                        if let Ok(s_f64) = s_cast.f64() {
-                            let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
-                            fixed_cols.push(Array1::from_vec(vec));
-                            fixed_names.push(col_name.clone());
-                            col_found = true;
-                        }
-                    }
-                }
-                if !col_found {
-                    // Fail if identity column is missing from new prediction sets
-                    return Err(crate::LmeError::NotImplemented { feature: format!("Missing or invalid column: {}", col_name) });
-                }
-            }
+        let Some(info) = ast.columns.get(col_name) else { continue; };
+        if !info.roles.contains(&"Identity".to_string()) || col_name == response_name {
+            continue;
         }
+        
+        let s = data.column(col_name)
+            .map_err(|_| crate::LmeError::NotImplemented { feature: format!("Missing or invalid column: {}", col_name) })?;
+        let s_cast = s.cast(&DataType::Float64)
+            .map_err(|_| crate::LmeError::NotImplemented { feature: format!("Missing or invalid column: {}", col_name) })?;
+        let s_f64 = s_cast.f64()
+            .map_err(|_| crate::LmeError::NotImplemented { feature: format!("Missing or invalid column: {}", col_name) })?;
+            
+        let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
+        fixed_cols.push(Array1::from_vec(vec));
+        fixed_names.push(col_name.clone());
     }
     
     let p = fixed_cols.len();
@@ -247,4 +243,47 @@ pub fn build_x_matrix(
     }
     
     Ok((x, fixed_names))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use polars::prelude::*;
+    
+    fn create_test_df() -> DataFrame {
+        df!(
+            "y" => &[1.0, 2.0, 3.0, 4.0],
+            "x" => &[1.0, 1.0, 2.0, 2.0],
+            "group" => &["A", "A", "B", "B"],
+            "subgroup" => &["a1", "a2", "b1", "b2"]
+        ).unwrap()
+    }
+
+    #[test]
+    fn test_no_random_effects() {
+        let df = create_test_df();
+        let ast = crate::formula::parse("y ~ x").unwrap();
+        let matrices = build_design_matrices(&ast, &df).unwrap();
+        
+        assert_eq!(matrices.re_blocks.len(), 0);
+        assert_eq!(matrices.zt.rows(), 0);
+        assert_eq!(matrices.zt.cols(), 4);
+    }
+
+    #[test]
+    fn test_nested_random_effects() {
+        let df = create_test_df();
+        // Nested random effect: formula syntax translates `(1 | group / subgroup)` 
+        // effectively to `(1 | group) + (1 | group:subgroup)` conceptually,
+        // but here we just test if `group:subgroup` directly works if we parse it.
+        // Fiasto transforms `(1 | group / subgroup)` into `1 | subgroup:group`
+        let ast = crate::formula::parse("y ~ x + (1 | group:subgroup)").unwrap();
+        let matrices = build_design_matrices(&ast, &df).unwrap();
+        
+        // We should have 1 block for `group:subgroup`
+        assert_eq!(matrices.re_blocks.len(), 1);
+        let block = &matrices.re_blocks[0];
+        assert_eq!(block.group_name, "group:subgroup");
+        assert_eq!(block.m, 4); // 4 unique interactions
+    }
 }

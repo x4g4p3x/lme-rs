@@ -407,3 +407,70 @@ fn _sparse_times_dense(sp: &CsMat<f64>, dense: &ndarray::ArrayView2<f64>) -> CsM
 
     tri.to_csr()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::{array, Array1, Array2};
+    use sprs::TriMat;
+    use crate::family::{BinomialFamily, Family};
+
+    #[test]
+    fn test_sparse_times_dense() {
+        // Create 2x3 sparse
+        let mut sp_tri = TriMat::new((2, 3));
+        sp_tri.add_triplet(0, 0, 1.0);
+        sp_tri.add_triplet(1, 2, 2.0);
+        let sp = sp_tri.to_csr();
+
+        // Create 3x2 dense
+        let dense = array![
+            [1.0, 2.0],
+            [3.0, 4.0],
+            [5.0, 6.0]
+        ];
+
+        let result = _sparse_times_dense(&sp, &dense.view());
+        assert_eq!(result.rows(), 2);
+        assert_eq!(result.cols(), 2);
+        let mat = result.to_dense();
+        assert_eq!(mat[[0, 0]], 1.0);
+        assert_eq!(mat[[0, 1]], 2.0);
+        assert_eq!(mat[[1, 0]], 10.0);
+        assert_eq!(mat[[1, 1]], 12.0);
+    }
+
+    #[test]
+    fn test_pirls_divergence() {
+        // Provide nonsensical inputs to force LDLT or Cholesky or PIRLS convergence failures
+        let x = Array2::<f64>::ones((2, 2));
+        let mut zt_tri = TriMat::new((2, 2));
+        zt_tri.add_triplet(0, 0, 1.0);
+        zt_tri.add_triplet(1, 1, 1.0);
+        let zt = zt_tri.to_csr();
+        
+        let y = array![0.0, 1.0];
+        
+        // Single RE block
+        let re_blocks = vec![ReBlock {
+            m: 2,
+            k: 1,
+            theta_len: 1,
+            group_name: "G".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        }];
+        
+        let fam = Box::new(BinomialFamily::new());
+        let glmm = GlmmData::new(x, zt, y, re_blocks, fam);
+        
+        // Feed in a NaN theta or super large theta to break LDLT or Cholesky
+        let dev = glmm.laplace_deviance(&[f64::NAN]);
+        assert_eq!(dev, f64::MAX);
+
+        // Feed extremely large vectors to cause divergence/max iters
+        let dev2 = glmm.laplace_deviance(&[1e100]);
+        // Because X is singular (zeros), X'WX will be singular, causing Cholesky to fail and returning None -> MAX
+        assert_eq!(dev2, f64::MAX);
+    }
+}

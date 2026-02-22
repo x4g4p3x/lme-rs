@@ -299,3 +299,45 @@ fn weight_sparse_cols(sp: &CsMat<f64>, scale: &Array1<f64>) -> CsMat<f64> {
     tri.to_csr()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::{array, Array1, Array2};
+    use sprs::TriMat;
+    use crate::model_matrix::ReBlock;
+
+    #[test]
+    fn test_weighted_lmm_evaluation() {
+        let x = array![
+            [1.0, 2.0],
+            [1.0, 3.0],
+            [1.0, 4.0]
+        ];
+        
+        let mut zt_tri = TriMat::new((3, 3));
+        for i in 0..3 { zt_tri.add_triplet(i, i, 1.0); }
+        let zt = zt_tri.to_csr();
+        
+        let y = array![2.0, 4.0, 6.0];
+        
+        let re_blocks = vec![ReBlock {
+            m: 3,
+            k: 1,
+            theta_len: 1,
+            group_name: "G".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        }];
+        
+        let weights = array![0.5, 1.0, 2.0];
+        
+        let lmm_weighted = LmmData::new_weighted(x.clone(), zt.clone(), y.clone(), re_blocks.clone(), Some(weights));
+        let theta = vec![1.0];
+        let coefs = lmm_weighted.evaluate(&theta, true);
+        
+        assert_eq!(coefs.beta.len(), 2);
+        assert_eq!(coefs.b.len(), 3);
+        assert!(coefs.sigma2 > -1e-10);
+    }
+}
+

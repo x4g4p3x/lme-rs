@@ -64,10 +64,8 @@ fn test_variance_components_precision() {
     let mut subject_variances = Vec::new();
     for i in 0..var_corr.height() {
         let g = groups.get(i).unwrap().to_string();
-        if g.contains("Subject") {
-            if let Some(v) = variances.get(i) {
-                subject_variances.push(v);
-            }
+        if let Some(v) = variances.get(i).filter(|_| g.contains("Subject")) {
+            subject_variances.push(v);
         }
     }
 
