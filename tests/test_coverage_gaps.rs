@@ -1,5 +1,6 @@
 //! Tests targeting specific uncovered branches in lib.rs Display and convergence logic.
 
+use polars::prelude::*;
 use lme_rs::LmeFit;
 use lme_rs::model_matrix::ReBlock;
 use ndarray::{array, Array1};
@@ -121,4 +122,33 @@ fn test_display_no_convergence_info() {
     // shows up in the convergence diagnostic block
     assert!(!summary.contains("optimizer"),
         "Summary should NOT contain optimizer diagnostics when converged=None:\n{}", summary);
+}
+
+#[test]
+fn test_predict_column_name_mismatch() {
+    // L80-82: Trigger the column-name mismatch guard in predict().
+    // We fit a real model, then tamper with `fixed_names` so build_x_matrix succeeds
+    // (same columns exist in newdata) but the name comparison fails.
+    let mut file = std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(&mut file)
+        .finish()
+        .expect("Failed to read CSV");
+
+    let mut fit = lme_rs::lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+
+    // Tamper: change the stored fixed_names so they no longer match what build_x_matrix produces
+    fit.fixed_names = Some(vec!["(Intercept)".to_string(), "BOGUS_NAME".to_string()]);
+
+    let new_days = Series::new("Days".into(), &[0.0, 5.0]);
+    let new_subject = Series::new("Subject".into(), &["308", "308"]);
+    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+
+    let result = fit.predict(&newdata);
+    assert!(result.is_err(), "predict should fail with mismatched column names");
+
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("do not match"),
+        "Error should mention column mismatch, got: {}", err_msg);
 }
