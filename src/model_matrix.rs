@@ -10,13 +10,17 @@ pub struct ReBlock {
     pub m: usize,
     pub k: usize,
     pub theta_len: usize,
+    pub group_name: String,
+    pub effect_names: Vec<String>,
 }
 
 pub struct DesignMatrices {
+    pub formula: String,
     pub x: Array2<f64>,
     pub zt: sprs::CsMat<f64>,
     pub y: Array1<f64>,
     pub re_blocks: Vec<ReBlock>,
+    pub fixed_names: Vec<String>,
 }
 
 pub fn build_design_matrices(
@@ -48,8 +52,10 @@ pub fn build_design_matrices(
 
     // 2. Build Fixed Effects Matrix (X)
     let mut fixed_cols = Vec::new();
+    let mut fixed_names = Vec::new();
     if ast.metadata.has_intercept {
         fixed_cols.push(Array1::<f64>::ones(n_obs));
+        fixed_names.push("(Intercept)".to_string());
     }
     
     // Ordered columns per the formula
@@ -60,6 +66,7 @@ pub fn build_design_matrices(
                 let s_f64 = s.f64().unwrap();
                 let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
                 fixed_cols.push(Array1::from_vec(vec));
+                fixed_names.push(col_name.clone());
             }
         }
     }
@@ -141,7 +148,14 @@ pub fn build_design_matrices(
                     }
                 }
                 let theta_len = k * (k + 1) / 2;
-                re_blocks.push(ReBlock { m, k, theta_len });
+                
+                let mut effect_names = Vec::new();
+                if has_intercept {
+                    effect_names.push("(Intercept)".to_string());
+                }
+                effect_names.extend(slope_vars.iter().map(|s| s.to_string()));
+                
+                re_blocks.push(ReBlock { m, k, theta_len, group_name: g_var.to_string(), effect_names });
                 current_q_offset += q_block;
         }
     }
@@ -158,5 +172,12 @@ pub fn build_design_matrices(
         sprs::CsMat::zero((0, n_obs))
     };
 
-    Ok(DesignMatrices { x, zt, y, re_blocks })
+    Ok(DesignMatrices { 
+        formula: ast.formula.clone(),
+        x, 
+        zt, 
+        y, 
+        re_blocks,
+        fixed_names,
+    })
 }

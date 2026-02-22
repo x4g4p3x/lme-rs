@@ -58,7 +58,7 @@ fn test_load_random_slopes_data() {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 2, theta_len: 3 }];
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 2, theta_len: 3, group_name: "Subject".to_string(), effect_names: vec!["(Intercept)".to_string(), "Days".to_string()] }];
     let model = LmmData::new(x_arr, zt_arr, y_arr, re_blocks);
     
     // Evaluate deviance using the newly structured array

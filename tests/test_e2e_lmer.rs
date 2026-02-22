@@ -33,8 +33,8 @@ fn test_lmer_random_slopes_e2e() -> Result<(), Box<dyn std::error::Error>> {
     let formula = "Reaction ~ Days + (Days | Subject)";
     let fit = lmer(formula, &df)?;
 
-    let optimized_theta0 = fit.theta.unwrap()[0]; 
-    println!("LME4 theta0: 0.9667, Rust lmer() theta0: {}", optimized_theta0);
+    let optimized_theta0 = fit.theta.clone().unwrap()[0]; 
+    println!("\n*** LME4 R-Style Console Summary ***\n{}", fit);
     assert!((optimized_theta0 - 0.96673).abs() < 0.1);
 
     // Beta check

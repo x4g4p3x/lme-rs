@@ -68,7 +68,7 @@ fn test_load_intercept_only_data() {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 1, theta_len: 1 }];
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 1, theta_len: 1, group_name: "Subject".to_string(), effect_names: vec!["(Intercept)".to_string()] }];
     let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
     let deviance = model.log_reml_deviance(&[data.outputs.theta[0]]);
     

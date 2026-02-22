@@ -7,6 +7,7 @@ use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 use polars::prelude::DataFrame;
 use thiserror::Error;
+use std::fmt;
 
 pub type Result<T> = std::result::Result<T, LmeError>;
 
@@ -33,11 +34,96 @@ pub struct LmeFit {
     pub var_corr: Option<DataFrame>,
     pub theta: Option<Array1<f64>>,
     pub sigma2: Option<f64>,
+    pub reml: Option<f64>,
     pub log_likelihood: Option<f64>,
     pub b: Option<Array1<f64>>,
     pub u: Option<Array1<f64>>,
     pub beta_se: Option<Array1<f64>>,
     pub beta_t: Option<Array1<f64>>,
+    // Metadata for Summary Display
+    pub formula: Option<String>,
+    pub fixed_names: Option<Vec<String>>,
+    pub re_blocks: Option<Vec<model_matrix::ReBlock>>,
+    pub num_obs: usize,
+}
+
+impl fmt::Display for LmeFit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(formula) = &self.formula {
+            writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
+            writeln!(f, "Formula: {}", formula)?;
+        }
+        
+        if let Some(reml) = self.reml {
+            writeln!(f, "REML criterion at convergence: {:.4}", reml)?;
+        }
+        
+        writeln!(f, "Scaled residuals:")?;
+        if let Some(sigma2) = self.sigma2 {
+            let sigma = sigma2.sqrt();
+            let mut scaled_res: Vec<f64> = self.residuals.iter().map(|&r| r / sigma).collect();
+            scaled_res.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            let n = scaled_res.len();
+            if n > 0 {
+                let min = scaled_res[0];
+                let q1 = scaled_res[n / 4];
+                let median = scaled_res[n / 2];
+                let q3 = scaled_res[3 * n / 4];
+                let max = scaled_res[n - 1];
+                writeln!(f, "    Min      1Q  Median      3Q     Max ")?;
+                writeln!(f, "{:>7.4} {:>7.4} {:>7.4} {:>7.4} {:>7.4}", min, q1, median, q3, max)?;
+            }
+        }
+
+        writeln!(f, "\nRandom effects:")?;
+        writeln!(f, " Groups   Name        Variance Std.Dev.")?;
+        
+        if let (Some(theta), Some(re_blocks), Some(sigma2)) = (&self.theta, &self.re_blocks, self.sigma2) {
+            let mut theta_idx = 0;
+            let mut obs_groups = Vec::new();
+            
+            for block in re_blocks {
+                let th = &theta.as_slice().unwrap()[theta_idx..theta_idx + block.theta_len];
+                theta_idx += block.theta_len;
+                
+                let mut lambda = ndarray::Array2::<f64>::zeros((block.k, block.k));
+                let mut idx = 0;
+                for j in 0..block.k {
+                    for i in j..block.k {
+                        lambda[[i, j]] = th[idx];
+                        idx += 1;
+                    }
+                }
+                let cov = lambda.dot(&lambda.t()) * sigma2;
+                
+                for i in 0..block.k {
+                    let var = cov[[i, i]];
+                    let std_dev = var.sqrt();
+                    let group = if i == 0 { &block.group_name } else { "" };
+                    let name = &block.effect_names[i];
+                    writeln!(f, " {:<8} {:<11} {:<8.4} {:<8.4}", group, name, var, std_dev)?;
+                }
+                obs_groups.push(format!("{}, {}", block.group_name, block.m));
+            }
+            writeln!(f, " Residual             {:<8.4} {:<8.4}", sigma2, sigma2.sqrt())?;
+            writeln!(f, "Number of obs: {}, groups: {}", self.num_obs, obs_groups.join("; "))?;
+        }
+
+        writeln!(f, "\nFixed effects:")?;
+        writeln!(f, "            Estimate Std. Error t value")?;
+        
+        if let (Some(fixed_names), Some(beta_se), Some(beta_t)) = (&self.fixed_names, &self.beta_se, &self.beta_t) {
+            for i in 0..self.coefficients.len() {
+                let name = if i < fixed_names.len() { &fixed_names[i] } else { "" };
+                let est = self.coefficients[i];
+                let se = beta_se[i];
+                let t = beta_t[i];
+                writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>7.2}", name, est, se, t)?;
+            }
+        }
+        
+        Ok(())
+    }
 }
 
 /// Fit a linear model `y = X * beta + e` using a QR decomposition.
@@ -103,11 +189,16 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         var_corr: None,
         theta: None,
         sigma2,
+        reml: None,
         log_likelihood: None,
         b: None,
         u: None,
         beta_se: None,
         beta_t: None,
+        formula: None,
+        fixed_names: None,
+        re_blocks: None,
+        num_obs: y.len(),
     })
 }
 
@@ -159,8 +250,10 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
     })?;
 
     // 5. Re-evaluate to get coefficients
-    let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks);
-    let coefs = lmm.evaluate(best_theta.as_slice().unwrap());
+    let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks.clone());
+    let best_th_slice = best_theta.as_slice().unwrap();
+    let coefs = lmm.evaluate(best_th_slice);
+    let reml = lmm.log_reml_deviance(best_th_slice);
 
     Ok(LmeFit {
         coefficients: coefs.beta,
@@ -170,11 +263,16 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
         var_corr: None,
         theta: Some(best_theta),
         sigma2: Some(coefs.sigma2),
+        reml: Some(reml),
         log_likelihood: None,
         b: Some(coefs.b),
         u: Some(coefs.u),
         beta_se: Some(coefs.beta_se),
         beta_t: Some(coefs.beta_t),
+        formula: Some(matrices.formula),
+        fixed_names: Some(matrices.fixed_names),
+        re_blocks: Some(matrices.re_blocks),
+        num_obs: matrices.y.len(),
     })
 }
 

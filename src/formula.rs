@@ -7,6 +7,7 @@ pub struct FiastoModel {
     pub all_generated_columns: Vec<String>,
     pub columns: HashMap<String, ColumnInfo>,
     pub metadata: FiastoMetadata,
+    pub formula: String,
 }
 
 #[derive(Debug, Deserialize)]
