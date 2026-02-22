@@ -2,6 +2,8 @@ pub mod math;
 pub mod optimizer;
 pub mod formula;
 pub mod model_matrix;
+pub mod family;
+pub mod glmm_math;
 
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
@@ -52,6 +54,11 @@ pub struct LmeFit {
     // Convergence diagnostics
     pub converged: Option<bool>,
     pub iterations: Option<u64>,
+    // GLMM-specific
+    /// Family name (e.g. "binomial", "poisson") — None for LMM.
+    pub family_name: Option<String>,
+    /// Link function name (e.g. "logit", "log") — None for LMM.
+    pub link_name: Option<String>,
 }
 
 impl LmeFit {
@@ -162,7 +169,13 @@ impl LmeFit {
 impl fmt::Display for LmeFit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(formula) = &self.formula {
-            writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
+            if let Some(fam) = &self.family_name {
+                let link = self.link_name.as_deref().unwrap_or("unknown");
+                writeln!(f, "Generalized linear mixed model fit by ML (Laplace) ['glmerMod']")?;
+                writeln!(f, " Family: {} ( {} )", fam, link)?;
+            } else {
+                writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
+            }
             writeln!(f, "Formula: {}", formula)?;
         }
         
@@ -256,7 +269,12 @@ impl fmt::Display for LmeFit {
         }
 
         writeln!(f, "\nFixed effects:")?;
-        writeln!(f, "            Estimate Std. Error t value")?;
+        let is_glmm = self.family_name.is_some();
+        if is_glmm {
+            writeln!(f, "            Estimate Std. Error z value")?;
+        } else {
+            writeln!(f, "            Estimate Std. Error t value")?;
+        }
         
         if let (Some(fixed_names), Some(beta_se), Some(beta_t)) = (&self.fixed_names, &self.beta_se, &self.beta_t) {
             for i in 0..self.coefficients.len() {
@@ -364,6 +382,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         num_obs: y.len(),
         converged: None,
         iterations: None,
+        family_name: None,
+        link_name: None,
     })
 }
 
@@ -462,6 +482,135 @@ pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
         num_obs: matrices.y.len(),
         converged: Some(opt_result.converged),
         iterations: Some(opt_result.iterations),
+        family_name: None,
+        link_name: None,
+    })
+}
+
+/// Fit a generalized linear mixed-effects model (GLMM).
+///
+/// GLMMs extend LMMs to non-Gaussian responses using a family/link system.
+/// Uses Penalized Iteratively Reweighted Least Squares (PIRLS) with
+/// Laplace approximation for the marginal likelihood.
+///
+/// # Examples
+///
+/// ```
+/// use polars::prelude::*;
+/// use lme_rs::{glmer, family::Family};
+///
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // let df = DataFrame::new(vec![])?;
+///     // let result = glmer("y ~ x + (1|group)", &df, Family::Binomial)?;
+///     Ok(())
+/// }
+/// ```
+pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -> Result<LmeFit> {
+    if formula_str.trim().is_empty() {
+        return Err(LmeError::EmptyFormula);
+    }
+
+    let fam = family_enum.build();
+    let fam_name = fam.name().to_string();
+    let link_name = fam.link().name().to_string();
+
+    // 1. Parse Wilkinson formula into AST
+    let ast = formula::parse(formula_str)?;
+
+    // 2. Build design matrices X, Zt, y from DataFrame and AST
+    let matrices = model_matrix::build_design_matrices(&ast, data)?;
+
+    // 3. Setup initial theta vector
+    let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
+    let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
+
+    log::debug!("GLMM Zt shape: {}x{}, nnz: {}, theta_len: {}, family: {}",
+        matrices.zt.rows(), matrices.zt.cols(), matrices.zt.nnz(), total_theta_len, fam_name);
+
+    // 4. Optimize theta using Nelder-Mead on Laplace deviance
+    let fam_for_opt = family_enum.build();
+    let opt_result = optimizer::optimize_theta_glmm(
+        matrices.x.clone(),
+        matrices.zt.clone(),
+        matrices.y.clone(),
+        matrices.re_blocks.clone(),
+        init_theta,
+        fam_for_opt,
+    )
+    .map_err(|e| LmeError::NotImplemented {
+        feature: format!("GLMM optimizer failed: {}", e),
+    })?;
+
+    let best_theta = &opt_result.theta;
+
+    // 5. Re-evaluate PIRLS at optimal theta to get coefficients
+    let fam_for_eval = family_enum.build();
+    let glmm = glmm_math::GlmmData::new(
+        matrices.x.clone(),
+        matrices.zt.clone(),
+        matrices.y.clone(),
+        matrices.re_blocks.clone(),
+        fam_for_eval,
+    );
+    let coefs = glmm.pirls(best_theta.as_slice().unwrap())
+        .ok_or_else(|| LmeError::NotImplemented {
+            feature: "PIRLS failed to converge at optimal theta".to_string(),
+        })?;
+
+    // 6. Build ranef DataFrame
+    let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
+
+    // For GLMMs without dispersion, sigma2 = 1 (not estimated)
+    let uses_disp = fam.uses_dispersion();
+    let sigma2_val = if uses_disp {
+        // For Gaussian GLMM, compute residual variance
+        let n = matrices.y.len() as f64;
+        let p = matrices.x.ncols() as f64;
+        coefs.residuals.dot(&coefs.residuals) / (n - p)
+    } else {
+        1.0
+    };
+
+    let var_corr_df = build_var_corr_dataframe(
+        best_theta.as_slice().unwrap(),
+        &matrices.re_blocks,
+        sigma2_val,
+    );
+
+    // 7. Compute log-likelihood, AIC, BIC
+    let deviance_val = coefs.deviance;
+    let log_lik = -deviance_val / 2.0;
+    let p = matrices.x.ncols();
+    let n_params = (total_theta_len + p) as f64; // theta + beta (no sigma for binom/poisson)
+    let n = matrices.y.len() as f64;
+    let aic = deviance_val + 2.0 * n_params;
+    let bic = deviance_val + n_params * n.ln();
+
+    Ok(LmeFit {
+        coefficients: coefs.beta,
+        residuals: coefs.residuals,
+        fitted: coefs.fitted,
+        ranef: Some(ranef_df),
+        var_corr: Some(var_corr_df),
+        theta: Some(opt_result.theta),
+        sigma2: if uses_disp { Some(sigma2_val) } else { None },
+        reml: None, // GLMMs don't use REML
+        log_likelihood: Some(log_lik),
+        aic: Some(aic),
+        bic: Some(bic),
+        deviance: Some(deviance_val),
+        b: Some(coefs.b),
+        u: Some(coefs.u),
+        beta_se: Some(coefs.beta_se),
+        beta_t: Some(coefs.beta_z), // z-values for GLMM, stored in beta_t field
+        formula: Some(matrices.formula),
+        fixed_names: Some(matrices.fixed_names),
+        re_blocks: Some(matrices.re_blocks),
+        num_obs: matrices.y.len(),
+        converged: Some(opt_result.converged),
+        iterations: Some(opt_result.iterations),
+        family_name: Some(fam_name),
+        link_name: Some(link_name),
     })
 }
 

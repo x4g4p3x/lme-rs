@@ -97,3 +97,86 @@ pub fn optimize_theta_nd(
         final_cost: best_cost,
     })
 }
+
+// ─── GLMM Optimizer ───────────────────────────────────────────────────────────
+
+use crate::glmm_math::GlmmData;
+use crate::family::GlmFamily;
+
+/// Wrapper for the GLMM Laplace deviance function to be used by argmin.
+struct GlmmObjective {
+    x: Array2<f64>,
+    zt: CsMat<f64>,
+    y: Array1<f64>,
+    re_blocks: Vec<ReBlock>,
+    family: Box<dyn GlmFamily>,
+}
+
+impl CostFunction for GlmmObjective {
+    type Param = Array1<f64>;
+    type Output = f64;
+
+    fn cost(&self, theta: &Self::Param) -> Result<Self::Output, Error> {
+        let glmm = GlmmData::new(
+            self.x.clone(),
+            self.zt.clone(),
+            self.y.clone(),
+            self.re_blocks.clone(),
+            self.family.build_clone(),
+        );
+        let val = glmm.laplace_deviance(theta.as_slice().unwrap());
+        if val.is_nan() {
+            Ok(f64::MAX)
+        } else {
+            Ok(val)
+        }
+    }
+}
+
+/// Optimizes θ for a GLMM using Nelder-Mead on the Laplace-approximated deviance.
+pub fn optimize_theta_glmm(
+    x: Array2<f64>,
+    zt: CsMat<f64>,
+    y: Array1<f64>,
+    re_blocks: Vec<ReBlock>,
+    init_theta: Array1<f64>,
+    family: Box<dyn GlmFamily>,
+) -> Result<OptimizeResult, anyhow::Error> {
+    let cost = GlmmObjective {
+        x: x.clone(),
+        zt: zt.clone(),
+        y: y.clone(),
+        re_blocks: re_blocks.clone(),
+        family,
+    };
+
+    let n = init_theta.len();
+    let max_iters = 1000u64;
+    let mut initial_simplex = vec![init_theta.clone()];
+    
+    for i in 0..n {
+        let mut param = init_theta.clone();
+        param[i] += 0.2;
+        initial_simplex.push(param);
+    }
+
+    let solver = NelderMead::new(initial_simplex)
+        .with_sd_tolerance(1e-6)?;
+
+    let res = Executor::new(cost, solver)
+        .configure(|state| state.max_iters(max_iters))
+        .run()?;
+
+    let state = res.state();
+    let best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    let best_cost = state.get_best_cost();
+    let iterations = state.get_iter();
+    let converged = iterations < max_iters;
+
+    Ok(OptimizeResult {
+        theta: best_theta,
+        converged,
+        iterations,
+        final_cost: best_cost,
+    })
+}

@@ -57,11 +57,66 @@ out3 <- get_model_data("diameter ~ 1 + (1 | plate) + (1 | sample)", fm3)
 fm4 <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = FALSE)
 out4 <- get_model_data("Reaction ~ Days + (Days | Subject) [ML]", fm4)
 
+get_glmm_data <- function(model_str, fit) {
+  X <- getME(fit, "X")
+  Z <- getME(fit, "Z")
+  Zt <- getME(fit, "Zt")
+  y <- getME(fit, "y")
+  theta <- getME(fit, "theta")
+  beta <- fixef(fit)
+  dev_val <- deviance(fit)
+  
+  list(
+    model = unbox(model_str),
+    inputs = list(
+      X = as.matrix(X),
+      Zt = as.matrix(Zt),
+      y = as.numeric(y)
+    ),
+    outputs = list(
+      theta = as.numeric(theta),
+      beta = as.numeric(beta),
+      deviance = unbox(dev_val)
+    )
+  )
+}
+
+# GLMM 1: Binomial (cbpp, but modify the response to a single vector of 1s and 0s or probabilities for easier testing on Rust side)
+data("cbpp", package = "lme4")
+cbpp_binary <- data.frame(herd = character(), period2 = numeric(), period3 = numeric(), period4 = numeric(), incidence = numeric())
+for (i in 1:nrow(cbpp)) {
+  s <- cbpp$size[i]
+  inc <- cbpp$incidence[i]
+  if (s > 0) {
+    herd_rep <- rep(as.character(cbpp$herd[i]), s)
+    period_val <- as.numeric(cbpp$period[i])
+    p2 <- rep(ifelse(period_val == 2, 1, 0), s)
+    p3 <- rep(ifelse(period_val == 3, 1, 0), s)
+    p4 <- rep(ifelse(period_val == 4, 1, 0), s)
+    y_rep <- c(rep(1, inc), rep(0, s - inc))
+    cbpp_binary <- rbind(cbpp_binary, data.frame(herd=herd_rep, period2=p2, period3=p3, period4=p4, y=y_rep))
+  }
+}
+fm_binom <- glmer(y ~ period2 + period3 + period4 + (1 | herd), data = cbpp_binary, family = binomial)
+out_binom <- get_glmm_data("y ~ period2 + period3 + period4 + (1 | herd) [Binomial]", fm_binom)
+
+# GLMM 2: Poisson (grouseticks)
+data("grouseticks", package = "lme4")
+# YEAR has 3 levels: 95, 96, 97. Make numeric dummies.
+grouseticks$YEAR96 <- ifelse(grouseticks$YEAR == 96, 1, 0)
+grouseticks$YEAR97 <- ifelse(grouseticks$YEAR == 97, 1, 0)
+fm_pois <- glmer(TICKS ~ YEAR96 + YEAR97 + (1 | BROOD), data = grouseticks, family = poisson)
+out_pois <- get_glmm_data("TICKS ~ YEAR96 + YEAR97 + (1 | BROOD) [Poisson]", fm_pois)
+
 # Save to JSON
 dir.create("tests/data", recursive = TRUE, showWarnings = FALSE)
 write_json(out1, "tests/data/intercept_only.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out2, "tests/data/random_slopes.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out3, "tests/data/penicillin.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out4, "tests/data/mock_ml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_binom, "tests/data/glmm_binomial.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_pois, "tests/data/glmm_poisson.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
+write.csv(cbpp_binary, "tests/data/cbpp_binary.csv", row.names = FALSE)
+write.csv(grouseticks, "tests/data/grouseticks.csv", row.names = FALSE)
 cat("Successfully generated test data.\n")

@@ -1,4 +1,3 @@
-use fiasto::parse_formula;
 
 #[test]
 fn test_print_fiasto_output() {

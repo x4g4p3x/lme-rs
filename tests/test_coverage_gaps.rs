@@ -37,6 +37,8 @@ fn make_display_fit(
         num_obs: 4,
         converged,
         iterations,
+        family_name: None,
+        link_name: None,
     }
 }
 

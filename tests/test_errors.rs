@@ -1,7 +1,6 @@
 use lme_rs::{lm, LmeError, lmer};
 use ndarray::array;
 use polars::prelude::*;
-use lme_rs::model_matrix::ReBlock;
 use lme_rs::optimizer::optimize_theta_nd;
 
 #[test]
