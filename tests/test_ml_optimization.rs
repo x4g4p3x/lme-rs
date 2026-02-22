@@ -60,7 +60,7 @@ fn test_ml_optimization() {
     // Optimize ML directly via Rust
     let initial_theta = ndarray::Array1::from_vec(vec![1.0, 0.0, 1.0]);
     let opt_result = lme_rs::optimizer::optimize_theta_nd(
-        x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), initial_theta, false
+        x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), initial_theta, false, None
     ).unwrap();
     let best_th = opt_result.theta;
 

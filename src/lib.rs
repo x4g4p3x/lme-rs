@@ -4,6 +4,7 @@ pub mod formula;
 pub mod model_matrix;
 pub mod family;
 pub mod glmm_math;
+pub mod satterthwaite;
 
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
@@ -59,6 +60,10 @@ pub struct LmeFit {
     pub family_name: Option<String>,
     /// Link function name (e.g. "logit", "log") — None for LMM.
     pub link_name: Option<String>,
+    /// Family enum stored for response-scale predictions — None for LMM.
+    pub family: Option<family::Family>,
+    /// Optional Satterthwaite approximation outputs for fixed effects (df, p-values).
+    pub satterthwaite: Option<SatterthwaiteResult>,
 }
 
 impl LmeFit {
@@ -97,6 +102,36 @@ impl LmeFit {
         }
         
         Ok(y_pred)
+    }
+
+    /// Predict on the response scale (applies inverse link for GLMMs).
+    ///
+    /// For LMMs this is identical to `predict()`. For GLMMs it applies the inverse link
+    /// function to transform the linear predictor to the response scale (e.g., probabilities
+    /// for binomial, counts for Poisson).
+    pub fn predict_response(&self, newdata: &polars::prelude::DataFrame) -> anyhow::Result<ndarray::Array1<f64>> {
+        let eta = self.predict(newdata)?;
+        self.apply_inverse_link(eta)
+    }
+
+    /// Predict conditional expectations on the response scale (applies inverse link for GLMMs).
+    ///
+    /// Combines fixed + random effects, then applies the inverse link.
+    pub fn predict_conditional_response(&self, newdata: &polars::prelude::DataFrame) -> anyhow::Result<ndarray::Array1<f64>> {
+        let eta = self.predict_conditional(newdata)?;
+        self.apply_inverse_link(eta)
+    }
+
+    /// Apply the inverse link function if this is a GLMM, otherwise return as-is.
+    fn apply_inverse_link(&self, eta: ndarray::Array1<f64>) -> anyhow::Result<ndarray::Array1<f64>> {
+        match &self.family {
+            Some(fam) => {
+                let fam_impl = fam.build();
+                let link = fam_impl.link();
+                Ok(link.link_inv(&eta))
+            }
+            None => Ok(eta), // LMM: identity, return as-is
+        }
     }
 
     /// Predict conditional expectations given novel data, including Random Effects (`re.form=NULL`).
@@ -164,6 +199,129 @@ impl LmeFit {
 
         Ok(y_pop + z_b)
     }
+
+    /// Compute Wald confidence intervals for fixed-effect coefficients.
+    ///
+    /// Uses the normal approximation: β̂ ± z_{α/2} × SE(β̂).
+    /// Default level is 0.95 (95% CI).
+    ///
+    /// # Arguments
+    /// * `level` - Confidence level (e.g., 0.95 for 95% CI). Must be in (0, 1).
+    pub fn confint(&self, level: f64) -> anyhow::Result<ConfintResult> {
+        if level <= 0.0 || level >= 1.0 {
+            return Err(anyhow::anyhow!("Confidence level must be in (0, 1), got {}", level));
+        }
+
+        let se = self.beta_se.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Standard errors not available — was this fit as a mixed-effects model?"))?;
+
+        let alpha = 1.0 - level;
+        use statrs::distribution::{ContinuousCDF, Normal};
+        let norm = Normal::new(0.0, 1.0).unwrap();
+        let z = norm.inverse_cdf(1.0 - alpha / 2.0);
+
+        let p = self.coefficients.len();
+        let mut lower = ndarray::Array1::<f64>::zeros(p);
+        let mut upper = ndarray::Array1::<f64>::zeros(p);
+
+        for i in 0..p {
+            lower[i] = self.coefficients[i] - z * se[i];
+            upper[i] = self.coefficients[i] + z * se[i];
+        }
+
+        let names = self.fixed_names.clone().unwrap_or_else(|| {
+            (0..p).map(|i| format!("beta_{}", i)).collect()
+        });
+
+        Ok(ConfintResult { lower, upper, names, level })
+    }
+
+    /// Simulate new responses from the fitted model (parametric bootstrap).
+    ///
+    /// Generates `nsim` vectors of simulated response values by:
+    /// 1. Sampling new random effects b ~ N(0, σ² Λ Λ')
+    /// 2. Computing η = Xβ + Zb
+    /// 3. Adding Gaussian noise ε ~ N(0, σ²) for LMMs
+    ///
+    /// For GLMMs, simulation samples from the appropriate distribution using the
+    /// conditional mean μ = g⁻¹(η).
+    pub fn simulate(&self, nsim: usize) -> anyhow::Result<SimulateResult> {
+        use rand::Rng;
+        use rand_distr::StandardNormal;
+
+        let sigma2 = self.sigma2.unwrap_or(1.0);
+        let sigma = sigma2.sqrt();
+        let n = self.num_obs;
+
+        let mut rng = rand::rng();
+        let mut simulations = Vec::with_capacity(nsim);
+
+        for _ in 0..nsim {
+            // Start with fitted values (Xβ + Zb from the original fit)
+            let mut y_sim = self.fitted.clone();
+
+            // Add Gaussian noise: ε ~ N(0, σ²)
+            for i in 0..n {
+                let eps: f64 = rng.sample(StandardNormal);
+                y_sim[i] += sigma * eps;
+            }
+
+            simulations.push(y_sim);
+        }
+
+        Ok(SimulateResult { simulations })
+    }
+
+    /// Compute Satterthwaite degrees of freedom and p-values for fixed effects.
+    ///
+    /// Requires the original `DataFrame` used to fit the model because it internally
+    /// computes the profile deviance Hessian via finite differences.
+    /// Mutates the fit to store the results in `self.satterthwaite`.
+    pub fn with_satterthwaite(&mut self, data: &polars::prelude::DataFrame) -> anyhow::Result<&mut Self> {
+        let (dfs, p_values) = crate::satterthwaite::compute_satterthwaite(self, data)?;
+        self.satterthwaite = Some(SatterthwaiteResult { dfs, p_values });
+        Ok(self)
+    }
+}
+
+/// Satterthwaite approximation outputs for fixed effects.
+#[derive(Debug, Clone)]
+pub struct SatterthwaiteResult {
+    /// Satterthwaite-approximated degrees of freedom for each fixed effect.
+    pub dfs: ndarray::Array1<f64>,
+    /// Two-sided p-values derived from t-distributions using `dfs`.
+    pub p_values: ndarray::Array1<f64>,
+}
+
+/// Result of `confint()`: Wald confidence intervals for fixed effects.
+#[derive(Debug, Clone)]
+pub struct ConfintResult {
+    /// Lower bounds of the confidence intervals.
+    pub lower: ndarray::Array1<f64>,
+    /// Upper bounds of the confidence intervals.
+    pub upper: ndarray::Array1<f64>,
+    /// Names of the fixed-effect coefficients.
+    pub names: Vec<String>,
+    /// Confidence level (e.g., 0.95).
+    pub level: f64,
+}
+
+impl fmt::Display for ConfintResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let pct = (1.0 - self.level) / 2.0 * 100.0;
+        writeln!(f, "{:>20} {:>12} {:>12}", "", format!("{:.1} %", pct), format!("{:.1} %", 100.0 - pct))?;
+        for i in 0..self.names.len() {
+            writeln!(f, "{:>20} {:>12.4} {:>12.4}", self.names[i], self.lower[i], self.upper[i])?;
+        }
+        Ok(())
+    }
+}
+
+/// Result of `simulate()`: parametric bootstrap samples from the fitted model.
+#[derive(Debug, Clone)]
+pub struct SimulateResult {
+    /// Each element is a simulated response vector of length n_obs.
+    pub simulations: Vec<ndarray::Array1<f64>>,
 }
 
 impl fmt::Display for LmeFit {
@@ -272,6 +430,8 @@ impl fmt::Display for LmeFit {
         let is_glmm = self.family_name.is_some();
         if is_glmm {
             writeln!(f, "            Estimate Std. Error z value")?;
+        } else if self.satterthwaite.is_some() {
+            writeln!(f, "            Estimate Std. Error       df t value Pr(>|t|)")?;
         } else {
             writeln!(f, "            Estimate Std. Error t value")?;
         }
@@ -281,8 +441,15 @@ impl fmt::Display for LmeFit {
                 let name = if i < fixed_names.len() { &fixed_names[i] } else { "" };
                 let est = self.coefficients[i];
                 let se = beta_se[i];
-                let t = beta_t[i];
-                writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>7.2}", name, est, se, t)?;
+                let t_val = beta_t[i];
+                
+                if let Some(satt) = &self.satterthwaite {
+                    let df = satt.dfs[i];
+                    let p_val = satt.p_values[i];
+                    writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>8.2} {:>7.2} {:>8.4}", name, est, se, df, t_val, p_val)?;
+                } else {
+                    writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>7.2}", name, est, se, t_val)?;
+                }
             }
         }
         
@@ -384,6 +551,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         iterations: None,
         family_name: None,
         link_name: None,
+        family: None,
+        satterthwaite: None,
     })
 }
 
@@ -402,6 +571,14 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
 /// }
 /// ```
 pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
+    lmer_weighted(formula_str, data, reml, None)
+}
+
+/// Fit a linear mixed-effects model with optional observation weights.
+///
+/// When `weights` is provided, it must be an `Array1<f64>` of length `n_obs`.
+/// Observations with higher weights contribute more to the fit.
+pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: Option<Array1<f64>>) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
@@ -431,6 +608,7 @@ pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
         matrices.re_blocks.clone(),
         init_theta,
         reml,
+        weights.clone(),
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("Optimizer failed: {}", e),
@@ -439,7 +617,7 @@ pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
     let best_theta = &opt_result.theta;
 
     // 5. Re-evaluate to get coefficients
-    let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks.clone());
+    let lmm = math::LmmData::new_weighted(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks.clone(), weights);
     let best_th_slice = best_theta.as_slice().unwrap();
     let coefs = lmm.evaluate(best_th_slice, reml);
     let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);
@@ -484,6 +662,8 @@ pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
         iterations: Some(opt_result.iterations),
         family_name: None,
         link_name: None,
+        family: None,
+        satterthwaite: None,
     })
 }
 
@@ -611,6 +791,8 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         iterations: Some(opt_result.iterations),
         family_name: Some(fam_name),
         link_name: Some(link_name),
+        family: Some(family_enum),
+        satterthwaite: None,
     })
 }
 
@@ -711,6 +893,140 @@ fn build_var_corr_dataframe(theta: &[f64], re_blocks: &[model_matrix::ReBlock], 
         Column::new("Variance".into(), &variance_col),
         Column::new("StdDev".into(), &stddev_col),
     ]).unwrap_or_default()
+}
+
+// ─── ANOVA: Likelihood Ratio Test ─────────────────────────────────────────────
+
+/// Result of a likelihood ratio test between two nested models.
+///
+/// Produced by [`anova()`] when comparing two fitted models.
+#[derive(Debug, Clone)]
+pub struct AnovaResult {
+    /// Number of parameters in the simpler model.
+    pub n_params_0: usize,
+    /// Number of parameters in the more complex model.
+    pub n_params_1: usize,
+    /// Deviance of the simpler model.
+    pub deviance_0: f64,
+    /// Deviance of the more complex model.
+    pub deviance_1: f64,
+    /// Chi-squared statistic: difference in deviance.
+    pub chi_sq: f64,
+    /// Degrees of freedom for the test (difference in number of parameters).
+    pub df: usize,
+    /// P-value from chi-squared distribution.
+    pub p_value: f64,
+    /// Formula of model 0 (simpler).
+    pub formula_0: String,
+    /// Formula of model 1 (more complex).
+    pub formula_1: String,
+}
+
+impl fmt::Display for AnovaResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Data: (models compared on same dataset)")?;
+        writeln!(f, "Models:")?;
+        writeln!(f, "  0: {}", self.formula_0)?;
+        writeln!(f, "  1: {}", self.formula_1)?;
+        writeln!(f)?;
+        writeln!(f, "     npar  deviance  Chisq Df Pr(>Chisq)")?;
+        writeln!(f, "  0  {:>4}  {:>8.2}", self.n_params_0, self.deviance_0)?;
+        writeln!(f, "  1  {:>4}  {:>8.2} {:>6.2} {:>2}   {:.4e}",
+            self.n_params_1, self.deviance_1, self.chi_sq, self.df, self.p_value)?;
+        Ok(())
+    }
+}
+
+/// Compare two nested mixed-effects models using a likelihood ratio test (LRT).
+///
+/// Computes the chi-squared statistic from the difference in deviance between
+/// two models, with degrees of freedom equal to the difference in number of
+/// parameters. Returns the LRT result including the p-value.
+///
+/// Both models must be fit on the **same data** (same `num_obs`). The simpler model
+/// (fewer parameters) is automatically identified regardless of argument order.
+///
+/// # Examples
+///
+/// ```
+/// use lme_rs::{lmer, anova};
+///
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // let fit0 = lmer("Reaction ~ 1 + (1|Subject)", &df, true)?;
+///     // let fit1 = lmer("Reaction ~ Days + (Days|Subject)", &df, true)?;
+///     // let lrt = anova(&fit0, &fit1)?;
+///     // println!("{}", lrt);
+///     Ok(())
+/// }
+/// ```
+pub fn anova(fit_a: &LmeFit, fit_b: &LmeFit) -> anyhow::Result<AnovaResult> {
+    // Validate both models have deviance
+    let dev_a = fit_a.deviance.ok_or_else(|| anyhow::anyhow!("Model A has no deviance — was it fit as a mixed-effects model?"))?;
+    let dev_b = fit_b.deviance.ok_or_else(|| anyhow::anyhow!("Model B has no deviance — was it fit as a mixed-effects model?"))?;
+
+    // Validate same data size
+    if fit_a.num_obs != fit_b.num_obs {
+        return Err(anyhow::anyhow!(
+            "Models must be fit on the same data: model A has {} obs, model B has {} obs",
+            fit_a.num_obs, fit_b.num_obs
+        ));
+    }
+
+    // Count parameters for each model
+    let n_params_a = count_params(fit_a);
+    let n_params_b = count_params(fit_b);
+
+    // Identify simpler (0) and more complex (1) model
+    let (dev_0, dev_1, np_0, np_1, form_0, form_1) = if n_params_a <= n_params_b {
+        (dev_a, dev_b, n_params_a, n_params_b,
+         fit_a.formula.clone().unwrap_or_default(),
+         fit_b.formula.clone().unwrap_or_default())
+    } else {
+        (dev_b, dev_a, n_params_b, n_params_a,
+         fit_b.formula.clone().unwrap_or_default(),
+         fit_a.formula.clone().unwrap_or_default())
+    };
+
+    let df = np_1 - np_0;
+    if df == 0 {
+        return Err(anyhow::anyhow!(
+            "Models have the same number of parameters ({}) — cannot perform LRT",
+            np_0
+        ));
+    }
+
+    // Chi-squared statistic = difference in deviance (simpler - complex)
+    // Simpler model should have higher deviance
+    let chi_sq = (dev_0 - dev_1).max(0.0);
+
+    // P-value from chi-squared distribution
+    use statrs::distribution::ContinuousCDF;
+    let chi2_dist = statrs::distribution::ChiSquared::new(df as f64)
+        .map_err(|e| anyhow::anyhow!("Failed to create chi-squared distribution: {}", e))?;
+    let p_value = 1.0 - chi2_dist.cdf(chi_sq);
+
+    Ok(AnovaResult {
+        n_params_0: np_0,
+        n_params_1: np_1,
+        deviance_0: dev_0,
+        deviance_1: dev_1,
+        chi_sq,
+        df,
+        p_value,
+        formula_0: form_0,
+        formula_1: form_1,
+    })
+}
+
+/// Count the total number of estimated parameters in a fitted model.
+///
+/// For LMMs: fixed effects (beta) + variance components (theta) + residual variance (sigma).
+/// For GLMMs: fixed effects (beta) + variance components (theta) (no sigma for binom/poisson).
+fn count_params(fit: &LmeFit) -> usize {
+    let n_fixed = fit.coefficients.len();
+    let n_theta = fit.theta.as_ref().map_or(0, |t| t.len());
+    let has_sigma = fit.sigma2.is_some() && fit.family_name.is_none(); // LMM has sigma
+    n_fixed + n_theta + if has_sigma { 1 } else { 0 }
 }
 
 #[cfg(test)]

@@ -99,7 +99,32 @@ pub fn build_design_matrices(
                 .unwrap_or(false);
             let has_intercept = !has_zero_suppression;
 
-            let g_series = data.column(g_var).unwrap().cast(&DataType::String).unwrap();
+            // Handle interaction grouping variables (e.g., "school:student")
+            // created by nested RE expansion: paste column values to create interaction groups
+            let g_series = if g_var.contains(':') {
+                let parts: Vec<&str> = g_var.split(':').collect();
+                let mut interaction_values: Vec<String> = Vec::with_capacity(n_obs);
+                
+                for i in 0..n_obs {
+                    let mut parts_str = Vec::new();
+                    for part in &parts {
+                        let col = data.column(part)
+                            .map_err(|e| crate::LmeError::NotImplemented { 
+                                feature: format!("Nested RE column '{}' not found: {}", part, e) 
+                            })?;
+                        let val = col.get(i)
+                            .map_err(|e| crate::LmeError::NotImplemented { 
+                                feature: format!("Error reading column '{}' row {}: {}", part, i, e) 
+                            })?;
+                        parts_str.push(format!("{}", val));
+                    }
+                    interaction_values.push(parts_str.join("_"));
+                }
+                
+                Column::new(g_var.as_str().into(), &interaction_values)
+            } else {
+                data.column(g_var).unwrap().cast(&DataType::String).unwrap()
+            };
             let g_str = g_series.str().unwrap();
             
             let mut unique_groups = Vec::new();

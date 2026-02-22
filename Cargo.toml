@@ -20,6 +20,8 @@ fiasto = "0.2.7"
 sprs = "0.11.4"
 sprs-ldl = "0.10.0"
 log = "0.4"
+rand = "0.9"
+rand_distr = "0.5"
 
 [dev-dependencies]
 criterion = "0.8.2"

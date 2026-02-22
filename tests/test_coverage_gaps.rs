@@ -39,6 +39,8 @@ fn make_display_fit(
         iterations,
         family_name: None,
         link_name: None,
+        family: None,
+        satterthwaite: None,
     }
 }
 

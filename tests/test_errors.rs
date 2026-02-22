@@ -85,5 +85,5 @@ fn test_optimizer_nan_handling() {
     nan_y[0] = f64::NAN;
 
     let init_theta = ndarray::Array1::from_vec(vec![1.0, 0.0, 1.0]);
-    let _res = optimize_theta_nd(matrices.x, matrices.zt, nan_y, matrices.re_blocks, init_theta, true);
+    let _res = optimize_theta_nd(matrices.x, matrices.zt, nan_y, matrices.re_blocks, init_theta, true, None);
 }

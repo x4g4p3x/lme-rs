@@ -18,6 +18,42 @@ pub struct OptimizeResult {
     pub final_cost: f64,
 }
 
+/// Compute lower bounds for each θ element based on the random-effect block structure.
+///
+/// In R's `lme4`, diagonal entries of the lower-triangular Cholesky factor Λ must be ≥ 0
+/// (they represent standard deviations), while off-diagonal entries are unbounded (correlations).
+/// The lower-triangular factor for a k×k block is stored column-major:
+///   col 0: θ[0] (diagonal), θ[1] (off-diag), ..., θ[k-1] (off-diag)
+///   col 1: θ[k] (diagonal), θ[k+1] (off-diag), ...
+/// Diagonal positions within each column j are the first element: row index j.
+pub fn compute_theta_lower_bounds(re_blocks: &[ReBlock]) -> Vec<f64> {
+    let mut bounds = Vec::new();
+    for block in re_blocks {
+        let k = block.k;
+        for j in 0..k {
+            for i in j..k {
+                if i == j {
+                    // Diagonal: standard deviation, must be ≥ 0
+                    bounds.push(0.0);
+                } else {
+                    // Off-diagonal: correlation parameter, unbounded
+                    bounds.push(f64::NEG_INFINITY);
+                }
+            }
+        }
+    }
+    bounds
+}
+
+/// Clamp a theta vector to respect lower bounds element-wise.
+fn clamp_theta(theta: &mut Array1<f64>, lower_bounds: &[f64]) {
+    for i in 0..theta.len() {
+        if theta[i] < lower_bounds[i] {
+            theta[i] = lower_bounds[i];
+        }
+    }
+}
+
 /// Wrapper for the REML deviance function to be used by argmin.
 struct LmmObjective {
     x: Array2<f64>,
@@ -25,6 +61,8 @@ struct LmmObjective {
     y: Array1<f64>,
     re_blocks: Vec<ReBlock>,
     reml: bool,
+    lower_bounds: Vec<f64>,
+    weights: Option<Array1<f64>>,
 }
 
 impl CostFunction for LmmObjective {
@@ -32,15 +70,18 @@ impl CostFunction for LmmObjective {
     type Output = f64;
 
     fn cost(&self, theta: &Self::Param) -> Result<Self::Output, Error> {
-        // Evaluate deviance at theta.
-        // Return infinity or a very large number if the deviance is NaN (invalid region).
-        let lmm = LmmData::new(
+        // Clamp theta to respect lower bounds before evaluation
+        let mut theta_clamped = theta.clone();
+        clamp_theta(&mut theta_clamped, &self.lower_bounds);
+
+        let lmm = LmmData::new_weighted(
             self.x.clone(),
             self.zt.clone(),
             self.y.clone(),
             self.re_blocks.clone(),
+            self.weights.clone(),
         );
-        let val = lmm.log_reml_deviance(theta.as_slice().unwrap(), self.reml);
+        let val = lmm.log_reml_deviance(theta_clamped.as_slice().unwrap(), self.reml);
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -50,6 +91,8 @@ impl CostFunction for LmmObjective {
 }
 
 /// Optimizes $\theta$ (the variance component vector) using Nelder-Mead on an un-gradiented search space.
+///
+/// Enforces lower bounds on θ: diagonal elements of the Cholesky factor ≥ 0.
 pub fn optimize_theta_nd(
     x: Array2<f64>,
     zt: CsMat<f64>,
@@ -57,23 +100,29 @@ pub fn optimize_theta_nd(
     re_blocks: Vec<ReBlock>,
     init_theta: Array1<f64>,
     reml: bool,
+    weights: Option<Array1<f64>>,
 ) -> Result<OptimizeResult, anyhow::Error> {
+    let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+
     let cost = LmmObjective {
         x: x.clone(),
         zt: zt.clone(),
         y: y.clone(),
         re_blocks: re_blocks.clone(),
         reml,
+        lower_bounds: lower_bounds.clone(),
+        weights,
     };
 
     let n = init_theta.len();
     let max_iters = 1000u64;
     let mut initial_simplex = vec![init_theta.clone()];
     
-    // Create an initial simplex by perturbing each dimension
+    // Create an initial simplex by perturbing each dimension, respecting bounds
     for i in 0..n {
         let mut param = init_theta.clone();
-        param[i] += 0.2; // simple perturbation factor
+        param[i] += 0.2;
+        clamp_theta(&mut param, &lower_bounds);
         initial_simplex.push(param);
     }
 
@@ -85,7 +134,8 @@ pub fn optimize_theta_nd(
         .run()?;
 
     let state = res.state();
-    let best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    let mut best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    clamp_theta(&mut best_theta, &lower_bounds);
     let best_cost = state.get_best_cost();
     let iterations = state.get_iter();
     let converged = iterations < max_iters;
@@ -110,6 +160,7 @@ struct GlmmObjective {
     y: Array1<f64>,
     re_blocks: Vec<ReBlock>,
     family: Box<dyn GlmFamily>,
+    lower_bounds: Vec<f64>,
 }
 
 impl CostFunction for GlmmObjective {
@@ -117,6 +168,10 @@ impl CostFunction for GlmmObjective {
     type Output = f64;
 
     fn cost(&self, theta: &Self::Param) -> Result<Self::Output, Error> {
+        // Clamp theta to respect lower bounds before evaluation
+        let mut theta_clamped = theta.clone();
+        clamp_theta(&mut theta_clamped, &self.lower_bounds);
+
         let glmm = GlmmData::new(
             self.x.clone(),
             self.zt.clone(),
@@ -124,7 +179,7 @@ impl CostFunction for GlmmObjective {
             self.re_blocks.clone(),
             self.family.build_clone(),
         );
-        let val = glmm.laplace_deviance(theta.as_slice().unwrap());
+        let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap());
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -134,6 +189,8 @@ impl CostFunction for GlmmObjective {
 }
 
 /// Optimizes θ for a GLMM using Nelder-Mead on the Laplace-approximated deviance.
+///
+/// Enforces lower bounds on θ: diagonal elements of the Cholesky factor ≥ 0.
 pub fn optimize_theta_glmm(
     x: Array2<f64>,
     zt: CsMat<f64>,
@@ -142,12 +199,15 @@ pub fn optimize_theta_glmm(
     init_theta: Array1<f64>,
     family: Box<dyn GlmFamily>,
 ) -> Result<OptimizeResult, anyhow::Error> {
+    let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+
     let cost = GlmmObjective {
         x: x.clone(),
         zt: zt.clone(),
         y: y.clone(),
         re_blocks: re_blocks.clone(),
         family,
+        lower_bounds: lower_bounds.clone(),
     };
 
     let n = init_theta.len();
@@ -157,6 +217,7 @@ pub fn optimize_theta_glmm(
     for i in 0..n {
         let mut param = init_theta.clone();
         param[i] += 0.2;
+        clamp_theta(&mut param, &lower_bounds);
         initial_simplex.push(param);
     }
 
@@ -168,7 +229,8 @@ pub fn optimize_theta_glmm(
         .run()?;
 
     let state = res.state();
-    let best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    let mut best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    clamp_theta(&mut best_theta, &lower_bounds);
     let best_cost = state.get_best_cost();
     let iterations = state.get_iter();
     let converged = iterations < max_iters;

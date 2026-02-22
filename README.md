@@ -79,4 +79,13 @@ fn main() -> anyhow::Result<()> {
 ## Roadmap
 
 - Core LMM Architecture implementation - **Complete**
-- GLMM: `glmer` family/link support mapping (Binomial / Poisson link bounds) - *Future*
+- GLMM: `glmer` family/link support mapping (Binomial / Poisson link bounds) - **Complete**
+- Optimizer: Theta bound enforcement (diagonal ≥ 0, matching `lme4`) - **Complete**
+- Gamma family + additional link functions (Probit, Cloglog, Inverse, Sqrt) - **Complete**
+- GLMM predict on response scale (`predict_response` / `predict_conditional_response`) - **Complete**
+- `anova()`: Likelihood ratio tests for comparing nested models - **Complete**
+- Observation weights (`lmer_weighted`) for prior weights on observations - **Complete**
+- `confint()`: Wald confidence intervals for fixed effects - **Complete**
+- `simulate()`: Parametric bootstrap from fitted models - **Complete**
+- Nested random effects: `(1|a/b)` → `(1|a) + (1|a:b)` expansion - **Complete**
+- Satterthwaite approximate degrees of freedom and p-values for fixed effects - **Complete**
