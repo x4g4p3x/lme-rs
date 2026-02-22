@@ -35,11 +35,11 @@ impl LmmData {
         LmmData { x, zt, y, re_blocks, zt_z, xt_x, xt_y }
     }
 
-    pub fn log_reml_deviance(&self, theta: &[f64]) -> f64 {
-        self.evaluate(theta).reml_crit
+    pub fn log_reml_deviance(&self, theta: &[f64], reml: bool) -> f64 {
+        self.evaluate(theta, reml).reml_crit
     }
 
-    pub fn evaluate(&self, theta: &[f64]) -> ModelCoefficients {
+    pub fn evaluate(&self, theta: &[f64], reml: bool) -> ModelCoefficients {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
         let q = self.zt.rows();
@@ -148,7 +148,7 @@ impl LmmData {
         
         let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
 
-        let reml_df = n - p;
+        let reml_df = if reml { n - p } else { n };
         let sigma2 = r2 / reml_df;
 
         let mut log_det_a = 0.0;
@@ -162,10 +162,15 @@ impl LmmData {
         }
 
         let twopi = std::f64::consts::PI * 2.0;
-        let reml_crit = reml_df * (twopi * sigma2).ln()
+        let mut deviance = reml_df * (twopi * sigma2).ln()
             + log_det_a
-            + 2.0 * log_det_l_x
             + reml_df;
+            
+        if reml {
+            deviance += 2.0 * log_det_l_x;
+        }
+        
+        let reml_crit = deviance;
 
         let mut u = Array1::<f64>::zeros(q);
         for i in 0..q {

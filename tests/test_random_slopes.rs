@@ -62,14 +62,14 @@ fn test_load_random_slopes_data() {
     let model = LmmData::new(x_arr, zt_arr, y_arr, re_blocks);
     
     // Evaluate deviance using the newly structured array
-    let deviance = model.log_reml_deviance(&data.outputs.theta);
+    let deviance = model.log_reml_deviance(&data.outputs.theta, true);
     
     // Check against LME4 computed REML objective
     println!("lme4 reml_crit: {}, Rust deviance: {}", data.outputs.reml_crit, deviance);
     assert!((deviance - data.outputs.reml_crit).abs() < 1e-6);
 
-    // Evaluate coefficients
-    let coefs = model.evaluate(&data.outputs.theta);
+    // Ensure Beta is numerically flawless too
+    let coefs = model.evaluate(&data.outputs.theta, true);
     println!("lme4 beta0: {}, Rust beta0: {}", data.outputs.beta[0], coefs.beta[0]);
     println!("lme4 beta1: {}, Rust beta1: {}", data.outputs.beta[1], coefs.beta[1]);
     assert!((coefs.beta[0] - data.outputs.beta[0]).abs() < 1e-4);

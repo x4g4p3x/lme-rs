@@ -60,7 +60,7 @@ fn bench_deviance_evaluation(c: &mut Criterion) {
         b.iter(|| {
             // Evaluate the deviance function multiple times using the same model 
             // as this is the exact closure the optimizer loops over.
-            black_box(model.log_reml_deviance(black_box(&theta)));
+            black_box(model.log_reml_deviance(black_box(&[0.8078]), true));
         })
     });
 }

@@ -216,7 +216,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
 ///     Ok(())
 /// }
 /// ```
-pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
+pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
@@ -244,6 +244,7 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
         matrices.y.clone(),
         matrices.re_blocks.clone(),
         init_theta,
+        reml,
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("Optimizer failed: {}", e),
@@ -252,8 +253,8 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
     // 5. Re-evaluate to get coefficients
     let lmm = math::LmmData::new(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks.clone());
     let best_th_slice = best_theta.as_slice().unwrap();
-    let coefs = lmm.evaluate(best_th_slice);
-    let reml = lmm.log_reml_deviance(best_th_slice);
+    let coefs = lmm.evaluate(best_th_slice, reml);
+    let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);
 
     Ok(LmeFit {
         coefficients: coefs.beta,
@@ -263,7 +264,7 @@ pub fn lmer(formula_str: &str, data: &DataFrame) -> Result<LmeFit> {
         var_corr: None,
         theta: Some(best_theta),
         sigma2: Some(coefs.sigma2),
-        reml: Some(reml),
+        reml: Some(reml_eval),
         log_likelihood: None,
         b: Some(coefs.b),
         u: Some(coefs.u),

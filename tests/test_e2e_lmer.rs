@@ -9,7 +9,7 @@ fn test_lmer_intercept_only_e2e() -> Result<(), Box<dyn std::error::Error>> {
 
     // Call frontend
     let formula = "Reaction ~ 1 + (1 | Subject)";
-    let fit = lmer(formula, &df)?;
+    let fit = lmer(formula, &df, true)?;
 
     // Optimization check
     let optimized_theta = fit.theta.unwrap()[0];
@@ -31,7 +31,7 @@ fn test_lmer_random_slopes_e2e() -> Result<(), Box<dyn std::error::Error>> {
 
     // Call frontend with random slopes
     let formula = "Reaction ~ Days + (Days | Subject)";
-    let fit = lmer(formula, &df)?;
+    let fit = lmer(formula, &df, true)?;
 
     let optimized_theta0 = fit.theta.clone().unwrap()[0]; 
     println!("\n*** LME4 R-Style Console Summary ***\n{}", fit);

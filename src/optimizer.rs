@@ -6,18 +6,28 @@ use sprs::CsMat;
 use crate::model_matrix::ReBlock;
 
 /// Wrapper for the REML deviance function to be used by argmin.
-struct DevfunCost<'a> {
-    pub lmm_data: &'a LmmData,
+struct LmmObjective {
+    x: Array2<f64>,
+    zt: CsMat<f64>,
+    y: Array1<f64>,
+    re_blocks: Vec<ReBlock>,
+    reml: bool,
 }
 
-impl<'a> CostFunction for DevfunCost<'a> {
+impl CostFunction for LmmObjective {
     type Param = Array1<f64>;
     type Output = f64;
 
     fn cost(&self, theta: &Self::Param) -> Result<Self::Output, Error> {
         // Evaluate deviance at theta.
         // Return infinity or a very large number if the deviance is NaN (invalid region).
-        let val = self.lmm_data.log_reml_deviance(theta.as_slice().unwrap());
+        let lmm = LmmData::new(
+            self.x.clone(),
+            self.zt.clone(),
+            self.y.clone(),
+            self.re_blocks.clone(),
+        );
+        let val = lmm.log_reml_deviance(theta.as_slice().unwrap(), self.reml);
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -33,9 +43,15 @@ pub fn optimize_theta_nd(
     y: Array1<f64>,
     re_blocks: Vec<ReBlock>,
     init_theta: Array1<f64>,
-) -> Result<Array1<f64>, Error> {
-    let lmm_data = LmmData::new(x, zt, y, re_blocks);
-    let cost = DevfunCost { lmm_data: &lmm_data };
+    reml: bool,
+) -> Result<Array1<f64>, anyhow::Error> {
+    let cost = LmmObjective {
+        x: x.clone(),
+        zt: zt.clone(),
+        y: y.clone(),
+        re_blocks: re_blocks.clone(),
+        reml,
+    };
 
     let n = init_theta.len();
     let mut initial_simplex = vec![init_theta.clone()];

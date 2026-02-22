@@ -60,7 +60,7 @@ fn test_mock_crossed_effects() {
     let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
     
     // Evaluate deviance using static array mapping
-    let deviance = model.log_reml_deviance(&data.outputs.theta);
+    let deviance = model.log_reml_deviance(&data.outputs.theta, true);
     
     println!("Crossed effects deviance evaluating successfully: {}", deviance);
     assert!(!deviance.is_nan());
@@ -68,7 +68,7 @@ fn test_mock_crossed_effects() {
     // Try optimizing
     let initial_theta = ndarray::Array1::from_vec(vec![1.0, 1.0]);
     let best_th = lme_rs::optimizer::optimize_theta_nd(
-        x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), initial_theta
+        x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), initial_theta, true
     ).unwrap();
 
     println!("Best theta array recovered: {:?}", best_th);

@@ -70,7 +70,7 @@ fn test_load_intercept_only_data() {
 
     let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 1, theta_len: 1, group_name: "Subject".to_string(), effect_names: vec!["(Intercept)".to_string()] }];
     let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
-    let deviance = model.log_reml_deviance(&[data.outputs.theta[0]]);
+    let deviance = model.log_reml_deviance(&[data.outputs.theta[0]], true);
     
     // Check against LME4 computed REML objective
     println!("lme4 reml_crit: {}, Rust deviance: {}", data.outputs.reml_crit, deviance);
@@ -79,12 +79,12 @@ fn test_load_intercept_only_data() {
     // Run the optimizer and check
     use lme_rs::optimizer::optimize_theta_nd;
     let b_vec = ndarray::Array1::from_vec(vec![1.0]);
-    let best_th = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), b_vec).unwrap();
+    let best_th = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), b_vec, true).unwrap();
     println!("lme4 theta: {}, Rust optimized theta: {}", data.outputs.theta[0], best_th[0]);
     assert!((best_th[0] - data.outputs.theta[0]).abs() < 1e-4);
 
-    // Evaluate coefficients
-    let coefs = model.evaluate(&data.outputs.theta);
+    // Extract Betas
+    let coefs = model.evaluate(&[data.outputs.theta[0]], true);
     println!("lme4 beta0: {}, Rust beta0: {}", data.outputs.beta[0], coefs.beta[0]);
     assert!((coefs.beta[0] - data.outputs.beta[0]).abs() < 1e-4);
 

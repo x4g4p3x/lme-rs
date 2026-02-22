@@ -28,7 +28,7 @@ get_model_data <- function(model_str, fit) {
   y <- getME(fit, "y")
   theta <- getME(fit, "theta")
   beta <- fixef(fit)
-  reml_crit <- unbox(as.numeric(lme4::REMLcrit(fit)))
+  objective_val <- as.numeric(if (isREML(fit)) lme4::REMLcrit(fit) else deviance(fit))
   
   list(
     model = unbox(model_str),
@@ -40,7 +40,7 @@ get_model_data <- function(model_str, fit) {
     outputs = list(
       theta = as.numeric(theta),
       beta = as.numeric(beta),
-      reml_crit = reml_crit
+      reml_crit = unbox(objective_val)
     )
   )
 }
@@ -53,10 +53,15 @@ data("Penicillin", package = "lme4")
 fm3 <- lmer(diameter ~ 1 + (1 | plate) + (1 | sample), data = Penicillin, REML = TRUE)
 out3 <- get_model_data("diameter ~ 1 + (1 | plate) + (1 | sample)", fm3)
 
+# ML Optimization baseline
+fm4 <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = FALSE)
+out4 <- get_model_data("Reaction ~ Days + (Days | Subject) [ML]", fm4)
+
 # Save to JSON
 dir.create("tests/data", recursive = TRUE, showWarnings = FALSE)
 write_json(out1, "tests/data/intercept_only.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out2, "tests/data/random_slopes.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out3, "tests/data/penicillin.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out4, "tests/data/mock_ml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
 cat("Successfully generated test data.\n")
