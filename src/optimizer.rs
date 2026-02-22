@@ -36,7 +36,7 @@ impl CostFunction for LmmObjective {
     }
 }
 
-/// Optimize theta (the variance component vector) using Nelder-Mead.
+/// Optimizes $\theta$ (the variance component vector) using Nelder-Mead on an un-gradiented search space.
 pub fn optimize_theta_nd(
     x: Array2<f64>,
     zt: CsMat<f64>,

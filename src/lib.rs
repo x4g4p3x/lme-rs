@@ -25,6 +25,7 @@ pub enum LmeError {
     NotImplemented { feature: String },
 }
 
+/// Represents the fully resolved evaluation output of a structured linear or mixed-effects regression.
 #[derive(Debug, Clone)]
 pub struct LmeFit {
     pub coefficients: Array1<f64>,
@@ -45,6 +46,45 @@ pub struct LmeFit {
     pub fixed_names: Option<Vec<String>>,
     pub re_blocks: Option<Vec<model_matrix::ReBlock>>,
     pub num_obs: usize,
+}
+
+impl LmeFit {
+    /// Predict population-level expectations given novel data.
+    /// This resolves the Fixed Effects matrix ($X_{new} \hat{\beta}$) ignoring Random Effects groupings (`re.form=NA`).
+    pub fn predict(&self, newdata: &polars::prelude::DataFrame) -> anyhow::Result<ndarray::Array1<f64>> {
+        // Parse formula to understand structure
+        let ast = crate::formula::parse(&self.formula.clone().unwrap_or_default())
+            .map_err(|e| anyhow::anyhow!("Failed to parse formula: {}", e))?;
+            
+        // Find response variable strictly to exclude it from the Identity searches
+        let mut response_col_name = String::new();
+        for (name, info) in &ast.columns {
+            if info.roles.contains(&"Response".to_string()) {
+                response_col_name = name.clone();
+                break;
+            }
+        }
+        
+        let n_obs = newdata.height();
+        let (x_new, x_names) = crate::model_matrix::build_x_matrix(&ast, newdata, &response_col_name, n_obs)
+            .map_err(|e| anyhow::anyhow!("Failed building X matrix for predictions: {}", e))?;
+            
+        // Align beta columns with the AST's generated matrix
+        if x_names != self.fixed_names.clone().unwrap_or_default() {
+            return Err(anyhow::anyhow!(
+                "Prediction matrix columns ({:?}) do not match fitted model columns ({:?})",
+                x_names, self.fixed_names
+            ));
+        }
+
+        let mut y_pred = ndarray::Array1::<f64>::zeros(n_obs);
+        for i in 0..n_obs {
+            let row = x_new.row(i);
+            y_pred[i] = self.coefficients.dot(&row);
+        }
+        
+        Ok(y_pred)
+    }
 }
 
 impl fmt::Display for LmeFit {

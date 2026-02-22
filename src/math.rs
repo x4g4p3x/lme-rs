@@ -3,6 +3,7 @@ use ndarray_linalg::{Cholesky, Inverse, Solve};
 use ndarray_linalg::UPLO;
 use sprs::{CsMat, TriMat};
 
+/// Represents the resolved analytical outputs from evaluating a fully optimized variance structure.
 #[derive(Debug, Clone)]
 pub struct ModelCoefficients {
     pub reml_crit: f64,
@@ -14,6 +15,7 @@ pub struct ModelCoefficients {
     pub beta_t: Array1<f64>,
 }
 
+/// Encapsulates the core dense/sparse design matrices for Linear Mixed-Effects modeling evaluations.
 pub struct LmmData {
     pub x: Array2<f64>,
     pub zt: CsMat<f64>,

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use sprs::TriMat;
 
+/// Captures structural layout and variable indices for a multi-dimensional Random Effect correlation block.
 #[derive(Clone, Debug)]
 pub struct ReBlock {
     pub m: usize,
@@ -14,6 +15,7 @@ pub struct ReBlock {
     pub effect_names: Vec<String>,
 }
 
+/// Container encompassing the finalized design matrices and mapping arrays extracted from input DataFrames.
 pub struct DesignMatrices {
     pub formula: String,
     pub x: Array2<f64>,
@@ -23,6 +25,7 @@ pub struct DesignMatrices {
     pub fixed_names: Vec<String>,
 }
 
+/// Constructs structural matrices formatting Fixed Effects ($X$) and Random Effects ($Z$) bounds out of `fiasto` inputs.
 pub fn build_design_matrices(
     ast: &FiastoModel,
     data: &DataFrame,
@@ -50,32 +53,7 @@ pub fn build_design_matrices(
         .collect();
     let y = Array1::from_vec(y_vec);
 
-    // 2. Build Fixed Effects Matrix (X)
-    let mut fixed_cols = Vec::new();
-    let mut fixed_names = Vec::new();
-    if ast.metadata.has_intercept {
-        fixed_cols.push(Array1::<f64>::ones(n_obs));
-        fixed_names.push("(Intercept)".to_string());
-    }
-    
-    // Ordered columns per the formula
-    for col_name in ast.all_generated_columns.iter() {
-        if let Some(info) = ast.columns.get(col_name) {
-            if info.roles.contains(&"Identity".to_string()) && col_name != &response_name {
-                let s = data.column(col_name).unwrap().cast(&DataType::Float64).unwrap();
-                let s_f64 = s.f64().unwrap();
-                let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
-                fixed_cols.push(Array1::from_vec(vec));
-                fixed_names.push(col_name.clone());
-            }
-        }
-    }
-    
-    let p = fixed_cols.len();
-    let mut x = Array2::<f64>::zeros((n_obs, p));
-    for (j, col) in fixed_cols.iter().enumerate() {
-        x.column_mut(j).assign(col);
-    }
+    let (x, fixed_names) = build_x_matrix(ast, data, &response_name, n_obs)?;
 
     // 3. Build Random Effects Matrix (Z) -- now supporting Crossed and Multiple Slopes
     let mut triplet_rows = Vec::new();
@@ -180,4 +158,50 @@ pub fn build_design_matrices(
         re_blocks,
         fixed_names,
     })
+}
+
+/// Evaluates the `ast` structural formula to isolate and resolve pure population-level ($X$) design matrices.
+pub fn build_x_matrix(
+    ast: &FiastoModel,
+    data: &DataFrame,
+    response_name: &str,
+    n_obs: usize,
+) -> crate::Result<(Array2<f64>, Vec<String>)> {
+    let mut fixed_cols = Vec::new();
+    let mut fixed_names = Vec::new();
+    if ast.metadata.has_intercept {
+        fixed_cols.push(Array1::<f64>::ones(n_obs));
+        fixed_names.push("(Intercept)".to_string());
+    }
+    
+    // Ordered columns per the formula
+    for col_name in ast.all_generated_columns.iter() {
+        if let Some(info) = ast.columns.get(col_name) {
+            if info.roles.contains(&"Identity".to_string()) && col_name != response_name {
+                let mut col_found = false;
+                if let Ok(s) = data.column(col_name) {
+                    if let Ok(s_cast) = s.cast(&DataType::Float64) {
+                        if let Ok(s_f64) = s_cast.f64() {
+                            let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
+                            fixed_cols.push(Array1::from_vec(vec));
+                            fixed_names.push(col_name.clone());
+                            col_found = true;
+                        }
+                    }
+                }
+                if !col_found {
+                    // Fail if identity column is missing from new prediction sets
+                    return Err(crate::LmeError::NotImplemented { feature: format!("Missing or invalid column: {}", col_name) });
+                }
+            }
+        }
+    }
+    
+    let p = fixed_cols.len();
+    let mut x = Array2::<f64>::zeros((n_obs, p));
+    for (j, col) in fixed_cols.iter().enumerate() {
+        x.column_mut(j).assign(col);
+    }
+    
+    Ok((x, fixed_names))
 }

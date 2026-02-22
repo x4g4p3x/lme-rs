@@ -2,6 +2,7 @@ use fiasto::parse_formula;
 use serde::Deserialize;
 use std::collections::HashMap;
 
+/// Root metadata structure holding the parsed Wilkinson AST.
 #[derive(Debug, Deserialize)]
 pub struct FiastoModel {
     pub all_generated_columns: Vec<String>,
@@ -10,6 +11,7 @@ pub struct FiastoModel {
     pub formula: String,
 }
 
+/// Captures the roles and random effect mappings for a specific parsed dataframe column.
 #[derive(Debug, Deserialize)]
 pub struct ColumnInfo {
     #[serde(default)]
@@ -18,6 +20,7 @@ pub struct ColumnInfo {
     pub roles: Vec<String>,
 }
 
+/// Represents a distinct Random Effect cluster mapped from `(expr | group)`.
 #[derive(Debug, Deserialize)]
 pub struct RandomEffect {
     pub correlated: bool,
@@ -28,6 +31,7 @@ pub struct RandomEffect {
     pub variables: Option<Vec<String>>,
 }
 
+/// Stores top-level characteristics of the model structure.
 #[derive(Debug, Deserialize)]
 pub struct FiastoMetadata {
     pub has_intercept: bool,
