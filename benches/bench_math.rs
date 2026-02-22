@@ -2,6 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 use lme_rs::math::LmmData;
 use ndarray::{Array1, Array2};
+use polars::prelude::*;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -68,10 +69,59 @@ fn bench_deviance_evaluation(c: &mut Criterion) {
         b.iter(|| {
             // Evaluate the deviance function multiple times using the same model 
             // as this is the exact closure the optimizer loops over.
-            black_box(model.log_reml_deviance(black_box(&[0.8078]), true));
+            black_box(model.log_reml_deviance(black_box(&[0.8078, 0.0, 1.0]), true));
         })
     });
 }
 
-criterion_group!(benches, bench_deviance_evaluation);
+fn load_csv(path: &str) -> DataFrame {
+    let mut file = File::open(path).expect(&format!("Could not open {}", path));
+    CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(&mut file)
+        .finish()
+        .unwrap()
+}
+
+fn bench_lmer_end_to_end(c: &mut Criterion) {
+    let df = load_csv("tests/data/sleepstudy.csv");
+
+    // Pre-parse the dataset so we only benchmark the actual fit, not I/O
+    c.bench_function("lmer_random_slopes (sleepstudy)", |b| {
+        b.iter(|| {
+            black_box(lme_rs::lmer(
+                black_box("Reaction ~ Days + (Days | Subject)"),
+                black_box(&df),
+                black_box(true),
+            ).unwrap());
+        })
+    });
+}
+
+fn bench_glmer_end_to_end(c: &mut Criterion) {
+    let df = load_csv("tests/data/grouseticks.csv");
+
+    c.bench_function("glmer_poisson (grouseticks)", |b| {
+        b.iter(|| {
+            black_box(lme_rs::glmer(
+                black_box("TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)"),
+                black_box(&df),
+                black_box(lme_rs::family::Family::Poisson), // Using Poisson for counting ticks
+            ).unwrap());
+        })
+    });
+    
+    let df2 = load_csv("tests/data/cbpp_binary.csv");
+    c.bench_function("glmer_binomial (cbpp)", |b| {
+        b.iter(|| {
+            black_box(lme_rs::glmer(
+                black_box("y ~ period2 + period3 + period4 + (1 | herd)"),
+                black_box(&df2),
+                black_box(lme_rs::family::Family::Binomial),
+            ).unwrap());
+        })
+    });
+}
+
+criterion_group!(benches, bench_deviance_evaluation, bench_lmer_end_to_end, bench_glmer_end_to_end);
 criterion_main!(benches);
