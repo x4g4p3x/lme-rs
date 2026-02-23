@@ -75,6 +75,50 @@ fn bench_deviance_evaluation(c: &mut Criterion) {
             black_box(model.log_reml_deviance(black_box(&[0.8078, 0.0, 1.0]), true));
         })
     });
+
+    let n = 50_000;
+    let groups = 5_000;
+    
+    // Construct massive random components directly
+    let mut rng = StdRng::seed_from_u64(42);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    
+    let mut x_large = Array2::<f64>::zeros((n, 2));
+    for i in 0..n {
+        x_large[[i, 0]] = 1.0;
+        x_large[[i, 1]] = normal.sample(&mut rng);
+    }
+    let y_large = Array1::from_shape_fn(n, |_| normal.sample(&mut rng));
+    
+    let mut zt_large_tri = TriMat::new((groups * 2, n));
+    for i in 0..n {
+        let group_idx = i % groups;
+        zt_large_tri.add_triplet(group_idx * 2, i, 1.0); // intercept
+        zt_large_tri.add_triplet(group_idx * 2 + 1, i, x_large[[i, 1]]); // slope
+    }
+    let zt_large: CsMat<f64> = zt_large_tri.to_csr();
+    
+    let re_blocks_large = vec![lme_rs::model_matrix::ReBlock { 
+        m: groups, 
+        k: 2, 
+        theta_len: 3,
+        group_name: "group".to_string(), 
+        effect_names: vec!["(Intercept)".to_string(), "x".to_string()],
+        group_map: std::collections::HashMap::new(),
+    }];
+    
+    let lmm_large = LmmData::new(x_large, zt_large, y_large, re_blocks_large);
+    
+    // Isolated evaluation benchmark for large scale models
+    let theta_large = vec![1.0; lmm_large.re_blocks.iter().map(|b| b.theta_len).sum()];
+    let mut large_group = c.benchmark_group("isolated_eval");
+    large_group.sample_size(10);
+    large_group.bench_function("eval_50k_lmm", |b| {
+        b.iter(|| {
+            black_box(lmm_large.log_reml_deviance(&theta_large, true));
+        })
+    });
+    large_group.finish();
 }
 
 fn load_csv(path: &str) -> DataFrame {

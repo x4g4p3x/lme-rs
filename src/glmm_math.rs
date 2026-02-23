@@ -21,6 +21,8 @@ pub struct GlmmData {
     pub family: Box<dyn GlmFamily>,
     // Cached structural matrices
     pub zt_z: CsMat<f64>,
+    // Precomputed mapping for Z^t W Z update: (col_in_Zt, zt_z_data_idx, value_product)
+    pub zt_w_z_map: Vec<(usize, usize, f64)>,
 }
 
 /// Result of PIRLS convergence for a single theta evaluation.
@@ -55,7 +57,43 @@ impl GlmmData {
         family: Box<dyn GlmFamily>,
     ) -> Self {
         let zt_z = &zt * &zt.transpose_view();
-        GlmmData { x, zt, y, re_blocks, family, zt_z }
+        
+        let z_csc = zt.to_csc();
+        let mut zt_w_z_map = Vec::new();
+        let n = zt.cols();
+        for k in 0..n {
+            if let Some(col_k) = z_csc.outer_view(k) {
+                let indices = col_k.indices();
+                let data = col_k.data();
+                for i in 0..indices.len() {
+                    for j in 0..indices.len() {
+                        let row_a = indices[i];
+                        let row_b = indices[j];
+                        let val = data[i] * data[j];
+                        
+                        // find data index in zt_z for (row_a, row_b)
+                        let row_view = zt_z.outer_view(row_a).unwrap();
+                        let mut data_idx = None;
+                        
+                        let base_ptr = zt_z.data().as_ptr() as usize;
+                        let row_ptr = row_view.data().as_ptr() as usize;
+                        let start_idx = (row_ptr - base_ptr) / std::mem::size_of::<f64>();
+
+                        for (offset, &col) in row_view.indices().iter().enumerate() {
+                            if col == row_b {
+                                data_idx = Some(start_idx + offset);
+                                break;
+                            }
+                        }
+                        if let Some(idx) = data_idx {
+                            zt_w_z_map.push((k, idx, val));
+                        }
+                    }
+                }
+            }
+        }
+
+        GlmmData { x, zt, y, re_blocks, family, zt_z, zt_w_z_map }
     }
 
     /// Compute Laplace-approximated deviance for a given theta vector.
@@ -122,12 +160,14 @@ impl GlmmData {
             // We need: Λ'Z'WZΛ which requires weighting Z by sqrt(W)
             // Compute ZΛ products column-by-column through sparse ops
 
-            // Weighted Zt: each row j of Zt gets multiplied by w[col_index] 
-            // Zt is q×n, so Zt_w[j,i] = Zt[j,i] * w[i]
-            let zt_w = self.weight_zt(&w);
-
-            // A = Λ' Zt_w Z Λ + I  (but Zt_w * Z = Zt * W * Zt')
-            let zt_w_z = &zt_w * &self.zt.transpose_view();
+            // Build Z^T W Z in-place using the precomputed map
+            let mut zt_w_z = self.zt_z.clone();
+            for v in zt_w_z.data_mut() {
+                *v = 0.0;
+            }
+            for &(k, data_idx, val) in &self.zt_w_z_map {
+                zt_w_z.data_mut()[data_idx] += val * w[k];
+            }
             let a_part = &lam_t * &(&zt_w_z * &lambda);
 
             let mut eye_tri = TriMat::new((q, q));
@@ -342,23 +382,6 @@ impl GlmmData {
         }
 
         lam_tri.to_csr()
-    }
-
-    /// Create a weighted version of Zt: multiply each column i of Zt by w[i].
-    /// Since Zt is q×n (CSR), and each "column" i corresponds to observation i,
-    /// we iterate and multiply.
-    fn weight_zt(&self, w: &Array1<f64>) -> CsMat<f64> {
-        let q = self.zt.rows();
-        let n = self.zt.cols();
-        let mut tri = TriMat::new((q, n));
-
-        for (j, row_vec) in self.zt.outer_iterator().enumerate() {
-            for (i, &val) in row_vec.iter() {
-                tri.add_triplet(j, i, val * w[i]);
-            }
-        }
-
-        tri.to_csr()
     }
 }
 

@@ -29,11 +29,14 @@ pub struct LmmData {
     /// Optional prior observation weights (length n).
     pub weights: Option<Array1<f64>>,
     
-    // Cached structural matrices that are independent of theta
+    // Cached effective matrices that are independent of theta
     // When weights are present, these are the weighted versions.
-    pub zt_z: CsMat<f64>,
-    pub xt_x: Array2<f64>,
-    pub xt_y: Array1<f64>,
+    pub x_eff: Array2<f64>,
+    pub zt_eff: CsMat<f64>,
+    pub y_eff: Array1<f64>,
+    pub zt_z: CsMat<f64>, // This is zt_eff * zt_eff^T
+    pub xt_x: Array2<f64>, // This is x_eff^T * x_eff
+    pub xt_y: Array1<f64>, // This is x_eff^T * y_eff
 }
 
 impl LmmData {
@@ -75,14 +78,14 @@ impl LmmData {
                 let xt_x = x_w.t().dot(&x_w);
                 let xt_y = x_w.t().dot(&y_w);
                 
-                LmmData { x, zt, y, re_blocks, weights, zt_z, xt_x, xt_y }
+                LmmData { x, zt, y, re_blocks, weights, x_eff: x_w, zt_eff: zt_w, y_eff: y_w, zt_z, xt_x, xt_y }
             }
             None => {
                 let zt_z = &zt * &zt.transpose_view();
                 let xt_x = x.t().dot(&x);
                 let xt_y = x.t().dot(&y);
                 
-                LmmData { x, zt, y, re_blocks, weights, zt_z, xt_x, xt_y }
+                LmmData { x_eff: x.clone(), zt_eff: zt.clone(), y_eff: y.clone(), x, zt, y, re_blocks, weights, zt_z, xt_x, xt_y }
             }
         }
     }
@@ -97,23 +100,11 @@ impl LmmData {
         let q = self.zt.rows();
 
         // When weights are present, we work with the weighted versions of Z^T
-        let (zt_eff, x_eff, y_eff) = match &self.weights {
-            Some(w) => {
-                let sqrt_w = w.mapv(|wi| wi.sqrt());
-                let n_obs = self.x.nrows();
-                let p_cols = self.x.ncols();
-                let mut x_w = Array2::<f64>::zeros((n_obs, p_cols));
-                for i in 0..n_obs {
-                    for j in 0..p_cols {
-                        x_w[[i, j]] = self.x[[i, j]] * sqrt_w[i];
-                    }
-                }
-                let y_w = &self.y * &sqrt_w;
-                let zt_w = weight_sparse_cols(&self.zt, &sqrt_w);
-                (zt_w, x_w, y_w)
-            }
-            None => (self.zt.clone(), self.x.clone(), self.y.clone()),
-        };
+        // When weights are present, we work with the weighted versions of Z^T
+        // and X which have been precalculated and stored in the struct.
+        let zt_eff = &self.zt_eff;
+        let x_eff = &self.x_eff;
+        let y_eff = &self.y_eff;
 
         let mut lam_tri = TriMat::new((q, q));
         
@@ -140,9 +131,9 @@ impl LmmData {
         let lambda: CsMat<f64> = lam_tri.to_csr();
 
         // A = Lambda^T Z^T W Z Lambda + I (using pre-weighted Zt)
+        // Since zt_z = zt_eff * zt_eff^T is constant w.r.t theta, we use the precomputed self.zt_z
         let lam_t = lambda.transpose_view();
-        let zt_z_local = &zt_eff * &zt_eff.transpose_view();
-        let a_part1 = &lam_t * &zt_z_local;
+        let a_part1 = &lam_t * &self.zt_z;
         let a_part2 = &a_part1 * &lambda;
 
         let mut eye_tri = TriMat::new((q, q));
@@ -161,8 +152,16 @@ impl LmmData {
             .expect("LDLT of A failed");
 
         // V_y = Lambda^T Z_w^T y_w
-        let zt_y = &zt_eff * &y_eff;
-        let v_y = &lam_t * &zt_y;
+        // zt_eff is CsMat, y_eff is Array1
+        let mut zt_y = Array1::<f64>::zeros(q);
+        for (val, (i, _j)) in zt_eff.iter() {
+            zt_y[i] += val * y_eff[_j]; // Note: Zt is q x n, so iter gives (val, (row_in_Zt, col_in_Zt)). col_in_Zt corresponds to observation index in y
+        }
+        
+        let mut v_y = Array1::<f64>::zeros(q);
+        for (val, (i, _j)) in lam_t.iter() { // lam_t is q x q
+            v_y[i] += val * zt_y[_j];
+        }
         
         let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
         let w_y = Array1::from_vec(w_y_vec);
@@ -173,9 +172,16 @@ impl LmmData {
         let mut w_cols = Vec::with_capacity(p_usize);
         
         for j in 0..p_usize {
-            let x_col = x_eff.column(j).to_owned();
-            let zt_x_j = &zt_eff * &x_col;
-            let v_j = &lam_t * &zt_x_j;
+            let x_col = x_eff.column(j);
+            let mut zt_x_j = Array1::<f64>::zeros(q);
+            for (val, (row, col)) in zt_eff.iter() {
+                zt_x_j[row] += val * x_col[col];
+            }
+            
+            let mut v_j = Array1::<f64>::zeros(q);
+            for (val, (row, col)) in lam_t.iter() {
+                v_j[row] += val * zt_x_j[col];
+            }
             
             let w_j_vec: Vec<f64> = ldl.solve(v_j.to_vec());
             let w_j = Array1::from_vec(w_j_vec);
@@ -206,9 +212,18 @@ impl LmmData {
         let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
         let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
 
-        let y_norm2 = y_eff.dot(&y_eff);
-        let cu_norm2 = v_y.dot(&w_y);
-        let c_beta_norm2: f64 = beta.dot(&rhs_beta);
+        // Compute norms
+        let y_norm2: f64 = y_eff.iter().map(|&x| x * x).sum();
+        
+        let mut cu_norm2 = 0.0;
+        for i in 0..v_y.len() {
+            cu_norm2 += v_y[i] * w_y[i];
+        }
+        
+        let mut c_beta_norm2 = 0.0;
+        for i in 0..beta.len() {
+            c_beta_norm2 += beta[i] * rhs_beta[i];
+        }
         
         let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
 
