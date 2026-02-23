@@ -600,11 +600,19 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
         log::debug!("  block: m={}, k={}, theta={}", block.m, block.k, block.theta_len);
     }
 
-    // 4. Optimize theta using Nelder-Mead
+    // 4. Handle offset: For LMMs, y = Xβ + Zb + offset -> y - offset = Xβ + Zb
+    let offset_arr = matrices.offset.clone();
+    let y_adjusted = if let Some(off) = &offset_arr {
+        &matrices.y - off
+    } else {
+        matrices.y.clone()
+    };
+
+    // 5. Optimize theta using Nelder-Mead
     let opt_result = optimizer::optimize_theta_nd(
         matrices.x.clone(),
         matrices.zt.clone(),
-        matrices.y.clone(),
+        y_adjusted.clone(),
         matrices.re_blocks.clone(),
         init_theta,
         reml,
@@ -616,11 +624,31 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
 
     let best_theta = &opt_result.theta;
 
-    // 5. Re-evaluate to get coefficients
-    let lmm = math::LmmData::new_weighted(matrices.x.clone(), matrices.zt.clone(), matrices.y.clone(), matrices.re_blocks.clone(), weights);
+    // 6. Re-evaluate to get coefficients
+    let lmm = math::LmmData::new_weighted(matrices.x.clone(), matrices.zt.clone(), y_adjusted, matrices.re_blocks.clone(), weights);
     let best_th_slice = best_theta.as_slice().unwrap();
     let coefs = lmm.evaluate(best_th_slice, reml);
     let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);
+
+    // 7. Extract offset and adjust fitted values
+    // Fitted values from solver: Xβ + Zb
+    let mut fitted = lmm.x.dot(&coefs.beta);
+    let mut z_b_vec = vec![0.0f64; lmm.y_eff.len()];
+    let zt = &lmm.zt;
+    for (j, row_vec) in zt.outer_iterator().enumerate() {
+        for (i, &val) in row_vec.iter() {
+            z_b_vec[i] += val * coefs.b[j];
+        }
+    }
+    fitted = fitted + Array1::from_vec(z_b_vec);
+    
+    // Add the offset back to get true predictions on response scale
+    if let Some(off) = &offset_arr {
+        fitted = fitted + off;
+    }
+    
+    // Residuals correspond to original y - final fitted
+    let residuals = &matrices.y - &fitted;
 
     // Gap 2: Build ranef DataFrame from b vector
     let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
@@ -639,8 +667,8 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
 
     Ok(LmeFit {
         coefficients: coefs.beta,
-        residuals: coefs.residuals,
-        fitted: coefs.fitted,
+        residuals,
+        fitted,
         ranef: Some(ranef_df),
         var_corr: Some(var_corr_df),
         theta: Some(opt_result.theta),
@@ -716,6 +744,7 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         matrices.re_blocks.clone(),
         init_theta,
         fam_for_opt,
+        matrices.offset.clone(),
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("GLMM optimizer failed: {}", e),
@@ -725,14 +754,14 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
 
     // 5. Re-evaluate PIRLS at optimal theta to get coefficients
     let fam_for_eval = family_enum.build();
-    let glmm = glmm_math::GlmmData::new(
+    let mut glmm = glmm_math::GlmmData::new(
         matrices.x.clone(),
         matrices.zt.clone(),
         matrices.y.clone(),
         matrices.re_blocks.clone(),
         fam_for_eval,
     );
-    let coefs = glmm.pirls(best_theta.as_slice().unwrap())
+    let coefs = glmm.pirls(best_theta.as_slice().unwrap(), matrices.offset.as_ref())
         .ok_or_else(|| LmeError::NotImplemented {
             feature: "PIRLS failed to converge at optimal theta".to_string(),
         })?;

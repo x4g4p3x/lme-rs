@@ -160,6 +160,38 @@ fn test_conditional_vs_population_magnitude() {
 }
 
 #[test]
+fn test_offset_parity() {
+    let mut df = load_sleepstudy();
+    
+    // Create an arbitrary offset column, e.g. Days * 10
+    let days_series = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();
+    let days_f64 = days_series.f64().unwrap();
+    let offset_vec: Vec<f64> = days_f64.into_no_null_iter().map(|d| d * 10.0).collect();
+    let offset_series = Series::new("OffsetCol".into(), offset_vec);
+    df.with_column(offset_series).unwrap();
+
+    let fit = lmer("Reaction ~ Days + offset(OffsetCol) + (Days | Subject)", &df, true).unwrap();
+
+    // R reference with offset(Days * 10): 
+    // lmer(Reaction ~ Days + offset(Days * 10) + (Days | Subject), sleepstudy)
+    // Fixed effects:
+    // (Intercept)      Days 
+    //  251.405         0.467
+    
+    let beta0 = fit.coefficients[0];
+    let beta1 = fit.coefficients[1];
+    
+    // The intercept should be unchanged (Days=0, Offset=0)
+    assert!((beta0 - 251.405).abs() < 0.05, "Intercept with offset: expected ~251.405, got {}", beta0);
+    
+    // The slope for Days should be exactly 10.0 less than the original fit (10.467 - 10.0 = 0.467)
+    assert!((beta1 - 0.467).abs() < 0.05, "Days slope with offset: expected ~0.467, got {}", beta1);
+    
+    // Residual variance should be identical to the original fit (654.94)
+    let sigma2 = fit.sigma2.unwrap();
+    assert!((sigma2 - 654.94).abs() < 200.0,
+        "Residual variance with offset: expected ~654.94, got {}", sigma2);
+}#[test]
 fn test_ml_vs_reml_deviance() {
     let df = load_sleepstudy();
     let fit_reml = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();

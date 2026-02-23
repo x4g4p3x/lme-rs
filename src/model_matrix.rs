@@ -25,6 +25,7 @@ pub struct DesignMatrices {
     pub y: Array1<f64>,
     pub re_blocks: Vec<ReBlock>,
     pub fixed_names: Vec<String>,
+    pub offset: Option<Array1<f64>>,
 }
 
 /// Constructs structural matrices formatting Fixed Effects ($X$) and Random Effects ($Z$) bounds out of `fiasto` inputs.
@@ -48,7 +49,11 @@ pub fn build_design_matrices(
     
     let y_series_cast = data.column(&response_name)
         .map_err(|e| crate::LmeError::NotImplemented { feature: format!("Data missing response column: {}", e) })?
-        .cast(&DataType::Float64).unwrap();
+        .cast(&DataType::Float64)
+        .map_err(|e| crate::LmeError::NotImplemented { feature: format!("Response must be castable to float: {}", e) })?;
+    if y_series_cast.null_count() > 0 {
+        return Err(crate::LmeError::NotImplemented { feature: "Response column contains nulls or invalid floats".to_string() });
+    }
     let y_vec: Vec<f64> = y_series_cast.f64()
         .map_err(|_| crate::LmeError::NotImplemented { feature: "Response must be float".to_string() })?
         .into_no_null_iter()
@@ -56,6 +61,24 @@ pub fn build_design_matrices(
     let y = Array1::from_vec(y_vec);
 
     let (x, fixed_names) = build_x_matrix(ast, data, &response_name, n_obs)?;
+    
+    // 2. Extract Offset (if any)
+    let offset = if let Some(off_name) = &ast.offset {
+        let off_series = data.column(off_name)
+            .map_err(|e| crate::LmeError::NotImplemented { feature: format!("Data missing offset column '{}': {}", off_name, e) })?
+            .cast(&DataType::Float64)
+            .map_err(|e| crate::LmeError::NotImplemented { feature: format!("Offset must be castable to float: {}", e) })?;
+        if off_series.null_count() > 0 {
+            return Err(crate::LmeError::NotImplemented { feature: format!("Offset column '{}' contains nulls or invalid floats", off_name) });
+        }
+        let off_vec: Vec<f64> = off_series.f64()
+            .map_err(|_| crate::LmeError::NotImplemented { feature: "Offset must be float".to_string() })?
+            .into_no_null_iter()
+            .collect();
+        Some(Array1::from_vec(off_vec))
+    } else {
+        None
+    };
 
     // 3. Build Random Effects Matrix (Z) -- now supporting Crossed and Multiple Slopes
     let mut triplet_rows = Vec::new();
@@ -197,6 +220,7 @@ pub fn build_design_matrices(
         y, 
         re_blocks,
         fixed_names,
+        offset,
     })
 }
 

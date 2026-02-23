@@ -98,16 +98,21 @@ impl GlmmData {
 
     /// Compute Laplace-approximated deviance for a given theta vector.
     /// This is the objective function for the outer Nelder-Mead optimizer.
-    pub fn laplace_deviance(&self, theta: &[f64]) -> f64 {
-        match self.pirls(theta) {
+    pub fn laplace_deviance(&mut self, theta: &[f64], offset: Option<&Array1<f64>>) -> f64 {
+        match self.pirls(theta, offset) {
             Some(coefs) => coefs.deviance,
             None => f64::MAX, // Return large value for invalid regions
         }
     }
 
+    /// Compute coefficients and final structural parameters at the MLE / REML theta.
+    pub fn evaluate(&mut self, theta: &[f64], offset: Option<&Array1<f64>>) -> Option<GlmmCoefficients> {
+        self.pirls(theta, offset)
+    }
+
     /// Run the full PIRLS algorithm for a given theta.
     /// Returns `None` if PIRLS fails to converge or hits numerical issues.
-    pub fn pirls(&self, theta: &[f64]) -> Option<GlmmCoefficients> {
+    pub fn pirls(&mut self, theta: &[f64], offset: Option<&Array1<f64>>) -> Option<GlmmCoefficients> {
         let n = self.y.len();
         let q = self.zt.rows();
         let p = self.x.ncols();
@@ -119,6 +124,9 @@ impl GlmmData {
         // Initialize: mu from family, eta from link
         let mut mu = self.family.initialize_mu(&self.y);
         let mut eta = link.link_fun(&mu);
+        if let Some(off) = offset {
+            eta = eta + off;
+        }
 
         // Unit weights (no prior weights for now)
         let wt = Array1::ones(n);
@@ -286,6 +294,9 @@ impl GlmmData {
             let z_b = Array1::from_vec(z_b_vec);
 
             eta = &x_beta + &z_b;
+            if let Some(off) = offset {
+                eta = eta + off;
+            }
             mu = link.link_inv(&eta);
 
             // Check convergence: PWRSS = sum(w * (z - eta)^2) + ||u||^2
@@ -461,15 +472,20 @@ mod tests {
         }];
         
         let fam = Box::new(BinomialFamily::new());
-        let glmm = GlmmData::new(x, zt, y, re_blocks, fam);
+        let mut glmm = GlmmData::new(x, zt, y, re_blocks, fam);
         
         // Feed in a NaN theta or super large theta to break LDLT or Cholesky
-        let dev = glmm.laplace_deviance(&[f64::NAN]);
+        let dev = glmm.laplace_deviance(&[f64::NAN], None);
         assert_eq!(dev, f64::MAX);
 
         // Feed extremely large vectors to cause divergence/max iters
-        let dev2 = glmm.laplace_deviance(&[1e100]);
-        // Because X is singular (zeros), X'WX will be singular, causing Cholesky to fail and returning None -> MAX
+        let offset = Array1::from_vec(vec![10.0, -10.0]);
+        let dev2 = glmm.laplace_deviance(&[1e100], Some(&offset));
         assert_eq!(dev2, f64::MAX);
+        
+        // Also call evaluate to trigger `evaluate` branch wrapper directly
+        let eval_res = glmm.evaluate(&[1e100], Some(&offset));
+        assert!(eval_res.is_none(), "PIRLS failure should return None");
     }
 }
+

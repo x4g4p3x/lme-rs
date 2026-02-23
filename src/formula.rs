@@ -9,6 +9,8 @@ pub struct FiastoModel {
     pub columns: HashMap<String, ColumnInfo>,
     pub metadata: FiastoMetadata,
     pub formula: String,
+    #[serde(skip)]
+    pub offset: Option<String>,
 }
 
 /// Captures the roles and random effect mappings for a specific parsed dataframe column.
@@ -43,7 +45,9 @@ pub struct FiastoMetadata {
 ///
 /// Supports nested random effects: `(1|a/b)` is expanded to `(1|a) + (1|a:b)` before parsing.
 pub fn parse(formula: &str) -> crate::Result<FiastoModel> {
-    let expanded = expand_nested_re(formula);
+    let (formula_no_offset, offset_var) = extract_offset(formula);
+    let mut expanded = expand_nested_re(&formula_no_offset);
+    expanded = expand_independent_re(&expanded);
     let json_val = parse_formula(&expanded)
         .map_err(|e| crate::LmeError::NotImplemented { feature: format!("Formula parsing error: {}", e) })?;
         
@@ -52,8 +56,59 @@ pub fn parse(formula: &str) -> crate::Result<FiastoModel> {
     
     // Store the original formula (unexpanded) for display
     ast.formula = formula.to_string();
+    ast.offset = offset_var;
     
     Ok(ast)
+}
+
+/// Extractor for `offset(...)` syntax since `fiasto` doesn't support it natively.
+/// Returns (formula_without_offset, Option<offset_variable_name>)
+fn extract_offset(formula: &str) -> (String, Option<String>) {
+    if let Some(start_idx) = formula.find("offset(") {
+        // Find the matching close parenthesis
+        let mut depth = 0;
+        let mut end_idx = None;
+        let bytes = formula.as_bytes();
+        
+        for i in start_idx..bytes.len() {
+            if bytes[i] == b'(' { depth += 1; }
+            if bytes[i] == b')' {
+                depth -= 1;
+                if depth == 0 {
+                    end_idx = Some(i);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(end) = end_idx {
+            let inner_var = formula[start_idx + 7..end].trim().to_string();
+            
+            // Re-construct the formula string without the offset(...) and trim surrounding `+` operators
+            let before = &formula[..start_idx];
+            let after = &formula[end + 1..];
+            
+            let mut new_formula = String::from(before);
+            new_formula.push_str(after);
+            
+            // Clean up stranded `+` signs like `A + + B`
+            let cleaned = new_formula
+                .replace("  ", " ") // collapse spaces
+                .replace("++", "+")
+                .replace("+ +", "+")
+                .replace("~ +", "~")
+                .replace("+ ~", "~")
+                // Remove trailing + 
+                .trim()
+                .trim_end_matches('+')
+                .trim()
+                .to_string();
+                
+            return (cleaned, Some(inner_var));
+        }
+    }
+    
+    (formula.to_string(), None)
 }
 
 /// Expand nested random effects: `(expr | a/b)` → `(expr | a) + (expr | a:b)`.
@@ -107,6 +162,64 @@ fn expand_nested_re(formula: &str) -> String {
                         i = j;
                         continue;
                     }
+                }
+                
+                expanded.push_str(re_term);
+                i = j;
+            } else {
+                expanded.push(result.as_bytes()[i] as char);
+                i += 1;
+            }
+        }
+        
+        if !changed {
+            break;
+        }
+        result = expanded;
+    }
+    
+    result
+}
+
+/// Expand independent random effects: `(expr || group)` → `(1 | group) + (0 + expr | group)`.
+/// If `expr` is already `0 + ...` or `1`, we might get weird terms, but `lme4` safely parses them.
+fn expand_independent_re(formula: &str) -> String {
+    let mut result = formula.to_string();
+    
+    // Keep expanding until no more `||` patterns remain
+    loop {
+        let mut expanded = String::new();
+        let mut i = 0;
+        let bytes = result.as_bytes();
+        let mut changed = false;
+        
+        while i < bytes.len() {
+            if bytes[i] == b'(' {
+                // Find matching closing paren
+                let start = i;
+                let mut depth = 1;
+                let mut j = i + 1;
+                while j < bytes.len() && depth > 0 {
+                    if bytes[j] == b'(' { depth += 1; }
+                    if bytes[j] == b')' { depth -= 1; }
+                    j += 1;
+                }
+                let re_term = &result[start..j]; // includes parens
+                let inner = &result[start + 1..j - 1]; // without parens
+                
+                // Check if inner contains `||` 
+                if let Some(bar_pos) = inner.find("||") {
+                    let expr = inner[..bar_pos].trim();
+                    let group = inner[bar_pos + 2..].trim();
+                    
+                    // Expand: (expr || group) → (1 | group) + (0 + expr | group)
+                    // If expr is empty (unlikely syntax), this would fail, but we assume valid Wilkinson.
+                    // If expr is `1`, `(1 || group)` doesn't make sense but becomes `(1 | group) + (0 + 1 | group)`
+                    let expanded_term = format!("(1 | {}) + (0 + {} | {})", group, expr, group);
+                    expanded.push_str(&expanded_term);
+                    changed = true;
+                    i = j;
+                    continue;
                 }
                 
                 expanded.push_str(re_term);
@@ -180,5 +293,28 @@ mod tests {
     fn test_expand_nested_with_slopes() {
         let expanded = expand_nested_re("y ~ x + (x | school/student)");
         assert_eq!(expanded, "y ~ x + (x | school) + (x | school:student)");
+    }
+
+    #[test]
+    fn test_expand_independent_re() {
+        let expanded = expand_independent_re("y ~ x + (x || school)");
+        assert_eq!(expanded, "y ~ x + (1 | school) + (0 + x | school)");
+    }
+
+    #[test]
+    fn test_extract_offset() {
+        let (f1, o1) = extract_offset("Reaction ~ Days + offset(time) + (1 | Subject)");
+        assert_eq!(f1, "Reaction ~ Days + (1 | Subject)");
+        assert_eq!(o1, Some("time".to_string()));
+        
+        // Nested function inside offset
+        let (f2, o2) = extract_offset("Reaction ~ offset(log(time)) + Days");
+        assert_eq!(f2, "Reaction ~ Days");
+        assert_eq!(o2, Some("log(time)".to_string()));
+        
+        // No offset
+        let (f3, o3) = extract_offset("Reaction ~ Days");
+        assert_eq!(f3, "Reaction ~ Days");
+        assert_eq!(o3, None);
     }
 }
