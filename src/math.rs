@@ -15,6 +15,7 @@ pub struct ModelCoefficients {
     pub beta_t: Array1<f64>,
     pub fitted: Array1<f64>,
     pub residuals: Array1<f64>,
+    pub l_x: Array2<f64>,
 }
 
 /// Encapsulates the core dense/sparse design matrices for Linear Mixed-Effects modeling evaluations.
@@ -298,6 +299,7 @@ impl LmmData {
             beta_t,
             fitted,
             residuals,
+            l_x,
         }
     }
 }

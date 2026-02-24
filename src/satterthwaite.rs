@@ -44,42 +44,64 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<(A
     // 2. Compute analytical baseline
     let base_coefs = lmm.evaluate(theta.as_slice().unwrap(), reml);
     let var_beta_base = base_coefs.beta_se.mapv(|se| se * se);
-    
-    // 3. Compute Hessian of REML deviance w.r.t theta
-    let mut hessian = Array2::<f64>::zeros((n_theta, n_theta));
-    for j in 0..n_theta {
-        for k in j..n_theta {
-            let mut th_pp = theta.clone();
-            let mut th_pm = theta.clone();
-            let mut th_mp = theta.clone();
-            let mut th_mm = theta.clone();
+    let base_sigma2 = base_coefs.sigma2;
+    let n = matrices.y.len();
+    let reml_df = if reml { (n - p) as f64 } else { n as f64 };
+    let twopi = std::f64::consts::PI * 2.0;
 
-            th_pp[j] += h; th_pp[k] += h;
-            th_pm[j] += h; th_pm[k] -= h;
-            th_mp[j] -= h; th_mp[k] += h;
-            th_mm[j] -= h; th_mm[k] -= h;
+    let unprofiled_deviance = |th: &[f64], sig2: f64| -> f64 {
+        let coefs = lmm.evaluate(th, reml);
+        let d_prof = coefs.reml_crit;
+        let s2_hat = coefs.sigma2;
+        let r2 = s2_hat * reml_df;
+        let base_term = d_prof - reml_df * (twopi * s2_hat).ln() - reml_df;
+        reml_df * (twopi * sig2).ln() + base_term + r2 / sig2
+    };
 
-            let f_pp = lmm.log_reml_deviance(th_pp.as_slice().unwrap(), reml);
-            let f_pm = lmm.log_reml_deviance(th_pm.as_slice().unwrap(), reml);
-            let f_mp = lmm.log_reml_deviance(th_mp.as_slice().unwrap(), reml);
-            let f_mm = lmm.log_reml_deviance(th_mm.as_slice().unwrap(), reml);
+    let n_rho = n_theta + 1; // rho = (theta, sigma2)
+    let mut rho = Array1::<f64>::zeros(n_rho);
+    for i in 0..n_theta { rho[i] = theta[i]; }
+    rho[n_theta] = base_sigma2;
 
-            let d2f = (f_pp - f_pm - f_mp + f_mm) / (4.0 * h * h);
+    // 3. Compute Hessian of REML deviance w.r.t rho
+    let mut hessian = Array2::<f64>::zeros((n_rho, n_rho));
+    for j in 0..n_rho {
+        for k in j..n_rho {
+            let mut r_pp = rho.clone();
+            let mut r_pm = rho.clone();
+            let mut r_mp = rho.clone();
+            let mut r_mm = rho.clone();
+
+            let hj = if j == n_theta { h * rho[n_theta].max(1e-4) } else { h };
+            let hk = if k == n_theta { h * rho[n_theta].max(1e-4) } else { h };
+
+            r_pp[j] += hj; r_pp[k] += hk;
+            r_pm[j] += hj; r_pm[k] -= hk;
+            r_mp[j] -= hj; r_mp[k] += hk;
+            r_mm[j] -= hj; r_mm[k] -= hk;
+
+            let f_pp = unprofiled_deviance(&r_pp.as_slice().unwrap()[0..n_theta], r_pp[n_theta]);
+            let f_pm = unprofiled_deviance(&r_pm.as_slice().unwrap()[0..n_theta], r_pm[n_theta]);
+            let f_mp = unprofiled_deviance(&r_mp.as_slice().unwrap()[0..n_theta], r_mp[n_theta]);
+            let f_mm = unprofiled_deviance(&r_mm.as_slice().unwrap()[0..n_theta], r_mm[n_theta]);
+
+            let d2f = (f_pp - f_pm - f_mp + f_mm) / (4.0 * hj * hk);
             hessian[[j, k]] = d2f;
             hessian[[k, j]] = d2f;
         }
         
         // Refine diagonal with O(h^2) central difference
-        let mut th_p = theta.clone();
-        let mut th_m = theta.clone();
-        th_p[j] += h;
-        th_m[j] -= h;
+        let mut r_p = rho.clone();
+        let mut r_m = rho.clone();
+        let hj = if j == n_theta { h * rho[n_theta].max(1e-4) } else { h };
+        r_p[j] += hj;
+        r_m[j] -= hj;
         
-        let f_p = lmm.log_reml_deviance(th_p.as_slice().unwrap(), reml);
-        let f_m = lmm.log_reml_deviance(th_m.as_slice().unwrap(), reml);
-        let f_0 = lmm.log_reml_deviance(theta.as_slice().unwrap(), reml);
+        let f_p = unprofiled_deviance(&r_p.as_slice().unwrap()[0..n_theta], r_p[n_theta]);
+        let f_m = unprofiled_deviance(&r_m.as_slice().unwrap()[0..n_theta], r_m[n_theta]);
+        let f_0 = unprofiled_deviance(&rho.as_slice().unwrap()[0..n_theta], rho[n_theta]);
         
-        let d2f = (f_p - 2.0 * f_0 + f_m) / (h * h);
+        let d2f = (f_p - 2.0 * f_0 + f_m) / (hj * hj);
         hessian[[j, j]] = d2f;
     }
 
@@ -89,21 +111,29 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<(A
     })?;
     let a_mat = hess_inv * 2.0;
 
-    // 4. Compute gradient of Var(beta_i) w.r.t theta
-    let mut grad_v = Array2::<f64>::zeros((p, n_theta)); // row i is gradient for beta_i
-    for j in 0..n_theta {
-        let mut th_p = theta.clone();
-        let mut th_m = theta.clone();
-        th_p[j] += h;
-        th_m[j] -= h;
+    let get_var_beta = |th: &[f64], sig2: f64| -> Array1<f64> {
+        let c = lmm.evaluate(th, reml);
+        let ilx = c.l_x.inv().unwrap();
+        let unscaled_phi = ilx.t().dot(&ilx);
+        let mut vb = Array1::<f64>::zeros(p);
+        for i in 0..p { vb[i] = unscaled_phi[[i, i]] * sig2; }
+        vb
+    };
 
-        let coefs_p = lmm.evaluate(th_p.as_slice().unwrap(), reml);
-        let coefs_m = lmm.evaluate(th_m.as_slice().unwrap(), reml);
+    // 4. Compute gradient of Var(beta_i) w.r.t rho
+    let mut grad_v = Array2::<f64>::zeros((p, n_rho)); // row i is gradient for beta_i
+    for j in 0..n_rho {
+        let mut r_p = rho.clone();
+        let mut r_m = rho.clone();
+        let hj = if j == n_theta { h * rho[n_theta].max(1e-4) } else { h };
+        r_p[j] += hj;
+        r_m[j] -= hj;
+
+        let vp = get_var_beta(&r_p.as_slice().unwrap()[0..n_theta], r_p[n_theta]);
+        let vm = get_var_beta(&r_m.as_slice().unwrap()[0..n_theta], r_m[n_theta]);
 
         for i in 0..p {
-            let vp = coefs_p.beta_se[i] * coefs_p.beta_se[i];
-            let vm = coefs_m.beta_se[i] * coefs_m.beta_se[i];
-            grad_v[[i, j]] = (vp - vm) / (2.0 * h);
+            grad_v[[i, j]] = (vp[i] - vm[i]) / (2.0 * hj);
         }
     }
 
@@ -115,26 +145,34 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<(A
         let g_i = grad_v.row(i);
         // denominator = g_i^T * A_mat * g_i
         let mut denom = 0.0;
-        for j in 0..n_theta {
-            for k in 0..n_theta {
+        for j in 0..n_rho {
+            for k in 0..n_rho {
                 denom += g_i[j] * a_mat[[j, k]] * g_i[k];
             }
         }
         
         let v_i = var_beta_base[i];
-        let df = if denom > 1e-12 {
+        let mut df = if denom > 1e-12 {
             2.0 * v_i * v_i / denom
         } else {
             // Fallback if gradient is near zero (e.g. variance doesn't depend on theta)
             (matrices.y.len() - p) as f64
         };
         
+        if df <= 0.0 || df.is_nan() {
+            df = (matrices.y.len() - p) as f64;
+        } else if df > 3000.0 {
+            df = 3000.0;
+        }
+        
         dfs[i] = df;
 
         // p-value from t-distribution with `df` degrees of freedom
         let t_stat = fit.coefficients[i] / fit.beta_se.as_ref().unwrap()[i];
         
-        if let Ok(dist) = StudentsT::new(0.0, 1.0, df) {
+        if t_stat.is_nan() || t_stat.is_infinite() {
+            p_values[i] = f64::NAN;
+        } else if let Ok(dist) = StudentsT::new(0.0, 1.0, df) {
             let p_val = 2.0 * (1.0 - dist.cdf(t_stat.abs()));
             p_values[i] = p_val;
         } else {
@@ -181,6 +219,7 @@ mod tests {
             family_name: None,
             link_name: None,
             satterthwaite: None,
+            kenward_roger: None,
         }
     }
 

@@ -8,11 +8,19 @@ dir.create("rlib", showWarnings = FALSE)
 if (!requireNamespace("lme4", quietly = TRUE)) {
   install.packages("lme4", repos = "https://cloud.r-project.org", lib = "rlib")
 }
+if (!requireNamespace("pbkrtest", quietly = TRUE)) {
+  install.packages("pbkrtest", repos = "https://cloud.r-project.org", lib = "rlib")
+}
+if (!requireNamespace("lmerTest", quietly = TRUE)) {
+  install.packages("lmerTest", repos = "https://cloud.r-project.org", lib = "rlib")
+}
 if (!requireNamespace("jsonlite", quietly = TRUE)) {
   install.packages("jsonlite", repos = "https://cloud.r-project.org", lib = "rlib")
 }
 
 library(lme4)
+library(pbkrtest)
+library(lmerTest)
 library(jsonlite)
 
 # Simple intercept-only model: Reaction ~ 1 + (1 | Subject) using sleepstudy
@@ -30,6 +38,44 @@ get_model_data <- function(model_str, fit) {
   beta <- fixef(fit)
   objective_val <- as.numeric(if (isREML(fit)) lme4::REMLcrit(fit) else deviance(fit))
   
+  # Try to get Kenward-Roger dof and p-values (if it's an LMM)
+  kr_dof <- NULL
+  kr_p <- NULL
+  if (is(fit, "lmerMod") || is(fit, "lmerModLmerTest")) {
+      tryCatch({
+          # We can use lmerTest's summary or anova to get KR
+          # Let's get them from the summary using pbkrtest/lmerTest integration
+          anova_res <- anova(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger")
+          # These are F-tests, but we also want t-test DoFs for coefficients
+          summary_res <- summary(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger")
+          
+          # Coefficient table has Estimate, Std. Error, df, t value, Pr(>|t|)
+          coef_table <- coef(summary_res)
+          
+          if ("df" %in% colnames(coef_table)) {
+              kr_dof <- as.numeric(coef_table[, "df"])
+          }
+          if ("Pr(>|t|)" %in% colnames(coef_table)) {
+              kr_p <- as.numeric(coef_table[, "Pr(>|t|)"])
+          }
+      }, error = function(e) {
+          message("Failed to compute KR dof for model: ", e$message)
+      })
+  }
+
+  outputs <- list(
+    theta = as.numeric(theta),
+    beta = as.numeric(beta),
+    reml_crit = unbox(objective_val)
+  )
+  
+  if (!is.null(kr_dof)) {
+      outputs$kr_dof <- kr_dof
+  }
+  if (!is.null(kr_p)) {
+      outputs$kr_p <- kr_p
+  }
+  
   list(
     model = unbox(model_str),
     inputs = list(
@@ -37,11 +83,7 @@ get_model_data <- function(model_str, fit) {
       Zt = as.matrix(Zt),
       y = as.numeric(y)
     ),
-    outputs = list(
-      theta = as.numeric(theta),
-      beta = as.numeric(beta),
-      reml_crit = unbox(objective_val)
-    )
+    outputs = outputs
   )
 }
 

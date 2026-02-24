@@ -5,6 +5,7 @@ pub mod model_matrix;
 pub mod family;
 pub mod glmm_math;
 pub mod satterthwaite;
+pub mod kenward_roger;
 
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
@@ -64,6 +65,8 @@ pub struct LmeFit {
     pub family: Option<family::Family>,
     /// Optional Satterthwaite approximation outputs for fixed effects (df, p-values).
     pub satterthwaite: Option<SatterthwaiteResult>,
+    /// Optional Kenward-Roger approximation outputs for fixed effects (df, p-values).
+    pub kenward_roger: Option<kenward_roger::KenwardRogerResult>,
 }
 
 impl LmeFit {
@@ -282,6 +285,17 @@ impl LmeFit {
         self.satterthwaite = Some(SatterthwaiteResult { dfs, p_values });
         Ok(self)
     }
+
+    /// Compute Kenward-Roger degrees of freedom and p-values for fixed effects.
+    ///
+    /// Requires the original `DataFrame` used to fit the model because it internally
+    /// computes the objective Hessian via finite differences.
+    /// Mutates the fit to store the results in `self.kenward_roger`.
+    pub fn with_kenward_roger(&mut self, data: &polars::prelude::DataFrame) -> anyhow::Result<&mut Self> {
+        let result = crate::kenward_roger::compute_kenward_roger(self, data)?;
+        self.kenward_roger = Some(result);
+        Ok(self)
+    }
 }
 
 /// Satterthwaite approximation outputs for fixed effects.
@@ -430,8 +444,10 @@ impl fmt::Display for LmeFit {
         let is_glmm = self.family_name.is_some();
         if is_glmm {
             writeln!(f, "            Estimate Std. Error z value")?;
+        } else if self.kenward_roger.is_some() {
+            writeln!(f, "            Estimate Std. Error       df t value Pr(>|t|) [Kenward-Roger]")?;
         } else if self.satterthwaite.is_some() {
-            writeln!(f, "            Estimate Std. Error       df t value Pr(>|t|)")?;
+            writeln!(f, "            Estimate Std. Error       df t value Pr(>|t|) [Satterthwaite]")?;
         } else {
             writeln!(f, "            Estimate Std. Error t value")?;
         }
@@ -443,7 +459,11 @@ impl fmt::Display for LmeFit {
                 let se = beta_se[i];
                 let t_val = beta_t[i];
                 
-                if let Some(satt) = &self.satterthwaite {
+                if let Some(kr) = &self.kenward_roger {
+                    let df = kr.dfs[i];
+                    let p_val = kr.p_values[i];
+                    writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>8.2} {:>7.2} {:>8.4}", name, est, se, df, t_val, p_val)?;
+                } else if let Some(satt) = &self.satterthwaite {
                     let df = satt.dfs[i];
                     let p_val = satt.p_values[i];
                     writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>8.2} {:>7.2} {:>8.4}", name, est, se, df, t_val, p_val)?;
@@ -553,6 +573,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         link_name: None,
         family: None,
         satterthwaite: None,
+        kenward_roger: None,
     })
 }
 
@@ -692,6 +713,7 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
         link_name: None,
         family: None,
         satterthwaite: None,
+        kenward_roger: None,
     })
 }
 
@@ -822,6 +844,7 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         link_name: Some(link_name),
         family: Some(family_enum),
         satterthwaite: None,
+        kenward_roger: None,
     })
 }
 

@@ -41,6 +41,7 @@ fn make_display_fit(
         link_name: None,
         family: None,
         satterthwaite: None,
+        kenward_roger: None,
     }
 }
 

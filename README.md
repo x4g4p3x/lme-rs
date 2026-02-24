@@ -4,9 +4,7 @@
 
 ## Core Philosophy
 
-**100% numerical match to `lme4::lmer()` for validation against R**
-
-This project prioritizes numerical parity first, memory/performance execution speed second, and cross-language API ergonomics third.
+**Core Philosophy**: `lme-rs` provides 100% numerical parity with base `lme4` for fitting core models, while integrating the most essential downstream diagnostics (like `lmerTest` p-values and `car` ANOVAs) directly into a single, high-performance API.
 
 ## Capabilities
 
@@ -89,3 +87,7 @@ fn main() -> anyhow::Result<()> {
 - `simulate()`: Parametric bootstrap from fitted models - **Complete**
 - Nested random effects: `(1|a/b)` → `(1|a) + (1|a:b)` expansion - **Complete**
 - Satterthwaite approximate degrees of freedom and p-values for fixed effects - **Complete**
+- Kenward-Roger degrees of freedom and p-values (`pbkrtest` / `lmerTest`) - **In Progress**
+- Type II and Type III ANOVA tables (`car` package) - **Planned**
+- Robust Standard Errors - **Planned**
+- Predicting with new levels (`allow.new.levels`) - **Planned**
