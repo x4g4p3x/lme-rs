@@ -87,7 +87,7 @@ fn main() -> anyhow::Result<()> {
 - `simulate()`: Parametric bootstrap from fitted models - **Complete**
 - Nested random effects: `(1|a/b)` → `(1|a) + (1|a:b)` expansion - **Complete**
 - Satterthwaite approximate degrees of freedom and p-values for fixed effects - **Complete**
-- Kenward-Roger degrees of freedom and p-values (`pbkrtest` / `lmerTest`) - **In Progress**
+- Kenward-Roger degrees of freedom and p-values (`pbkrtest` / `lmerTest`) - **Complete**
 - Type II and Type III ANOVA tables (`car` package) - **Planned**
 - Robust Standard Errors - **Planned**
 - Predicting with new levels (`allow.new.levels`) - **Planned**
