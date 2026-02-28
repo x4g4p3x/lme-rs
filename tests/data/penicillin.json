@@ -186,6 +186,14 @@
     "beta": [22.9722222222219],
     "reml_crit": 330.860588999604,
     "kr_dof": [5.4870618604518],
-    "kr_p": [3.61997538873013e-07]
+    "kr_p": [3.61997538873013e-07],
+    "kr_anova_f": [],
+    "kr_anova_p": [],
+    "kr_anova_ndf": [],
+    "kr_anova_ddf": [],
+    "sat_anova_f": [],
+    "sat_anova_p": [],
+    "sat_anova_ndf": [],
+    "sat_anova_ddf": []
   }
 }

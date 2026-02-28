@@ -41,12 +41,21 @@ get_model_data <- function(model_str, fit) {
   # Try to get Kenward-Roger dof and p-values (if it's an LMM)
   kr_dof <- NULL
   kr_p <- NULL
+  kr_anova_ndf <- NULL
+  kr_anova_ddf <- NULL
+  kr_anova_f <- NULL
+  kr_anova_p <- NULL
+  
+  sat_anova_ndf <- NULL
+  sat_anova_ddf <- NULL
+  sat_anova_f <- NULL
+  sat_anova_p <- NULL
+  
   if (is(fit, "lmerMod") || is(fit, "lmerModLmerTest")) {
       tryCatch({
-          # We can use lmerTest's summary or anova to get KR
-          # Let's get them from the summary using pbkrtest/lmerTest integration
-          anova_res <- anova(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger")
-          # These are F-tests, but we also want t-test DoFs for coefficients
+          # We can use lmerTest's summary or anova to get KR and Satterthwaite
+          anova_res_kr <- anova(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger", type = 3)
+          anova_res_sat <- anova(as(fit, "lmerModLmerTest"), ddf = "Satterthwaite", type = 3)
           summary_res <- summary(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger")
           
           # Coefficient table has Estimate, Std. Error, df, t value, Pr(>|t|)
@@ -57,6 +66,34 @@ get_model_data <- function(model_str, fit) {
           }
           if ("Pr(>|t|)" %in% colnames(coef_table)) {
               kr_p <- as.numeric(coef_table[, "Pr(>|t|)"])
+          }
+          
+          # Anova table has NumDF, DenDF, F value, Pr(>F)
+          if ("NumDF" %in% colnames(anova_res_kr)) {
+              kr_anova_ndf <- as.numeric(anova_res_kr[, "NumDF"])
+          }
+          if ("DenDF" %in% colnames(anova_res_kr)) {
+              kr_anova_ddf <- as.numeric(anova_res_kr[, "DenDF"])
+          }
+          if ("F value" %in% colnames(anova_res_kr)) {
+              kr_anova_f <- as.numeric(anova_res_kr[, "F value"])
+          }
+          if ("Pr(>F)" %in% colnames(anova_res_kr)) {
+              kr_anova_p <- as.numeric(anova_res_kr[, "Pr(>F)"])
+          }
+          
+          # Satterthwaite Anova
+          if ("NumDF" %in% colnames(anova_res_sat)) {
+              sat_anova_ndf <- as.numeric(anova_res_sat[, "NumDF"])
+          }
+          if ("DenDF" %in% colnames(anova_res_sat)) {
+              sat_anova_ddf <- as.numeric(anova_res_sat[, "DenDF"])
+          }
+          if ("F value" %in% colnames(anova_res_sat)) {
+              sat_anova_f <- as.numeric(anova_res_sat[, "F value"])
+          }
+          if ("Pr(>F)" %in% colnames(anova_res_sat)) {
+              sat_anova_p <- as.numeric(anova_res_sat[, "Pr(>F)"])
           }
       }, error = function(e) {
           message("Failed to compute KR dof for model: ", e$message)
@@ -74,6 +111,18 @@ get_model_data <- function(model_str, fit) {
   }
   if (!is.null(kr_p)) {
       outputs$kr_p <- kr_p
+  }
+  if (!is.null(kr_anova_f)) {
+      outputs$kr_anova_f <- kr_anova_f
+      outputs$kr_anova_p <- kr_anova_p
+      outputs$kr_anova_ndf <- kr_anova_ndf
+      outputs$kr_anova_ddf <- kr_anova_ddf
+  }
+  if (!is.null(sat_anova_f)) {
+      outputs$sat_anova_f <- sat_anova_f
+      outputs$sat_anova_p <- sat_anova_p
+      outputs$sat_anova_ndf <- sat_anova_ndf
+      outputs$sat_anova_ddf <- sat_anova_ddf
   }
   
   list(

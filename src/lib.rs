@@ -6,7 +6,9 @@ pub mod family;
 pub mod glmm_math;
 pub mod satterthwaite;
 pub mod kenward_roger;
+pub mod anova;
 
+pub use anova::{FixedEffectsAnovaResult, DdfMethod};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 use polars::prelude::*;
