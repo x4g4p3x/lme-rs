@@ -7,8 +7,10 @@ pub mod glmm_math;
 pub mod satterthwaite;
 pub mod kenward_roger;
 pub mod anova;
+pub mod robust;
 
 pub use anova::{FixedEffectsAnovaResult, DdfMethod};
+pub use robust::RobustResult;
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 use polars::prelude::*;
@@ -69,6 +71,10 @@ pub struct LmeFit {
     pub satterthwaite: Option<SatterthwaiteResult>,
     /// Optional Kenward-Roger approximation outputs for fixed effects (df, p-values).
     pub kenward_roger: Option<kenward_roger::KenwardRogerResult>,
+    /// The unscaled Fisher variance matrix of the fixed effects
+    pub v_beta_unscaled: Option<Array2<f64>>,
+    /// Optional Robust / Sandwich Standard Error estimates.
+    pub robust: Option<RobustResult>,
 }
 
 impl LmeFit {
@@ -298,6 +304,18 @@ impl LmeFit {
         self.kenward_roger = Some(result);
         Ok(self)
     }
+
+    /// Compute Robust Standard Errors (Sandwich Estimators) for fixed effects.
+    ///
+    /// Requires the original `DataFrame` used to fit the model because it recalculates
+    /// conditional model block structures. Pass `Some("cluster_column_name")` for
+    /// Cluster-Robust Standard Errors (CRSE), or `None` for observation-level (HC0) robust errors.
+    pub fn with_robust_se(&mut self, data: &polars::prelude::DataFrame, cluster_col: Option<&str>) -> anyhow::Result<&mut Self> {
+        let result = crate::robust::compute_robust_se(self, data, cluster_col)
+            .map_err(|e| anyhow::anyhow!("Failed calculating robust SEs: {}", e))?;
+        self.robust = Some(result);
+        Ok(self)
+    }
 }
 
 /// Satterthwaite approximation outputs for fixed effects.
@@ -444,7 +462,13 @@ impl fmt::Display for LmeFit {
 
         writeln!(f, "\nFixed effects:")?;
         let is_glmm = self.family_name.is_some();
-        if is_glmm {
+        if self.robust.is_some() {
+            if is_glmm {
+                writeln!(f, "            Estimate Std. Error z value Pr(>|z|) [Robust]")?;
+            } else {
+                writeln!(f, "            Estimate Std. Error t value Pr(>|t|) [Robust]")?;
+            }
+        } else if is_glmm {
             writeln!(f, "            Estimate Std. Error z value")?;
         } else if self.kenward_roger.is_some() {
             writeln!(f, "            Estimate Std. Error       df t value Pr(>|t|) [Kenward-Roger]")?;
@@ -461,7 +485,12 @@ impl fmt::Display for LmeFit {
                 let se = beta_se[i];
                 let t_val = beta_t[i];
                 
-                if let Some(kr) = &self.kenward_roger {
+                if let Some(robust) = &self.robust {
+                    let r_se = robust.robust_se[i];
+                    let r_t = robust.robust_t[i];
+                    let p_val = robust.robust_p_values.as_ref().map(|p| p[i]).unwrap_or(f64::NAN);
+                    writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>7.2} {:>8.4}", name, est, r_se, r_t, p_val)?;
+                } else if let Some(kr) = &self.kenward_roger {
                     let df = kr.dfs[i];
                     let p_val = kr.p_values[i];
                     writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>8.2} {:>7.2} {:>8.4}", name, est, se, df, t_val, p_val)?;
@@ -576,6 +605,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         family: None,
         satterthwaite: None,
         kenward_roger: None,
+        v_beta_unscaled: None,
+        robust: None,
     })
 }
 
@@ -716,6 +747,8 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
         family: None,
         satterthwaite: None,
         kenward_roger: None,
+        v_beta_unscaled: Some(coefs.v_beta_unscaled),
+        robust: None,
     })
 }
 
@@ -847,6 +880,8 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         family: Some(family_enum),
         satterthwaite: None,
         kenward_roger: None,
+        v_beta_unscaled: Some(coefs.v_beta_unscaled),
+        robust: None,
     })
 }
 

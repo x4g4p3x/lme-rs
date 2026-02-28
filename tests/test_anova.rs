@@ -34,6 +34,8 @@ fn test_anova_methods_produce_valid_f_tests() {
         family: None,
         satterthwaite: None,
         kenward_roger: None,
+        v_beta_unscaled: None,
+        robust: None,
     };
     
     // Test rejection without having evaluated tracking matrices

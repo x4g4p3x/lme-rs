@@ -89,5 +89,5 @@ fn main() -> anyhow::Result<()> {
 - Satterthwaite approximate degrees of freedom and p-values for fixed effects - **Complete**
 - Kenward-Roger degrees of freedom and p-values (`pbkrtest` / `lmerTest`) - **Complete**
 - Type II and Type III ANOVA tables (`car` package) - **Complete**
-- Robust Standard Errors - **Planned**
+- Robust Standard Errors - **Complete**
 - Predicting with new levels (`allow.new.levels`) - **Planned**

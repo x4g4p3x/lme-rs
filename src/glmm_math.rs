@@ -46,6 +46,8 @@ pub struct GlmmCoefficients {
     pub beta_se: Array1<f64>,
     /// z-values for fixed effects (beta / se).
     pub beta_z: Array1<f64>,
+    /// Unscaled variance-covariance matrix of fixed effects.
+    pub v_beta_unscaled: Array2<f64>,
 }
 
 impl GlmmData {
@@ -327,8 +329,9 @@ impl GlmmData {
                 // Standard errors for fixed effects
                 let mut beta_se = Array1::<f64>::zeros(p);
                 let mut beta_z = Array1::<f64>::zeros(p);
+                let mut v_beta_unscaled = Array2::<f64>::zeros((p, p));
                 if let Ok(inv_lx) = l_x.inv() {
-                    let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
+                    v_beta_unscaled = inv_lx.t().dot(&inv_lx);
                     for i in 0..p {
                         // For GLMMs without dispersion, sigma2=1
                         let var_i = v_beta_unscaled[[i, i]];
@@ -351,6 +354,7 @@ impl GlmmData {
                     residuals,
                     beta_se,
                     beta_z,
+                    v_beta_unscaled,
                 });
             }
 
@@ -365,6 +369,7 @@ impl GlmmData {
             deviance: f64::MAX,
             beta, b, u, eta, residuals: &self.y - &mu, fitted: mu,
             beta_se: Array1::zeros(p), beta_z: Array1::zeros(p),
+            v_beta_unscaled: Array2::zeros((p, p)),
         })
     }
 

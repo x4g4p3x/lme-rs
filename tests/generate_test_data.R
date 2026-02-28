@@ -17,11 +17,15 @@ if (!requireNamespace("lmerTest", quietly = TRUE)) {
 if (!requireNamespace("jsonlite", quietly = TRUE)) {
   install.packages("jsonlite", repos = "https://cloud.r-project.org", lib = "rlib")
 }
+if (!requireNamespace("clubSandwich", quietly = TRUE)) {
+  install.packages("clubSandwich", repos = "https://cloud.r-project.org", lib = "rlib")
+}
 
 library(lme4)
 library(pbkrtest)
 library(lmerTest)
 library(jsonlite)
+library(clubSandwich)
 
 # Simple intercept-only model: Reaction ~ 1 + (1 | Subject) using sleepstudy
 data("sleepstudy", package = "lme4")
@@ -124,6 +128,20 @@ get_model_data <- function(model_str, fit) {
       outputs$sat_anova_ndf <- sat_anova_ndf
       outputs$sat_anova_ddf <- sat_anova_ddf
   }
+  
+  # Robust Standard Errors (CR0)
+  tryCatch({
+      vcov_cr0 <- vcovCR(fit, type="CR0")
+      v_beta_robust <- as.matrix(vcov_cr0)
+      robust_se <- sqrt(diag(v_beta_robust))
+      robust_t <- as.numeric(beta) / robust_se
+      
+      outputs$robust_v_beta <- as.vector(v_beta_robust)
+      outputs$robust_se <- robust_se
+      outputs$robust_t <- robust_t
+  }, error = function(e) {
+      message("Skipping robust SEs: ", e$message)
+  })
   
   list(
     model = unbox(model_str),

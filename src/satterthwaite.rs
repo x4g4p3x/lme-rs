@@ -220,6 +220,8 @@ mod tests {
             link_name: None,
             satterthwaite: None,
             kenward_roger: None,
+            v_beta_unscaled: None,
+            robust: None,
         }
     }
 

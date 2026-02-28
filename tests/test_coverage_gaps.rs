@@ -42,6 +42,8 @@ fn make_display_fit(
         family: None,
         satterthwaite: None,
         kenward_roger: None,
+        v_beta_unscaled: None,
+        robust: None,
     }
 }
 

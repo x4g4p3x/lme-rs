@@ -218,6 +218,9 @@
     "sat_anova_f": [],
     "sat_anova_p": [],
     "sat_anova_ndf": [],
-    "sat_anova_ddf": []
+    "sat_anova_ddf": [],
+    "robust_v_beta": [77.3512679854734],
+    "robust_se": [8.79495696325306],
+    "robust_t": [33.9408018610991]
   }
 }

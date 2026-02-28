@@ -45,7 +45,7 @@ impl LmeFit {
         }
 
         let mut terms = Vec::with_capacity(n_terms);
-        let mut num_df = Array1::<f64>::ones(n_terms); // All strictly 1-DoF in current fiasto parser
+        let num_df = Array1::<f64>::ones(n_terms); // All strictly 1-DoF in current fiasto parser
         let mut den_df = Array1::<f64>::zeros(n_terms);
         let mut f_value = Array1::<f64>::zeros(n_terms);
         let mut p_value = Array1::<f64>::zeros(n_terms);
