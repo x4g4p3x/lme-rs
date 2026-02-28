@@ -128,8 +128,8 @@ impl LmeFit {
     /// Predict conditional expectations on the response scale (applies inverse link for GLMMs).
     ///
     /// Combines fixed + random effects, then applies the inverse link.
-    pub fn predict_conditional_response(&self, newdata: &polars::prelude::DataFrame) -> anyhow::Result<ndarray::Array1<f64>> {
-        let eta = self.predict_conditional(newdata)?;
+    pub fn predict_conditional_response(&self, newdata: &polars::prelude::DataFrame, allow_new_levels: bool) -> anyhow::Result<ndarray::Array1<f64>> {
+        let eta = self.predict_conditional(newdata, allow_new_levels)?;
         self.apply_inverse_link(eta)
     }
 
@@ -150,7 +150,7 @@ impl LmeFit {
     ///
     /// Groups present in `newdata` but absent from the training data receive zero random-effect
     /// contributions (population-level predictions), consistent with R's `predict.merMod`.
-    pub fn predict_conditional(&self, newdata: &polars::prelude::DataFrame) -> anyhow::Result<ndarray::Array1<f64>> {
+    pub fn predict_conditional(&self, newdata: &polars::prelude::DataFrame, allow_new_levels: bool) -> anyhow::Result<ndarray::Array1<f64>> {
         let y_pop = self.predict(newdata)?;
 
         let b = self.b.as_ref().ok_or_else(|| anyhow::anyhow!("No random effects available for conditional predictions"))?;
@@ -187,6 +187,12 @@ impl LmeFit {
                 let group_idx = match block.group_map.get(group_name) {
                     Some(&idx) => idx,
                     None => {
+                        if !allow_new_levels {
+                            return Err(anyhow::anyhow!(
+                                "New level '{}' found in grouping factor '{}', but allow_new_levels is false.",
+                                group_name, block.group_name
+                            ));
+                        }
                         // Unknown group → population-level (no RE contribution)
                         continue;
                     }

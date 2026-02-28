@@ -21,7 +21,7 @@ fn test_conditional_differs_from_population_for_known_group() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop_preds = fit.predict(&newdata).unwrap();
-    let cond_preds = fit.predict_conditional(&newdata).unwrap();
+    let cond_preds = fit.predict_conditional(&newdata, true).unwrap();
 
     assert_eq!(pop_preds.len(), cond_preds.len());
 
@@ -53,7 +53,7 @@ fn test_conditional_equals_population_for_unknown_group() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop_preds = fit.predict(&newdata).unwrap();
-    let cond_preds = fit.predict_conditional(&newdata).unwrap();
+    let cond_preds = fit.predict_conditional(&newdata, true).unwrap();
 
     for i in 0..pop_preds.len() {
         assert!(

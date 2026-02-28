@@ -143,7 +143,7 @@ fn test_conditional_vs_population_magnitude() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop = fit.predict(&newdata).unwrap();
-    let cond = fit.predict_conditional(&newdata).unwrap();
+    let cond = fit.predict_conditional(&newdata, true).unwrap();
 
     // Population-level at Day 0 should be ≈ beta0 = 251.4
     assert!((pop[0] - 251.4).abs() < 1.0, "Pop pred at Day 0: expected ~251.4, got {}", pop[0]);

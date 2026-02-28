@@ -159,7 +159,7 @@ fn test_conditional_predictions() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
     
     let pop_preds = fit.predict(&newdata).unwrap();
-    let cond_preds = fit.predict_conditional(&newdata).unwrap();
+    let cond_preds = fit.predict_conditional(&newdata, true).unwrap();
     
     // Both should succeed and have the same length
     assert_eq!(pop_preds.len(), 3);
@@ -195,7 +195,7 @@ fn test_lib_rs_edge_cases() {
     ]).unwrap();
 
     let p_res = fit_gauss.predict_response(&nd).unwrap();
-    let pc_res = fit_gauss.predict_conditional_response(&nd).unwrap();
+    let pc_res = fit_gauss.predict_conditional_response(&nd, true).unwrap();
     assert_eq!(p_res.len(), 2);
     assert_eq!(pc_res.len(), 2);
 
@@ -234,7 +234,7 @@ fn test_lib_coverage_remaining() {
 
     // 1. LMM conditional prediction (identity link)
     let fit = lme_rs::lmer("Reaction ~ Days + (1|Subject)", &df, false).unwrap();
-    let nd = fit.predict_conditional_response(&df);
+    let nd = fit.predict_conditional_response(&df, true);
     assert!(nd.is_ok());
 
     // 2. ANOVA precise formatting and PR string (using unweighted LMM)

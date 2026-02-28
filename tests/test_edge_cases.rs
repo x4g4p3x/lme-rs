@@ -99,7 +99,7 @@ fn test_conditional_predict_intercept_only() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop = fit.predict(&newdata).unwrap();
-    let cond = fit.predict_conditional(&newdata).unwrap();
+    let cond = fit.predict_conditional(&newdata, true).unwrap();
 
     // Population = intercept, conditional = intercept + b_308
     // These should differ since Subject 308 has a non-zero random effect
@@ -134,7 +134,7 @@ fn test_multiple_subjects_conditional() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop = fit.predict(&newdata).unwrap();
-    let cond = fit.predict_conditional(&newdata).unwrap();
+    let cond = fit.predict_conditional(&newdata, true).unwrap();
 
     // Population predictions should be identical (same Day)
     assert!((pop[0] - pop[1]).abs() < 1e-10, "Population preds for same Day should be equal");

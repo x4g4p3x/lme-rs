@@ -90,4 +90,4 @@ fn main() -> anyhow::Result<()> {
 - Kenward-Roger degrees of freedom and p-values (`pbkrtest` / `lmerTest`) - **Complete**
 - Type II and Type III ANOVA tables (`car` package) - **Complete**
 - Robust Standard Errors - **Complete**
-- Predicting with new levels (`allow.new.levels`) - **Planned**
+- Predicting with new levels (`allow_new_levels`) - **Complete**
