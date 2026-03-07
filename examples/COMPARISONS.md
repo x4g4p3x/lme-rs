@@ -448,3 +448,110 @@ Predictions (Probabilities for Herd 1):
 #### Binomial Conclusion
 
 The log-likelihood surfaces across the Binomial models arrive at nearly identical boundary deviances (`555.0 - 555.1`), indicating all underlying optimizers (BOBYQA in R, NLopt in Julia, Nelder-Mead in Rust) properly integrate the Logit links against the sparse Laplace approximation. Fixed effect estimates are stable bounded tight constraints, concluding parity across all 4 ecosystems.
+
+---
+
+## Crossed Random Effects (Penicillin)
+
+To verify the library's ability to resolve multiple, non-nested (crossed) random effects groups, we evaluate the classic `penicillin` dataset. We predict the `diameter` of the clearing zone based on a global intercept, with random deviations for both the `plate` and the `sample`.
+
+### The LMM Model
+
+```text
+diameter ~ 1 + (1 | plate) + (1 | sample)
+```
+
+#### Crossed 1. R Output (`lme4`)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML ['lmerMod']
+Formula: diameter ~ 1 + (1 | plate) + (1 | sample)
+
+REML criterion at convergence: 330.9
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ plate    (Intercept) 0.7169   0.8467  
+ sample   (Intercept) 3.7311   1.9316  
+ Residual             0.3024   0.5499  
+Number of obs: 144, groups:  plate, 24; sample, 6
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  22.9722     0.8086   28.41
+```
+
+#### Crossed 2. lme-rs Output (Rust)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML ['lmerMod']
+Formula: diameter ~ 1 + (1 | plate) + (1 | sample)
+
+     AIC      BIC   logLik deviance
+   338.9    350.7   -165.4    330.9
+REML criterion at convergence: 330.8606
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ plate    (Intercept) 0.7170   0.8467  
+ sample   (Intercept) 3.7318   1.9318  
+ Residual             0.3024   0.5499  
+Number of obs: 144, groups: plate, 24; sample, 6
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  22.9722     0.8087   28.41
+```
+
+#### Crossed 3. Python Output (`lme_python` / `statsmodels` backend equivalents)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML ['lmerMod']
+Formula: diameter ~ 1 + (1 | plate) + (1 | sample)
+
+     AIC      BIC   logLik deviance
+   338.9    350.7   -165.4    330.9
+REML criterion at convergence: 330.8606
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ plate    (Intercept) 0.7170   0.8467  
+ sample   (Intercept) 3.7318   1.9318  
+ Residual             0.3024   0.5499  
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  22.9722     0.8087   28.41
+```
+
+#### Crossed 4. Julia Output (`MixedModels.jl`)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML
+ Formula: diameter ~ 1 + (1 | plate) + (1 | sample)
+   posdef: [1]
+           [1]
+   REML criterion at convergence: 330.860588999605
+
+Variance components:
+            Column   Variance Std.Dev. 
+plate    (Intercept)  0.716908 0.846704
+sample   (Intercept)  3.730903 1.931555
+Residual              0.302415 0.549923
+ Number of obs: 144; levels of grouping factors: 24, 6
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────
+               Coef.  Std. Error      z  Pr(>|z|)
+─────────────────────────────────────────────────
+(Intercept)  22.9722    0.808572  28.41    <1e-99
+─────────────────────────────────────────────────
+```
+
+#### Crossed Random Effects Conclusion
+
+The model accurately identifies all components of the purely crossed structure. Across all implementations, the model fits the global intercept at exactly `22.9722`, isolating the relative variance of the `plate` to `~0.7170` and the `sample` to `~3.731`, demonstrating that the sparse `sprs-ldl` system deployed in `lme-rs` scales reliably across multiple complex grouping intersections.
