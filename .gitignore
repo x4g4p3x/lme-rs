@@ -1,5 +1,16 @@
 /target
 reference/
 rlib/
+/target
+reference/
+rlib/
 julia-portable/
 julia-portable.zip
+
+# Python bindings
+python/target/
+python/.venv/
+__pycache__/
+*.whl
+.pytest_cache/
+*.log

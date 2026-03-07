@@ -1,0 +1,20 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "lme_python"
+description = "Rust port of R's lme4: linear mixed-effects models"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = [
+    "polars>=1.0.0",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

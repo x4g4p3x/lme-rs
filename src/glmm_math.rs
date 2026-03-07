@@ -204,8 +204,14 @@ impl GlmmData {
             // But we solve for both u and beta simultaneously
             // RHS_u = Λ'Z'W(z)
             let wz = &w * &z;  // element-wise w*z
-            let zt_wz = &self.zt * &wz;
-            let v_y = &lam_t * &zt_wz;
+            let mut zt_wz = Array1::<f64>::zeros(q);
+            for (val, (row, col)) in self.zt.iter() {
+                zt_wz[row] += val * wz[col];
+            }
+            let mut v_y = Array1::<f64>::zeros(q);
+            for (val, (row, col)) in lam_t.iter() {
+                v_y[row] += val * zt_wz[col];
+            }
 
             let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
             let w_y = Array1::from_vec(w_y_vec);
@@ -230,9 +236,15 @@ impl GlmmData {
                     wx_col[i] = self.x[[i, j]] * w[i];
                 }
                 // Z'W x_col
-                let zt_wx_j = &self.zt * &wx_col;
+                let mut zt_wx_j = Array1::<f64>::zeros(q);
+                for (val, (row, col)) in self.zt.iter() {
+                    zt_wx_j[row] += val * wx_col[col];
+                }
                 // Λ' Z'W x_col
-                let v_j = &lam_t * &zt_wx_j;
+                let mut v_j = Array1::<f64>::zeros(q);
+                for (val, (row, col)) in lam_t.iter() {
+                    v_j[row] += val * zt_wx_j[col];
+                }
 
                 let w_j_vec: Vec<f64> = ldl.solve(v_j.to_vec());
                 let w_j = Array1::from_vec(w_j_vec);
@@ -283,7 +295,10 @@ impl GlmmData {
             }
 
             // Update eta, mu
-            let b = &lambda * &u;
+            let mut b = Array1::<f64>::zeros(q);
+            for (val, (row, col)) in lambda.iter() {
+                b[row] += val * u[col];
+            }
             let x_beta = self.x.dot(&beta);
 
             // Compute Z*b
@@ -364,7 +379,10 @@ impl GlmmData {
         // If we reach here, PIRLS did not converge — still return last result with a warning
         log::warn!("PIRLS did not converge within {} iterations", max_iter);
 
-        let b = &lambda * &u;
+        let mut b = Array1::<f64>::zeros(q);
+        for (val, (row, col)) in lambda.iter() {
+            b[row] += val * u[col];
+        }
         Some(GlmmCoefficients {
             deviance: f64::MAX,
             beta, b, u, eta, residuals: &self.y - &mu, fitted: mu,

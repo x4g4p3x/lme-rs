@@ -261,8 +261,10 @@ impl LmmData {
             }
             u[i] = w_y[i] - w_beta_i;
         }
-        
-        let b = &lambda * &u;
+        let mut b = Array1::<f64>::zeros(q);
+        for (val, (row, col)) in lambda.iter() {
+            b[row] += val * u[col];
+        }
 
         // Standard Errors for Fixed Effects
         let mut beta_se = Array1::<f64>::zeros(p_usize);

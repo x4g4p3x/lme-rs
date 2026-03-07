@@ -6,7 +6,7 @@ authors = ["Dein Name <deine@email.com>"]
 description = "Rust port of R's lme4: linear mixed-effects models with 1:1 numerical compatibility"
 
 [dependencies]
-polars = { version = "0.45.1", features = ["lazy", "csv", "object"] }
+polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
 ndarray = "0.16"
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
 statrs = "0.18"
