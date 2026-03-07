@@ -201,6 +201,109 @@ Across all four languages out to four decimals, the optimization mathematically 
 
 All implementations map perfectly.
 
+---
+
+## Intercept-Only Linear Mixed Models (Dyestuff)
+
+To verify the simplest baseline mixed-effects model, we fit the classic `Dyestuff` dataset from `lme4`. The model predicts the `Yield` containing only a fixed global intercept and a random intercept tied to the `Batch`.
+
+### The Baseline LMM Model
+
+```text
+Yield ~ 1 + (1 | Batch)
+```
+
+#### Baseline 1. R Output (`lme4`)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML ['lmerMod']
+Formula: Yield ~ 1 + (1 | Batch)
+
+REML criterion at convergence: 319.7
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ Batch    (Intercept) 1764     42.00   
+ Residual             2451     49.51   
+Number of obs: 30, groups:  Batch, 6
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  1527.50      19.38    78.8
+```
+
+#### Baseline 2. lme-rs Output (Rust)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML ['lmerMod']
+Formula: Yield ~ 1 + (1 | Batch)
+
+     AIC      BIC   logLik deviance
+   325.7    329.9   -159.8    319.7
+REML criterion at convergence: 319.6543
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ Batch    (Intercept) 1764.4592 42.0055 
+ Residual             2451.1613 49.5092 
+Number of obs: 30, groups: Batch, 6
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept) 1527.5000    19.3851   78.80
+```
+
+#### Baseline 3. Python Output (`lme_python` / `statsmodels` backend equivalents)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML ['lmerMod']
+Formula: Yield ~ 1 + (1 | Batch)
+
+     AIC      BIC   logLik deviance
+   325.7    329.9   -159.8    319.7
+REML criterion at convergence: 319.6543
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ Batch    (Intercept) 1764.4592 42.0055 
+ Residual             2451.1613 49.5092 
+
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept) 1527.5000    19.3851   78.80
+```
+
+#### Baseline 4. Julia Output (`MixedModels.jl`)
+
+```text
+=== Model Summary ===
+Linear mixed model fit by REML
+ Yield ~ 1 + (1 | Batch)
+ REML criterion at convergence: 319.6542768422576
+
+Variance components:
+            Column    Variance Std.Dev.
+Batch    (Intercept)  1764.0503 42.0006
+Residual              2451.2499 49.5101
+ Number of obs: 30; levels of grouping factors: 6
+
+  Fixed-effects parameters:
+────────────────────────────────────────────────
+              Coef.  Std. Error      z  Pr(>|z|)
+────────────────────────────────────────────────
+(Intercept)  1527.5     19.3834  78.80    <1e-99
+────────────────────────────────────────────────
+```
+
+#### Baseline Conclusion
+
+The fundamental intercept-only LMM fits the target `1527.5` identically across all systems, effectively dividing the `~1764` intercept group variance and `~2451` residual unstructured variance precisely.
+
+---
+
 ## Generalized Linear Mixed Models (GLMM)
 
 In addition to standard LMMs, `lme-rs` supports GLMM architectures utilizing penalised iteratively reweighed least squares (PIRLS) and the Laplace approximation.
@@ -215,7 +318,7 @@ To contrast this, we evaluate the `grouseticks` dataset, fitting expected tick c
 TICKS ~ YEAR + HEIGHT + (1 | BROOD)   [Family: Poisson, Link: Log]
 ```
 
-#### 1. R Output (`lme4`)
+#### GLMM 1. R Output (`lme4`)
 
 ```text
 === Model Summary ===
@@ -244,7 +347,7 @@ Predictions (Expected Counts for 3 new broods):
 8.7596613, 0.6763327, 1.5028652 
 ```
 
-#### 2. lme-rs Output (Rust)
+#### GLMM 2. lme-rs Output (Rust)
 
 ```text
 === Model Summary ===
@@ -272,7 +375,7 @@ Predictions (Expected Counts for 3 new broods):
 8.8813905, 0.8108679, 1.7046553
 ```
 
-#### 3. Julia Output (`MixedModels.jl`)
+#### GLMM 3. Julia Output (`MixedModels.jl`)
 
 ```text
 === Model Summary ===

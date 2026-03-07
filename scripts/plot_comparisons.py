@@ -53,6 +53,13 @@ pastes = {
 for i, lang in enumerate(['R (lme4)', 'Rust (lme-rs)', 'Python (lme_python)', 'Julia (MixedModels)']):
     data.append({'Dataset': 'Pastes', 'Language': lang, 'Parameter': '(Intercept)', 'Estimate': pastes['(Intercept)'][i]})
 
+# Dyestuff (Intercept-Only)
+dyestuff = {
+    '(Intercept)': [1527.50, 1527.50, 1527.50, 1527.50]
+}
+for i, lang in enumerate(['R (lme4)', 'Rust (lme-rs)', 'Python (lme_python)', 'Julia (MixedModels)']):
+    data.append({'Dataset': 'Dyestuff', 'Language': lang, 'Parameter': '(Intercept)', 'Estimate': dyestuff['(Intercept)'][i]})
+
 df = pd.DataFrame(data)
 
 # Set style
@@ -62,9 +69,9 @@ colors = ['#377eb8', '#e41a1c', '#4daf4a', '#984ea3'] # R, Rust, Python, Julia
 fig, axes = plt.subplots(3, 2, figsize=(20, 20))
 axes = axes.flatten()
 
-datasets = ['Sleepstudy', 'Penicillin', 'Pastes', 'Grouseticks', 'CBPP']
+datasets = ['Sleepstudy', 'Penicillin', 'Pastes', 'Dyestuff', 'Grouseticks', 'CBPP']
 titles = ['Sleepstudy (Linear Mixed Model)', 'Penicillin (Crossed Random Effects)', 'Pastes (Nested Random Effects)',
-          'Grouseticks (Poisson GLMM)', 'CBPP (Binomial GLMM)']
+          'Dyestuff (Intercept-Only LMM)', 'Grouseticks (Poisson GLMM)', 'CBPP (Binomial GLMM)']
 
 for i, (dataset, title) in enumerate(zip(datasets, titles)):
     ax = axes[i]
