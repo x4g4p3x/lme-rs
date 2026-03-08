@@ -8,10 +8,15 @@ use sprs::TriMat;
 /// Captures structural layout and variable indices for a multi-dimensional Random Effect correlation block.
 #[derive(Clone, Debug)]
 pub struct ReBlock {
+    /// The number of unique grouping clusters / levels.
     pub m: usize,
+    /// The number of random effect variables per group (e.g., 1 for intercept-only, 2 for intercept+slope).
     pub k: usize,
+    /// The number of variance-covariance parameters associated with this block (e.g. k(k+1)/2 ).
     pub theta_len: usize,
+    /// The name of the grouping factor variable (e.g. "Subject").
     pub group_name: String,
+    /// The canonical names of the effects in the block (e.g., `["(Intercept)", "Days"]`).
     pub effect_names: Vec<String>,
     /// Maps group labels (e.g. subject IDs) to their positional index in the Z/b vectors.
     pub group_map: HashMap<String, usize>,
@@ -19,12 +24,19 @@ pub struct ReBlock {
 
 /// Container encompassing the finalized design matrices and mapping arrays extracted from input DataFrames.
 pub struct DesignMatrices {
+    /// The Wilkinson formula string that generated the matrices.
     pub formula: String,
+    /// Dense fixed-effects design matrix ($X$).
     pub x: Array2<f64>,
+    /// Sparse transposed random-effects design matrix ($Z^T$).
     pub zt: sprs::CsMat<f64>,
+    /// Dependent variable vector ($y$).
     pub y: Array1<f64>,
+    /// Collection of random effect dimensional tracking blocks.
     pub re_blocks: Vec<ReBlock>,
+    /// Extracted names of fixed-effect features from the dataframe.
     pub fixed_names: Vec<String>,
+    /// Optional vector of offset terms to shift predictions by.
     pub offset: Option<Array1<f64>>,
 }
 

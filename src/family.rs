@@ -245,6 +245,7 @@ pub struct BinomialFamily {
 }
 
 impl BinomialFamily {
+    /// Create a new Binomial family with a Logit link.
     pub fn new() -> Self {
         BinomialFamily { link: LogitLink }
     }
@@ -306,6 +307,7 @@ pub struct PoissonFamily {
 }
 
 impl PoissonFamily {
+    /// Create a new Poisson family with a Log link.
     pub fn new() -> Self {
         PoissonFamily { link: LogLink }
     }
@@ -361,6 +363,7 @@ pub struct GaussianFamily {
 }
 
 impl GaussianFamily {
+    /// Create a new Gaussian family with an Identity link.
     pub fn new() -> Self {
         GaussianFamily { link: IdentityLink }
     }
@@ -406,6 +409,7 @@ pub struct GammaFamily {
 }
 
 impl GammaFamily {
+    /// Create a new Gamma family with an Inverse link.
     pub fn new() -> Self {
         GammaFamily { link: InverseLink }
     }

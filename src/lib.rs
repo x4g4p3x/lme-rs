@@ -6,15 +6,25 @@
 //!
 //! See [GUIDE.md](https://github.com/x4g4p3x/lme-rs/blob/master/GUIDE.md) for usage.
 
+/// Core linear algebra evaluation routines for generalized models.
 pub mod math;
+/// Optimization routines (Nelder-Mead) for theta estimation.
 pub mod optimizer;
+/// Wilkinson formula parsing and data matrix construction.
 pub mod formula;
+/// Building design matrices (X, Z) from DataFrames.
 pub mod model_matrix;
+/// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
 pub mod family;
+/// Core penalized iteratively reweighted least squares (PIRLS) evaluator for GLMMs.
 pub mod glmm_math;
+/// Satterthwaite denominator degrees of freedom approximation.
 pub mod satterthwaite;
+/// Kenward-Roger denominator degrees of freedom approximation.
 pub mod kenward_roger;
+/// Analysis of Variance (ANOVA) result wrappers and F-tests.
 pub mod anova;
+/// Robust Standard Errors (Sandwich Estimators).
 pub mod robust;
 
 pub use anova::{FixedEffectsAnovaResult, DdfMethod};
@@ -25,48 +35,93 @@ use polars::prelude::*;
 use thiserror::Error;
 use std::fmt;
 
+/// Standard result type alias for operations that can fail with `LmeError`.
 pub type Result<T> = std::result::Result<T, LmeError>;
 
+/// Specific error types that can occur during model parsing or fitting.
 #[derive(Debug, Error)]
 pub enum LmeError {
+    /// Raised when the predictor matrix dimensions don't align with the response vector.
     #[error("dimension mismatch: y has length {y_len}, X has {x_rows} rows")]
-    DimensionMismatch { y_len: usize, x_rows: usize },
+    DimensionMismatch { 
+        /// Length of y
+        y_len: usize, 
+        /// Number of rows in X
+        x_rows: usize 
+    },
+    /// Raised when there are less observations than parameters to fit.
     #[error("design matrix has fewer rows ({rows}) than columns ({cols}); system is underdetermined")]
-    Underdetermined { rows: usize, cols: usize },
+    Underdetermined { 
+        /// Number of observations
+        rows: usize, 
+        /// Number of parameters
+        cols: usize 
+    },
+    /// General wrapper for ndarray-linalg or sparse suite failures.
     #[error("linear algebra failure: {message}")]
-    LinearAlgebra { message: String },
+    LinearAlgebra { 
+        /// Informational error trace
+        message: String 
+    },
+    /// Raised if an empty formula string is provided.
     #[error("formula is empty")]
     EmptyFormula,
+    /// General missing feature wrapper.
     #[error("not implemented: {feature}")]
-    NotImplemented { feature: String },
+    NotImplemented { 
+        /// Feature name
+        feature: String 
+    },
 }
 
 /// Represents the fully resolved evaluation output of a structured linear or mixed-effects regression.
 #[derive(Debug, Clone)]
 pub struct LmeFit {
+    /// The estimated fixed-effect coefficients (β).
     pub coefficients: Array1<f64>,
+    /// The unscaled conditional residuals (y - Xβ - Zb).
     pub residuals: Array1<f64>,
+    /// The fitted conditional values (Xβ + Zb).
     pub fitted: Array1<f64>,
+    /// Optional DataFrame containing the parsed conditional modes of the random effects.
     pub ranef: Option<DataFrame>,
+    /// Optional DataFrame containing the parsed variance-covariance structures.
     pub var_corr: Option<DataFrame>,
+    /// The optimized variance component parameters (θ).
     pub theta: Option<Array1<f64>>,
+    /// The estimated residual variance (σ²). Only present for LMMs.
     pub sigma2: Option<f64>,
+    /// The REML criterion at convergence (if estimated using REML).
     pub reml: Option<f64>,
+    /// The log-likelihood of the fitted model.
     pub log_likelihood: Option<f64>,
+    /// Akaike Information Criterion.
     pub aic: Option<f64>,
+    /// Bayesian Information Criterion.
     pub bic: Option<f64>,
+    /// The deviance of the fitted model (-2 * logLik).
     pub deviance: Option<f64>,
+    /// The conditional modes of the random effects (b).
     pub b: Option<Array1<f64>>,
+    /// The spherical random effects (u).
     pub u: Option<Array1<f64>>,
+    /// Standard errors of the fixed-effect coefficients.
     pub beta_se: Option<Array1<f64>>,
+    /// t-statistics (or z-statistics) for the fixed-effect coefficients.
     pub beta_t: Option<Array1<f64>>,
     // Metadata for Summary Display
+    /// The original formula string used to fit the model.
     pub formula: Option<String>,
+    /// Variable names corresponding to the fixed-effect coefficients.
     pub fixed_names: Option<Vec<String>>,
+    /// Dimensional grouping data for random effects.
     pub re_blocks: Option<Vec<model_matrix::ReBlock>>,
+    /// Number of observations used in the fit.
     pub num_obs: usize,
     // Convergence diagnostics
+    /// True if the Nelder-Mead optimizer successfully converged.
     pub converged: Option<bool>,
+    /// Number of evaluations performed by the optimizer.
     pub iterations: Option<u64>,
     // GLMM-specific
     /// Family name (e.g. "binomial", "poisson") — None for LMM.
@@ -723,7 +778,7 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
     
     // Add the offset back to get true predictions on response scale
     if let Some(off) = &offset_arr {
-        fitted = fitted + off;
+        fitted += off;
     }
     
     // Residuals correspond to original y - final fitted

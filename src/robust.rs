@@ -7,6 +7,7 @@
 use crate::LmeFit;
 use ndarray::{Array1, Array2};
 
+/// Result of computing Robust Standard Errors (Sandwich Estimators)
 #[derive(Debug, Clone)]
 pub struct RobustResult {
     /// The robust variance-covariance matrix of the fixed effects

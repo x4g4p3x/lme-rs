@@ -14,14 +14,21 @@ use sprs::{CsMat, TriMat};
 
 /// Encapsulates the design matrices and family for a GLMM evaluation.
 pub struct GlmmData {
+    /// Dense fixed-effects design matrix ($X$).
     pub x: Array2<f64>,
+    /// Sparse transposed random-effects design matrix ($Z^T$).
     pub zt: CsMat<f64>,
+    /// Dependent variable vector ($y$).
     pub y: Array1<f64>,
+    /// Collection of random effect dimensional tracking blocks.
     pub re_blocks: Vec<ReBlock>,
+    /// Family distribution specification detailing variance and link properties.
     pub family: Box<dyn GlmFamily>,
     // Cached structural matrices
+    /// Cross product of the transposed design matrix ($Z^T Z$).
     pub zt_z: CsMat<f64>,
     // Precomputed mapping for Z^t W Z update: (col_in_Zt, zt_z_data_idx, value_product)
+    /// Track mapped positions to rapidly update dense/sparse intermediate combinations without recreating arrays.
     pub zt_w_z_map: Vec<(usize, usize, f64)>,
 }
 
@@ -51,6 +58,8 @@ pub struct GlmmCoefficients {
 }
 
 impl GlmmData {
+    /// Construct a fresh GLMM data block capturing design matrices and specific generative distributions,
+    /// pre-building the index maps used repeatedly during inner PIRLS loops for $Z^T W Z$ weight updates. 
     pub fn new(
         x: Array2<f64>,
         zt: CsMat<f64>,
@@ -127,7 +136,7 @@ impl GlmmData {
         let mut mu = self.family.initialize_mu(&self.y);
         let mut eta = link.link_fun(&mu);
         if let Some(off) = offset {
-            eta = eta + off;
+            eta += off;
         }
 
         // Unit weights (no prior weights for now)
@@ -312,7 +321,7 @@ impl GlmmData {
 
             eta = &x_beta + &z_b;
             if let Some(off) = offset {
-                eta = eta + off;
+                eta += off;
             }
             mu = link.link_inv(&eta);
 

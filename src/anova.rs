@@ -5,7 +5,9 @@ use std::fmt;
 /// Approximation methods for creating denominator degrees of freedom in an ANOVA table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DdfMethod {
+    /// Satterthwaite's widely used moment-matching approximation.
     Satterthwaite,
+    /// Kenward-Roger's small-sample adjusted approximation (LMMs only).
     KenwardRoger,
 }
 
@@ -15,11 +17,17 @@ pub enum DdfMethod {
 /// evaluates independent marginal F-tests for each fixed effect analogous to `lmerTest`.
 #[derive(Debug, Clone)]
 pub struct FixedEffectsAnovaResult {
+    /// The denominator degrees of freedom method used for the estimates.
     pub method: DdfMethod,
+    /// The string name of the fixed effect variable.
     pub terms: Vec<String>,
+    /// Numerator degrees of freedom (always 1.0 for the current `lme-rs` single-DoF implementation).
     pub num_df: Array1<f64>,
+    /// Denominator degrees of freedom approximated by the chosen method.
     pub den_df: Array1<f64>,
+    /// The computed F-statistic for the effect term.
     pub f_value: Array1<f64>,
+    /// Significance probability value derived from an F distribution.
     pub p_value: Array1<f64>,
 }
 

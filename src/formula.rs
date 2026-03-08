@@ -5,11 +5,16 @@ use std::collections::HashMap;
 /// Root metadata structure holding the parsed Wilkinson AST.
 #[derive(Debug, Deserialize)]
 pub struct FiastoModel {
+    /// Array of all variable names involved in the model (response, predictors, grouping variables).
     pub all_generated_columns: Vec<String>,
+    /// Detailed mapping of column names to their parsed roles and random effects mappings.
     pub columns: HashMap<String, ColumnInfo>,
+    /// Global metadata describing model properties (e.g., intercept presence, model type).
     pub metadata: FiastoMetadata,
+    /// The string formula that generated this AST.
     pub formula: String,
     #[serde(skip)]
+    /// Optional name of an offset variable if provided.
     pub offset: Option<String>,
 }
 
@@ -17,27 +22,37 @@ pub struct FiastoModel {
 #[derive(Debug, Deserialize)]
 pub struct ColumnInfo {
     #[serde(default)]
+    /// Any random effects definitions (e.g., intercepts or slopes) associated with this column.
     pub random_effects: Vec<RandomEffect>,
     #[serde(default)]
+    /// Explicit roles parsed from the formula (e.g., "Response", "GroupingVariable", "Identity").
     pub roles: Vec<String>,
 }
 
 /// Represents a distinct Random Effect cluster mapped from `(expr | group)`.
 #[derive(Debug, Deserialize)]
 pub struct RandomEffect {
+    /// True if slopes are correlated with intercepts (the `(expr | group)` default in R).
     pub correlated: bool,
+    /// The name of the categorical variable representing the groups.
     pub grouping_variable: String,
+    /// True if an intercept term should be generated for this specific random effect term.
     pub has_intercept: bool,
+    /// Describes the type of term (e.g., "grouping" for intercepts, "slope" for numeric variables).
     pub kind: String,
     #[serde(default)]
+    /// Names of continuous variables for random slopes, if present.
     pub variables: Option<Vec<String>>,
 }
 
 /// Stores top-level characteristics of the model structure.
 #[derive(Debug, Deserialize)]
 pub struct FiastoMetadata {
+    /// Global indicator if the model formula includes an intercept term.
     pub has_intercept: bool,
+    /// True if the model specifies at least one random effect grouping structure.
     pub is_random_effects_model: bool,
+    /// The number of response variables on the Left Hand Side of the formula (typically 1).
     pub response_variable_count: usize,
 }
 
@@ -70,9 +85,9 @@ fn extract_offset(formula: &str) -> (String, Option<String>) {
         let mut end_idx = None;
         let bytes = formula.as_bytes();
         
-        for i in start_idx..bytes.len() {
-            if bytes[i] == b'(' { depth += 1; }
-            if bytes[i] == b')' {
+        for (i, &byte) in bytes.iter().enumerate().skip(start_idx) {
+            if byte == b'(' { depth += 1; }
+            if byte == b')' {
                 depth -= 1;
                 if depth == 0 {
                     end_idx = Some(i);

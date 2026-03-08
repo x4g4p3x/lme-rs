@@ -11,10 +11,14 @@ use crate::math::LmmData;
 /// Result of Kenward-Roger approximation
 #[derive(Debug, Clone)]
 pub struct KenwardRogerResult {
+    /// Satterthwaite-like approximated degrees of freedom for each fixed effect.
     pub dfs: Array1<f64>,
+    /// Two-sided p-values derived from generalized t-distributions using computed `dfs`.
     pub p_values: Array1<f64>,
 }
 
+/// Derives conservative fixed effects F-tests by accounting for the small-sample
+/// bias introduced through the estimation of variance components in Linear Mixed Models.
 pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<KenwardRogerResult> {
     if fit.family.is_some() {
         return Err(LmeError::NotImplemented {

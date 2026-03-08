@@ -6,16 +6,27 @@ use sprs::{CsMat, TriMat};
 /// Represents the resolved analytical outputs from evaluating a fully optimized variance structure.
 #[derive(Debug, Clone)]
 pub struct ModelCoefficients {
+    /// The REML criterion at convergence (-2 log restricted-likelihood).
     pub reml_crit: f64,
+    /// The estimated residual variance (σ²).
     pub sigma2: f64,
+    /// The estimated fixed-effect coefficients (β).
     pub beta: Array1<f64>,
+    /// The conditional modes of the random effects (b).
     pub b: Array1<f64>,
+    /// The spherical random effects (u).
     pub u: Array1<f64>,
+    /// Standard errors of the fixed-effect coefficients.
     pub beta_se: Array1<f64>,
+    /// t-statistics for the fixed-effect coefficients.
     pub beta_t: Array1<f64>,
+    /// The fitted conditional values (Xβ + Zb).
     pub fitted: Array1<f64>,
+    /// The unscaled conditional residuals (y - Xβ - Zb).
     pub residuals: Array1<f64>,
+    /// The Cholesky factor of the unscaled fixed-effects variance matrix (L_x).
     pub l_x: Array2<f64>,
+    /// The unscaled variance-covariance matrix of the fixed effects.
     pub v_beta_unscaled: Array2<f64>,
 }
 
@@ -24,24 +35,35 @@ pub struct ModelCoefficients {
 /// Supports optional prior observation weights via `weights`. When provided, all
 /// cross-products are pre-computed as weighted versions (X'WX, X'Wy, Z'WZ, Z'Wy).
 pub struct LmmData {
+    /// Dense fixed-effects design matrix ($X$).
     pub x: Array2<f64>,
+    /// Sparse transposed random-effects design matrix ($Z^T$).
     pub zt: CsMat<f64>,
+    /// Dependent variable vector ($y$).
     pub y: Array1<f64>,
+    /// Collection of random effect dimensional tracking blocks.
     pub re_blocks: Vec<crate::model_matrix::ReBlock>,
     /// Optional prior observation weights (length n).
     pub weights: Option<Array1<f64>>,
     
     // Cached effective matrices that are independent of theta
     // When weights are present, these are the weighted versions.
+    /// Effective Dense fixed-effects design matrix ($X$), optionally scaled by observation weights.
     pub x_eff: Array2<f64>,
+    /// Effective Sparse transposed random-effects design matrix ($Z^T$), optionally scaled by observation weights.
     pub zt_eff: CsMat<f64>,
+    /// Effective Dependent variable vector ($y$), optionally scaled by observation weights.
     pub y_eff: Array1<f64>,
-    pub zt_z: CsMat<f64>, // This is zt_eff * zt_eff^T
-    pub xt_x: Array2<f64>, // This is x_eff^T * x_eff
-    pub xt_y: Array1<f64>, // This is x_eff^T * y_eff
+    /// Cross product of the transposed design matrix ($Z^T Z$). This is `zt_eff * zt_eff^T`.
+    pub zt_z: CsMat<f64>, 
+    /// Cross product of the fixed-effects design matrix ($X^T X$). This is `x_eff^T * x_eff`.
+    pub xt_x: Array2<f64>, 
+    /// Cross product of the fixed-effects design matrix and the dependent variable ($X^T y$). This is `x_eff^T * y_eff`.
+    pub xt_y: Array1<f64>,
 }
 
 impl LmmData {
+    /// Create `LmmData` containing unweighted structural design matrices.
     pub fn new(x: Array2<f64>, zt: CsMat<f64>, y: Array1<f64>, re_blocks: Vec<crate::model_matrix::ReBlock>) -> Self {
         Self::new_weighted(x, zt, y, re_blocks, None)
     }
@@ -92,10 +114,13 @@ impl LmmData {
         }
     }
 
+    /// Evaluate the objective reml (or deviance) for a fixed parameter set of variances `theta`.
     pub fn log_reml_deviance(&self, theta: &[f64], reml: bool) -> f64 {
         self.evaluate(theta, reml).reml_crit
     }
 
+    /// Computes the complete profiled analytical output for a specific parameter vector `theta`,
+    /// including coefficient values (fixed β, random $u$/$b$), deviance limits and scaling components.
     pub fn evaluate(&self, theta: &[f64], reml: bool) -> ModelCoefficients {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
