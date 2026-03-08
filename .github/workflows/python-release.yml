@@ -40,6 +40,8 @@ jobs:
             elif command -v yum >/dev/null 2>&1; then
               yum install -y pkgconfig openssl-devel
             fi
+        env:
+          CFLAGS_aarch64_unknown_linux_gnu: "-std=gnu99"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
