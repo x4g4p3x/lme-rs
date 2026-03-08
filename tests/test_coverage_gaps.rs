@@ -1,8 +1,8 @@
 //! Tests targeting specific uncovered branches in lib.rs Display and convergence logic.
 
-use lme_rs::LmeFit;
 use lme_rs::model_matrix::ReBlock;
-use ndarray::{Array1, array};
+use lme_rs::LmeFit;
+use ndarray::{array, Array1};
 use polars::prelude::*;
 use std::collections::HashMap;
 

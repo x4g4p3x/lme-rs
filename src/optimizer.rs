@@ -82,7 +82,11 @@ impl CostFunction for LmmObjective {
             self.weights.clone(),
         );
         let val = lmm.log_reml_deviance(theta_clamped.as_slice().unwrap(), self.reml);
-        if val.is_nan() { Ok(f64::MAX) } else { Ok(val) }
+        if val.is_nan() {
+            Ok(f64::MAX)
+        } else {
+            Ok(val)
+        }
     }
 }
 
@@ -176,7 +180,11 @@ impl CostFunction for GlmmObjective {
             self.family.build_clone(),
         );
         let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref());
-        if val.is_nan() { Ok(f64::MAX) } else { Ok(val) }
+        if val.is_nan() {
+            Ok(f64::MAX)
+        } else {
+            Ok(val)
+        }
     }
 }
 
@@ -241,7 +249,7 @@ mod tests {
     use super::*;
     use crate::family::PoissonFamily;
     use crate::model_matrix::ReBlock;
-    use ndarray::{Array2, array};
+    use ndarray::{array, Array2};
     use sprs::TriMat;
 
     #[test]

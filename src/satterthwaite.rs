@@ -222,8 +222,8 @@ pub fn compute_satterthwaite(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::LmeFit;
     use crate::family::Family;
+    use crate::LmeFit;
     use ndarray::array;
     use polars::prelude::*;
 

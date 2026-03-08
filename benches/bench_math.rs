@@ -1,4 +1,4 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, Criterion};
 use lme_rs::math::LmmData;
 use ndarray::{Array1, Array2};
 use polars::prelude::*;

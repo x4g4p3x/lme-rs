@@ -223,7 +223,7 @@ fn test_conditional_predictions() {
 #[test]
 fn test_lib_rs_edge_cases() {
     use lme_rs::family::Family;
-    use lme_rs::{AnovaResult, anova, glmer, lmer_weighted};
+    use lme_rs::{anova, glmer, lmer_weighted, AnovaResult};
 
     let df = load_sleepstudy();
 
@@ -253,7 +253,7 @@ fn test_lib_rs_edge_cases() {
 
     // 4. confint without fixed names
     use lme_rs::lm;
-    use ndarray::{Array2, array};
+    use ndarray::{array, Array2};
     let y = array![1.0, 2.0];
     let x = Array2::<f64>::ones((2, 1));
     let mut lm_fit = lm(&y, &x).unwrap();

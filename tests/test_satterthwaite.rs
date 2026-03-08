@@ -82,7 +82,7 @@ fn test_satterthwaite_anova_numerical_parity() {
     assert_eq!(anova_res.terms[0], "Days");
 
     let tol = 1e-2; // Allow reasonable precision
-    // R `anova()` output lists the 'Days' effect as index 0 since Intercept is dropped.
+                    // R `anova()` output lists the 'Days' effect as index 0 since Intercept is dropped.
     let rust_f = anova_res.f_value[0];
     let r_f = r_anova_f[0].as_f64().unwrap();
     assert!(

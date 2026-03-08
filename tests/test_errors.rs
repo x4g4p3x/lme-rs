@@ -1,5 +1,5 @@
 use lme_rs::optimizer::optimize_theta_nd;
-use lme_rs::{LmeError, lm, lmer};
+use lme_rs::{lm, lmer, LmeError};
 use ndarray::array;
 use polars::prelude::*;
 

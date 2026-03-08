@@ -1,5 +1,5 @@
-use lme_rs::LmeFit;
 use lme_rs::anova::DdfMethod;
+use lme_rs::LmeFit;
 use ndarray::Array1;
 
 // Simple mock test ignoring actual data

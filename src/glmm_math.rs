@@ -308,8 +308,20 @@ impl GlmmData {
 
             // Solve for beta
             let rhs_beta = &xt_wz_vec - &rzx_t_cu;
-            let c_beta = l_x.solve(&rhs_beta).unwrap();
-            beta = l_x.t().solve(&c_beta).unwrap();
+            let c_beta = match l_x.solve(&rhs_beta) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::debug!("Solve for c_beta failed: {:?}", e);
+                    return None;
+                }
+            };
+            beta = match l_x.t().solve(&c_beta) {
+                Ok(b) => b,
+                Err(e) => {
+                    log::debug!("Solve for beta failed: {:?}", e);
+                    return None;
+                }
+            };
 
             // Solve for u
             for i in 0..q {
@@ -482,7 +494,7 @@ fn _sparse_times_dense(sp: &CsMat<f64>, dense: &ndarray::ArrayView2<f64>) -> CsM
 mod tests {
     use super::*;
     use crate::family::BinomialFamily;
-    use ndarray::{Array2, array};
+    use ndarray::{array, Array2};
     use sprs::TriMat;
 
     #[test]
