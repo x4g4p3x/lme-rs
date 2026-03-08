@@ -1,3 +1,11 @@
+#![warn(missing_docs)]
+//! # lme-rs
+//!
+//! Rust port of R's `lme4`: linear and generalized linear mixed-effects models
+//! with 1:1 numerical compatibility.
+//!
+//! See [GUIDE.md](https://github.com/x4g4p3x/lme-rs/blob/master/GUIDE.md) for usage.
+
 pub mod math;
 pub mod optimizer;
 pub mod formula;

@@ -121,13 +121,34 @@ model = lme_python.glmer(
 )
 ```
 
-### `PyLmeFit` Methods
+### `PyLmeFit` Properties & Methods
+
+**Properties** (accessed as `model.property`):
+
+| Property | Type | Description |
+| :------- | :--- | :---------- |
+| `coefficients` | `list[float]` | Fixed-effects coefficients (β) |
+| `fixed_names` | `list[str]` or `None` | Names of fixed effects |
+| `sigma2` | `float` or `None` | Residual variance (σ²) |
+| `aic` | `float` or `None` | Akaike Information Criterion |
+| `bic` | `float` or `None` | Bayesian Information Criterion |
+| `log_likelihood` | `float` or `None` | Log-likelihood |
+| `deviance` | `float` or `None` | Model deviance |
+| `converged` | `bool` or `None` | Whether the optimizer converged |
+| `num_obs` | `int` | Number of observations |
+| `std_errors` | `list[float]` or `None` | Standard errors of fixed effects |
+| `residuals` | `list[float]` | Residuals (y − ŷ) |
+| `fitted` | `list[float]` | Fitted values (ŷ) |
+
+**Methods:**
 
 | Method | Returns | Description |
 | :----- | :------ | :---------- |
 | `summary()` | `str` | R-style model summary |
 | `predict(newdata)` | `list[float]` | Population-level predictions (Xβ) |
-| `__str__()` | `str` | Same as `summary()` — enables `print(model)` |
+| `predict_conditional(newdata, allow_new_levels=False)` | `list[float]` | Conditional predictions (Xβ + Zb) |
+| `predict_response(newdata)` | `list[float]` | Response-scale predictions (GLMM) |
+| `confint(level=0.95)` | `list[tuple]` | Wald confidence intervals `[(lower, upper), ...]` |
 
 ---
 

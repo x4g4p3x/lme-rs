@@ -2,8 +2,14 @@
 name = "lme-rs"
 version = "0.1.0"
 edition = "2024"
-authors = ["Dein Name <deine@email.com>"]
+authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Rust port of R's lme4: linear mixed-effects models with 1:1 numerical compatibility"
+license = "MIT"
+repository = "https://github.com/x4g4p3x/lme-rs"
+homepage = "https://github.com/x4g4p3x/lme-rs"
+readme = "README.md"
+keywords = ["statistics", "lme4", "mixed-effects", "glmm", "regression"]
+categories = ["science", "mathematics"]
 
 [dependencies]
 polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }

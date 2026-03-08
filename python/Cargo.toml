@@ -2,7 +2,7 @@
 name = "lme_python"
 version = "0.1.0"
 edition = "2024"
-authors = ["Dein Name <deine@email.com>"]
+authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Python bindings for lme-rs"
 
 [lib]

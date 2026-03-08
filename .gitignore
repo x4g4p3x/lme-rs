@@ -1,11 +1,9 @@
 /target
 reference/
 rlib/
-/target
-reference/
-rlib/
 julia-portable/
 julia-portable.zip
+flamegraph.svg
 
 # Python bindings
 python/target/

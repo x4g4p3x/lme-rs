@@ -220,6 +220,8 @@ HEIGHT       -0.0239     0.0037   -6.47
 
 > **Note**: GLMM fixed effects report **z-values** (not t-values) since the Laplace approximation uses the normal distribution.
 
+> **AIC convention**: `lme-rs` computes AIC from the Laplace-approximated conditional deviance used for optimization. R's `logLik()`/`AIC()` additionally includes data-dependent constants (e.g., `lgamma(y+1)` for Poisson). This means **absolute AIC values differ**, but model fit parameters (β, θ) are identical. See the footnote in [COMPARISONS.md](examples/COMPARISONS.md) for details.
+
 ---
 
 ## Predictions
