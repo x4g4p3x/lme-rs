@@ -41,6 +41,7 @@ jobs:
               yum install -y pkgconfig openssl-devel
             fi
         env:
+          CFLAGS: "-std=gnu99"
           CFLAGS_aarch64_unknown_linux_gnu: "-std=gnu99"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
