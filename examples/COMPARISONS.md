@@ -245,7 +245,6 @@ Formula: Reaction ~ Days + (Days | Subject)
 
      AIC      BIC   logLik deviance
   1763.9   1783.1   -876.0   1751.9
-REML criterion at convergence: 1751.9393
 
 Random effects:
  Groups   Name        Variance Std.Dev.
@@ -390,7 +389,7 @@ Fixed effects:
 (Intercept) 1527.5000    19.3851   78.80
 ```
 
-#### Baseline 3. Python Output (`lme_python` / `statsmodels` backend equivalents)
+#### Baseline 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
 
 ```text
 === Model Summary ===
@@ -491,11 +490,12 @@ Generalized linear mixed model fit by ML (Laplace) ['glmerMod']
 Formula: TICKS ~ YEAR + HEIGHT + (1 | BROOD)
 
      AIC      BIC   logLik deviance
-  1108.1   1124.1   -550.1   1100.1
+  1108.1   1124.1   -550.1   1100.1 [2]
 
 Random effects:
  Groups   Name        Variance Std.Dev.
- BROOD  (Intercept) 1.5601     1.2491
+ BROOD    (Intercept) 1.5547   1.2469
+Number of obs: 403, groups: BROOD, 118
 
 Fixed effects:
             Estimate Std. Error z value
@@ -551,8 +551,10 @@ Because R warns about variables needing to be rescaled on this data set (`Rescal
 | **Fixed Intercept**       | `58.703`    | `56.981`                 | `55.322`        |
 | **Fixed Slope (YEAR)**    | `-0.482`    | `-0.464`                 | `-0.453`        |
 | **Fixed Slope (HEIGHT)**  | `-0.025`    | `-0.025`                 | `-0.023`        |
-| **Random Var: BROOD**     | `1.560`     | `1.558`                  | `1.5601`        |
+| **Random Var: BROOD**     | `1.560`     | `1.558`                  | `1.555`         |
 | **Expected Ticks (P1)**   | `8.75`      | `8.72`                   | `8.88`          |
+
+> *[2] GLMM AIC/BIC note: `lme-rs` computes the Laplace-approximated conditional deviance (`sum(dev_resid) + log|A| + u'u`) for optimization, while R's `logLik()` includes additional data-dependent constants (e.g., `lgamma(y+1)` for Poisson, observation-level normalization). This yields different absolute AIC values but identical model fit parameters, since the constants cancel during optimization.*
 
 R's optimization hit a convergence struggle (returning `max|grad| = 0.089424 (tol = 0.002)`), meaning it technically halted early due to unscaled continuous variables (`YEAR`, `HEIGHT`). Julia found a slightly more optimal topology `(logLik -1015.069)`, while `lme-rs`'s derivative-free Nelder-Mead simplex cleanly converged the entire space dynamically into the same pocket in just 9 iterations.
 
@@ -611,7 +613,8 @@ Formula: y ~ period2 + period3 + period4 + (1 | herd)
 
 Random effects:
  Groups   Name        Variance Std.Dev.
- herd   (Intercept) 0.4122     0.6420
+ herd     (Intercept) 0.4124   0.6422
+Number of obs: 842, groups: herd, 15
 
 Fixed effects:
             Estimate Std. Error z value
@@ -627,7 +630,7 @@ Predictions (Probabilities for Herd 1 across all 4 periods):
 0.204153, 0.088133, 0.077877, 0.051166
 ```
 
-#### Binomial 3. Python Output (`lme_python` / `statsmodels` backend equivalents)
+#### Binomial 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
 
 ```text
 === Model Summary ===
@@ -637,7 +640,12 @@ Formula: y ~ period2 + period3 + period4 + (1 | herd)
 
      AIC      BIC   logLik deviance
    565.1    588.7   -277.5    555.1
-   
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ herd     (Intercept) 0.4124   0.6422
+Number of obs: 842, groups: herd, 15
+
 Fixed effects:
             Estimate Std. Error z value
 (Intercept)  -1.3605     0.2276   -5.98
@@ -745,7 +753,7 @@ Fixed effects:
 (Intercept)  60.0533     0.6768   88.73
 ```
 
-#### Nested 3. Python Output (`lme_python` / `statsmodels` backend equivalents)
+#### Nested 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
 
 ```text
 === Model Summary ===
@@ -850,7 +858,7 @@ Fixed effects:
 (Intercept)  22.9722     0.8087   28.41
 ```
 
-#### Crossed 3. Python Output (`lme_python` / `statsmodels` backend equivalents)
+#### Crossed 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
 
 ```text
 === Model Summary ===

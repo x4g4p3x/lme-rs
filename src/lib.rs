@@ -371,8 +371,10 @@ impl fmt::Display for LmeFit {
                 let link = self.link_name.as_deref().unwrap_or("unknown");
                 writeln!(f, "Generalized linear mixed model fit by ML (Laplace) ['glmerMod']")?;
                 writeln!(f, " Family: {} ( {} )", fam, link)?;
-            } else {
+            } else if self.reml.is_some() {
                 writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
+            } else {
+                writeln!(f, "Linear mixed model fit by ML ['lmerMod']")?;
             }
             writeln!(f, "Formula: {}", formula)?;
         }
@@ -395,10 +397,11 @@ impl fmt::Display for LmeFit {
             writeln!(f, "REML criterion at convergence: {:.4}", reml)?;
         }
         
-        writeln!(f, "Scaled residuals:")?;
-        if let Some(sigma2) = self.sigma2 {
-            let sigma = sigma2.sqrt();
-            let mut scaled_res: Vec<f64> = self.residuals.iter().map(|&r| r / sigma).collect();
+        // Scaled residuals: use sigma for LMMs, Pearson residuals for GLMMs
+        let effective_sigma = self.sigma2.map(|s| s.sqrt()).unwrap_or(1.0);
+        if effective_sigma > 0.0 {
+            writeln!(f, "Scaled residuals:")?;
+            let mut scaled_res: Vec<f64> = self.residuals.iter().map(|&r| r / effective_sigma).collect();
             scaled_res.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             let n = scaled_res.len();
             if n > 0 {
@@ -415,7 +418,12 @@ impl fmt::Display for LmeFit {
         writeln!(f, "\nRandom effects:")?;
         writeln!(f, " Groups   Name        Variance Std.Dev.")?;
         
-        if let (Some(theta), Some(re_blocks), Some(sigma2)) = (&self.theta, &self.re_blocks, self.sigma2) {
+        // For GLMMs without dispersion (Poisson, Binomial), sigma2 is None but
+        // the RE variances are stored in theta relative to sigma2=1.0
+        let display_sigma2 = self.sigma2.unwrap_or(1.0);
+        let is_glmm = self.family_name.is_some();
+        if let (Some(theta), Some(re_blocks)) = (&self.theta, &self.re_blocks) {
+            let sigma2 = display_sigma2;
             let mut theta_idx = 0;
             let mut obs_groups = Vec::new();
             
@@ -462,7 +470,10 @@ impl fmt::Display for LmeFit {
                 
                 obs_groups.push(format!("{}, {}", block.group_name, block.m));
             }
-            writeln!(f, " Residual             {:<8.4} {:<8.4}", sigma2, sigma2.sqrt())?;
+            // Only show residual variance for LMMs (GLMMs without dispersion don't have sigma)
+            if !is_glmm {
+                writeln!(f, " Residual             {:<8.4} {:<8.4}", sigma2, sigma2.sqrt())?;
+            }
             writeln!(f, "Number of obs: {}, groups: {}", self.num_obs, obs_groups.join("; "))?;
         }
 
@@ -733,7 +744,7 @@ pub fn lmer_weighted(formula_str: &str, data: &DataFrame, reml: bool, weights: O
         var_corr: Some(var_corr_df),
         theta: Some(opt_result.theta),
         sigma2: Some(coefs.sigma2),
-        reml: Some(reml_eval),
+        reml: if reml { Some(reml_eval) } else { None },
         log_likelihood: Some(log_lik),
         aic: Some(aic),
         bic: Some(bic),

@@ -74,6 +74,12 @@ fn main() -> anyhow::Result<()> {
 - Matrix Cholesky deterministic factorizations ($A$ blocks)
 - Fixed Effect Coefficient estimates ($\beta$)
 
+See [examples/COMPARISONS.md](examples/COMPARISONS.md) for full cross-language output comparisons (R, Python, Julia, Rust).
+
+## Documentation
+
+For a comprehensive usage guide covering all features, see **[GUIDE.md](GUIDE.md)**.
+
 ## Roadmap
 
 - Core LMM Architecture implementation - **Complete**

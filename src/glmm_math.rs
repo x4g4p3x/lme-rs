@@ -339,6 +339,10 @@ impl GlmmData {
                     log_det_a += d.abs().ln();
                 }
 
+                // Laplace-approximated conditional deviance for the optimizer.
+                // Note: This is the *conditional* deviance used for optimization.
+                // R's logLik()/AIC() additionally includes data-dependent constants
+                // (e.g., lgamma(y+1) for Poisson, n*log(2π)) that don't affect optimization.
                 let deviance = sum_dev_resid + log_det_a + u.dot(&u);
 
                 // Standard errors for fixed effects
