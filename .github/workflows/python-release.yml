@@ -34,7 +34,7 @@ jobs:
           args: --release --out dist --manifest-path python/Cargo.toml -i python3.10
           sccache: 'true'
           manylinux: auto
-          before-all: |
+          before-script-linux: |
             if [ "${{ matrix.target }}" = "aarch64" ]; then
               yum install -y openssl-devel perl
             fi
