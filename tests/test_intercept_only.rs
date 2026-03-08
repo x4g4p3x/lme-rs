@@ -29,32 +29,34 @@ struct Outputs {
 
 #[test]
 fn test_load_intercept_only_data() {
-    let file = File::open("tests/data/intercept_only.json")
-        .expect("Failed to open JSON file. Ensure you run `Rscript tests/generate_test_data.R` first.");
+    let file = File::open("tests/data/intercept_only.json").expect(
+        "Failed to open JSON file. Ensure you run `Rscript tests/generate_test_data.R` first.",
+    );
     let reader = BufReader::new(file);
     let data: TestData = serde_json::from_reader(reader).expect("Failed to parse JSON");
 
     assert_eq!(data.model, "Reaction ~ 1 + (1 | Subject)");
-    
+
     // sleepstudy has 18 subjects, 10 days each = 180 observations
     assert_eq!(data.inputs.y.len(), 180);
     assert_eq!(data.inputs.x.len(), 180); // 180 rows
     assert_eq!(data.inputs.x[0].len(), 1); // 1 column (intercept)
-    
+
     assert_eq!(data.outputs.theta.len(), 1);
     assert_eq!(data.outputs.beta.len(), 1);
-    
+
     // Check reasonable expected values for beta
-    assert!((data.outputs.beta[0] - 298.508).abs() < 0.1); 
+    assert!((data.outputs.beta[0] - 298.508).abs() < 0.1);
 
     // Convert Vec<Vec<f64>> manually to Array2 since we want to evaluate LmmData
-    use ndarray::{Array1, Array2};
     use lme_rs::math::LmmData;
+    use ndarray::{Array1, Array2};
 
     let x_arr = Array2::from_shape_vec(
         (data.inputs.x.len(), data.inputs.x[0].len()),
         data.inputs.x.into_iter().flatten().collect(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut zt_tri = sprs::TriMat::new((data.inputs.zt.len(), data.inputs.zt[0].len()));
     for (i, row) in data.inputs.zt.iter().enumerate() {
@@ -68,31 +70,61 @@ fn test_load_intercept_only_data() {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 1, theta_len: 1, group_name: "Subject".to_string(), effect_names: vec!["(Intercept)".to_string()], group_map: std::collections::HashMap::new() }];
-    let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock {
+        m: 18,
+        k: 1,
+        theta_len: 1,
+        group_name: "Subject".to_string(),
+        effect_names: vec!["(Intercept)".to_string()],
+        group_map: std::collections::HashMap::new(),
+    }];
+    let model = LmmData::new(
+        x_arr.clone(),
+        zt_arr.clone(),
+        y_arr.clone(),
+        re_blocks.clone(),
+    );
     let deviance = model.log_reml_deviance(&[data.outputs.theta[0]], true);
-    
+
     // Check against LME4 computed REML objective
-    println!("lme4 reml_crit: {}, Rust deviance: {}", data.outputs.reml_crit, deviance);
+    println!(
+        "lme4 reml_crit: {}, Rust deviance: {}",
+        data.outputs.reml_crit, deviance
+    );
     assert!((deviance - data.outputs.reml_crit).abs() < 1e-6);
 
     // Run the optimizer and check
     use lme_rs::optimizer::optimize_theta_nd;
     let b_vec = ndarray::Array1::from_vec(vec![1.0]);
-    let opt_result = optimize_theta_nd(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), b_vec, true, None).unwrap();
+    let opt_result = optimize_theta_nd(
+        x_arr.clone(),
+        zt_arr.clone(),
+        y_arr.clone(),
+        re_blocks.clone(),
+        b_vec,
+        true,
+        None,
+    )
+    .unwrap();
     let best_th = opt_result.theta;
-    println!("lme4 theta: {}, Rust optimized theta: {}", data.outputs.theta[0], best_th[0]);
+    println!(
+        "lme4 theta: {}, Rust optimized theta: {}",
+        data.outputs.theta[0], best_th[0]
+    );
     assert!((best_th[0] - data.outputs.theta[0]).abs() < 1e-4);
 
     // Extract Betas
     let coefs = model.evaluate(&[data.outputs.theta[0]], true);
-    println!("lme4 beta0: {}, Rust beta0: {}", data.outputs.beta[0], coefs.beta[0]);
+    println!(
+        "lme4 beta0: {}, Rust beta0: {}",
+        data.outputs.beta[0], coefs.beta[0]
+    );
     assert!((coefs.beta[0] - data.outputs.beta[0]).abs() < 1e-4);
 
     // standard errors
     println!("lme4 SE beta0: 9.0499, Rust SE beta0: {}", coefs.beta_se[0]);
     assert!((coefs.beta_se[0] - 9.0499).abs() < 1e-4);
-    
+
     // t-values
     println!("lme4 t beta0: 32.985, Rust t beta0: {}", coefs.beta_t[0]);
     assert!((coefs.beta_t[0] - 32.985).abs() < 1e-3);

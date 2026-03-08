@@ -1,5 +1,5 @@
-use polars::prelude::*;
 use lme_rs::glmer;
+use polars::prelude::*;
 
 fn main() -> anyhow::Result<()> {
     // 1. Load the dataset
@@ -47,14 +47,9 @@ fn main() -> anyhow::Result<()> {
     // lme-rs `predict` currently evaluates the linear predictor (link scale)
     // We apply the inverse-logit function to get probabilities
     let eta = fit.predict(&newdata)?;
-    
-    let preds: Vec<f64> = eta
-        .iter()
-        .map(|x| {
-            1.0 / (1.0 + (-x).exp())
-        })
-        .collect();
-        
+
+    let preds: Vec<f64> = eta.iter().map(|x| 1.0 / (1.0 + (-x).exp())).collect();
+
     println!("Predictions:\n{:?}", preds);
 
     Ok(())

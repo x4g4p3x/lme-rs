@@ -1,9 +1,9 @@
 //! Tests targeting specific uncovered branches in lib.rs Display and convergence logic.
 
-use polars::prelude::*;
 use lme_rs::LmeFit;
 use lme_rs::model_matrix::ReBlock;
-use ndarray::{array, Array1};
+use ndarray::{Array1, array};
+use polars::prelude::*;
 use std::collections::HashMap;
 
 /// Helper to build a minimal LmeFit for Display testing.
@@ -64,8 +64,11 @@ fn test_display_zero_variance_nan_correlation() {
     let fit = make_display_fit(vec![0.0, 0.0, 1.0], re_blocks, 1.0, Some(true), Some(5));
     let summary = format!("{}", fit);
 
-    assert!(summary.contains("NaN") || summary.contains("Corr:"),
-        "Summary should handle zero-variance gracefully:\n{}", summary);
+    assert!(
+        summary.contains("NaN") || summary.contains("Corr:"),
+        "Summary should handle zero-variance gracefully:\n{}",
+        summary
+    );
 }
 
 #[test]
@@ -83,10 +86,16 @@ fn test_display_converged_without_iterations() {
     let fit = make_display_fit(vec![1.0], re_blocks, 1.0, Some(true), None);
     let summary = format!("{}", fit);
 
-    assert!(summary.contains("optimizer (Nelder-Mead) converged"),
-        "Summary should say converged:\n{}", summary);
-    assert!(!summary.contains("iterations"),
-        "Should NOT mention iterations when None:\n{}", summary);
+    assert!(
+        summary.contains("optimizer (Nelder-Mead) converged"),
+        "Summary should say converged:\n{}",
+        summary
+    );
+    assert!(
+        !summary.contains("iterations"),
+        "Should NOT mention iterations when None:\n{}",
+        summary
+    );
 }
 
 #[test]
@@ -104,10 +113,16 @@ fn test_display_non_convergence_warning() {
     let fit = make_display_fit(vec![1.0], re_blocks, 1.0, Some(false), Some(1000));
     let summary = format!("{}", fit);
 
-    assert!(summary.contains("WARNING"),
-        "Summary should contain WARNING for non-convergence:\n{}", summary);
-    assert!(summary.contains("did NOT converge"),
-        "Summary should say 'did NOT converge':\n{}", summary);
+    assert!(
+        summary.contains("WARNING"),
+        "Summary should contain WARNING for non-convergence:\n{}",
+        summary
+    );
+    assert!(
+        summary.contains("did NOT converge"),
+        "Summary should say 'did NOT converge':\n{}",
+        summary
+    );
 }
 
 #[test]
@@ -127,8 +142,11 @@ fn test_display_no_convergence_info() {
 
     // "REML criterion at convergence" always appears, so check for "optimizer" which only
     // shows up in the convergence diagnostic block
-    assert!(!summary.contains("optimizer"),
-        "Summary should NOT contain optimizer diagnostics when converged=None:\n{}", summary);
+    assert!(
+        !summary.contains("optimizer"),
+        "Summary should NOT contain optimizer diagnostics when converged=None:\n{}",
+        summary
+    );
 }
 
 #[test]
@@ -136,7 +154,8 @@ fn test_predict_column_name_mismatch() {
     // L80-82: Trigger the column-name mismatch guard in predict().
     // We fit a real model, then tamper with `fixed_names` so build_x_matrix succeeds
     // (same columns exist in newdata) but the name comparison fails.
-    let mut file = std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
+    let mut file =
+        std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
     let df = CsvReadOptions::default()
         .with_has_header(true)
         .into_reader_with_file_handle(&mut file)
@@ -153,9 +172,15 @@ fn test_predict_column_name_mismatch() {
     let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let result = fit.predict(&newdata);
-    assert!(result.is_err(), "predict should fail with mismatched column names");
+    assert!(
+        result.is_err(),
+        "predict should fail with mismatched column names"
+    );
 
     let err_msg = result.unwrap_err().to_string();
-    assert!(err_msg.contains("do not match"),
-        "Error should mention column mismatch, got: {}", err_msg);
+    assert!(
+        err_msg.contains("do not match"),
+        "Error should mention column mismatch, got: {}",
+        err_msg
+    );
 }

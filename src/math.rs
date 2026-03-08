@@ -1,6 +1,6 @@
 use ndarray::{Array1, Array2};
-use ndarray_linalg::{Cholesky, Inverse, Solve};
 use ndarray_linalg::UPLO;
+use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
 
 /// Represents the resolved analytical outputs from evaluating a fully optimized variance structure.
@@ -45,7 +45,7 @@ pub struct LmmData {
     pub re_blocks: Vec<crate::model_matrix::ReBlock>,
     /// Optional prior observation weights (length n).
     pub weights: Option<Array1<f64>>,
-    
+
     // Cached effective matrices that are independent of theta
     // When weights are present, these are the weighted versions.
     /// Effective Dense fixed-effects design matrix ($X$), optionally scaled by observation weights.
@@ -55,16 +55,21 @@ pub struct LmmData {
     /// Effective Dependent variable vector ($y$), optionally scaled by observation weights.
     pub y_eff: Array1<f64>,
     /// Cross product of the transposed design matrix ($Z^T Z$). This is `zt_eff * zt_eff^T`.
-    pub zt_z: CsMat<f64>, 
+    pub zt_z: CsMat<f64>,
     /// Cross product of the fixed-effects design matrix ($X^T X$). This is `x_eff^T * x_eff`.
-    pub xt_x: Array2<f64>, 
+    pub xt_x: Array2<f64>,
     /// Cross product of the fixed-effects design matrix and the dependent variable ($X^T y$). This is `x_eff^T * y_eff`.
     pub xt_y: Array1<f64>,
 }
 
 impl LmmData {
     /// Create `LmmData` containing unweighted structural design matrices.
-    pub fn new(x: Array2<f64>, zt: CsMat<f64>, y: Array1<f64>, re_blocks: Vec<crate::model_matrix::ReBlock>) -> Self {
+    pub fn new(
+        x: Array2<f64>,
+        zt: CsMat<f64>,
+        y: Array1<f64>,
+        re_blocks: Vec<crate::model_matrix::ReBlock>,
+    ) -> Self {
         Self::new_weighted(x, zt, y, re_blocks, None)
     }
 
@@ -85,7 +90,7 @@ impl LmmData {
                 let sqrt_w = w.mapv(|wi| wi.sqrt());
                 let n = x.nrows();
                 let p = x.ncols();
-                
+
                 // X_w = diag(sqrt_w) * X
                 let mut x_w = Array2::<f64>::zeros((n, p));
                 for i in 0..n {
@@ -94,22 +99,46 @@ impl LmmData {
                     }
                 }
                 let y_w = &y * &sqrt_w;
-                
+
                 // Z_w^T = Z^T * diag(sqrt_w), which means scaling columns of Zt
                 let zt_w = weight_sparse_cols(&zt, &sqrt_w);
-                
+
                 let zt_z = &zt_w * &zt_w.transpose_view();
                 let xt_x = x_w.t().dot(&x_w);
                 let xt_y = x_w.t().dot(&y_w);
-                
-                LmmData { x, zt, y, re_blocks, weights, x_eff: x_w, zt_eff: zt_w, y_eff: y_w, zt_z, xt_x, xt_y }
+
+                LmmData {
+                    x,
+                    zt,
+                    y,
+                    re_blocks,
+                    weights,
+                    x_eff: x_w,
+                    zt_eff: zt_w,
+                    y_eff: y_w,
+                    zt_z,
+                    xt_x,
+                    xt_y,
+                }
             }
             None => {
                 let zt_z = &zt * &zt.transpose_view();
                 let xt_x = x.t().dot(&x);
                 let xt_y = x.t().dot(&y);
-                
-                LmmData { x_eff: x.clone(), zt_eff: zt.clone(), y_eff: y.clone(), x, zt, y, re_blocks, weights, zt_z, xt_x, xt_y }
+
+                LmmData {
+                    x_eff: x.clone(),
+                    zt_eff: zt.clone(),
+                    y_eff: y.clone(),
+                    x,
+                    zt,
+                    y,
+                    re_blocks,
+                    weights,
+                    zt_z,
+                    xt_x,
+                    xt_y,
+                }
             }
         }
     }
@@ -134,14 +163,14 @@ impl LmmData {
         let y_eff = &self.y_eff;
 
         let mut lam_tri = TriMat::new((q, q));
-        
+
         let mut row_offset = 0;
         let mut theta_offset = 0;
-        
+
         for block in &self.re_blocks {
             let m = block.m;
             let k = block.k;
-            
+
             for group in 0..m {
                 let offset = row_offset + group * k;
                 let mut idx = 0;
@@ -171,8 +200,8 @@ impl LmmData {
         let a = &a_part2 + &eye;
 
         // LDLT of A
-        use sprs_ldl::Ldl;
         use sprs::SymmetryCheck;
+        use sprs_ldl::Ldl;
         let ldl = Ldl::new()
             .check_symmetry(SymmetryCheck::DontCheckSymmetry)
             .numeric(a.view())
@@ -184,12 +213,13 @@ impl LmmData {
         for (val, (i, _j)) in zt_eff.iter() {
             zt_y[i] += val * y_eff[_j]; // Note: Zt is q x n, so iter gives (val, (row_in_Zt, col_in_Zt)). col_in_Zt corresponds to observation index in y
         }
-        
+
         let mut v_y = Array1::<f64>::zeros(q);
-        for (val, (i, _j)) in lam_t.iter() { // lam_t is q x q
+        for (val, (i, _j)) in lam_t.iter() {
+            // lam_t is q x q
             v_y[i] += val * zt_y[_j];
         }
-        
+
         let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
         let w_y = Array1::from_vec(w_y_vec);
 
@@ -197,22 +227,22 @@ impl LmmData {
         let p_usize = p as usize;
         let mut v_cols = Vec::with_capacity(p_usize);
         let mut w_cols = Vec::with_capacity(p_usize);
-        
+
         for j in 0..p_usize {
             let x_col = x_eff.column(j);
             let mut zt_x_j = Array1::<f64>::zeros(q);
             for (val, (row, col)) in zt_eff.iter() {
                 zt_x_j[row] += val * x_col[col];
             }
-            
+
             let mut v_j = Array1::<f64>::zeros(q);
             for (val, (row, col)) in lam_t.iter() {
                 v_j[row] += val * zt_x_j[col];
             }
-            
+
             let w_j_vec: Vec<f64> = ldl.solve(v_j.to_vec());
             let w_j = Array1::from_vec(w_j_vec);
-            
+
             v_cols.push(v_j);
             w_cols.push(w_j);
         }
@@ -235,23 +265,23 @@ impl LmmData {
         let l_x = a_x.cholesky(UPLO::Lower).expect("Cholesky of A_x failed");
 
         let rhs_beta = &self.xt_y - &rzx_t_cu;
-        
+
         let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
         let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
 
         // Compute norms
         let y_norm2: f64 = y_eff.iter().map(|&x| x * x).sum();
-        
+
         let mut cu_norm2 = 0.0;
         for i in 0..v_y.len() {
             cu_norm2 += v_y[i] * w_y[i];
         }
-        
+
         let mut c_beta_norm2 = 0.0;
         for i in 0..beta.len() {
             c_beta_norm2 += beta[i] * rhs_beta[i];
         }
-        
+
         let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
 
         let reml_df = if reml { n - p } else { n };
@@ -261,21 +291,19 @@ impl LmmData {
         for &d in ldl.d() {
             log_det_a += d.ln();
         }
-        
+
         let mut log_det_l_x = 0.0;
         for i in 0..l_x.nrows() {
             log_det_l_x += l_x[[i, i]].ln();
         }
 
         let twopi = std::f64::consts::PI * 2.0;
-        let mut deviance = reml_df * (twopi * sigma2).ln()
-            + log_det_a
-            + reml_df;
-            
+        let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+
         if reml {
             deviance += 2.0 * log_det_l_x;
         }
-        
+
         let reml_crit = deviance;
 
         let mut u = Array1::<f64>::zeros(q);
@@ -294,10 +322,10 @@ impl LmmData {
         // Standard Errors for Fixed Effects
         let mut beta_se = Array1::<f64>::zeros(p_usize);
         let mut beta_t = Array1::<f64>::zeros(p_usize);
-        
+
         let inv_lx = l_x.inv().expect("Inverse of L_x failed");
         let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
-        
+
         for i in 0..p_usize {
             let var_i = sigma2 * v_beta_unscaled[[i, i]];
             beta_se[i] = var_i.sqrt();
@@ -348,24 +376,22 @@ fn weight_sparse_cols(sp: &CsMat<f64>, scale: &Array1<f64>) -> CsMat<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model_matrix::ReBlock;
     use ndarray::array;
     use sprs::TriMat;
-    use crate::model_matrix::ReBlock;
 
     #[test]
     fn test_weighted_lmm_evaluation() {
-        let x = array![
-            [1.0, 2.0],
-            [1.0, 3.0],
-            [1.0, 4.0]
-        ];
-        
+        let x = array![[1.0, 2.0], [1.0, 3.0], [1.0, 4.0]];
+
         let mut zt_tri = TriMat::new((3, 3));
-        for i in 0..3 { zt_tri.add_triplet(i, i, 1.0); }
+        for i in 0..3 {
+            zt_tri.add_triplet(i, i, 1.0);
+        }
         let zt = zt_tri.to_csr();
-        
+
         let y = array![2.0, 4.0, 6.0];
-        
+
         let re_blocks = vec![ReBlock {
             m: 3,
             k: 1,
@@ -374,16 +400,21 @@ mod tests {
             effect_names: vec!["(Intercept)".to_string()],
             group_map: std::collections::HashMap::new(),
         }];
-        
+
         let weights = array![0.5, 1.0, 2.0];
-        
-        let lmm_weighted = LmmData::new_weighted(x.clone(), zt.clone(), y.clone(), re_blocks.clone(), Some(weights));
+
+        let lmm_weighted = LmmData::new_weighted(
+            x.clone(),
+            zt.clone(),
+            y.clone(),
+            re_blocks.clone(),
+            Some(weights),
+        );
         let theta = vec![1.0];
         let coefs = lmm_weighted.evaluate(&theta, true);
-        
+
         assert_eq!(coefs.beta.len(), 2);
         assert_eq!(coefs.b.len(), 3);
         assert!(coefs.sigma2 > -1e-10);
     }
 }
-

@@ -8,8 +8,8 @@
 use crate::family::GlmFamily;
 use crate::model_matrix::ReBlock;
 use ndarray::{Array1, Array2};
-use ndarray_linalg::{Cholesky, Inverse, Solve};
 use ndarray_linalg::UPLO;
+use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
 
 /// Encapsulates the design matrices and family for a GLMM evaluation.
@@ -59,7 +59,7 @@ pub struct GlmmCoefficients {
 
 impl GlmmData {
     /// Construct a fresh GLMM data block capturing design matrices and specific generative distributions,
-    /// pre-building the index maps used repeatedly during inner PIRLS loops for $Z^T W Z$ weight updates. 
+    /// pre-building the index maps used repeatedly during inner PIRLS loops for $Z^T W Z$ weight updates.
     pub fn new(
         x: Array2<f64>,
         zt: CsMat<f64>,
@@ -68,7 +68,7 @@ impl GlmmData {
         family: Box<dyn GlmFamily>,
     ) -> Self {
         let zt_z = &zt * &zt.transpose_view();
-        
+
         let z_csc = zt.to_csc();
         let mut zt_w_z_map = Vec::new();
         let n = zt.cols();
@@ -81,11 +81,11 @@ impl GlmmData {
                         let row_a = indices[i];
                         let row_b = indices[j];
                         let val = data[i] * data[j];
-                        
+
                         // find data index in zt_z for (row_a, row_b)
                         let row_view = zt_z.outer_view(row_a).unwrap();
                         let mut data_idx = None;
-                        
+
                         let base_ptr = zt_z.data().as_ptr() as usize;
                         let row_ptr = row_view.data().as_ptr() as usize;
                         let start_idx = (row_ptr - base_ptr) / std::mem::size_of::<f64>();
@@ -104,7 +104,15 @@ impl GlmmData {
             }
         }
 
-        GlmmData { x, zt, y, re_blocks, family, zt_z, zt_w_z_map }
+        GlmmData {
+            x,
+            zt,
+            y,
+            re_blocks,
+            family,
+            zt_z,
+            zt_w_z_map,
+        }
     }
 
     /// Compute Laplace-approximated deviance for a given theta vector.
@@ -117,13 +125,21 @@ impl GlmmData {
     }
 
     /// Compute coefficients and final structural parameters at the MLE / REML theta.
-    pub fn evaluate(&mut self, theta: &[f64], offset: Option<&Array1<f64>>) -> Option<GlmmCoefficients> {
+    pub fn evaluate(
+        &mut self,
+        theta: &[f64],
+        offset: Option<&Array1<f64>>,
+    ) -> Option<GlmmCoefficients> {
         self.pirls(theta, offset)
     }
 
     /// Run the full PIRLS algorithm for a given theta.
     /// Returns `None` if PIRLS fails to converge or hits numerical issues.
-    pub fn pirls(&mut self, theta: &[f64], offset: Option<&Array1<f64>>) -> Option<GlmmCoefficients> {
+    pub fn pirls(
+        &mut self,
+        theta: &[f64],
+        offset: Option<&Array1<f64>>,
+    ) -> Option<GlmmCoefficients> {
         let n = self.y.len();
         let q = self.zt.rows();
         let p = self.x.ncols();
@@ -197,11 +213,12 @@ impl GlmmData {
             let a = &a_part + &eye;
 
             // LDLT decomposition of A
-            use sprs_ldl::Ldl;
             use sprs::SymmetryCheck;
+            use sprs_ldl::Ldl;
             let ldl = match Ldl::new()
                 .check_symmetry(SymmetryCheck::DontCheckSymmetry)
-                .numeric(a.view()) {
+                .numeric(a.view())
+            {
                 Ok(l) => l,
                 Err(e) => {
                     log::debug!("LDLT decomposition failed: {:?}", e);
@@ -212,7 +229,7 @@ impl GlmmData {
             // Compute weighted Zt * (z - X*beta_old) for the u-update
             // But we solve for both u and beta simultaneously
             // RHS_u = Λ'Z'W(z)
-            let wz = &w * &z;  // element-wise w*z
+            let wz = &w * &z; // element-wise w*z
             let mut zt_wz = Array1::<f64>::zeros(q);
             for (val, (row, col)) in self.zt.iter() {
                 zt_wz[row] += val * wz[col];
@@ -333,11 +350,12 @@ impl GlmmData {
 
             log::debug!(
                 "PIRLS Iter {}: old_pwrss = {}, new_pwrss = {}",
-                _iter, old_pwrss, pwrss
+                _iter,
+                old_pwrss,
+                pwrss
             );
 
             if (old_pwrss - pwrss).abs() / (pwrss + 0.1) < tol {
-
                 // Compute Laplace deviance
                 let dev_resid = self.family.dev_resid(&self.y, &mu, &wt);
                 let sum_dev_resid: f64 = dev_resid.sum();
@@ -398,8 +416,14 @@ impl GlmmData {
         }
         Some(GlmmCoefficients {
             deviance: f64::MAX,
-            beta, b, u, eta, residuals: &self.y - &mu, fitted: mu,
-            beta_se: Array1::zeros(p), beta_z: Array1::zeros(p),
+            beta,
+            b,
+            u,
+            eta,
+            residuals: &self.y - &mu,
+            fitted: mu,
+            beta_se: Array1::zeros(p),
+            beta_z: Array1::zeros(p),
             v_beta_unscaled: Array2::zeros((p, p)),
         })
     }
@@ -457,9 +481,9 @@ fn _sparse_times_dense(sp: &CsMat<f64>, dense: &ndarray::ArrayView2<f64>) -> CsM
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array2};
-    use sprs::TriMat;
     use crate::family::BinomialFamily;
+    use ndarray::{Array2, array};
+    use sprs::TriMat;
 
     #[test]
     fn test_sparse_times_dense() {
@@ -470,11 +494,7 @@ mod tests {
         let sp = sp_tri.to_csr();
 
         // Create 3x2 dense
-        let dense = array![
-            [1.0, 2.0],
-            [3.0, 4.0],
-            [5.0, 6.0]
-        ];
+        let dense = array![[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]];
 
         let result = _sparse_times_dense(&sp, &dense.view());
         assert_eq!(result.rows(), 2);
@@ -494,9 +514,9 @@ mod tests {
         zt_tri.add_triplet(0, 0, 1.0);
         zt_tri.add_triplet(1, 1, 1.0);
         let zt = zt_tri.to_csr();
-        
+
         let y = array![0.0, 1.0];
-        
+
         // Single RE block
         let re_blocks = vec![ReBlock {
             m: 2,
@@ -506,10 +526,10 @@ mod tests {
             effect_names: vec!["(Intercept)".to_string()],
             group_map: std::collections::HashMap::new(),
         }];
-        
+
         let fam = Box::new(BinomialFamily::new());
         let mut glmm = GlmmData::new(x, zt, y, re_blocks, fam);
-        
+
         // Feed in a NaN theta or super large theta to break LDLT or Cholesky
         let dev = glmm.laplace_deviance(&[f64::NAN], None);
         assert_eq!(dev, f64::MAX);
@@ -518,10 +538,9 @@ mod tests {
         let offset = Array1::from_vec(vec![10.0, -10.0]);
         let dev2 = glmm.laplace_deviance(&[1e100], Some(&offset));
         assert_eq!(dev2, f64::MAX);
-        
+
         // Also call evaluate to trigger `evaluate` branch wrapper directly
         let eval_res = glmm.evaluate(&[1e100], Some(&offset));
         assert!(eval_res.is_none(), "PIRLS failure should return None");
     }
 }
-

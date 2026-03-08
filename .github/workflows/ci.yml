@@ -24,6 +24,14 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install OpenBLAS (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install openblas
+
+      - name: Install OpenBLAS (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
       - name: Cache cargo registry & build
         uses: actions/cache@v4
         with:

@@ -37,7 +37,8 @@ fn test_mock_crossed_effects() {
     let x_arr = Array2::from_shape_vec(
         (data.inputs.x.len(), data.inputs.x[0].len()),
         data.inputs.x.into_iter().flatten().collect(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut zt_tri = sprs::TriMat::new((data.inputs.zt.len(), data.inputs.zt[0].len()));
     for (i, row) in data.inputs.zt.iter().enumerate() {
@@ -50,26 +51,55 @@ fn test_mock_crossed_effects() {
     let zt_arr: sprs::CsMat<f64> = zt_tri.to_csr();
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    // Mock dataset has two crossed factors, A (k=1, m=2) and B (k=1, m=2). 
+    // Mock dataset has two crossed factors, A (k=1, m=2) and B (k=1, m=2).
     // Both intercept-only, so theta_len = 1 each
     let re_blocks = vec![
-        lme_rs::model_matrix::ReBlock { m: 2, k: 1, theta_len: 1, group_name: "A".to_string(), effect_names: vec!["(Intercept)".to_string()], group_map: std::collections::HashMap::new() },
-        lme_rs::model_matrix::ReBlock { m: 2, k: 1, theta_len: 1, group_name: "B".to_string(), effect_names: vec!["(Intercept)".to_string()], group_map: std::collections::HashMap::new() },
+        lme_rs::model_matrix::ReBlock {
+            m: 2,
+            k: 1,
+            theta_len: 1,
+            group_name: "A".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        },
+        lme_rs::model_matrix::ReBlock {
+            m: 2,
+            k: 1,
+            theta_len: 1,
+            group_name: "B".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        },
     ];
 
-    let model = LmmData::new(x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone());
-    
+    let model = LmmData::new(
+        x_arr.clone(),
+        zt_arr.clone(),
+        y_arr.clone(),
+        re_blocks.clone(),
+    );
+
     // Evaluate deviance using static array mapping
     let deviance = model.log_reml_deviance(&data.outputs.theta, true);
-    
-    println!("Crossed effects deviance evaluating successfully: {}", deviance);
+
+    println!(
+        "Crossed effects deviance evaluating successfully: {}",
+        deviance
+    );
     assert!(!deviance.is_nan());
 
     // Try optimizing
     let initial_theta = ndarray::Array1::from_vec(vec![1.0, 1.0]);
     let opt_result = lme_rs::optimizer::optimize_theta_nd(
-        x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), initial_theta, true, None
-    ).unwrap();
+        x_arr.clone(),
+        zt_arr.clone(),
+        y_arr.clone(),
+        re_blocks.clone(),
+        initial_theta,
+        true,
+        None,
+    )
+    .unwrap();
     let best_th = opt_result.theta;
 
     println!("Best theta array recovered: {:?}", best_th.to_vec());

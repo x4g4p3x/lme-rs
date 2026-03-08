@@ -49,11 +49,11 @@ fn test_ml_optimization() {
     let zt_arr: sprs::CsMat<f64> = zt_tri.to_csr();
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    let re_blocks = vec![lme_rs::model_matrix::ReBlock { 
-        m: 18, 
-        k: 2, 
-        theta_len: 3, 
-        group_name: "Subject".to_string(), 
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock {
+        m: 18,
+        k: 2,
+        theta_len: 3,
+        group_name: "Subject".to_string(),
         effect_names: vec!["(Intercept)".to_string(), "Days".to_string()],
         group_map: std::collections::HashMap::new(),
     }];
@@ -61,18 +61,25 @@ fn test_ml_optimization() {
     // Optimize ML directly via Rust
     let initial_theta = ndarray::Array1::from_vec(vec![1.0, 0.0, 1.0]);
     let opt_result = lme_rs::optimizer::optimize_theta_nd(
-        x_arr.clone(), zt_arr.clone(), y_arr.clone(), re_blocks.clone(), initial_theta, false, None
-    ).unwrap();
+        x_arr.clone(),
+        zt_arr.clone(),
+        y_arr.clone(),
+        re_blocks.clone(),
+        initial_theta,
+        false,
+        None,
+    )
+    .unwrap();
     let best_th = opt_result.theta;
 
     let model = LmmData::new(x_arr, zt_arr, y_arr, re_blocks);
-    
+
     // Evaluate DEV against REML constraint to verify divergence
     let deviance = model.log_reml_deviance(best_th.as_slice().unwrap(), false);
-    
+
     println!("ML deviance: {}", deviance);
     println!("Optimized ML theta: {:?}", best_th.to_vec());
-    
+
     // In LME4, sleepstudy ML Deviance is approx 1751.939
     assert!((deviance - 1751.9).abs() < 1.0);
 

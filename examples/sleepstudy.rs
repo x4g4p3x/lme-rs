@@ -1,12 +1,12 @@
-use polars::prelude::*;
 use lme_rs::lmer;
+use polars::prelude::*;
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
     // 1. Locate the sleepstudy dataset (distributed in tests/data)
     // When running via `cargo run --example`, the working directory is the project root.
     let file_path = PathBuf::from("tests").join("data").join("sleepstudy.csv");
-    
+
     if !file_path.exists() {
         eprintln!("Could not find the dataset at {}", file_path.display());
         eprintln!("Please run this example from the root of the lme-rs repository.");
@@ -26,10 +26,10 @@ fn main() -> anyhow::Result<()> {
 
     // 3. Define the Wilkinson formula
     let formula = "Reaction ~ Days + (Days | Subject)";
-    
+
     println!("\nFitting model: {}", formula);
     println!("Evaluating Restricted Maximum Likelihood (REML)...");
-    
+
     // Evaluate standard REML model
     // The `true` parameter indicates we want to use REML instead of ML.
     let fit = lmer(formula, &df, true)?;
@@ -41,13 +41,13 @@ fn main() -> anyhow::Result<()> {
     // 5. Generate Population-Level Predictions
     println!("\n=== Predictions ===");
     println!("Generating predictions for Subject 308 at Days 0, 1, 5, and 10...");
-    
+
     let new_days = Series::new("Days".into(), &[0.0, 1.0, 5.0, 10.0]);
     let new_subject = Series::new("Subject".into(), &["308", "308", "308", "308"]);
-    
+
     // Combine into a new DataFrame
     let newdata: DataFrame = DataFrame::new(vec![new_days.into(), new_subject.into()])?;
-    
+
     // predict expects the new DataFrame
     let preds = fit.predict(&newdata)?;
     println!("Predictions:\n{:?}", preds);

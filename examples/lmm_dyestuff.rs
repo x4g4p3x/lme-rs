@@ -1,5 +1,5 @@
-use polars::prelude::*;
 use lme_rs::lmer;
+use polars::prelude::*;
 
 fn main() -> anyhow::Result<()> {
     let mut file = std::fs::File::open("tests/data/dyestuff.csv")?;
@@ -10,9 +10,7 @@ fn main() -> anyhow::Result<()> {
 
     let df = df
         .lazy()
-        .with_columns(vec![
-            col("Batch").cast(DataType::String),
-        ])
+        .with_columns(vec![col("Batch").cast(DataType::String)])
         .collect()?;
 
     println!("Fitting model: Yield ~ 1 + (1 | Batch)");

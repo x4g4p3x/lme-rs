@@ -24,13 +24,17 @@ pub struct RobustResult {
 ///
 /// Formula: V_robust = (X^T V^{-1} X)^{-1} (X^T V^{-1} diag(r^2) V^{-1} X) (X^T V^{-1} X)^{-1}
 /// We approximate V^{-1} X using the weighted design matrices already computed during the fit.
-pub fn compute_robust_se(fit: &LmeFit, data: &polars::prelude::DataFrame, cluster_col: Option<&str>) -> Result<RobustResult, String> {
+pub fn compute_robust_se(
+    fit: &LmeFit,
+    data: &polars::prelude::DataFrame,
+    cluster_col: Option<&str>,
+) -> Result<RobustResult, String> {
     let p = fit.coefficients.len();
     let n = fit.residuals.len();
 
     let ast = crate::formula::parse(&fit.formula.clone().unwrap_or_default())
         .map_err(|e| format!("Failed to parse formula: {}", e))?;
-        
+
     let mut response_col = String::new();
     for (name, info) in &ast.columns {
         if info.roles.contains(&"Response".to_string()) {
@@ -38,24 +42,33 @@ pub fn compute_robust_se(fit: &LmeFit, data: &polars::prelude::DataFrame, cluste
             break;
         }
     }
-    
+
     let (x_mat, _) = crate::model_matrix::build_x_matrix(&ast, data, &response_col, n)
         .map_err(|e| format!("Failed building X matrix: {}", e))?;
 
-    let v_beta_unscaled = fit.v_beta_unscaled.as_ref().ok_or("Unscaled V_beta missing")?;
+    let v_beta_unscaled = fit
+        .v_beta_unscaled
+        .as_ref()
+        .ok_or("Unscaled V_beta missing")?;
     let eps = &fit.residuals;
-    
+
     let mut meat = Array2::<f64>::zeros((p, p));
 
     match cluster_col {
         Some(col_name) => {
-            let series = data.column(col_name).map_err(|e| e.to_string())?.cast(&polars::datatypes::DataType::String).map_err(|e| e.to_string())?;
-            let str_ca = series.str().map_err(|_| "Failed to cast to string chunked array")?;
-            
+            let series = data
+                .column(col_name)
+                .map_err(|e| e.to_string())?
+                .cast(&polars::datatypes::DataType::String)
+                .map_err(|e| e.to_string())?;
+            let str_ca = series
+                .str()
+                .map_err(|_| "Failed to cast to string chunked array")?;
+
             // Map clusters
             use std::collections::HashMap;
             let mut cluster_scores: HashMap<String, Array1<f64>> = HashMap::new();
-            
+
             for i in 0..n {
                 let g = str_ca.get(i).unwrap_or("").to_string();
                 let score = cluster_scores.entry(g).or_insert_with(|| Array1::zeros(p));
@@ -63,7 +76,7 @@ pub fn compute_robust_se(fit: &LmeFit, data: &polars::prelude::DataFrame, cluste
                     score[j] += x_mat[[i, j]] * eps[i];
                 }
             }
-            
+
             for score in cluster_scores.values() {
                 for i in 0..p {
                     for j in 0..p {
@@ -71,12 +84,13 @@ pub fn compute_robust_se(fit: &LmeFit, data: &polars::prelude::DataFrame, cluste
                     }
                 }
             }
-        },
+        }
         None => {
             for i in 0..n {
                 for i_dim in 0..p {
                     for j_dim in 0..p {
-                        meat[[i_dim, j_dim]] += x_mat[[i, i_dim]] * x_mat[[i, j_dim]] * eps[i] * eps[i];
+                        meat[[i_dim, j_dim]] +=
+                            x_mat[[i, i_dim]] * x_mat[[i, j_dim]] * eps[i] * eps[i];
                     }
                 }
             }
@@ -92,10 +106,10 @@ pub fn compute_robust_se(fit: &LmeFit, data: &polars::prelude::DataFrame, cluste
         robust_se[i] = v_robust[[i, i]].sqrt();
         robust_t[i] = fit.coefficients[i] / robust_se[i];
     }
-    
+
     // Normal approximation for p-values
     let mut robust_p_values = Array1::zeros(p);
-    use statrs::distribution::{Normal, ContinuousCDF};
+    use statrs::distribution::{ContinuousCDF, Normal};
     let normal = Normal::new(0.0, 1.0).unwrap();
     for i in 0..p {
         robust_p_values[i] = 2.0 * (1.0 - normal.cdf(robust_t[i].abs()));

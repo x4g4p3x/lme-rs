@@ -1,11 +1,11 @@
+use lme_rs::{family::Family, glmer};
 use polars::prelude::*;
-use lme_rs::{glmer, family::Family};
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
     // 1. Locate the grouseticks dataset (distributed in tests/data)
     let file_path = PathBuf::from("tests").join("data").join("grouseticks.csv");
-    
+
     if !file_path.exists() {
         eprintln!("Could not find the dataset at {}", file_path.display());
         eprintln!("Please run this example from the root of the lme-rs repository.");
@@ -29,10 +29,10 @@ fn main() -> anyhow::Result<()> {
     // HEIGHT is the altitude
     // BROOD is the family group identifier
     let formula = "TICKS ~ YEAR + HEIGHT + (1 | BROOD)";
-    
+
     println!("\nFitting Poisson GLMM: {}", formula);
     println!("Evaluating Maximum Likelihood via Laplace Approximation...");
-    
+
     // Evaluate GLMM with Poisson family and its canonical log link
     let fit = glmer(formula, &df, Family::Poisson)?;
 
@@ -43,17 +43,13 @@ fn main() -> anyhow::Result<()> {
     // 5. Generate Predictions on the Response Scale (counts)
     println!("\n=== Predictions (Response Scale) ===");
     println!("Generating expected tick counts for 3 new broods...");
-    
+
     let new_year = Series::new("YEAR".into(), &[96, 96, 97]);
     let new_height = Series::new("HEIGHT".into(), &[400, 500, 450]);
     let new_brood = Series::new("BROOD".into(), &["new1", "new2", "new3"]);
-    
-    let newdata = DataFrame::new(vec![
-        new_year.into(), 
-        new_height.into(), 
-        new_brood.into()
-    ])?;
-    
+
+    let newdata = DataFrame::new(vec![new_year.into(), new_height.into(), new_brood.into()])?;
+
     // predict_response applies the inverse-link (exp for Poisson)
     // to give actual expected counts instead of log-counts
     let preds = fit.predict_response(&newdata)?;

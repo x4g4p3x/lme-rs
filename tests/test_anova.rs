@@ -1,11 +1,10 @@
-use lme_rs::anova::DdfMethod;
 use lme_rs::LmeFit;
+use lme_rs::anova::DdfMethod;
 use ndarray::Array1;
 
 // Simple mock test ignoring actual data
 #[test]
 fn test_anova_methods_produce_valid_f_tests() {
-    
     let mut fit = LmeFit {
         coefficients: Array1::zeros(2),
         residuals: Array1::zeros(1),
@@ -37,11 +36,11 @@ fn test_anova_methods_produce_valid_f_tests() {
         v_beta_unscaled: None,
         robust: None,
     };
-    
+
     // Test rejection without having evaluated tracking matrices
     let err = fit.anova(DdfMethod::Satterthwaite).unwrap_err();
     assert!(err.to_string().contains("Satterthwaite values missing"));
-    
+
     // Inject mock evaluations
     let s_df = Array1::from_vec(vec![17.0, 17.0]);
     let s_p = Array1::from_vec(vec![0.001, 0.002]);
@@ -49,14 +48,14 @@ fn test_anova_methods_produce_valid_f_tests() {
         dfs: s_df,
         p_values: s_p,
     });
-    
+
     // Inject corresponding beta_t for F mapping
     let t_vals = Array1::from_vec(vec![10.0, 5.0]);
     fit.beta_t = Some(t_vals);
-    
+
     // Run anova mapping
     let s_anova = fit.anova(DdfMethod::Satterthwaite).unwrap();
-    
+
     assert_eq!(s_anova.terms, vec!["Days".to_string()]); // Intercept should be removed
     assert_eq!(s_anova.num_df[0], 1.0); // 1-DoF mapping
     assert_eq!(s_anova.den_df[0], 17.0); // Propagated natively

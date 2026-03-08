@@ -1,9 +1,9 @@
 use crate::math::LmmData;
+use crate::model_matrix::ReBlock;
 use argmin::core::{CostFunction, Error, Executor, State};
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
 use sprs::CsMat;
-use crate::model_matrix::ReBlock;
 
 /// Result of the Nelder-Mead optimization, including convergence diagnostics.
 #[derive(Debug, Clone)]
@@ -82,11 +82,7 @@ impl CostFunction for LmmObjective {
             self.weights.clone(),
         );
         let val = lmm.log_reml_deviance(theta_clamped.as_slice().unwrap(), self.reml);
-        if val.is_nan() {
-            Ok(f64::MAX)
-        } else {
-            Ok(val)
-        }
+        if val.is_nan() { Ok(f64::MAX) } else { Ok(val) }
     }
 }
 
@@ -117,7 +113,7 @@ pub fn optimize_theta_nd(
     let n = init_theta.len();
     let max_iters = 1000u64;
     let mut initial_simplex = vec![init_theta.clone()];
-    
+
     // Create an initial simplex by perturbing each dimension, respecting bounds
     for i in 0..n {
         let mut param = init_theta.clone();
@@ -126,8 +122,7 @@ pub fn optimize_theta_nd(
         initial_simplex.push(param);
     }
 
-    let solver = NelderMead::new(initial_simplex)
-        .with_sd_tolerance(1e-6)?;
+    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(1e-6)?;
 
     let res = Executor::new(cost, solver)
         .configure(|state| state.max_iters(max_iters))
@@ -150,8 +145,8 @@ pub fn optimize_theta_nd(
 
 // ─── GLMM Optimizer ───────────────────────────────────────────────────────────
 
-use crate::glmm_math::GlmmData;
 use crate::family::GlmFamily;
+use crate::glmm_math::GlmmData;
 
 /// Wrapper for the GLMM Laplace deviance function to be used by argmin.
 struct GlmmObjective {
@@ -181,11 +176,7 @@ impl CostFunction for GlmmObjective {
             self.family.build_clone(),
         );
         let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref());
-        if val.is_nan() {
-            Ok(f64::MAX)
-        } else {
-            Ok(val)
-        }
+        if val.is_nan() { Ok(f64::MAX) } else { Ok(val) }
     }
 }
 
@@ -216,7 +207,7 @@ pub fn optimize_theta_glmm(
     let n = init_theta.len();
     let max_iters = 1000u64;
     let mut initial_simplex = vec![init_theta.clone()];
-    
+
     for i in 0..n {
         let mut param = init_theta.clone();
         param[i] += 0.2;
@@ -224,8 +215,7 @@ pub fn optimize_theta_glmm(
         initial_simplex.push(param);
     }
 
-    let solver = NelderMead::new(initial_simplex)
-        .with_sd_tolerance(1e-6)?;
+    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(1e-6)?;
 
     let res = Executor::new(cost, solver)
         .configure(|state| state.max_iters(max_iters))
@@ -249,23 +239,23 @@ pub fn optimize_theta_glmm(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{array, Array2};
-    use sprs::TriMat;
-    use crate::model_matrix::ReBlock;
     use crate::family::PoissonFamily;
+    use crate::model_matrix::ReBlock;
+    use ndarray::{Array2, array};
+    use sprs::TriMat;
 
     #[test]
     fn test_nan_deviance_cost() {
         // Create an objective that will generate NaN deviance.
         // Poisson family with y = -1.0 will produce NaN deviance residuals.
         let y = array![-1.0, 0.0]; // invalid for Poisson
-        
+
         let x = Array2::<f64>::ones((2, 2));
         let mut zt_tri = TriMat::new((2, 2));
         zt_tri.add_triplet(0, 0, 1.0);
         zt_tri.add_triplet(1, 1, 1.0);
         let zt = zt_tri.to_csr();
-        
+
         let re_blocks = vec![ReBlock {
             m: 2,
             k: 1,
@@ -274,10 +264,10 @@ mod tests {
             effect_names: vec!["(Intercept)".to_string()],
             group_map: std::collections::HashMap::new(),
         }];
-        
+
         let family = Box::new(PoissonFamily::new());
         let lower_bounds = compute_theta_lower_bounds(&re_blocks);
-        
+
         let cost_fn = GlmmObjective {
             x,
             zt,
@@ -287,7 +277,7 @@ mod tests {
             offset: None,
             lower_bounds,
         };
-        
+
         let theta = array![1.0];
         let cost = cost_fn.cost(&theta).unwrap();
         assert_eq!(cost, f64::MAX);

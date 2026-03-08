@@ -1,8 +1,9 @@
-use polars::prelude::*;
 use lme_rs::lmer;
+use polars::prelude::*;
 
 fn load_sleepstudy() -> DataFrame {
-    let mut file = std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
+    let mut file =
+        std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
     CsvReadOptions::default()
         .with_has_header(true)
         .into_reader_with_file_handle(&mut file)
@@ -20,7 +21,10 @@ fn test_with_intercept_has_k2() {
     assert_eq!(re_blocks.len(), 1);
 
     let block = &re_blocks[0];
-    assert_eq!(block.k, 2, "With intercept, k should be 2 (intercept + slope)");
+    assert_eq!(
+        block.k, 2,
+        "With intercept, k should be 2 (intercept + slope)"
+    );
     assert_eq!(block.effect_names[0], "(Intercept)");
     assert_eq!(block.effect_names[1], "Days");
 }
@@ -35,9 +39,14 @@ fn test_no_intercept_suppressed_k1() {
     assert_eq!(re_blocks.len(), 1);
 
     let block = &re_blocks[0];
-    assert_eq!(block.k, 1, "With suppressed intercept, k should be 1 (slope only)");
-    assert!(!block.effect_names.contains(&"(Intercept)".to_string()),
-            "effect_names should NOT contain (Intercept) when suppressed");
+    assert_eq!(
+        block.k, 1,
+        "With suppressed intercept, k should be 1 (slope only)"
+    );
+    assert!(
+        !block.effect_names.contains(&"(Intercept)".to_string()),
+        "effect_names should NOT contain (Intercept) when suppressed"
+    );
     assert_eq!(block.effect_names[0], "Days");
 }
 
@@ -48,5 +57,9 @@ fn test_no_intercept_theta_length() {
     let theta = fit.theta.as_ref().unwrap();
 
     // k=1 → theta_len = k*(k+1)/2 = 1
-    assert_eq!(theta.len(), 1, "theta should have length 1 for slope-only RE");
+    assert_eq!(
+        theta.len(),
+        1,
+        "theta should have length 1 for slope-only RE"
+    );
 }

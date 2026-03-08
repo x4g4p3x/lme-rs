@@ -1,8 +1,9 @@
-use polars::prelude::*;
 use lme_rs::lmer;
+use polars::prelude::*;
 
 fn load_sleepstudy() -> DataFrame {
-    let mut file = std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
+    let mut file =
+        std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
     CsvReadOptions::default()
         .with_has_header(true)
         .into_reader_with_file_handle(&mut file)
@@ -59,7 +60,9 @@ fn test_conditional_equals_population_for_unknown_group() {
         assert!(
             (pop_preds[i] - cond_preds[i]).abs() < 1e-12,
             "For unknown group, conditional should equal population at obs {}: pop={}, cond={}",
-            i, pop_preds[i], cond_preds[i]
+            i,
+            pop_preds[i],
+            cond_preds[i]
         );
     }
 }

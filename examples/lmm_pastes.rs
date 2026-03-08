@@ -1,5 +1,5 @@
-use polars::prelude::*;
 use lme_rs::lmer;
+use polars::prelude::*;
 
 fn main() -> anyhow::Result<()> {
     // 1. Load the dataset

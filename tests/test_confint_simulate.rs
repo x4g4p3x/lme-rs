@@ -23,16 +23,25 @@ fn test_confint_95() {
 
     // Lower must be less than upper
     for i in 0..ci.lower.len() {
-        assert!(ci.lower[i] < ci.upper[i],
+        assert!(
+            ci.lower[i] < ci.upper[i],
             "Lower bound {} should be < upper bound {} for {}",
-            ci.lower[i], ci.upper[i], ci.names[i]);
+            ci.lower[i],
+            ci.upper[i],
+            ci.names[i]
+        );
     }
 
     // The point estimate (beta) should be inside the CI
     for i in 0..fit.coefficients.len() {
-        assert!(fit.coefficients[i] >= ci.lower[i] && fit.coefficients[i] <= ci.upper[i],
+        assert!(
+            fit.coefficients[i] >= ci.lower[i] && fit.coefficients[i] <= ci.upper[i],
             "Beta {} = {} should be within [{}, {}]",
-            ci.names[i], fit.coefficients[i], ci.lower[i], ci.upper[i]);
+            ci.names[i],
+            fit.coefficients[i],
+            ci.lower[i],
+            ci.upper[i]
+        );
     }
 }
 
@@ -46,10 +55,14 @@ fn test_confint_99_wider_than_95() {
 
     // 99% CI should be strictly wider than 95%
     for i in 0..ci95.lower.len() {
-        assert!(ci99.lower[i] < ci95.lower[i],
-            "99% lower should be smaller than 95% lower");
-        assert!(ci99.upper[i] > ci95.upper[i],
-            "99% upper should be larger than 95% upper");
+        assert!(
+            ci99.lower[i] < ci95.lower[i],
+            "99% lower should be smaller than 95% lower"
+        );
+        assert!(
+            ci99.upper[i] > ci95.upper[i],
+            "99% upper should be larger than 95% upper"
+        );
     }
 }
 
@@ -72,8 +85,14 @@ fn test_confint_display_format() {
     let output = format!("{}", ci);
 
     assert!(output.contains("2.5 %"), "Display should show 2.5% column");
-    assert!(output.contains("97.5 %"), "Display should show 97.5% column");
-    assert!(output.contains("(Intercept)"), "Display should show coefficient names");
+    assert!(
+        output.contains("97.5 %"),
+        "Display should show 97.5% column"
+    );
+    assert!(
+        output.contains("(Intercept)"),
+        "Display should show coefficient names"
+    );
 }
 
 #[test]
@@ -85,8 +104,14 @@ fn test_simulate_produces_correct_dimensions() {
     assert_eq!(sim.simulations.len(), 100, "Should have 100 simulations");
 
     for (i, s) in sim.simulations.iter().enumerate() {
-        assert_eq!(s.len(), fit.num_obs,
-            "Simulation {} has wrong length: {} vs {}", i, s.len(), fit.num_obs);
+        assert_eq!(
+            s.len(),
+            fit.num_obs,
+            "Simulation {} has wrong length: {} vs {}",
+            i,
+            s.len(),
+            fit.num_obs
+        );
     }
 }
 
@@ -106,7 +131,10 @@ fn test_simulate_variability() {
             break;
         }
     }
-    assert!(any_different, "Simulations should have stochastic variability");
+    assert!(
+        any_different,
+        "Simulations should have stochastic variability"
+    );
 }
 
 #[test]
@@ -125,10 +153,17 @@ fn test_simulate_mean_close_to_fitted() {
     }
     means /= nsim as f64;
 
-    let max_diff: f64 = (&means - &fit.fitted).mapv(f64::abs).iter().cloned().fold(0.0, f64::max);
+    let max_diff: f64 = (&means - &fit.fitted)
+        .mapv(f64::abs)
+        .iter()
+        .cloned()
+        .fold(0.0, f64::max);
     let sigma = fit.sigma2.unwrap().sqrt();
     // With 1000 sims, mean should be within ~3*sigma/sqrt(1000) ≈ 0.1*sigma of fitted
-    assert!(max_diff < sigma,
+    assert!(
+        max_diff < sigma,
         "Mean of simulations should be close to fitted values, max diff = {}, sigma = {}",
-        max_diff, sigma);
+        max_diff,
+        sigma
+    );
 }

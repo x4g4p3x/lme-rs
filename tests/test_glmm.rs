@@ -51,7 +51,12 @@ fn test_glmm_binomial_cbpp() {
     let df = read_csv_data("tests/data/cbpp_binary.csv");
 
     // The model formula in R was: y ~ period2 + period3 + period4 + (1 | herd)
-    let fit = glmer("y ~ period2 + period3 + period4 + (1 | herd)", &df, Family::Binomial).unwrap();
+    let fit = glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        &df,
+        Family::Binomial,
+    )
+    .unwrap();
 
     // 1. Check fixed effects (beta)
     let beta_r = Array1::from_vec(data.outputs.beta);
@@ -65,12 +70,15 @@ fn test_glmm_binomial_cbpp() {
     println!("CBPP Deviance R: {:?}", data.outputs.deviance);
 
     assert!(beta_lens_match, "Beta length mismatch");
-    
+
     // Using a tolerance of 0.05 for fixed effects (Laplace approx exactness differs slightly from R's C++ inner loop occasionally)
     for i in 0..beta_r.len() {
         assert!(
             (fit.coefficients[i] - beta_r[i]).abs() < 0.05,
-            "Beta {} mismatch: rs={} r={}", i, fit.coefficients[i], beta_r[i]
+            "Beta {} mismatch: rs={} r={}",
+            i,
+            fit.coefficients[i],
+            beta_r[i]
         );
     }
 
@@ -80,7 +88,10 @@ fn test_glmm_binomial_cbpp() {
     for i in 0..theta_r.len() {
         assert!(
             (fit_theta[i] - theta_r[i]).abs() < 0.05,
-            "Theta {} mismatch: rs={} r={}", i, fit_theta[i], theta_r[i]
+            "Theta {} mismatch: rs={} r={}",
+            i,
+            fit_theta[i],
+            theta_r[i]
         );
     }
 
@@ -96,11 +107,16 @@ fn test_glmm_poisson_grouseticks() {
     let df = read_csv_data("tests/data/grouseticks.csv");
 
     // The model formula in R was: TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)
-    let fit = glmer("TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)", &df, Family::Poisson).unwrap();
+    let fit = glmer(
+        "TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)",
+        &df,
+        Family::Poisson,
+    )
+    .unwrap();
 
     // 1. Check fixed effects (beta)
     let beta_r = Array1::from_vec(data.outputs.beta);
-    
+
     println!("Grouse Beta RS: {:?}", fit.coefficients);
     println!("Grouse Beta R: {:?}", beta_r);
     println!("Grouse Theta RS: {:?}", fit.theta.as_ref().unwrap());
@@ -112,7 +128,10 @@ fn test_glmm_poisson_grouseticks() {
     for i in 0..beta_r.len() {
         assert!(
             (fit.coefficients[i] - beta_r[i]).abs() < 0.15,
-            "Beta {} mismatch: rs={} r={}", i, fit.coefficients[i], beta_r[i]
+            "Beta {} mismatch: rs={} r={}",
+            i,
+            fit.coefficients[i],
+            beta_r[i]
         );
     }
 
@@ -122,7 +141,10 @@ fn test_glmm_poisson_grouseticks() {
     for i in 0..theta_r.len() {
         assert!(
             (fit_theta[i] - theta_r[i]).abs() < 1e-2,
-            "Theta {} mismatch: rs={} r={}", i, fit_theta[i], theta_r[i]
+            "Theta {} mismatch: rs={} r={}",
+            i,
+            fit_theta[i],
+            theta_r[i]
         );
     }
 

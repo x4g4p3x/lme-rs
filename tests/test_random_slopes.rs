@@ -29,22 +29,24 @@ struct Outputs {
 
 #[test]
 fn test_load_random_slopes_data() {
-    let file = File::open("tests/data/random_slopes.json")
-        .expect("Failed to open JSON file. Ensure you run `Rscript tests/generate_test_data.R` first.");
+    let file = File::open("tests/data/random_slopes.json").expect(
+        "Failed to open JSON file. Ensure you run `Rscript tests/generate_test_data.R` first.",
+    );
     let reader = BufReader::new(file);
     let data: TestData = serde_json::from_reader(reader).expect("Failed to parse JSON");
 
     assert_eq!(data.model, "Reaction ~ Days + (Days | Subject)");
-    
+
     // Check reasonable expected values for theta (now a vector of length 3)
     // lme4 produces: [0.9667, 0.0151, 0.2309]
     assert_eq!(data.outputs.theta.len(), 3);
-    assert!((data.outputs.theta[0] - 0.9667).abs() < 0.1); 
+    assert!((data.outputs.theta[0] - 0.9667).abs() < 0.1);
 
     let x_arr = Array2::from_shape_vec(
         (data.inputs.x.len(), data.inputs.x[0].len()),
         data.inputs.x.into_iter().flatten().collect(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut zt_tri = sprs::TriMat::new((data.inputs.zt.len(), data.inputs.zt[0].len()));
     for (i, row) in data.inputs.zt.iter().enumerate() {
@@ -58,20 +60,36 @@ fn test_load_random_slopes_data() {
 
     let y_arr = Array1::from_vec(data.inputs.y);
 
-    let re_blocks = vec![lme_rs::model_matrix::ReBlock { m: 18, k: 2, theta_len: 3, group_name: "Subject".to_string(), effect_names: vec!["(Intercept)".to_string(), "Days".to_string()], group_map: std::collections::HashMap::new() }];
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock {
+        m: 18,
+        k: 2,
+        theta_len: 3,
+        group_name: "Subject".to_string(),
+        effect_names: vec!["(Intercept)".to_string(), "Days".to_string()],
+        group_map: std::collections::HashMap::new(),
+    }];
     let model = LmmData::new(x_arr, zt_arr, y_arr, re_blocks);
-    
+
     // Evaluate deviance using the newly structured array
     let deviance = model.log_reml_deviance(&data.outputs.theta, true);
-    
+
     // Check against LME4 computed REML objective
-    println!("lme4 reml_crit: {}, Rust deviance: {}", data.outputs.reml_crit, deviance);
+    println!(
+        "lme4 reml_crit: {}, Rust deviance: {}",
+        data.outputs.reml_crit, deviance
+    );
     assert!((deviance - data.outputs.reml_crit).abs() < 1e-6);
 
     // Ensure Beta is numerically flawless too
     let coefs = model.evaluate(&data.outputs.theta, true);
-    println!("lme4 beta0: {}, Rust beta0: {}", data.outputs.beta[0], coefs.beta[0]);
-    println!("lme4 beta1: {}, Rust beta1: {}", data.outputs.beta[1], coefs.beta[1]);
+    println!(
+        "lme4 beta0: {}, Rust beta0: {}",
+        data.outputs.beta[0], coefs.beta[0]
+    );
+    println!(
+        "lme4 beta1: {}, Rust beta1: {}",
+        data.outputs.beta[1], coefs.beta[1]
+    );
     assert!((coefs.beta[0] - data.outputs.beta[0]).abs() < 1e-4);
     assert!((coefs.beta[1] - data.outputs.beta[1]).abs() < 1e-4);
 

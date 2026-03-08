@@ -78,7 +78,9 @@ impl GlmLink for LogitLink {
         })
     }
 
-    fn name(&self) -> &str { "logit" }
+    fn name(&self) -> &str {
+        "logit"
+    }
 }
 
 /// Log link: η = log(μ), canonical for Poisson.
@@ -100,7 +102,9 @@ impl GlmLink for LogLink {
         eta.mapv(|e| e.clamp(-30.0, 30.0).exp().max(f64::EPSILON))
     }
 
-    fn name(&self) -> &str { "log" }
+    fn name(&self) -> &str {
+        "log"
+    }
 }
 
 /// Identity link: η = μ, canonical for Gaussian.
@@ -120,7 +124,9 @@ impl GlmLink for IdentityLink {
         Array1::ones(eta.len())
     }
 
-    fn name(&self) -> &str { "identity" }
+    fn name(&self) -> &str {
+        "identity"
+    }
 }
 
 /// Probit link: η = Φ⁻¹(μ), alternative for Binomial.
@@ -154,7 +160,9 @@ impl GlmLink for ProbitLink {
         eta.mapv(|e| n.pdf(e).max(f64::EPSILON))
     }
 
-    fn name(&self) -> &str { "probit" }
+    fn name(&self) -> &str {
+        "probit"
+    }
 }
 
 /// Complementary log-log link: η = log(-log(1 - μ)), alternative for Binomial.
@@ -185,7 +193,9 @@ impl GlmLink for CloglogLink {
         })
     }
 
-    fn name(&self) -> &str { "cloglog" }
+    fn name(&self) -> &str {
+        "cloglog"
+    }
 }
 
 /// Inverse link: η = 1/μ, canonical for Gamma.
@@ -205,11 +215,13 @@ impl GlmLink for InverseLink {
         // dμ/dη = -1/η²
         eta.mapv(|e| {
             let e = e.max(f64::EPSILON);
-            (1.0 / (e * e)).max(f64::EPSILON)  // absolute value for IRLS weights
+            (1.0 / (e * e)).max(f64::EPSILON) // absolute value for IRLS weights
         })
     }
 
-    fn name(&self) -> &str { "inverse" }
+    fn name(&self) -> &str {
+        "inverse"
+    }
 }
 
 /// Square root link: η = √μ, alternative for Poisson.
@@ -233,7 +245,9 @@ impl GlmLink for SqrtLink {
         eta.mapv(|e| (2.0 * e.max(0.0)).max(f64::EPSILON))
     }
 
-    fn name(&self) -> &str { "sqrt" }
+    fn name(&self) -> &str {
+        "sqrt"
+    }
 }
 
 // ─── Family Implementations ───────────────────────────────────────────────────
@@ -286,9 +300,15 @@ impl GlmFamily for BinomialFamily {
         d
     }
 
-    fn link(&self) -> &dyn GlmLink { &self.link }
-    fn name(&self) -> &str { "binomial" }
-    fn uses_dispersion(&self) -> bool { false }
+    fn link(&self) -> &dyn GlmLink {
+        &self.link
+    }
+    fn name(&self) -> &str {
+        "binomial"
+    }
+    fn uses_dispersion(&self) -> bool {
+        false
+    }
 
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64> {
         // R's binomial()$initialize: mu = (y + 0.5) / 2
@@ -342,9 +362,15 @@ impl GlmFamily for PoissonFamily {
         d
     }
 
-    fn link(&self) -> &dyn GlmLink { &self.link }
-    fn name(&self) -> &str { "poisson" }
-    fn uses_dispersion(&self) -> bool { false }
+    fn link(&self) -> &dyn GlmLink {
+        &self.link
+    }
+    fn name(&self) -> &str {
+        "poisson"
+    }
+    fn uses_dispersion(&self) -> bool {
+        false
+    }
 
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64> {
         // R's poisson()$initialize: mu = y + 0.1
@@ -386,9 +412,15 @@ impl GlmFamily for GaussianFamily {
         wt * &(&diff * &diff)
     }
 
-    fn link(&self) -> &dyn GlmLink { &self.link }
-    fn name(&self) -> &str { "gaussian" }
-    fn uses_dispersion(&self) -> bool { true }
+    fn link(&self) -> &dyn GlmLink {
+        &self.link
+    }
+    fn name(&self) -> &str {
+        "gaussian"
+    }
+    fn uses_dispersion(&self) -> bool {
+        true
+    }
 
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64> {
         y.clone()
@@ -443,9 +475,15 @@ impl GlmFamily for GammaFamily {
         d
     }
 
-    fn link(&self) -> &dyn GlmLink { &self.link }
-    fn name(&self) -> &str { "Gamma" }
-    fn uses_dispersion(&self) -> bool { true }
+    fn link(&self) -> &dyn GlmLink {
+        &self.link
+    }
+    fn name(&self) -> &str {
+        "Gamma"
+    }
+    fn uses_dispersion(&self) -> bool {
+        true
+    }
 
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64> {
         // R's Gamma()$initialize: mu = y (clamped away from zero)
@@ -509,7 +547,11 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-10, "logit roundtrip failed at {}", i);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-10,
+                "logit roundtrip failed at {}",
+                i
+            );
         }
     }
 
@@ -530,7 +572,10 @@ mod tests {
         let link = LogitLink;
         let eta = array![0.0];
         let d = link.mu_eta(&eta);
-        assert!((d[0] - 0.25).abs() < 1e-10, "mu_eta at eta=0 should be 0.25");
+        assert!(
+            (d[0] - 0.25).abs() < 1e-10,
+            "mu_eta at eta=0 should be 0.25"
+        );
     }
 
     #[test]
@@ -540,7 +585,11 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-10, "log roundtrip failed at {}", i);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-10,
+                "log roundtrip failed at {}",
+                i
+            );
         }
     }
 
@@ -563,7 +612,11 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-15, "identity roundtrip failed at {}", i);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-15,
+                "identity roundtrip failed at {}",
+                i
+            );
         }
         let d = link.mu_eta(&eta);
         for i in 0..d.len() {
@@ -576,7 +629,10 @@ mod tests {
         let fam = BinomialFamily::new();
         let mu = array![0.5];
         let v = fam.variance(&mu);
-        assert!((v[0] - 0.25).abs() < 1e-10, "binomial variance at 0.5 should be 0.25");
+        assert!(
+            (v[0] - 0.25).abs() < 1e-10,
+            "binomial variance at 0.5 should be 0.25"
+        );
     }
 
     #[test]
@@ -595,7 +651,10 @@ mod tests {
         let fam = PoissonFamily::new();
         let mu = array![3.0];
         let v = fam.variance(&mu);
-        assert!((v[0] - 3.0).abs() < 1e-10, "poisson variance should equal mu");
+        assert!(
+            (v[0] - 3.0).abs() < 1e-10,
+            "poisson variance should equal mu"
+        );
     }
 
     #[test]
@@ -606,7 +665,10 @@ mod tests {
         let wt = array![1.0];
         let d = fam.dev_resid(&y, &mu, &wt);
         // 2 * [0*ln(0/1) - (0-1)] = 2 * 1 = 2
-        assert!((d[0] - 2.0).abs() < 1e-10, "poisson dev_resid(y=0,mu=1) should be 2");
+        assert!(
+            (d[0] - 2.0).abs() < 1e-10,
+            "poisson dev_resid(y=0,mu=1) should be 2"
+        );
     }
 
     #[test]
@@ -616,7 +678,10 @@ mod tests {
         let mu = array![1.0];
         let wt = array![1.0];
         let d = fam.dev_resid(&y, &mu, &wt);
-        assert!((d[0] - 4.0).abs() < 1e-10, "gaussian dev_resid(y=3,mu=1) should be 4");
+        assert!(
+            (d[0] - 4.0).abs() < 1e-10,
+            "gaussian dev_resid(y=3,mu=1) should be 4"
+        );
     }
 
     #[test]
@@ -646,7 +711,13 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-6, "probit roundtrip failed at {}: {} vs {}", i, mu[i], mu2[i]);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-6,
+                "probit roundtrip failed at {}: {} vs {}",
+                i,
+                mu[i],
+                mu2[i]
+            );
         }
     }
 
@@ -656,12 +727,20 @@ mod tests {
         // Φ⁻¹(0.5) = 0
         let mu = array![0.5];
         let eta = link.link_fun(&mu);
-        assert!((eta[0] - 0.0).abs() < 1e-10, "probit(0.5) should be 0, got {}", eta[0]);
+        assert!(
+            (eta[0] - 0.0).abs() < 1e-10,
+            "probit(0.5) should be 0, got {}",
+            eta[0]
+        );
 
         // Φ(0) = 0.5
         let eta2 = array![0.0];
         let mu2 = link.link_inv(&eta2);
-        assert!((mu2[0] - 0.5).abs() < 1e-10, "probit_inv(0) should be 0.5, got {}", mu2[0]);
+        assert!(
+            (mu2[0] - 0.5).abs() < 1e-10,
+            "probit_inv(0) should be 0.5, got {}",
+            mu2[0]
+        );
     }
 
     #[test]
@@ -671,7 +750,13 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-6, "cloglog roundtrip failed at {}: {} vs {}", i, mu[i], mu2[i]);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-6,
+                "cloglog roundtrip failed at {}: {} vs {}",
+                i,
+                mu[i],
+                mu2[i]
+            );
         }
     }
 
@@ -681,7 +766,11 @@ mod tests {
         // cloglog(1 - exp(-1)) = log(-log(exp(-1))) = log(1) = 0
         let mu = array![1.0 - (-1.0f64).exp()]; // ≈ 0.6321
         let eta = link.link_fun(&mu);
-        assert!((eta[0] - 0.0).abs() < 1e-6, "cloglog(1-exp(-1)) should be ~0, got {}", eta[0]);
+        assert!(
+            (eta[0] - 0.0).abs() < 1e-6,
+            "cloglog(1-exp(-1)) should be ~0, got {}",
+            eta[0]
+        );
     }
 
     #[test]
@@ -691,7 +780,13 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-10, "inverse roundtrip failed at {}: {} vs {}", i, mu[i], mu2[i]);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-10,
+                "inverse roundtrip failed at {}: {} vs {}",
+                i,
+                mu[i],
+                mu2[i]
+            );
         }
     }
 
@@ -710,7 +805,13 @@ mod tests {
         let eta = link.link_fun(&mu);
         let mu2 = link.link_inv(&eta);
         for i in 0..mu.len() {
-            assert!((mu[i] - mu2[i]).abs() < 1e-10, "sqrt roundtrip failed at {}: {} vs {}", i, mu[i], mu2[i]);
+            assert!(
+                (mu[i] - mu2[i]).abs() < 1e-10,
+                "sqrt roundtrip failed at {}: {} vs {}",
+                i,
+                mu[i],
+                mu2[i]
+            );
         }
     }
 
@@ -733,7 +834,10 @@ mod tests {
         let fam = GammaFamily::new();
         let mu = array![2.0];
         let v = fam.variance(&mu);
-        assert!((v[0] - 4.0).abs() < 1e-10, "gamma variance at 2.0 should be 4.0");
+        assert!(
+            (v[0] - 4.0).abs() < 1e-10,
+            "gamma variance at 2.0 should be 4.0"
+        );
     }
 
     #[test]
@@ -744,7 +848,11 @@ mod tests {
         let mu = array![3.0];
         let wt = array![1.0];
         let d = fam.dev_resid(&y, &mu, &wt);
-        assert!(d[0].abs() < 1e-10, "gamma dev_resid(y=mu) should be ~0, got {}", d[0]);
+        assert!(
+            d[0].abs() < 1e-10,
+            "gamma dev_resid(y=mu) should be ~0, got {}",
+            d[0]
+        );
     }
 
     #[test]
@@ -756,7 +864,12 @@ mod tests {
         let wt = array![1.0];
         let d = fam.dev_resid(&y, &mu, &wt);
         let expected = 2.0 * (1.0 - 2.0f64.ln());
-        assert!((d[0] - expected).abs() < 1e-10, "gamma dev_resid(y=2,mu=1) expected {}, got {}", expected, d[0]);
+        assert!(
+            (d[0] - expected).abs() < 1e-10,
+            "gamma dev_resid(y=2,mu=1) expected {}, got {}",
+            expected,
+            d[0]
+        );
     }
 
     #[test]
@@ -815,7 +928,7 @@ mod tests {
     #[test]
     fn test_initialize_mu() {
         let y = array![0.0, 1.0];
-        
+
         let mu_bin = BinomialFamily::new().initialize_mu(&y);
         assert!((mu_bin[0] - 0.25).abs() < 1e-10);
         assert!((mu_bin[1] - 0.75).abs() < 1e-10);
@@ -864,7 +977,7 @@ mod tests {
         let poi = PoissonFamily::default();
         let gau = GaussianFamily::default();
         let gam = GammaFamily::default();
-        
+
         assert!(gam.uses_dispersion());
         let _c = gam.build_clone();
         let _b = bin.build_clone();
