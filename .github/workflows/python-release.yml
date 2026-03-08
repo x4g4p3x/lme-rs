@@ -34,6 +34,10 @@ jobs:
           args: --release --out dist --manifest-path python/Cargo.toml -i python3.10
           sccache: 'true'
           manylinux: auto
+          before-all: |
+            if [ "${{ matrix.target }}" = "aarch64" ]; then
+              yum install -y openssl-devel perl
+            fi
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
