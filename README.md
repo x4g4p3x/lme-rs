@@ -80,6 +80,8 @@ See [examples/COMPARISONS.md](examples/COMPARISONS.md) for full cross-language o
 
 For a comprehensive usage guide covering all features, see **[GUIDE.md](GUIDE.md)**.
 
+For Python users, see **[python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)**.
+
 ## Roadmap
 
 - Core LMM Architecture implementation - **Complete**
