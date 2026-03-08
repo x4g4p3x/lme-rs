@@ -43,4 +43,4 @@ name = "bench_math"
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
 
 [target.'cfg(not(target_arch = "x86_64"))'.dependencies]
-ndarray-linalg = { version = "0.17", features = ["openblas-system"] }
+ndarray-linalg = { version = "0.17", features = ["openblas-static"] }
