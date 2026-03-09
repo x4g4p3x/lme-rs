@@ -286,6 +286,10 @@ impl GlmFamily for BinomialFamily {
         let mut d = Array1::zeros(n);
         for i in 0..n {
             let yi = y[i];
+            if !(0.0..=1.0).contains(&yi) {
+                d[i] = f64::NAN;
+                continue;
+            }
             let mi = mu[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
             let wi = wt[i];
             let mut dev_i = 0.0;
@@ -351,6 +355,10 @@ impl GlmFamily for PoissonFamily {
         let mut d = Array1::zeros(n);
         for i in 0..n {
             let yi = y[i];
+            if yi < 0.0 {
+                d[i] = f64::NAN;
+                continue;
+            }
             let mi = mu[i].max(f64::EPSILON);
             let wi = wt[i];
             let mut dev_i = -(yi - mi);
@@ -467,10 +475,15 @@ impl GlmFamily for GammaFamily {
         let n = y.len();
         let mut d = Array1::zeros(n);
         for i in 0..n {
-            let yi = y[i].max(f64::EPSILON);
+            let yi = y[i];
+            if yi <= 0.0 {
+                d[i] = f64::NAN;
+                continue;
+            }
+            let yi_clamped = yi.max(f64::EPSILON);
             let mi = mu[i].max(f64::EPSILON);
             let wi = wt[i];
-            d[i] = 2.0 * wi * (-(yi / mi).ln() + (yi - mi) / mi);
+            d[i] = 2.0 * wi * (-(yi_clamped / mi).ln() + (yi_clamped - mi) / mi);
         }
         d
     }

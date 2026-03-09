@@ -1,6 +1,4 @@
 use lme_rs::family::Family;
-use lme_rs::optimizer::{optimize_theta_glmm, optimize_theta_nd};
-use ndarray::{array, Array2};
 use polars::prelude::*;
 
 #[test]

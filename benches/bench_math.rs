@@ -126,7 +126,7 @@ fn bench_deviance_evaluation(c: &mut Criterion) {
 }
 
 fn load_csv(path: &str) -> DataFrame {
-    let mut file = File::open(path).expect(&format!("Could not open {}", path));
+    let mut file = File::open(path).unwrap_or_else(|_| panic!("Could not open {}", path));
     CsvReadOptions::default()
         .with_has_header(true)
         .into_reader_with_file_handle(&mut file)

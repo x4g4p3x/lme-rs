@@ -166,14 +166,37 @@ df = pl.read_csv("tests/data/sleepstudy.csv")
 model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
 print(model)
 
-# Predict for new data
+# Population-level predictions (fixed effects only)
 newdata = pl.DataFrame({
     "Days": [0.0, 1.0, 5.0, 10.0],
     "Subject": ["308", "308", "308", "308"],
 })
-preds = model.predict(newdata)
-print(f"Predictions: {preds}")
+preds_pop = model.predict(newdata)
+print(f"Pop Predictions: {preds_pop}")
 # [251.405, 261.872, 303.742, 356.078]
+
+# Conditional predictions (fixed + random effects)
+# Set allow_new_levels=True if predicting for unseen groups
+preds_cond = model.predict_conditional(newdata, allow_new_levels=True)
+print(f"Cond Predictions: {preds_cond}")
+```
+
+### Confidence Intervals and Standard Errors
+
+```python
+import polars as pl
+import lme_python
+
+df = pl.read_csv("tests/data/sleepstudy.csv")
+model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
+
+# Standard errors for fixed effects
+print(f"Standard Errors: {model.std_errors}")
+
+# 95% Wald confidence intervals for fixed effects
+# Returns list of tuples: [(lower1, upper1), (lower2, upper2), ...]
+ci = model.confint(level=0.95)
+print(f"95% CI: {ci}")
 ```
 
 ### Intercept-Only Model
@@ -206,6 +229,17 @@ model = lme_python.glmer(
     family_name="binomial"
 )
 print(model)
+
+# For GLMMs, predict_response() returns probabilities (Binomial) or rates (Poisson)
+newdata = pl.DataFrame({
+    "period2": [1.0, 0.0],
+    "period3": [0.0, 1.0],
+    "period4": [0.0, 0.0],
+    "herd": ["1", "1"]
+})
+# Returns predictions on the response scale [0, 1]
+probs = model.predict_response(newdata)
+print(f"Probabilities: {probs}")
 ```
 
 ### Nested Random Effects

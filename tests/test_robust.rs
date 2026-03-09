@@ -1,5 +1,4 @@
 use lme_rs::lmer;
-use ndarray::Array1;
 use polars::prelude::*;
 use serde::Deserialize;
 
