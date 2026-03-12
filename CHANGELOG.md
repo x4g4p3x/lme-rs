@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-03-12
+
+### Added
+
+- Expanded the benchmark suite to cover parsing, matrix construction, prediction paths, inference helpers, weighted fits, Kenward-Roger timing, and size sweeps.
+- Added automated cross-language benchmark scripting and a GitHub workflow that saves benchmark artifacts in CI and on release tags.
+- Added `CONTRIBUTING.md`, `RELEASING.md`, and `BENCHMARKS.md` to document contributor setup, release flow, and benchmark methodology.
+
+### Changed
+
+- Reworked the README, Rust guide, Python guide, and comparison documentation to better reflect current capabilities, limitations, and release workflow.
+- Switched the crate homepage to the docs.rs site and expanded repository metadata sync for GitHub description, topics, and website fields.
+- Hardened the benchmark automation and example scripts so cross-language benchmark runs complete consistently on GitHub Actions.
+
 ## [0.1.2] - 2026-03-09
 
 ### Fixed

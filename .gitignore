@@ -4,6 +4,8 @@ rlib/
 julia-portable/
 julia-portable.zip
 flamegraph.svg
+artifacts/
+benchmark-results/
 
 # Python bindings
 python/target/
