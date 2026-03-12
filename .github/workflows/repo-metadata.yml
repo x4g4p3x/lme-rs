@@ -1,0 +1,35 @@
+name: Sync Repository Metadata
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - Cargo.toml
+      - scripts/sync_github_repo_metadata.py
+      - .github/workflows/repo-metadata.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify admin token is configured
+        env:
+          REPO_ADMIN_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$REPO_ADMIN_TOKEN" ]; then
+            echo "REPO_ADMIN_TOKEN is not set."
+            echo "Create a fine-grained PAT or GitHub App token with repository Administration: write."
+            exit 1
+          fi
+
+      - name: Sync repository metadata
+        env:
+          REPO_ADMIN_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/sync_github_repo_metadata.py
