@@ -1,4 +1,4 @@
-library(lme4)
+suppressPackageStartupMessages(library(lme4))
 
 # 1. Load the dataset
 data <- read.csv("tests/data/grouseticks.csv")
@@ -7,9 +7,9 @@ data <- read.csv("tests/data/grouseticks.csv")
 cat("\nFitting Poisson GLMM: TICKS ~ YEAR + HEIGHT + (1 | BROOD)\n")
 fit <- glmer(TICKS ~ YEAR + HEIGHT + (1 | BROOD), data = data, family = poisson)
 
-# 3. Print the summary
-cat("\n=== Model Summary ===\n")
-print(summary(fit))
+# 3. Print fitted coefficients
+cat("\n=== Fixed Effects ===\n")
+print(fixef(fit))
 
 # 4. Generate Predictions
 cat("\n=== Predictions (Response Scale) ===\n")

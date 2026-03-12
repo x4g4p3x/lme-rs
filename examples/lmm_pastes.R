@@ -1,4 +1,4 @@
-library(lme4)
+suppressPackageStartupMessages(library(lme4))
 
 # 1. Load the dataset
 data <- read.csv("tests/data/pastes.csv")
@@ -9,9 +9,9 @@ data$cask <- as.factor(data$cask)
 cat("\nFitting model: strength ~ 1 + (1 | batch/cask)\n")
 fit <- lmer(strength ~ 1 + (1 | batch/cask), data = data, REML = TRUE)
 
-# 3. Print the summary
-cat("\n=== Model Summary ===\n")
-print(summary(fit))
+# 3. Print fitted coefficients
+cat("\n=== Fixed Effects ===\n")
+print(fixef(fit))
 
 # 4. Generate Predictions
 cat("\n=== Predictions ===\n")

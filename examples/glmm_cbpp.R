@@ -1,4 +1,4 @@
-library(lme4)
+suppressPackageStartupMessages(library(lme4))
 
 # 1. Load the dataset
 data <- read.csv("tests/data/cbpp_binary.csv")
@@ -11,9 +11,9 @@ fit <- glmer(y ~ period2 + period3 + period4 + (1 | herd),
              data = data, 
              family = binomial(link = "logit"))
 
-# 3. Print the summary
-cat("\n=== Model Summary ===\n")
-print(summary(fit))
+# 3. Print fitted coefficients
+cat("\n=== Fixed Effects ===\n")
+print(fixef(fit))
 
 # 4. Generate Predictions (Response scale / Probabilities)
 cat("\n=== Predictions (Probabilities) ===\n")
