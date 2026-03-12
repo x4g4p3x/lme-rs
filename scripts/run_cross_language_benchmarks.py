@@ -311,6 +311,13 @@ def main() -> int:
     print(f"Wrote {output_path}")
     if failures:
         print(f"{len(failures)} benchmark runs failed.", file=sys.stderr)
+        for failure in failures:
+            command = " ".join(failure["command"])
+            print(
+                f"- {failure['case']} [{failure['implementation']}]: {failure['error']}",
+                file=sys.stderr,
+            )
+            print(f"  command: {command}", file=sys.stderr)
         return 2
     return 0
 
