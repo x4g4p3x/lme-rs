@@ -79,6 +79,7 @@ jobs:
     env:
       BENCH_WARMUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.warmups || '1' }}
       BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '3' }}
+      R_LIBS_USER: ${{ github.workspace }}/.r-lib
     steps:
       - uses: actions/checkout@v6
 
@@ -118,7 +119,9 @@ jobs:
         run: python -m pip install --force-reinstall python/target/wheels/*.whl
 
       - name: Install R benchmark dependencies
-        run: Rscript -e 'install.packages("lme4", repos="https://cloud.r-project.org")'
+        run: |
+          mkdir -p "$R_LIBS_USER"
+          Rscript -e 'install.packages("lme4", repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
 
       - name: Install Julia benchmark dependencies
         run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "MixedModels"])'
