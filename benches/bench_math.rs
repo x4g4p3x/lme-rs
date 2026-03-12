@@ -1,4 +1,4 @@
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lme_rs::anova::DdfMethod;
 use lme_rs::math::LmmData;
 use ndarray::{Array1, Array2};
@@ -217,8 +217,11 @@ fn generate_large_nested_df(
             for _ in 0..reps_per_cask {
                 let x_i = normal.sample(&mut rng);
                 let noise = 0.2 * normal.sample(&mut rng);
-                let y_i =
-                    2.0 + 1.25 * x_i + batch_effects[batch_idx] + cask_effects[batch_idx][cask_idx] + noise;
+                let y_i = 2.0
+                    + 1.25 * x_i
+                    + batch_effects[batch_idx]
+                    + cask_effects[batch_idx][cask_idx]
+                    + noise;
 
                 y.push(y_i);
                 x.push(x_i);
@@ -487,7 +490,8 @@ fn bench_glmm_post_fit(c: &mut Criterion) {
     group.bench_function("poisson_predict_conditional_link_8k_rows", |b| {
         b.iter(|| {
             black_box(
-                poisson_fit.predict_conditional(black_box(&poisson_prediction_df), black_box(false)),
+                poisson_fit
+                    .predict_conditional(black_box(&poisson_prediction_df), black_box(false)),
             )
             .unwrap()
         })
@@ -518,7 +522,8 @@ fn bench_glmm_post_fit(c: &mut Criterion) {
     group.bench_function("binomial_predict_conditional_link_16k_rows", |b| {
         b.iter(|| {
             black_box(
-                binomial_fit.predict_conditional(black_box(&binomial_prediction_df), black_box(false)),
+                binomial_fit
+                    .predict_conditional(black_box(&binomial_prediction_df), black_box(false)),
             )
             .unwrap()
         })
@@ -607,7 +612,11 @@ fn bench_size_sweeps(c: &mut Criterion) {
     let random_cases = [
         ("random_intercept_10k_obs_100_groups", 10_000usize, 100usize),
         ("random_intercept_50k_obs_500_groups", 50_000usize, 500usize),
-        ("random_intercept_100k_obs_1000_groups", 100_000usize, 1_000usize),
+        (
+            "random_intercept_100k_obs_1000_groups",
+            100_000usize,
+            1_000usize,
+        ),
     ];
     let random_dfs = random_cases
         .into_iter()
@@ -706,8 +715,7 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
         lme_rs::lmer("y ~ x + (1 | plate) + (1 | sample)", &crossed_small, false).unwrap();
     let crossed_medium_fit =
         lme_rs::lmer("y ~ x + (1 | plate) + (1 | sample)", &crossed_medium, false).unwrap();
-    let nested_small_fit =
-        lme_rs::lmer("y ~ x + (1 | batch/cask)", &nested_small, false).unwrap();
+    let nested_small_fit = lme_rs::lmer("y ~ x + (1 | batch/cask)", &nested_small, false).unwrap();
     let nested_medium_fit =
         lme_rs::lmer("y ~ x + (1 | batch/cask)", &nested_medium, false).unwrap();
 
@@ -720,22 +728,19 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("crossed_small_predict_population", |b| {
-        b.iter(|| {
-            black_box(crossed_small_fit.predict(black_box(&crossed_small_pred))).unwrap()
-        })
+        b.iter(|| black_box(crossed_small_fit.predict(black_box(&crossed_small_pred))).unwrap())
     });
     group.bench_function("crossed_small_predict_conditional", |b| {
         b.iter(|| {
             black_box(
-                crossed_small_fit.predict_conditional(black_box(&crossed_small_pred), black_box(false)),
+                crossed_small_fit
+                    .predict_conditional(black_box(&crossed_small_pred), black_box(false)),
             )
             .unwrap()
         })
     });
     group.bench_function("crossed_medium_predict_population", |b| {
-        b.iter(|| {
-            black_box(crossed_medium_fit.predict(black_box(&crossed_medium_pred))).unwrap()
-        })
+        b.iter(|| black_box(crossed_medium_fit.predict(black_box(&crossed_medium_pred))).unwrap())
     });
     group.bench_function("crossed_medium_predict_conditional", |b| {
         b.iter(|| {
@@ -753,7 +758,8 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
     group.bench_function("nested_small_predict_conditional", |b| {
         b.iter(|| {
             black_box(
-                nested_small_fit.predict_conditional(black_box(&nested_small_pred), black_box(false)),
+                nested_small_fit
+                    .predict_conditional(black_box(&nested_small_pred), black_box(false)),
             )
             .unwrap()
         })
@@ -764,7 +770,8 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
     group.bench_function("nested_medium_predict_conditional", |b| {
         b.iter(|| {
             black_box(
-                nested_medium_fit.predict_conditional(black_box(&nested_medium_pred), black_box(false)),
+                nested_medium_fit
+                    .predict_conditional(black_box(&nested_medium_pred), black_box(false)),
             )
             .unwrap()
         })
@@ -834,15 +841,11 @@ fn bench_inference(c: &mut Criterion) {
     });
 
     group.bench_function("type3_anova_satterthwaite", |b| {
-        b.iter(|| {
-            black_box(fit_for_type3.anova(black_box(DdfMethod::Satterthwaite))).unwrap()
-        })
+        b.iter(|| black_box(fit_for_type3.anova(black_box(DdfMethod::Satterthwaite))).unwrap())
     });
 
     group.bench_function("type3_anova_kenward_roger", |b| {
-        b.iter(|| {
-            black_box(fit_for_type3_kr.anova(black_box(DdfMethod::KenwardRoger))).unwrap()
-        })
+        b.iter(|| black_box(fit_for_type3_kr.anova(black_box(DdfMethod::KenwardRoger))).unwrap())
     });
 
     group.bench_function("lrt_anova", |b| {
