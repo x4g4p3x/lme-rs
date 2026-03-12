@@ -221,6 +221,9 @@ jobs:
             --ref-name "${GITHUB_REF_NAME}"
 
       - uses: actions/configure-pages@v5
+        with:
+          token: ${{ secrets.REPO_ADMIN_TOKEN != '' && secrets.REPO_ADMIN_TOKEN || github.token }}
+          enablement: ${{ secrets.REPO_ADMIN_TOKEN != '' }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
