@@ -102,8 +102,11 @@ jobs:
       - name: Install Python benchmark dependencies
         run: python -m pip install maturin polars pandas statsmodels
 
+      - name: Build Python wheel
+        run: maturin build --release --manifest-path python/Cargo.toml
+
       - name: Install Python bindings
-        run: maturin develop --release --manifest-path python/Cargo.toml
+        run: python -m pip install --force-reinstall python/target/wheels/*.whl
 
       - name: Install R benchmark dependencies
         run: Rscript -e 'install.packages("lme4", repos="https://cloud.r-project.org")'

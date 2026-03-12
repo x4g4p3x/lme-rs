@@ -38,6 +38,7 @@ debug = true
 
 [[bench]]
 name = "bench_math"
+harness = false
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
