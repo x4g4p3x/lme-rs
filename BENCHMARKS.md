@@ -123,6 +123,33 @@ The repository also includes a dedicated workflow in [.github/workflows/benchmar
 - uploads the resulting artifacts in CI
 - attaches them to GitHub Releases on tag pushes
 
+## Latest published results
+
+The latest published benchmark artifacts are attached to the [v0.1.3 release](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3).
+
+That release currently includes:
+
+- `criterion-e8a82e0b97b88c5549bc61e89c22dc12c9060a02.tar.gz`
+- `cross-language-e8a82e0b97b88c5549bc61e89c22dc12c9060a02.json`
+
+The cross-language JSON includes representative timings for:
+
+- `sleepstudy`
+- `pastes`
+- `cbpp`
+- `grouseticks`
+
+across:
+
+- Rust
+- Python
+- R
+- Julia
+
+Treat those numbers as versioned release artifacts, not as universal constants. They were produced on GitHub-hosted runners with the workflow's pinned toolchain setup, so they are useful for release-to-release comparison and public transparency, but not as machine-independent proof of absolute speed.
+
+If you want to cite benchmark results in release notes or external docs, prefer linking the release asset directly instead of copying raw numbers into the README. That keeps the landing page stable while still making the measured outputs inspectable.
+
 ## How to interpret results
 
 Use the existing suite primarily for:
