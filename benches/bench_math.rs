@@ -669,7 +669,7 @@ fn bench_size_sweeps(c: &mut Criterion) {
     random_group.finish();
 
     let mut crossed_group = c.benchmark_group("sweep_crossed_fit");
-    crossed_group.sample_size(5);
+    crossed_group.sample_size(10);
     for (name, df) in &crossed_dfs {
         crossed_group.bench_function(*name, |b| {
             b.iter(|| {
@@ -687,7 +687,7 @@ fn bench_size_sweeps(c: &mut Criterion) {
     crossed_group.finish();
 
     let mut nested_group = c.benchmark_group("sweep_nested_fit");
-    nested_group.sample_size(5);
+    nested_group.sample_size(10);
     for (name, df) in &nested_dfs {
         nested_group.bench_function(*name, |b| {
             b.iter(|| {
