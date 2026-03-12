@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lme-rs Benchmarks</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <p class="eyebrow">lme-rs Benchmark Dashboard</p>
+      <h1>Latest published benchmark run</h1>
+      <p class="hero-copy">
+        This page visualizes the latest benchmark data published by the repository workflow.
+        Rust timings are shown alongside Python, R, and Julia for the representative example cases.
+      </p>
+      <div class="hero-links" id="hero-links"></div>
+    </header>
+
+    <main class="content-grid">
+      <section class="panel summary-panel">
+        <div class="panel-header">
+          <h2>Run summary</h2>
+          <p id="run-meta">Loading benchmark metadata...</p>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Relative to Rust</h2>
+          <p>Geometric-mean slowdown across the benchmark cases in this run.</p>
+        </div>
+        <div id="ratio-summary" class="ratio-summary"></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-header">
+          <h2>Per-case timings</h2>
+          <p>Each bar shows median seconds for that implementation in the selected benchmark case.</p>
+        </div>
+        <div id="case-grid" class="case-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Environment</h2>
+          <p>Useful for interpreting the published release artifacts.</p>
+        </div>
+        <dl class="meta-list" id="environment-list"></dl>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Method caveat</h2>
+          <p>These charts are release artifacts, not machine-independent constants.</p>
+        </div>
+        <ul class="caveat-list">
+          <li>Results come from GitHub-hosted runners and the workflow’s pinned toolchain setup.</li>
+          <li>They are useful for version-to-version comparison and public transparency.</li>
+          <li>They should not be treated as blanket proof of universal speed across all machines and workloads.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <template id="case-card-template">
+    <article class="case-card">
+      <div class="case-header">
+        <div>
+          <h3 class="case-title"></h3>
+          <p class="case-fastest"></p>
+        </div>
+      </div>
+      <div class="bars"></div>
+    </article>
+  </template>
+
+  <template id="bar-row-template">
+    <div class="bar-row">
+      <div class="bar-label"></div>
+      <div class="bar-track">
+        <div class="bar-fill"></div>
+      </div>
+      <div class="bar-value"></div>
+    </div>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>

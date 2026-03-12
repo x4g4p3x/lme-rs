@@ -68,6 +68,7 @@ The core modeling surface is in place and exercised by the test suite, examples,
 - Rust usage guide: [GUIDE.md](GUIDE.md)
 - Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
 - Cross-language numerical comparisons: [examples/COMPARISONS.md](examples/COMPARISONS.md)
+- Published benchmark dashboard: [GitHub Pages](https://x4g4p3x.github.io/lme-rs/benchmarks/)
 - Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md)
 - Latest benchmark artifacts: [v0.1.3 release](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)
 - Release history: [CHANGELOG.md](CHANGELOG.md)

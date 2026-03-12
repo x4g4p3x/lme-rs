@@ -6,6 +6,8 @@ julia-portable.zip
 flamegraph.svg
 artifacts/
 benchmark-results/
+benchmark-site/
+site/
 
 # Python bindings
 python/target/
