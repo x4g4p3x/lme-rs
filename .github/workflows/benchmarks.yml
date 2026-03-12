@@ -20,13 +20,14 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   criterion:
     name: Criterion Benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -34,7 +35,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
 
       - name: Cache cargo registry and build outputs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -52,16 +53,24 @@ jobs:
           tar -czf "benchmark-results/criterion-${{ github.sha }}.tar.gz" target/criterion
 
       - name: Upload Criterion artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: criterion-${{ github.sha }}
           path: benchmark-results/criterion-${{ github.sha }}.tar.gz
 
       - name: Attach Criterion artifact to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: benchmark-results/criterion-${{ github.sha }}.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || {
+            if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+              gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --prerelease --latest=false
+            else
+              gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
+            fi
+          }
+          gh release upload "${GITHUB_REF_NAME}" "benchmark-results/criterion-${{ github.sha }}.tar.gz" --clobber
 
   cross-language:
     name: Cross-Language Benchmarks
@@ -70,11 +79,11 @@ jobs:
       BENCH_WARMUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.warmups || '1' }}
       BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '3' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -90,7 +99,7 @@ jobs:
           sudo apt-get install -y libopenblas-dev libcurl4-openssl-dev libssl-dev libxml2-dev
 
       - name: Cache cargo registry and build outputs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -127,13 +136,21 @@ jobs:
             --skip-rust-build
 
       - name: Upload cross-language artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cross-language-${{ github.sha }}
           path: benchmark-results/cross-language-${{ github.sha }}.json
 
       - name: Attach cross-language artifact to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: benchmark-results/cross-language-${{ github.sha }}.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || {
+            if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+              gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --prerelease --latest=false
+            else
+              gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
+            fi
+          }
+          gh release upload "${GITHUB_REF_NAME}" "benchmark-results/cross-language-${{ github.sha }}.json" --clobber
