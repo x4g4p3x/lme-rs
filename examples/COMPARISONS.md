@@ -1,6 +1,6 @@
-# Comparing lme-rs, R (lme4), and Python (statsmodels) Output
+# Comparing lme-rs with R, Python, and Julia Outputs
 
-This document demonstrates that `lme-rs` produces exactly the same numerical results as the standard mixed-effects libraries in both R (`lme4`) and Python (`statsmodels`). We use the famous `sleepstudy` dataset for this comparison.
+This document collects representative side-by-side outputs for `lme-rs` against reference mixed-effects tooling in R (`lme4`), Python (`statsmodels` where applicable), and Julia (`MixedModels.jl`). These comparisons are evidence that the covered workflows line up closely on the included fixtures; they are not a blanket claim that every model in every ecosystem is identical.
 
 ![Parameter Estimates Comparison](./comparison_chart.png)
 
@@ -185,7 +185,7 @@ Predictions (Population-level):
 
 ## 5. Comparison Validation
 
-Across all four languages out to four decimals, the optimization mathematically converges on identically structured parameters:
+Across these four implementations on this fixture, the fitted coefficients, variance components, and predictions line up closely:
 
 | Parameter                 | R (`lme4`) | Python (`statsmodels`) | Julia (`MixedModels.jl`) | Rust (`lme-rs`) |
 |:--------------------------|:-----------|:-----------------------|:-------------------------|:----------------|
@@ -199,7 +199,7 @@ Across all four languages out to four decimals, the optimization mathematically 
 
 > *[1] Converting python Cov (9.605) to Correlation: `9.605 / (sqrt(612.096) * sqrt(35.072)) = 0.0655`*
 
-All implementations map perfectly.
+These implementations are closely aligned on this example.
 
 ---
 
@@ -333,7 +333,7 @@ With ML evaluation properly discounting the design structure penalty of the fixe
 
 > *[1] Converting python Cov (11.056) to Correlation: `11.056 / (sqrt(565.519) * sqrt(32.683)) = 0.0813`*
 
-All implementations remain dynamically matched, cleanly optimizing into the exact ML boundary space mapping precisely to 4 decimals of precision in the Rust port.
+The ML fits remain closely aligned on this example, with `lme-rs` landing in the same neighborhood as the R, Python, and Julia reference outputs.
 
 ---
 
@@ -434,7 +434,7 @@ Residual              2451.2499 49.5101
 
 #### Baseline Conclusion
 
-The fundamental intercept-only LMM fits the target `1527.5` identically across all systems, effectively dividing the `~1764` intercept group variance and `~2451` residual unstructured variance precisely.
+The intercept-only LMM is closely aligned across these systems on this fixture: the fitted intercept agrees at `1527.5`, and the random-intercept and residual variance split remains in the same range across implementations.
 
 ---
 
@@ -444,7 +444,7 @@ In addition to standard LMMs, `lme-rs` supports GLMM architectures utilizing pen
 
 To contrast this, we evaluate the `grouseticks` dataset, fitting expected tick counts based on `YEAR` and `HEIGHT` clustered around the family `BROOD`.
 
-**Note**: Python's `statsmodels` does not have an exactly equivalent Laplace-approximated Maximum Likelihood optimizer for Poisson GLMMs, so this comparison evaluates strictly against R's `lme4::glmer`.
+**Note**: Python's `statsmodels` does not expose a directly comparable Laplace Poisson GLMM workflow here, so this comparison is made against R's `lme4::glmer` and Julia's `MixedModels.jl`.
 
 ### The GLMM Model
 
@@ -554,9 +554,9 @@ Because R warns about variables needing to be rescaled on this data set (`Rescal
 | **Random Var: BROOD**     | `1.560`     | `1.558`                  | `1.555`         |
 | **Expected Ticks (P1)**   | `8.75`      | `8.72`                   | `8.88`          |
 
-> *[2] GLMM AIC/BIC note: `lme-rs` computes the Laplace-approximated conditional deviance (`sum(dev_resid) + log|A| + u'u`) for optimization, while R's `logLik()` includes additional data-dependent constants (e.g., `lgamma(y+1)` for Poisson, observation-level normalization). This yields different absolute AIC values but identical model fit parameters, since the constants cancel during optimization.*
+> *[2] GLMM AIC/BIC note: `lme-rs` computes the Laplace-approximated conditional deviance (`sum(dev_resid) + log|A| + u'u`) for optimization, while R's `logLik()` includes additional data-dependent constants (e.g., `lgamma(y+1)` for Poisson, observation-level normalization). This yields different absolute AIC values while still allowing the fitted parameter values to be compared directly.*
 
-R's optimization hit a convergence struggle (returning `max|grad| = 0.089424 (tol = 0.002)`), meaning it technically halted early due to unscaled continuous variables (`YEAR`, `HEIGHT`). Julia found a slightly more optimal topology `(logLik -1015.069)`, while `lme-rs`'s derivative-free Nelder-Mead simplex cleanly converged the entire space dynamically into the same pocket in just 9 iterations.
+R reports a convergence warning on this dataset (`max|grad| = 0.089424 (tol = 0.002)`), which is a useful reminder that this is a numerically awkward example. Julia and `lme-rs` converge to nearby solutions; the differences above should be interpreted in that context rather than as exact equality claims.
 
 ---
 
@@ -695,7 +695,7 @@ Predictions (Probabilities for Herd 1):
 
 #### Binomial Conclusion
 
-The log-likelihood surfaces across the Binomial models arrive at nearly identical boundary deviances (`555.0 - 555.1`), indicating all underlying optimizers (BOBYQA in R, NLopt in Julia, Nelder-Mead in Rust) properly integrate the Logit links against the sparse Laplace approximation. Fixed effect estimates are stable bounded tight constraints, concluding parity across all 4 ecosystems.
+The binomial GLMM fits are closely aligned across these implementations: the deviance, variance component, and fixed-effect estimates all fall in a narrow range, which is the practical signal this comparison is meant to show.
 
 ---
 
@@ -800,7 +800,7 @@ Residual                  0.678000 0.823407
 
 #### Nested Random Effects Conclusion
 
-The nested random effects model successfully parses the `1 | batch/cask` Wilkinson expansion into orthogonal hierarchical effects matching R's expansion logic (`1 | batch` and `1 | batch:cask`). The evaluated optimization tracks cleanly towards `60.0533` in every ecosystem, while successfully dividing out the variance ratios down to 4 decimals of precision: `batch` (`~1.657`), `cask` (`~8.432`), `residual` (`~0.678`).
+The nested random-effects model expands `1 | batch/cask` the same way these reference implementations do for this fixture, and the fitted intercept and variance components remain closely aligned across ecosystems.
 
 ---
 
@@ -907,4 +907,4 @@ Residual              0.302415 0.549923
 
 #### Crossed Random Effects Conclusion
 
-The model accurately identifies all components of the purely crossed structure. Across all implementations, the model fits the global intercept at exactly `22.9722`, isolating the relative variance of the `plate` to `~0.7170` and the `sample` to `~3.731`, demonstrating that the sparse `sprs-ldl` system deployed in `lme-rs` scales reliably across multiple complex grouping intersections.
+The crossed-effects example shows the same overall structure across implementations on this fixture: the fitted intercept and the `plate` and `sample` variance components all land in the same range, which is the relevant comparison signal here.

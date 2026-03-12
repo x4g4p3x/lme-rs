@@ -1,101 +1,91 @@
-# lme-rs - Rust implementation of R's lme4
+# lme-rs - mixed-effects models in Rust
 
-`lme-rs` is a fast, robust, production-grade Rust implementation of R's `lme4` regression suite, providing the same statistical behavior and numerics used by `lmer()` and `lm()`.
+[![crates.io](https://img.shields.io/crates/v/lme-rs.svg)](https://crates.io/crates/lme-rs)
+[![docs.rs](https://docs.rs/lme-rs/badge.svg)](https://docs.rs/lme-rs/latest/lme_rs/)
+[![CI](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml)
+[![license](https://img.shields.io/crates/l/lme-rs.svg)](LICENSE)
 
-## Core Philosophy
+`lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
 
-**Core Philosophy**: `lme-rs` provides 100% numerical parity with base `lme4` for fitting core models, while integrating the most essential downstream diagnostics (like `lmerTest` p-values and `car` ANOVAs) directly into a single, high-performance API.
+## What it covers
 
-## Capabilities
+- `lm()` for fixed-effects-only linear models
+- `lmer()` and `lmer_weighted()` for linear mixed models
+- `glmer()` for binomial, poisson, gaussian, and gamma mixed models
+- Wilkinson formulas with nested and crossed random effects
+- Population-level and conditional prediction APIs
+- Wald confidence intervals, parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and a provisional Kenward-Roger path
+- Likelihood ratio tests between nested models and Type III ANOVA tables for 1-DoF fixed effects
 
-After extensive porting and architectural alignment with `RcppEigen` structures, `lme-rs` currently supports:
-
-- **R-style Wilkinson Formulas**: Native parsing of mixed-effect bounds via `fiasto` natively supporting formulas like `Reaction ~ Days + (Days | Subject) + (1 | Item)`.
-- **Sparse Matrix Performance**: Native implementations of Compressed Sparse Column/Row (CSC/CSR) $Z$ boundaries evaluated against `sprs-ldl` Sparse Cholesky Decompositions to completely prevent `O(N^2)` matrix blowouts.
-- **Complex Random Effects**: Full native resolution of independent slopes, intercepts, and **crossed** random effects mapped to multi-dimensional optimization spaces.
-- **Advanced Optimizers**: Employs robust derivative-free N-Dimensional solvers (`argmin::Nelder-Mead`) to iterate relative covariance matrices ($\Lambda_\theta$).
-- **Maximum Likelihood Toggles**: Computes pure evaluations over Restricted Maximum Likelihood (`REML=TRUE`) and strict Maximum Likelihood boundaries (`REML=FALSE`), accurately tracking explicit log-determinant $L_x$ variance penalties.
-- **Diagnostics & Formatting**: Safely exposes structured `std::fmt::Display` diagnostics mirroring the comprehensive output format of `summary(model)` in R (Fixed Effects, Variance Components, Scaled Residuals, Standard Errors).
-- **Out-of-Bag Forecasting**: Leverages internal model parameters out to a `.predict()` method forecasting expectations against new input DataFrames mathematically evaluating population-level distributions.
-
-## Installation
+## Quick start
 
 ```bash
 cargo add lme-rs
 ```
 
-Or in `Cargo.toml`:
-
-```toml
-[dependencies]
-lme-rs = "0.1.0"
-```
-
-## Quick Example (lmer workflow)
-
-You can easily instantiate and resolve a Linear Mixed-Effects model out of a `Polars` DataFrame exactly like you would inside the R Console:
-
 ```rust
-use polars::prelude::*;
 use lme_rs::lmer;
+use polars::prelude::*;
 
 fn main() -> anyhow::Result<()> {
-    // 1. Load your Polars DataFrame
-    let mut file = std::fs::File::open("sleepstudy.csv")?;
-    let df = CsvReadOptions::default().with_has_header(true).into_reader_with_file_handle(&mut file).finish()?;
+    let mut file = std::fs::File::open("tests/data/sleepstudy.csv")?;
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(&mut file)
+        .finish()?;
 
-    // 2. Define Wilkinson formula and Evaluate
-    let formula = "Reaction ~ Days + (Days | Subject)";
-    
-    // Evaluate standard REML model
-    let fit = lmer(formula, &df, true)?;
-
-    // 3. Print R-like Console Summary
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
     println!("{}", fit);
-
-    // 4. Generate Population-Level Predictions
-    let new_days = Series::new("Days".into(), &[0.0, 1.0, 5.0, 10.0]);
-    let new_subject = Series::new("Subject".into(), &["308", "308", "308", "308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()])?;
-    
-    let preds = fit.predict(&newdata)?;
-    println!("Predictions: {:?}", preds);
 
     Ok(())
 }
 ```
 
-## Testing & Validation
+## Why this crate exists
 
-`lme-rs` is subjected to heavy numeric integration parity testing against `lme4`. The test suite strictly loads raw regression matrix outputs formally constrained directly from R to ensure precision accuracy across parameters:
+`lme-rs` aims to make mixed-effects modeling usable in a native Rust workflow without giving up the modeling conventions people already know from `lme4`:
 
-- Deviance objective matching
-- Variance component bounds stabilization ($\theta$)
-- Matrix Cholesky deterministic factorizations ($A$ blocks)
-- Fixed Effect Coefficient estimates ($\beta$)
+- formulas look like R formulas
+- grouped random effects map to sparse matrix machinery
+- model summaries and downstream helpers are designed to feel familiar to `lme4` users
 
-See [examples/COMPARISONS.md](examples/COMPARISONS.md) for full cross-language output comparisons (R, Python, Julia, Rust).
+## Current status
 
-## Documentation
+The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [examples/COMPARISONS.md](examples/COMPARISONS.md). The crate is usable today, but some features are intentionally narrower than the R ecosystem wrappers they resemble.
 
-For a comprehensive usage guide covering all features, see **[GUIDE.md](GUIDE.md)**.
+## Limitations and compatibility notes
 
-For Python users, see **[python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)**.
+- Numerical parity is the goal for the covered LMM and GLMM workflows, but the guarantee is scoped to the models and examples exercised by the repository tests and comparison fixtures.
+- `glmer()` uses a Laplace approximation. Absolute AIC, BIC, and log-likelihood values can differ from R because `lme-rs` optimizes a deviance expression that omits data-dependent constants. Coefficients and variance parameters are the quantities to compare.
+- Fixed-effects ANOVA support is currently Type III only, and only for the current 1-DoF fixed-effect design produced by the parser.
+- `with_kenward_roger()` is available, but the current implementation should be treated as provisional rather than as a mature independent reimplementation of `pbkrtest`.
+- The Rust crate exposes a broader surface than the Python bindings. The Python package is useful, but it is not yet a full mirror of the Rust API.
+- Built-in GLMM families currently use their default links through the public `glmer()` API.
 
-## Roadmap
+## Documentation map
 
-- Core LMM Architecture implementation - **Complete**
-- GLMM: `glmer` family/link support mapping (Binomial / Poisson link bounds) - **Complete**
-- Optimizer: Theta bound enforcement (diagonal ≥ 0, matching `lme4`) - **Complete**
-- Gamma family + additional link functions (Probit, Cloglog, Inverse, Sqrt) - **Complete**
-- GLMM predict on response scale (`predict_response` / `predict_conditional_response`) - **Complete**
-- `anova()`: Likelihood ratio tests for comparing nested models - **Complete**
-- Observation weights (`lmer_weighted`) for prior weights on observations - **Complete**
-- `confint()`: Wald confidence intervals for fixed effects - **Complete**
-- `simulate()`: Parametric bootstrap from fitted models - **Complete**
-- Nested random effects: `(1|a/b)` → `(1|a) + (1|a:b)` expansion - **Complete**
-- Satterthwaite approximate degrees of freedom and p-values for fixed effects - **Complete**
-- Kenward-Roger degrees of freedom and p-values (`pbkrtest` / `lmerTest`) - **Complete**
-- Type II and Type III ANOVA tables (`car` package) - **Complete**
-- Robust Standard Errors - **Complete**
-- Predicting with new levels (`allow_new_levels`) - **Complete**
+- Rust API docs: [docs.rs](https://docs.rs/lme-rs/latest/lme_rs/)
+- Rust usage guide: [GUIDE.md](GUIDE.md)
+- Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
+- Cross-language numerical comparisons: [examples/COMPARISONS.md](examples/COMPARISONS.md)
+- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md)
+- Release history: [CHANGELOG.md](CHANGELOG.md)
+- Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Release workflow: [RELEASING.md](RELEASING.md)
+
+## Examples
+
+The `examples/` directory includes end-to-end fits for common reference datasets:
+
+- `sleepstudy`
+- `dyestuff`
+- `pastes`
+- `penicillin`
+- `cbpp`
+- `grouseticks`
+
+Each example is mirrored across Rust, R, Python, and Julia where that comparison is useful.
+
+## Development notes
+
+Repository metadata on GitHub is synced from `Cargo.toml` by the workflow in [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml). If you change the package description, homepage, keywords, or categories, the GitHub About box will be updated on the next metadata sync run.

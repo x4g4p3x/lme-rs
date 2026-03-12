@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CARGO_TOML = ROOT / "Cargo.toml"
 API_BASE = "https://api.github.com"
 API_VERSION = "2022-11-28"
+EXTRA_TOPICS = ["rust", "linear-models", "data-science"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,6 +67,7 @@ def build_topics(package: dict[str, object]) -> list[str]:
         values = package.get(key, [])
         if isinstance(values, list):
             raw_topics.extend(value for value in values if isinstance(value, str))
+    raw_topics.extend(EXTRA_TOPICS)
 
     topics = []
     seen = set()

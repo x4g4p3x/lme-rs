@@ -1,19 +1,19 @@
 # lme-rs Python Guide
 
-Use `lme-rs` directly from Python via the `lme_python` bindings, built with [PyO3](https://pyo3.rs) and [maturin](https://www.maturin.rs). Get native Rust performance for mixed-effects models with a familiar Python/Polars workflow.
+This guide covers the Python bindings shipped in `python/`. The Python package is intentionally narrower than the Rust crate, but it already provides a practical workflow for fitting and using mixed-effects models from Python.
 
 ## Installation
 
 ### Prerequisites
 
-- Python ≥ 3.8
-- Rust toolchain (via [rustup](https://rustup.rs))
-- [maturin](https://www.maturin.rs): `pip install maturin`
+- Python 3.8 or newer
+- Rust toolchain via [rustup](https://rustup.rs)
+- `maturin`
 
-### Build & Install
+### Build and install
 
 ```bash
-cd python/
+cd python
 python -m venv .venv
 
 # Windows
@@ -22,301 +22,184 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-pip install maturin polars
+pip install maturin polars pytest
 maturin develop --release
 ```
 
-This compiles the Rust code and installs `lme_python` into your virtual environment.
+## What the Python package currently exposes
 
----
+Top-level functions:
 
-## Quick Start
+- `lme_python.lmer(formula, data, reml=True)`
+- `lme_python.glmer(formula, data, family_name)`
+
+Available `PyLmeFit` methods:
+
+- `summary()`
+- `predict(newdata)`
+- `predict_conditional(newdata, allow_new_levels=False)`
+- `predict_response(newdata)`
+- `confint(level=0.95)`
+
+Selected properties:
+
+- `coefficients`
+- `fixed_names`
+- `sigma2`
+- `aic`, `bic`, `log_likelihood`, `deviance`
+- `converged`, `num_obs`
+- `std_errors`
+- `residuals`, `fitted`
+
+## Quick start
 
 ```python
 import polars as pl
 import lme_python
 
-# Load data
 df = pl.read_csv("tests/data/sleepstudy.csv")
-
-# Fit a linear mixed-effects model
-model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
-
-# Print R-style summary
-print(model)
-```
-
-**Output:**
-
-```text
-Linear mixed model fit by REML ['lmerMod']
-Formula: Reaction ~ Days + (Days | Subject)
-
-     AIC      BIC   logLik deviance
-  1755.6   1774.8   -871.8   1743.6
-REML criterion at convergence: 1743.6283
-
-Random effects:
- Groups   Name        Variance Std.Dev.
- Subject  (Intercept) 611.9033 24.7367
-          Days        35.0801  5.9228
- Corr:
-  Days  0.066
- Residual             654.9417 25.5918
-Number of obs: 180, groups: Subject, 18
-
-Fixed effects:
-            Estimate Std. Error t value
-(Intercept) 251.4051     6.8238   36.84
-Days         10.4673     1.5459    6.77
-```
-
----
-
-## API Reference
-
-### `lme_python.lmer(formula, data, reml=True)`
-
-Fit a linear mixed-effects model.
-
-| Parameter | Type | Description |
-| :-------- | :--- | :---------- |
-| `formula` | `str` | Wilkinson formula (e.g. `"y ~ x + (x \| group)"`) |
-| `data` | `polars.DataFrame` | Input data |
-| `reml` | `bool` | `True` for REML (default), `False` for ML |
-
-**Returns:** `PyLmeFit` object.
-
-```python
-# REML (default) — better variance estimates
-model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
-
-# ML — needed for model comparison
-model_ml = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=False)
-```
-
-### `lme_python.glmer(formula, data, family_name)`
-
-Fit a generalized linear mixed-effects model.
-
-| Parameter | Type | Description |
-| :-------- | :--- | :---------- |
-| `formula` | `str` | Wilkinson formula |
-| `data` | `polars.DataFrame` | Input data |
-| `family_name` | `str` | `"binomial"`, `"poisson"`, or `"gamma"` |
-
-```python
-# Poisson GLMM (count data)
-model = lme_python.glmer(
-    "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+model = lme_python.lmer(
+    "Reaction ~ Days + (Days | Subject)",
     data=df,
-    family_name="poisson"
+    reml=True,
 )
 
-# Binomial GLMM (binary outcomes)
-model = lme_python.glmer(
-    "y ~ x1 + x2 + (1 | group)",
+print(model)
+print(model.coefficients)
+```
+
+## Fitting models
+
+### Linear mixed models
+
+```python
+import polars as pl
+import lme_python
+
+df = pl.read_csv("tests/data/sleepstudy.csv")
+model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
+```
+
+Set `reml=False` when you want ML instead of REML:
+
+```python
+model_ml = lme_python.lmer(
+    "Reaction ~ Days + (Days | Subject)",
     data=df,
-    family_name="binomial"
+    reml=False,
 )
 ```
 
-### `PyLmeFit` Properties & Methods
+### Generalized linear mixed models
 
-**Properties** (accessed as `model.property`):
+`glmer()` in the Python binding currently accepts these family names:
 
-| Property | Type | Description |
-| :------- | :--- | :---------- |
-| `coefficients` | `list[float]` | Fixed-effects coefficients (β) |
-| `fixed_names` | `list[str]` or `None` | Names of fixed effects |
-| `sigma2` | `float` or `None` | Residual variance (σ²) |
-| `aic` | `float` or `None` | Akaike Information Criterion |
-| `bic` | `float` or `None` | Bayesian Information Criterion |
-| `log_likelihood` | `float` or `None` | Log-likelihood |
-| `deviance` | `float` or `None` | Model deviance |
-| `converged` | `bool` or `None` | Whether the optimizer converged |
-| `num_obs` | `int` | Number of observations |
-| `std_errors` | `list[float]` or `None` | Standard errors of fixed effects |
-| `residuals` | `list[float]` | Residuals (y − ŷ) |
-| `fitted` | `list[float]` | Fitted values (ŷ) |
-
-**Methods:**
-
-| Method | Returns | Description |
-| :----- | :------ | :---------- |
-| `summary()` | `str` | R-style model summary |
-| `predict(newdata)` | `list[float]` | Population-level predictions (Xβ) |
-| `predict_conditional(newdata, allow_new_levels=False)` | `list[float]` | Conditional predictions (Xβ + Zb) |
-| `predict_response(newdata)` | `list[float]` | Response-scale predictions (GLMM) |
-| `confint(level=0.95)` | `list[tuple]` | Wald confidence intervals `[(lower, upper), ...]` |
-
----
-
-## Examples
-
-### Linear Mixed Model
+- `"binomial"`
+- `"poisson"`
+- `"gamma"`
 
 ```python
 import polars as pl
 import lme_python
 
-df = pl.read_csv("tests/data/sleepstudy.csv")
-
-# Fit model
-model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
-print(model)
-
-# Population-level predictions (fixed effects only)
-newdata = pl.DataFrame({
-    "Days": [0.0, 1.0, 5.0, 10.0],
-    "Subject": ["308", "308", "308", "308"],
-})
-preds_pop = model.predict(newdata)
-print(f"Pop Predictions: {preds_pop}")
-# [251.405, 261.872, 303.742, 356.078]
-
-# Conditional predictions (fixed + random effects)
-# Set allow_new_levels=True if predicting for unseen groups
-preds_cond = model.predict_conditional(newdata, allow_new_levels=True)
-print(f"Cond Predictions: {preds_cond}")
-```
-
-### Confidence Intervals and Standard Errors
-
-```python
-import polars as pl
-import lme_python
-
-df = pl.read_csv("tests/data/sleepstudy.csv")
-model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
-
-# Standard errors for fixed effects
-print(f"Standard Errors: {model.std_errors}")
-
-# 95% Wald confidence intervals for fixed effects
-# Returns list of tuples: [(lower1, upper1), (lower2, upper2), ...]
-ci = model.confint(level=0.95)
-print(f"95% CI: {ci}")
-```
-
-### Intercept-Only Model
-
-```python
-df = pl.read_csv("tests/data/dyestuff.csv")
-model = lme_python.lmer("Yield ~ 1 + (1 | Batch)", data=df)
-print(model)
-```
-
-### Poisson GLMM
-
-```python
 df = pl.read_csv("tests/data/grouseticks.csv")
 model = lme_python.glmer(
     "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
     data=df,
-    family_name="poisson"
+    family_name="poisson",
 )
-print(model)
 ```
 
-### Binomial GLMM
+## Predictions
+
+### Population-level prediction
 
 ```python
-df = pl.read_csv("tests/data/cbpp_binary.csv")
-model = lme_python.glmer(
-    "y ~ period2 + period3 + period4 + (1 | herd)",
-    data=df,
-    family_name="binomial"
-)
-print(model)
-
-# For GLMMs, predict_response() returns probabilities (Binomial) or rates (Poisson)
 newdata = pl.DataFrame({
-    "period2": [1.0, 0.0],
-    "period3": [0.0, 1.0],
-    "period4": [0.0, 0.0],
-    "herd": ["1", "1"]
+    "Days": [0.0, 1.0, 5.0, 10.0],
+    "Subject": ["308", "308", "308", "308"],
 })
-# Returns predictions on the response scale [0, 1]
-probs = model.predict_response(newdata)
-print(f"Probabilities: {probs}")
+
+preds = model.predict(newdata)
 ```
 
-### Nested Random Effects
+### Conditional prediction
 
 ```python
-df = pl.read_csv("tests/data/pastes.csv")
-model = lme_python.lmer("strength ~ 1 + (1 | batch/cask)", data=df)
-print(model)
+preds_cond = model.predict_conditional(newdata, allow_new_levels=True)
 ```
 
-### Crossed Random Effects
+Use `allow_new_levels=True` when the prediction frame may contain groups not seen during fitting.
+
+### Response-scale prediction for GLMMs
 
 ```python
-df = pl.read_csv("tests/data/penicillin.csv")
-model = lme_python.lmer("diameter ~ 1 + (1 | plate) + (1 | sample)", data=df)
-print(model)
+rates = model.predict_response(newdata)
 ```
 
----
+For binomial models this returns probabilities. For poisson models it returns expected counts or rates on the response scale.
 
-## Integration with pandas
+## Confidence intervals and summary data
 
-If your data is in a pandas DataFrame, convert it to Polars first:
+```python
+print(model.summary())
+print(model.std_errors)
+print(model.confint(level=0.95))
+```
+
+## Data expectations
+
+The Python layer currently expects a `polars.DataFrame` or another object that can write itself to IPC via a `write_ipc` method. In practice, using `polars.DataFrame` directly is the supported path.
+
+If your data is in pandas, convert it first:
 
 ```python
 import pandas as pd
 import polars as pl
-import lme_python
 
-# Load with pandas
 pdf = pd.read_csv("data.csv")
-
-# Convert to Polars
 df = pl.from_pandas(pdf)
-
-# Fit model
-model = lme_python.lmer("y ~ x + (1 | group)", data=df)
 ```
 
----
+## Current limitations
+
+- The Python binding is not yet a full mirror of the Rust crate.
+- There is no Python API today for `predict_conditional_response()`, robust standard errors, Satterthwaite, Kenward-Roger, simulation, or ANOVA helpers.
+- `glmer()` currently exposes only the string family selector described above.
+- The most reliable path for advanced inference remains the Rust API.
 
 ## Troubleshooting
 
 ### `maturin develop` fails
 
-Make sure you have the Rust toolchain installed:
+Make sure the Rust toolchain is installed and available in the active shell.
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustc --version
+cargo --version
 ```
 
-On Windows, install via [rustup-init.exe](https://rustup.rs).
-
-### `ImportError: DLL load failed`
-
-If you see DLL errors on Windows, ensure:
-
-1. You're using the same Python in the venv that maturin targeted
-2. Intel MKL libraries are accessible (they're statically linked, so this is rare)
+If those commands fail, install Rust via [rustup](https://rustup.rs).
 
 ### `ModuleNotFoundError: lme_python`
 
-Ensure `maturin develop` completed successfully and you're in the activated virtual environment.
+Usually this means one of the following:
 
----
+- the virtual environment is not activated
+- `maturin develop --release` did not complete successfully
+- a different Python interpreter is active than the one used for the build
 
-## Comparison with R and statsmodels
+### Prediction or fit errors
 
-`lme_python` produces the **same numerical results** as R's `lme4`:
+If fitting or prediction fails:
 
-| Feature | R (`lme4`) | Python (`statsmodels`) | Python (`lme_python`) |
-| :------ | :--------- | :--------------------- | :-------------------- |
-| Algorithm | BOBYQA + PLS | Powell + EM | Nelder-Mead + PLS |
-| Random slopes | ✅ | Limited | ✅ |
-| Nested effects | ✅ | ✅ | ✅ |
-| Crossed effects | ✅ | ✅ | ✅ |
-| GLMM (Laplace) | ✅ | ❌ | ✅ |
-| Speed | Fast (C++) | Slow (Python) | **Fastest** (Rust) |
+- confirm the formula column names match the DataFrame exactly
+- ensure numeric predictors are actually numeric
+- ensure grouping columns contain the expected identifiers
+- try the same case through the Rust API or R `lme4` when debugging a difficult edge case
 
-See [examples/COMPARISONS.md](../examples/COMPARISONS.md) for full numerical parity results.
+## Related documents
+
+- Rust crate docs: [../GUIDE.md](../GUIDE.md)
+- Cross-language comparisons: [../examples/COMPARISONS.md](../examples/COMPARISONS.md)
+- Contributor setup: [../CONTRIBUTING.md](../CONTRIBUTING.md)

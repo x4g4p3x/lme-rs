@@ -1,0 +1,136 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      warmups:
+        description: Warmup runs per benchmark command
+        required: true
+        default: "1"
+      repeats:
+        description: Measured runs per benchmark command
+        required: true
+        default: "3"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  criterion:
+    name: Criterion Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - name: Cache cargo registry and build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-bench-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-bench-cargo-
+
+      - name: Run Criterion benchmarks
+        run: cargo bench
+
+      - name: Package Criterion baseline
+        run: |
+          mkdir -p benchmark-results
+          tar -czf "benchmark-results/criterion-${{ github.sha }}.tar.gz" target/criterion
+
+      - name: Upload Criterion artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-${{ github.sha }}
+          path: benchmark-results/criterion-${{ github.sha }}.tar.gz
+
+      - name: Attach Criterion artifact to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: benchmark-results/criterion-${{ github.sha }}.tar.gz
+
+  cross-language:
+    name: Cross-Language Benchmarks
+    runs-on: ubuntu-latest
+    env:
+      BENCH_WARMUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.warmups || '1' }}
+      BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '3' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: r-lib/actions/setup-r@v2
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+
+      - name: Cache cargo registry and build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-crosslang-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-crosslang-cargo-
+
+      - name: Install Python benchmark dependencies
+        run: python -m pip install maturin polars pandas statsmodels
+
+      - name: Install Python bindings
+        run: maturin develop --release --manifest-path python/Cargo.toml
+
+      - name: Install R benchmark dependencies
+        run: Rscript -e 'install.packages("lme4", repos="https://cloud.r-project.org")'
+
+      - name: Install Julia benchmark dependencies
+        run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "MixedModels"])'
+
+      - name: Build Rust examples
+        run: cargo build --release --examples
+
+      - name: Run cross-language benchmark script
+        run: |
+          mkdir -p benchmark-results
+          python scripts/run_cross_language_benchmarks.py \
+            --warmups "$BENCH_WARMUPS" \
+            --repeats "$BENCH_REPEATS" \
+            --output "benchmark-results/cross-language-${{ github.sha }}.json" \
+            --skip-rust-build
+
+      - name: Upload cross-language artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-language-${{ github.sha }}
+          path: benchmark-results/cross-language-${{ github.sha }}.json
+
+      - name: Attach cross-language artifact to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: benchmark-results/cross-language-${{ github.sha }}.json
