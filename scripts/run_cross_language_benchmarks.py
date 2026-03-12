@@ -234,6 +234,26 @@ def timed_run(command: list[str], timeout: int) -> float:
     return time.perf_counter() - started
 
 
+def capture_failure_output(command: list[str], timeout: int) -> str:
+    try:
+        subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.CalledProcessError as exc:
+        stdout = (exc.stdout or "").strip()
+        stderr = (exc.stderr or "").strip()
+        details = stderr or stdout or str(exc)
+        return details
+    except Exception as exc:
+        return str(exc)
+    return "Command unexpectedly succeeded during failure capture."
+
+
 def benchmark_command(
     item: BenchmarkCommand, warmups: int, repeats: int, timeout: int
 ) -> dict[str, object]:
@@ -283,6 +303,7 @@ def main() -> int:
                     "implementation": item.implementation,
                     "command": item.command,
                     "error": str(exc),
+                    "details": capture_failure_output(item.command, args.timeout),
                 }
             )
 
@@ -318,6 +339,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             print(f"  command: {command}", file=sys.stderr)
+            print(f"  details: {failure['details']}", file=sys.stderr)
         return 2
     return 0
 
