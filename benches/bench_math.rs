@@ -122,6 +122,30 @@ fn repeat_dataframe(base: &DataFrame, repeats: usize) -> DataFrame {
     out
 }
 
+fn with_nested_group_column(df: &DataFrame) -> DataFrame {
+    let batch = df
+        .column("batch")
+        .expect("batch column missing")
+        .str()
+        .expect("batch should be string");
+    let cask = df
+        .column("cask")
+        .expect("cask column missing")
+        .str()
+        .expect("cask should be string");
+
+    let nested = batch
+        .into_no_null_iter()
+        .zip(cask.into_no_null_iter())
+        .map(|(batch, cask)| format!("{batch}_{cask}"))
+        .collect::<Vec<_>>();
+
+    let mut out = df.clone();
+    out.with_column(Series::new("batch:cask".into(), nested))
+        .unwrap();
+    out
+}
+
 fn make_weights(n: usize) -> Array1<f64> {
     let weights = (0..n)
         .map(|i| 0.5 + ((i % 11) as f64) / 10.0)
@@ -721,8 +745,8 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
 
     let crossed_small_pred = repeat_dataframe(&crossed_small, 5);
     let crossed_medium_pred = repeat_dataframe(&crossed_medium, 2);
-    let nested_small_pred = repeat_dataframe(&nested_small, 5);
-    let nested_medium_pred = repeat_dataframe(&nested_medium, 2);
+    let nested_small_pred = with_nested_group_column(&repeat_dataframe(&nested_small, 5));
+    let nested_medium_pred = with_nested_group_column(&repeat_dataframe(&nested_medium, 2));
 
     let mut group = c.benchmark_group("prediction_structure_sweeps");
     group.sample_size(10);
@@ -759,7 +783,7 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
         b.iter(|| {
             black_box(
                 nested_small_fit
-                    .predict_conditional(black_box(&nested_small_pred), black_box(false)),
+                    .predict_conditional(black_box(&nested_small_pred), black_box(true)),
             )
             .unwrap()
         })
@@ -771,7 +795,7 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
         b.iter(|| {
             black_box(
                 nested_medium_fit
-                    .predict_conditional(black_box(&nested_medium_pred), black_box(false)),
+                    .predict_conditional(black_box(&nested_medium_pred), black_box(true)),
             )
             .unwrap()
         })
