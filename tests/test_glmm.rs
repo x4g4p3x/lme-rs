@@ -152,3 +152,50 @@ fn test_glmm_poisson_grouseticks() {
     // We just ensure it's calculated without NaN.
     assert!(!fit.deviance.unwrap().is_nan());
 }
+
+#[test]
+fn test_glmm_gamma_dyestuff_reasonable_scale() {
+    let _ = env_logger::try_init();
+    let df = read_csv_data("tests/data/dyestuff.csv");
+
+    let fit = glmer("Yield ~ 1 + (1 | Batch)", &df, Family::Gamma).unwrap();
+
+    println!("Dyestuff Gamma beta: {:?}", fit.coefficients);
+    println!("Dyestuff Gamma sigma2: {:?}", fit.sigma2);
+    println!("Dyestuff Gamma fitted[0..5]: {:?}", &fit.fitted.iter().take(5).collect::<Vec<_>>());
+
+    assert!(fit.converged.unwrap_or(false));
+    assert_eq!(fit.coefficients.len(), 1);
+
+    // On the inverse-link scale, the intercept should be positive and close to 1 / mean(y).
+    let mean_y = df
+        .column("Yield")
+        .unwrap()
+        .cast(&DataType::Float64)
+        .unwrap()
+        .f64()
+        .unwrap()
+        .into_no_null_iter()
+        .sum::<f64>()
+        / df.height() as f64;
+    let expected_beta = 1.0 / mean_y;
+    assert!(fit.coefficients[0] > 0.0);
+    assert!(
+        (fit.coefficients[0] - expected_beta).abs() < 5e-4,
+        "Gamma intercept on inverse-link scale should be near 1/mean(y): rs={} expected={}",
+        fit.coefficients[0],
+        expected_beta
+    );
+
+    // Fitted values should stay on the observed data scale, not explode.
+    for &mu in &fit.fitted {
+        assert!(mu.is_finite());
+        assert!(mu > 0.0);
+        assert!(mu < mean_y * 10.0, "Gamma fitted value implausibly large: {}", mu);
+    }
+
+    let sigma2 = fit.sigma2.unwrap();
+    assert!(sigma2.is_finite());
+    assert!(sigma2 > 0.0);
+    assert!(sigma2 < 1e6, "Gamma sigma2 implausibly large: {}", sigma2);
+}

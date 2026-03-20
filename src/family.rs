@@ -215,7 +215,7 @@ impl GlmLink for InverseLink {
         // dμ/dη = -1/η²
         eta.mapv(|e| {
             let e = e.max(f64::EPSILON);
-            (1.0 / (e * e)).max(f64::EPSILON) // absolute value for IRLS weights
+            -(1.0 / (e * e)).max(f64::EPSILON)
         })
     }
 
@@ -908,7 +908,7 @@ mod tests {
 
         // Inverse mu_eta
         let d = InverseLink.mu_eta(&array![1.0]);
-        assert!((d[0] - 1.0).abs() < 1e-6);
+        assert!((d[0] + 1.0).abs() < 1e-6);
 
         // Sqrt mu_eta
         let d = SqrtLink.mu_eta(&array![2.0]);

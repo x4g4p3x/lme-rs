@@ -158,7 +158,7 @@ impl GlmmData {
         // Unit weights (no prior weights for now)
         let wt = Array1::ones(n);
 
-        let max_iter = 100;
+        let max_iter = if link.name() == "inverse" { 1000 } else { 100 };
         let tol = 1e-8;
         let mut old_pwrss = f64::MAX;
 
@@ -183,7 +183,16 @@ impl GlmmData {
             // Working response: z = eta + (y - mu) / (dmu/deta)
             let mut z = Array1::<f64>::zeros(n);
             for i in 0..n {
-                let me = mu_eta_val[i].max(f64::EPSILON);
+                let me_raw = mu_eta_val[i];
+                let me = if me_raw.abs() < f64::EPSILON {
+                    if me_raw.is_sign_negative() {
+                        -f64::EPSILON
+                    } else {
+                        f64::EPSILON
+                    }
+                } else {
+                    me_raw
+                };
                 z[i] = eta[i] + (self.y[i] - mu[i]) / me;
             }
 
@@ -348,17 +357,56 @@ impl GlmmData {
             }
             let z_b = Array1::from_vec(z_b_vec);
 
-            eta = &x_beta + &z_b;
+            let eta_prev = eta.clone();
+            let mut eta_raw = &x_beta + &z_b;
             if let Some(off) = offset {
-                eta += off;
+                eta_raw += off;
             }
-            mu = link.link_inv(&eta);
 
-            // Check convergence: PWRSS = sum(w * (z - eta)^2) + ||u||^2
-            let mut pwrss = u.dot(&u);
-            for i in 0..n {
-                pwrss += w[i] * (z[i] - eta[i]).powi(2);
+            // Dampen PIRLS updates only when the proposed linear predictor steps
+            // outside the link's numerically stable region, which is especially
+            // important for Gamma with the inverse link.
+            let mut accepted = None;
+            let delta_eta = &eta_raw - &eta_prev;
+            let needs_positive_eta = link.name() == "inverse";
+            let mut step = 1.0;
+            let max_backoff = if needs_positive_eta { 100 } else { 25 };
+            for _ in 0..max_backoff {
+                let eta_candidate = &eta_prev + &(delta_eta.clone() * step);
+
+                let eta_valid = eta_candidate
+                    .iter()
+                    .all(|e| e.is_finite() && (!needs_positive_eta || *e > f64::EPSILON));
+                if !eta_valid {
+                    step *= 0.5;
+                    continue;
+                }
+
+                let mu_candidate = link.link_inv(&eta_candidate);
+                if !mu_candidate.iter().all(|m| m.is_finite()) {
+                    step *= 0.5;
+                    continue;
+                }
+
+                let mut pwrss_candidate = u.dot(&u);
+                for i in 0..n {
+                    pwrss_candidate += w[i] * (z[i] - eta_candidate[i]).powi(2);
+                }
+                if pwrss_candidate.is_finite() {
+                    accepted = Some((eta_candidate, mu_candidate, pwrss_candidate));
+                    break;
+                }
+
+                step *= 0.5;
             }
+
+            let Some((eta_next, mu_next, pwrss)) = accepted else {
+                log::debug!("PIRLS step-halving failed to find a valid update");
+                return None;
+            };
+
+            eta = eta_next;
+            mu = mu_next;
 
             log::debug!(
                 "PIRLS Iter {}: old_pwrss = {}, new_pwrss = {}",

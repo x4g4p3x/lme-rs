@@ -1,9 +1,19 @@
-use lme_rs::lmer;
+use lme_rs::{family::Family, glmer, lmer};
 use polars::prelude::*;
 use std::fs::File;
 
 fn load_sleepstudy() -> DataFrame {
     let file = File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
+    CsvReader::new(file).finish().expect("Failed to read CSV")
+}
+
+fn load_grouseticks() -> DataFrame {
+    let file = File::open("tests/data/grouseticks.csv").expect("grouseticks.csv not found");
+    CsvReader::new(file).finish().expect("Failed to read CSV")
+}
+
+fn load_cbpp_binary() -> DataFrame {
+    let file = File::open("tests/data/cbpp_binary.csv").expect("cbpp_binary.csv not found");
     CsvReader::new(file).finish().expect("Failed to read CSV")
 }
 
@@ -166,4 +176,44 @@ fn test_simulate_mean_close_to_fitted() {
         max_diff,
         sigma
     );
+}
+
+#[test]
+fn test_simulate_poisson_stays_nonnegative_counts() {
+    let df = load_grouseticks();
+    let fit = glmer("TICKS ~ YEAR + HEIGHT + (1 | BROOD)", &df, Family::Poisson).unwrap();
+
+    let sim = fit.simulate(5).unwrap();
+    for s in &sim.simulations {
+        for &y in s {
+            assert!(y >= 0.0, "Poisson simulations must be nonnegative, got {}", y);
+            assert!(
+                (y - y.round()).abs() < 1e-10,
+                "Poisson simulations must be integer-valued, got {}",
+                y
+            );
+        }
+    }
+}
+
+#[test]
+fn test_simulate_binomial_stays_binary() {
+    let df = load_cbpp_binary();
+    let fit = glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        &df,
+        Family::Binomial,
+    )
+    .unwrap();
+
+    let sim = fit.simulate(5).unwrap();
+    for s in &sim.simulations {
+        for &y in s {
+            assert!(
+                (y - 0.0).abs() < 1e-10 || (y - 1.0).abs() < 1e-10,
+                "Binomial simulations must be binary, got {}",
+                y
+            );
+        }
+    }
 }

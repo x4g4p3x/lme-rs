@@ -4,11 +4,17 @@ use polars::prelude::*;
 use std::io::Cursor;
 use lme_rs::LmeFit;
 use lme_rs::family::Family;
+use lme_rs::DdfMethod;
 
 #[pyclass]
 pub struct PyLmeFit {
     inner: LmeFit,
 }
+
+type RanefRow = (String, String, String, f64);
+type VarCorrRow = (String, String, String, f64, f64);
+type FixedEffectsAnovaPy = (Vec<String>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, String);
+type LikelihoodRatioAnovaPy = (usize, usize, f64, f64, f64, usize, f64, String, String);
 
 fn get_ipc_bytes<'py>(py: Python<'py>, data: &Bound<'py, PyAny>) -> PyResult<Vec<u8>> {
     let io = py.import("io")?;
@@ -115,6 +121,203 @@ impl PyLmeFit {
         self.inner.fitted.to_vec()
     }
 
+    /// Random effects modes as a Python-friendly list of rows.
+    ///
+    /// Returns `None` if the fit did not compute random effects.
+    /// Each row is: `(Grouping, Group, Effect, Value)`.
+    #[getter]
+    pub fn ranef(&self) -> PyResult<Option<Vec<RanefRow>>> {
+        let df = match &self.inner.ranef {
+            Some(df) => df,
+            None => return Ok(None),
+        };
+
+        // Split into separate `let` bindings to avoid borrow-checker issues
+        // from chaining polars iterators/borrowed chunked arrays.
+        let grouping_series = df
+            .column("Grouping")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
+        let grouping_series = grouping_series
+            .cast(&DataType::String)
+            .map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "ranef: failed casting Grouping to String: {}",
+                    e
+                ))
+            })?;
+        let grouping = grouping_series.str().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
+        })?;
+
+        let group_series = df
+            .column("Group")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
+        let group_series = group_series.cast(&DataType::String).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "ranef: failed casting Group to String: {}",
+                e
+            ))
+        })?;
+        let group = group_series.str().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
+        })?;
+
+        let effect_series = df
+            .column("Effect")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
+        let effect_series = effect_series.cast(&DataType::String).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "ranef: failed casting Effect to String: {}",
+                e
+            ))
+        })?;
+        let effect = effect_series.str().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
+        })?;
+
+        let value_series = df
+            .column("Value")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
+        let value_series = value_series.cast(&DataType::Float64).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "ranef: failed casting Value to Float64: {}",
+                e
+            ))
+        })?;
+        let value = value_series.f64().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
+        })?;
+
+        let n = df.height();
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            let g0 = grouping.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("ranef: missing row {}", i))
+            })?;
+            let g1 = group.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("ranef: missing row {}", i))
+            })?;
+            let e = effect.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("ranef: missing row {}", i))
+            })?;
+            let v = value.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("ranef: missing row {}", i))
+            })?;
+
+            out.push((
+                g0.to_string(),
+                g1.to_string(),
+                e.to_string(),
+                v,
+            ));
+        }
+
+        Ok(Some(out))
+    }
+
+    /// Random-effects variance / covariance summary.
+    ///
+    /// Returns `None` if the fit did not compute variance-covariance information.
+    /// Each row is: `(Group, Effect1, Effect2, Variance, StdDev)`.
+    #[getter]
+    pub fn var_corr(&self) -> PyResult<Option<Vec<VarCorrRow>>> {
+        let df = match &self.inner.var_corr {
+            Some(df) => df,
+            None => return Ok(None),
+        };
+
+        // Split into separate `let` bindings to avoid borrow-checker issues
+        // from chained polars iterators/borrowed chunked arrays.
+        let group_series = df
+            .column("Group")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
+        let group_series = group_series.cast(&DataType::String).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "var_corr: failed casting Group to String: {}",
+                e
+            ))
+        })?;
+        let group = group_series.str().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
+        })?;
+
+        let effect1_series = df
+            .column("Effect1")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
+        let effect1_series = effect1_series.cast(&DataType::String).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "var_corr: failed casting Effect1 to String: {}",
+                e
+            ))
+        })?;
+        let effect1 = effect1_series.str().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
+        })?;
+
+        let effect2_series = df
+            .column("Effect2")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
+        let effect2_series = effect2_series.cast(&DataType::String).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "var_corr: failed casting Effect2 to String: {}",
+                e
+            ))
+        })?;
+        let effect2 = effect2_series.str().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
+        })?;
+
+        let variance_series = df
+            .column("Variance")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
+        let variance_series = variance_series.cast(&DataType::Float64).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "var_corr: failed casting Variance to Float64: {}",
+                e
+            ))
+        })?;
+        let variance = variance_series.f64().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
+        })?;
+
+        let stddev_series = df
+            .column("StdDev")
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
+        let stddev_series = stddev_series.cast(&DataType::Float64).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "var_corr: failed casting StdDev to Float64: {}",
+                e
+            ))
+        })?;
+        let stddev = stddev_series.f64().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
+        })?;
+
+        let n = df.height();
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            let g = group.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("var_corr: missing row {}", i))
+            })?;
+            let e1 = effect1.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("var_corr: missing row {}", i))
+            })?;
+            let e2 = effect2.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("var_corr: missing row {}", i))
+            })?;
+            let v = variance.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("var_corr: missing row {}", i))
+            })?;
+            let s = stddev.get(i).ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(format!("var_corr: missing row {}", i))
+            })?;
+
+            out.push((g.to_string(), e1.to_string(), e2.to_string(), v, s));
+        }
+
+        Ok(Some(out))
+    }
+
     /// Population-level predictions (Xβ).
     pub fn predict<'py>(&self, py: Python<'py>, newdata: &Bound<'py, PyAny>) -> PyResult<Vec<f64>> {
         let bytes = get_ipc_bytes(py, newdata)?;
@@ -131,6 +334,30 @@ impl PyLmeFit {
         let bytes = get_ipc_bytes(py, newdata)?;
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.predict_conditional(&df, allow_new_levels) {
+            Ok(arr) => Ok(arr.to_vec()),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Predict failed: {}", e))),
+        }
+    }
+
+    /// Conditional predictions on the response scale (for GLMMs).
+    ///
+    /// Includes random effects (Xβ + Zb), then applies the inverse link to move from
+    /// the linear predictor scale to the response scale.
+    ///
+    /// For LMMs (identity link), this matches `predict_conditional()`.
+    #[pyo3(signature = (newdata, allow_new_levels=false))]
+    pub fn predict_conditional_response<'py>(
+        &self,
+        py: Python<'py>,
+        newdata: &Bound<'py, PyAny>,
+        allow_new_levels: bool,
+    ) -> PyResult<Vec<f64>> {
+        let bytes = get_ipc_bytes(py, newdata)?;
+        let df = read_ipc_bytes(&bytes)?;
+        match self
+            .inner
+            .predict_conditional_response(&df, allow_new_levels)
+        {
             Ok(arr) => Ok(arr.to_vec()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Predict failed: {}", e))),
         }
@@ -159,6 +386,170 @@ impl PyLmeFit {
                 Ok(result)
             },
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("confint failed: {}", e))),
+        }
+    }
+
+    /// Robust standard errors (requires `with_robust_se()`).
+    #[getter]
+    pub fn robust_se(&self) -> Option<Vec<f64>> {
+        self.inner
+            .robust
+            .as_ref()
+            .map(|r| r.robust_se.to_vec())
+    }
+
+    /// Robust t-values (requires `with_robust_se()`).
+    #[getter]
+    pub fn robust_t(&self) -> Option<Vec<f64>> {
+        self.inner
+            .robust
+            .as_ref()
+            .map(|r| r.robust_t.to_vec())
+    }
+
+    /// Robust p-values (requires `with_robust_se()`).
+    #[getter]
+    pub fn robust_p_values(&self) -> Option<Vec<f64>> {
+        self.inner
+            .robust
+            .as_ref()
+            .and_then(|r| r.robust_p_values.as_ref().map(|p| p.to_vec()))
+    }
+
+    /// Satterthwaite denominator degrees of freedom (requires `with_satterthwaite()`).
+    #[getter]
+    pub fn satterthwaite_dfs(&self) -> Option<Vec<f64>> {
+        self.inner
+            .satterthwaite
+            .as_ref()
+            .map(|r| r.dfs.to_vec())
+    }
+
+    /// Satterthwaite p-values (requires `with_satterthwaite()`).
+    #[getter]
+    pub fn satterthwaite_p_values(&self) -> Option<Vec<f64>> {
+        self.inner
+            .satterthwaite
+            .as_ref()
+            .map(|r| r.p_values.to_vec())
+    }
+
+    /// Kenward-Roger denominator degrees of freedom (requires `with_kenward_roger()`).
+    #[getter]
+    pub fn kenward_roger_dfs(&self) -> Option<Vec<f64>> {
+        self.inner
+            .kenward_roger
+            .as_ref()
+            .map(|r| r.dfs.to_vec())
+    }
+
+    /// Kenward-Roger p-values (requires `with_kenward_roger()`).
+    #[getter]
+    pub fn kenward_roger_p_values(&self) -> Option<Vec<f64>> {
+        self.inner
+            .kenward_roger
+            .as_ref()
+            .map(|r| r.p_values.to_vec())
+    }
+
+    /// Type III fixed-effects ANOVA table (requires a denominator df path).
+    ///
+    /// `ddf_method` can be:
+    /// - `"satterthwaite"`
+    /// - `"kenward_roger"` / `"kenward-roger"`
+    #[pyo3(signature = (ddf_method="satterthwaite"))]
+    pub fn anova(
+        &self,
+        ddf_method: &str,
+    ) -> PyResult<FixedEffectsAnovaPy> {
+        let method = match ddf_method.to_lowercase().as_str() {
+            "satterthwaite" => DdfMethod::Satterthwaite,
+            "kenward_roger" | "kenward-roger" | "kenwardroger" => DdfMethod::KenwardRoger,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unsupported ddf_method '{}'",
+                    other
+                )))
+            }
+        };
+
+        match self.inner.anova(method) {
+            Ok(res) => Ok((
+                res.terms,
+                res.num_df.to_vec(),
+                res.den_df.to_vec(),
+                res.f_value.to_vec(),
+                res.p_value.to_vec(),
+                format!("{:?}", res.method),
+            )),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "anova failed: {}",
+                e
+            ))),
+        }
+    }
+
+    /// Parametric simulation (bootstrap) from the fitted model.
+    ///
+    /// Returns a list of response vectors. Each element has length `num_obs`.
+    pub fn simulate(&self, nsim: usize) -> PyResult<Vec<Vec<f64>>> {
+        match self.inner.simulate(nsim) {
+            Ok(res) => Ok(res
+                .simulations
+                .into_iter()
+                .map(|arr| arr.to_vec())
+                .collect()),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("simulate failed: {}", e))),
+        }
+    }
+
+    /// Compute robust (Sandwich) standard errors and p-values.
+    ///
+    /// If `cluster_col` is provided, computes cluster-robust standard errors.
+    #[pyo3(signature = (data, cluster_col=None))]
+    pub fn with_robust_se<'py>(
+        &mut self,
+        py: Python<'py>,
+        data: &Bound<'py, PyAny>,
+        cluster_col: Option<&str>,
+    ) -> PyResult<()> {
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        match self.inner.with_robust_se(&df, cluster_col) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("with_robust_se failed: {}", e))),
+        }
+    }
+
+    /// Compute Satterthwaite degrees of freedom and p-values.
+    #[pyo3(signature = (data))]
+    pub fn with_satterthwaite<'py>(
+        &mut self,
+        py: Python<'py>,
+        data: &Bound<'py, PyAny>,
+    ) -> PyResult<()> {
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        match self.inner.with_satterthwaite(&df) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("with_satterthwaite failed: {}", e))),
+        }
+    }
+
+    /// Compute Kenward-Roger degrees of freedom and p-values.
+    ///
+    /// Note: this is treated as provisional in the Rust docs.
+    #[pyo3(signature = (data))]
+    pub fn with_kenward_roger<'py>(
+        &mut self,
+        py: Python<'py>,
+        data: &Bound<'py, PyAny>,
+    ) -> PyResult<()> {
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        match self.inner.with_kenward_roger(&df) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("with_kenward_roger failed: {}", e))),
         }
     }
 }
@@ -192,10 +583,33 @@ pub fn glmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, fami
     }
 }
 
+/// Likelihood ratio test between two fitted models.
+///
+/// Returns a tuple:
+/// `(n_params_0, n_params_1, deviance_0, deviance_1, chi_sq, df, p_value, formula_0, formula_1)`.
+#[pyfunction]
+pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<LikelihoodRatioAnovaPy> {
+    match lme_rs::anova(&fit_a.inner, &fit_b.inner) {
+        Ok(res) => Ok((
+            res.n_params_0,
+            res.n_params_1,
+            res.deviance_0,
+            res.deviance_1,
+            res.chi_sq,
+            res.df,
+            res.p_value,
+            res.formula_0,
+            res.formula_1,
+        )),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("anova failed: {}", e))),
+    }
+}
+
 #[pymodule]
 fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLmeFit>()?;
     m.add_function(wrap_pyfunction!(lmer, m)?)?;
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
+    m.add_function(wrap_pyfunction!(anova, m)?)?;
     Ok(())
 }

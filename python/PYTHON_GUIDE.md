@@ -23,7 +23,21 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install maturin polars pytest
+
 maturin develop --release
+```
+
+If you are building with CPython 3.14, set the PyO3 forward-compatibility flag first:
+
+```powershell
+# PowerShell
+$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
+
+# CMD
+set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+
+# macOS / Linux
+export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 ```
 
 ## What the Python package currently exposes
@@ -32,14 +46,21 @@ Top-level functions:
 
 - `lme_python.lmer(formula, data, reml=True)`
 - `lme_python.glmer(formula, data, family_name)`
+- `lme_python.anova(fit_a, fit_b)`  # likelihood ratio test between nested models
 
 Available `PyLmeFit` methods:
 
 - `summary()`
 - `predict(newdata)`
 - `predict_conditional(newdata, allow_new_levels=False)`
+- `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
 - `confint(level=0.95)`
+- `simulate(nsim)`  # parametric bootstrap
+- `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
+- `with_satterthwaite(data)`  # denominator df and p-values
+- `with_kenward_roger(data)`  # provisional Kenward-Roger path
+- `anova(ddf_method="satterthwaite")`  # Type III fixed-effects ANOVA
 
 Selected properties:
 
@@ -50,6 +71,11 @@ Selected properties:
 - `converged`, `num_obs`
 - `std_errors`
 - `residuals`, `fitted`
+- `ranef`  # random effects modes
+- `var_corr`  # random-effects variance/covariance summary
+- `robust_se`, `robust_t`, `robust_p_values`
+- `satterthwaite_dfs`, `satterthwaite_p_values`
+- `kenward_roger_dfs`, `kenward_roger_p_values`
 
 ## Quick start
 
@@ -164,7 +190,7 @@ df = pl.from_pandas(pdf)
 ## Current limitations
 
 - The Python binding is not yet a full mirror of the Rust crate.
-- There is no Python API today for `predict_conditional_response()`, robust standard errors, Satterthwaite, Kenward-Roger, simulation, or ANOVA helpers.
+- Some advanced inference helpers are still not exposed in the Python binding (for example, detailed simulation helpers and some additional model comparison wrappers).
 - `glmer()` currently exposes only the string family selector described above.
 - The most reliable path for advanced inference remains the Rust API.
 
@@ -180,6 +206,8 @@ cargo --version
 ```
 
 If those commands fail, install Rust via [rustup](https://rustup.rs).
+
+If you are building with CPython 3.14, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before running `maturin develop` with the current pinned PyO3 version.
 
 ### `ModuleNotFoundError: lme_python`
 

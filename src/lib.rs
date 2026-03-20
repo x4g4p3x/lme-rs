@@ -366,34 +366,65 @@ impl LmeFit {
         })
     }
 
-    /// Simulate new responses from the fitted model (parametric bootstrap).
+    /// Simulate new responses from the fitted model.
     ///
-    /// Generates `nsim` vectors of simulated response values by:
-    /// 1. Sampling new random effects b ~ N(0, σ² Λ Λ')
-    /// 2. Computing η = Xβ + Zb
-    /// 3. Adding Gaussian noise ε ~ N(0, σ²) for LMMs
-    ///
-    /// For GLMMs, simulation samples from the appropriate distribution using the
-    /// conditional mean μ = g⁻¹(η).
+    /// Uses the fitted conditional mean for each observation and then draws:
+    /// - Gaussian noise for LMMs / Gaussian models
+    /// - Bernoulli outcomes for binomial models
+    /// - Poisson counts for Poisson models
+    /// - Gamma responses using the fitted mean plus dispersion for Gamma models
     pub fn simulate(&self, nsim: usize) -> anyhow::Result<SimulateResult> {
         use rand::Rng;
-        use rand_distr::StandardNormal;
+        use rand_distr::{Bernoulli, Gamma, Poisson, StandardNormal};
 
+        let n = self.num_obs;
         let sigma2 = self.sigma2.unwrap_or(1.0);
         let sigma = sigma2.sqrt();
-        let n = self.num_obs;
 
         let mut rng = rand::rng();
         let mut simulations = Vec::with_capacity(nsim);
 
         for _ in 0..nsim {
-            // Start with fitted values (Xβ + Zb from the original fit)
             let mut y_sim = self.fitted.clone();
 
-            // Add Gaussian noise: ε ~ N(0, σ²)
-            for i in 0..n {
-                let eps: f64 = rng.sample(StandardNormal);
-                y_sim[i] += sigma * eps;
+            match self.family {
+                None | Some(crate::family::Family::Gaussian) => {
+                    // Gaussian / LMM path: y = fitted + ε, ε ~ N(0, σ²)
+                    for i in 0..n {
+                        let eps: f64 = rng.sample(StandardNormal);
+                        y_sim[i] += sigma * eps;
+                    }
+                }
+                Some(crate::family::Family::Binomial) => {
+                    // Bernoulli draws from the fitted probabilities.
+                    for i in 0..n {
+                        let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
+                        let bern = Bernoulli::new(p)
+                            .map_err(|e| anyhow::anyhow!("Invalid binomial probability: {}", e))?;
+                        y_sim[i] = if rng.sample(bern) { 1.0 } else { 0.0 };
+                    }
+                }
+                Some(crate::family::Family::Poisson) => {
+                    // Count draws from the fitted mean.
+                    for i in 0..n {
+                        let lambda = y_sim[i].max(f64::EPSILON);
+                        let pois = Poisson::new(lambda)
+                            .map_err(|e| anyhow::anyhow!("Invalid Poisson mean: {}", e))?;
+                        y_sim[i] = rng.sample(pois);
+                    }
+                }
+                Some(crate::family::Family::Gamma) => {
+                    // Match E[Y]=mu and Var[Y]=sigma2 * mu^2 using shape/scale parameterization.
+                    let dispersion = sigma2.max(f64::EPSILON);
+                    let shape = (1.0 / dispersion).max(f64::EPSILON);
+                    for i in 0..n {
+                        let mu = y_sim[i].max(f64::EPSILON);
+                        let scale = (mu * dispersion).max(f64::EPSILON);
+                        let gamma = Gamma::new(shape, scale)
+                            .map_err(|e| anyhow::anyhow!("Invalid Gamma parameters: {}", e))?;
+                        y_sim[i] = rng.sample(gamma);
+                    }
+                }
             }
 
             simulations.push(y_sim);
@@ -1072,10 +1103,16 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
     // For GLMMs without dispersion, sigma2 = 1 (not estimated)
     let uses_disp = fam.uses_dispersion();
     let sigma2_val = if uses_disp {
-        // For Gaussian GLMM, compute residual variance
+        // Estimate dispersion from Pearson residuals. For Gaussian this reduces
+        // to the usual residual variance because V(mu) = 1.
         let n = matrices.y.len() as f64;
         let p = matrices.x.ncols() as f64;
-        coefs.residuals.dot(&coefs.residuals) / (n - p)
+        let var_mu = fam.variance(&coefs.fitted);
+        let mut pearson_sum = 0.0;
+        for i in 0..coefs.residuals.len() {
+            pearson_sum += (coefs.residuals[i] * coefs.residuals[i]) / var_mu[i].max(f64::EPSILON);
+        }
+        pearson_sum / (n - p)
     } else {
         1.0
     };
@@ -1137,9 +1174,16 @@ fn build_ranef_dataframe(b: &Array1<f64>, re_blocks: &[model_matrix::ReBlock]) -
 
     let mut offset = 0;
     for block in re_blocks {
+        let mut group_labels = vec![String::new(); block.m];
+        for (label, &idx) in &block.group_map {
+            if idx < group_labels.len() {
+                group_labels[idx] = label.clone();
+            }
+        }
+
         for group_idx in 0..block.m {
             for (eff_idx, eff_name) in block.effect_names.iter().enumerate() {
-                group_col.push(format!("{}", group_idx));
+                group_col.push(group_labels[group_idx].clone());
                 group_name_col.push(block.group_name.clone());
                 effect_col.push(eff_name.clone());
                 value_col.push(b[offset + group_idx * block.k + eff_idx]);

@@ -29,6 +29,15 @@ def test_lmer_sleepstudy():
     assert model.aic is not None
     assert model.bic is not None
     assert model.deviance is not None
+    assert model.ranef is not None
+    assert isinstance(model.ranef, list)
+    assert len(model.ranef) > 0
+    assert len(model.ranef[0]) == 4
+    assert model.ranef[0][1] == "308"
+    assert model.var_corr is not None
+    assert isinstance(model.var_corr, list)
+    assert len(model.var_corr) > 0
+    assert len(model.var_corr[0]) == 5
 
     # Test confint
     ci = model.confint(0.95)
@@ -58,6 +67,8 @@ def test_glmer_poisson():
     assert model.converged is True
     assert model.sigma2 is None # Poisson has no dispersion
     assert len(model.coefficients) == 3
+    assert model.ranef is not None
+    assert model.var_corr is not None
     
     preds_link = model.predict(df)
     preds_resp = model.predict_response(df)
@@ -77,6 +88,39 @@ def test_glmer_binomial():
     preds_resp = model.predict_response(df)
     # Binomial response predictions should be probabilities [0, 1]
     assert all(0.0 <= p <= 1.0 for p in preds_resp)
+
+def test_glmer_predict_conditional_response_poisson():
+    df = pl.read_csv("../tests/data/grouseticks.csv")
+    model = lme_python.glmer("TICKS ~ YEAR + HEIGHT + (1 | BROOD)", data=df, family_name="poisson")
+
+    preds_pop = model.predict_response(df)
+    preds_cond = model.predict_conditional_response(df, allow_new_levels=False)
+
+    assert len(preds_cond) == len(preds_pop) == df.height
+    # At least one subject-level/cluster effect should change predictions.
+    assert abs(preds_cond[0] - preds_pop[0]) > 1e-6
+
+def test_conditional_response_unseen_levels():
+    df = pl.read_csv("../tests/data/grouseticks.csv")
+    model = lme_python.glmer("TICKS ~ YEAR + HEIGHT + (1 | BROOD)", data=df, family_name="poisson")
+
+    # Create a dataframe with an entirely unseen group level.
+    new_level_df = pl.DataFrame({
+        "TICKS": [10.0],
+        "YEAR": [2000.0],
+        "HEIGHT": [1.2],
+        "BROOD": ["UNSEEN_BROOD_999"]
+    })
+
+    # allow_new_levels=False should error.
+    with pytest.raises(ValueError):
+        model.predict_conditional_response(new_level_df, allow_new_levels=False)
+
+    # allow_new_levels=True should fall back to population-level predictions.
+    preds_cond = model.predict_conditional_response(new_level_df, allow_new_levels=True)
+    preds_pop = model.predict_response(new_level_df)
+    assert len(preds_cond) == 1
+    assert abs(preds_cond[0] - preds_pop[0]) < 1e-6
 
 def test_invalid_family():
     df = pl.read_csv("../tests/data/sleepstudy.csv")
@@ -151,14 +195,212 @@ def test_std_errors():
     assert se[0] > 0
     assert se[1] > 0
 
+def test_inference_getters_default_none():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
+
+    assert model.robust_se is None
+    assert model.robust_t is None
+    assert model.robust_p_values is None
+    assert model.satterthwaite_dfs is None
+    assert model.satterthwaite_p_values is None
+    assert model.kenward_roger_dfs is None
+    assert model.kenward_roger_p_values is None
+
+def test_simulate():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
+
+    sims = model.simulate(3)
+    assert len(sims) == 3
+    assert all(len(v) == model.num_obs for v in sims)
+    # Spot-check finiteness (avoid scanning the entire simulation tensor).
+    for v in sims:
+        for x in v[:5]:
+            assert math.isfinite(x)
+
+def test_simulate_poisson_nonnegative_counts():
+    df = pl.read_csv("../tests/data/grouseticks.csv")
+    model = lme_python.glmer("TICKS ~ YEAR + HEIGHT + (1 | BROOD)", data=df, family_name="poisson")
+
+    sims = model.simulate(3)
+    assert len(sims) == 3
+    for v in sims:
+        for x in v[:20]:
+            assert x >= 0.0
+            assert abs(x - round(x)) < 1e-9
+
+def test_simulate_binomial_binary():
+    df = pl.read_csv("../tests/data/cbpp_binary.csv")
+    model = lme_python.glmer("y ~ period2 + period3 + period4 + (1 | herd)", data=df, family_name="binomial")
+
+    sims = model.simulate(3)
+    assert len(sims) == 3
+    for v in sims:
+        for x in v[:20]:
+            assert x in (0.0, 1.0)
+
+def test_simulate_gamma_positive():
+    df = pl.read_csv("../tests/data/dyestuff.csv")
+    model = lme_python.glmer("Yield ~ 1 + (1 | Batch)", data=df, family_name="gamma")
+
+    sims = model.simulate(3)
+    assert len(sims) == 3
+    for v in sims:
+        for x in v[:20]:
+            assert x > 0.0
+            assert math.isfinite(x)
+
+def test_anova_lrt_nested_lmer():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+
+    fit0 = lme_python.lmer("Reaction ~ 1 + (1 | Subject)", data=df, reml=False)
+    fit1 = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=False)
+
+    res = lme_python.anova(fit0, fit1)
+    (n_params_0, n_params_1, dev0, dev1, chi_sq, df_diff, p_value, formula_0, formula_1) = res
+
+    assert n_params_0 < n_params_1
+    assert df_diff > 0
+    assert chi_sq >= 0.0
+    assert 0.0 <= p_value <= 1.0
+    assert isinstance(formula_0, str) and isinstance(formula_1, str)
+
+def test_with_robust_se():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_robust_se(subset_df, cluster_col=None)
+    summary = model.summary()
+    assert "[Robust]" in summary
+
+def test_with_cluster_robust_se():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_robust_se(subset_df, cluster_col="Subject")
+
+    robust_se = model.robust_se
+    robust_t = model.robust_t
+    robust_p = model.robust_p_values
+
+    assert robust_se is not None and robust_t is not None and robust_p is not None
+    assert len(robust_se) == len(model.coefficients)
+    assert len(robust_t) == len(model.coefficients)
+    assert len(robust_p) == len(model.coefficients)
+
+def test_with_satterthwaite():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_satterthwaite(subset_df)
+    summary = model.summary()
+    assert "Satterthwaite" in summary
+
+    assert model.satterthwaite_dfs is not None
+    assert model.satterthwaite_p_values is not None
+    assert len(model.satterthwaite_dfs) == len(model.coefficients)
+    assert len(model.satterthwaite_p_values) == len(model.coefficients)
+
+def test_with_kenward_roger():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_kenward_roger(subset_df)
+    summary = model.summary()
+    assert "Kenward-Roger" in summary
+
+    assert model.kenward_roger_dfs is not None
+    assert model.kenward_roger_p_values is not None
+    assert len(model.kenward_roger_dfs) == len(model.coefficients)
+    assert len(model.kenward_roger_p_values) == len(model.coefficients)
+
+def test_robust_inference_values():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_robust_se(subset_df, cluster_col=None)
+
+    robust_se = model.robust_se
+    robust_t = model.robust_t
+    robust_p = model.robust_p_values
+
+    assert robust_se is not None and robust_t is not None and robust_p is not None
+    assert len(robust_se) == len(model.coefficients)
+    assert len(robust_t) == len(model.coefficients)
+    assert len(robust_p) == len(model.coefficients)
+    assert all(math.isfinite(x) for x in robust_se[:])
+    assert all(0.0 <= p <= 1.0 for p in robust_p)
+
+def test_anova_satterthwaite_fixed_effects():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_satterthwaite(subset_df)
+
+    terms, num_df, den_df, f_value, p_value, method = model.anova("satterthwaite")
+
+    assert terms == ["Days"]
+    assert len(num_df) == len(den_df) == len(f_value) == len(p_value) == 1
+    assert 0.0 <= p_value[0] <= 1.0
+    assert den_df[0] > 0.0
+    assert isinstance(method, str)
+
+def test_anova_kenward_roger_fixed_effects():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_kenward_roger(subset_df)
+
+    terms, num_df, den_df, f_value, p_value, method = model.anova("kenward_roger")
+
+    assert terms == ["Days"]
+    assert len(num_df) == len(den_df) == len(f_value) == len(p_value) == 1
+    assert 0.0 <= p_value[0] <= 1.0
+    assert den_df[0] > 0.0
+    assert isinstance(method, str)
+
+def test_anova_invalid_ddf_method():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    subset_df = df.head(60)
+
+    model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
+    model.with_satterthwaite(subset_df)
+
+    with pytest.raises(ValueError, match="Unsupported ddf_method"):
+        model.anova("not_a_real_method")
+
 if __name__ == "__main__":
     test_lmer_sleepstudy()
     test_glmer_poisson()
     test_glmer_binomial()
+    test_glmer_predict_conditional_response_poisson()
+    test_conditional_response_unseen_levels()
     test_lmer_ml_estimation()
     test_glmer_gamma()
     test_predictions_with_new_data()
     test_conditional_predictions_unseen_levels()
     test_predict_missing_columns()
     test_std_errors()
+    test_inference_getters_default_none()
+    test_simulate()
+    test_simulate_poisson_nonnegative_counts()
+    test_simulate_binomial_binary()
+    test_simulate_gamma_positive()
+    test_anova_lrt_nested_lmer()
+    test_with_robust_se()
+    test_with_cluster_robust_se()
+    test_with_satterthwaite()
+    test_with_kenward_roger()
+    test_robust_inference_values()
+    test_anova_satterthwaite_fixed_effects()
+    test_anova_kenward_roger_fixed_effects()
+    test_anova_invalid_ddf_method()
     print("All tests passed natively")
