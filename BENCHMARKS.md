@@ -122,7 +122,6 @@ The repository also includes a dedicated workflow in [.github/workflows/benchmar
 - runs the cross-language benchmark script
 - uploads the resulting artifacts in CI
 - attaches them to GitHub Releases on tag pushes
-- publishes the latest benchmark dashboard to GitHub Pages at `https://x4g4p3x.github.io/lme-rs/benchmarks/`
 
 ## Latest published results
 

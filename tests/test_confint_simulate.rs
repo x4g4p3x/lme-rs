@@ -186,7 +186,11 @@ fn test_simulate_poisson_stays_nonnegative_counts() {
     let sim = fit.simulate(5).unwrap();
     for s in &sim.simulations {
         for &y in s {
-            assert!(y >= 0.0, "Poisson simulations must be nonnegative, got {}", y);
+            assert!(
+                y >= 0.0,
+                "Poisson simulations must be nonnegative, got {}",
+                y
+            );
             assert!(
                 (y - y.round()).abs() < 1e-10,
                 "Poisson simulations must be integer-valued, got {}",

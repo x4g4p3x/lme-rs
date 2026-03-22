@@ -1052,19 +1052,18 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     }
 
     // 1. Parse formula and build design matrices
-    let ast = formula::parse(formula_str)
-        .map_err(|e| anyhow::anyhow!("Formula parse error: {}", e))?;
+    let ast =
+        formula::parse(formula_str).map_err(|e| anyhow::anyhow!("Formula parse error: {}", e))?;
     let matrices = model_matrix::build_design_matrices(&ast, data)
         .map_err(|e| anyhow::anyhow!("Design matrix error: {}", e))?;
 
     // 2. Fit by QR (delegate to the raw-matrix lm())
-    let mut fit = lm(&matrices.y, &matrices.x)
-        .map_err(|e| anyhow::anyhow!("lm failed: {}", e))?;
+    let mut fit = lm(&matrices.y, &matrices.x).map_err(|e| anyhow::anyhow!("lm failed: {}", e))?;
 
     // 3. Attach formula, column names, and observation count
-    fit.formula     = Some(matrices.formula);
+    fit.formula = Some(matrices.formula);
     fit.fixed_names = Some(matrices.fixed_names.clone());
-    fit.num_obs     = matrices.y.len();
+    fit.num_obs = matrices.y.len();
 
     // 4. Standard errors and t-statistics via the unscaled variance matrix (X'X)^{-1}
     //    SE(β̂_i) = sqrt(σ² · [(X'X)^{-1}]_{ii})
@@ -1082,13 +1081,17 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
 
     let p_int = matrices.x.ncols();
     let mut beta_se = ndarray::Array1::<f64>::zeros(p_int);
-    let mut beta_t  = ndarray::Array1::<f64>::zeros(p_int);
+    let mut beta_t = ndarray::Array1::<f64>::zeros(p_int);
     for i in 0..p_int {
         beta_se[i] = (sigma2 * xtx_inv[[i, i]]).sqrt();
-        beta_t[i]  = if beta_se[i] > 0.0 { fit.coefficients[i] / beta_se[i] } else { f64::NAN };
+        beta_t[i] = if beta_se[i] > 0.0 {
+            fit.coefficients[i] / beta_se[i]
+        } else {
+            f64::NAN
+        };
     }
     fit.beta_se = Some(beta_se);
-    fit.beta_t  = Some(beta_t);
+    fit.beta_t = Some(beta_t);
 
     // 5. Log-likelihood, AIC, BIC for Gaussian OLS:
     //    logLik = -n/2 * (ln(2π) + ln(σ²) + 1)
@@ -1100,9 +1103,9 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     let bic = deviance + n_params * n.ln();
 
     fit.log_likelihood = Some(log_lik);
-    fit.deviance        = Some(deviance);
-    fit.aic             = Some(aic);
-    fit.bic             = Some(bic);
+    fit.deviance = Some(deviance);
+    fit.aic = Some(aic);
+    fit.bic = Some(bic);
 
     Ok(fit)
 }

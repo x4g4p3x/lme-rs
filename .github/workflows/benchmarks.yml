@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
   id-token: write
 
 env:
@@ -172,63 +171,3 @@ jobs:
           echo "Cross-language benchmark script failed with exit code ${{ steps.cross_language_run.outputs.status }}." >&2
           exit 1
 
-  pages:
-    name: Publish Benchmark Dashboard
-    runs-on: ubuntu-latest
-    needs:
-      - criterion
-      - cross-language
-    if: needs.criterion.result == 'success' && needs.cross-language.result == 'success' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Download cross-language artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: cross-language-${{ github.sha }}
-          path: site-input
-
-      - name: Resolve release URL
-        id: release_url
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "value=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build benchmark dashboard
-        run: |
-          set -euo pipefail
-          mkdir -p site
-          cp -R docs/. site/
-          mkdir -p site/benchmarks/data
-          cross_json="$(find site-input -name 'cross-language-*.json' -print -quit)"
-          python scripts/build_benchmark_site.py \
-            --cross-language-json "$cross_json" \
-            --output-dir "site/benchmarks/data" \
-            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --release-url "${{ steps.release_url.outputs.value }}" \
-            --criterion-asset-name "criterion-${GITHUB_SHA}.tar.gz" \
-            --cross-language-asset-name "cross-language-${GITHUB_SHA}.json" \
-            --ref-name "${GITHUB_REF_NAME}"
-
-      - uses: actions/configure-pages@v5
-        with:
-          token: ${{ secrets.REPO_ADMIN_TOKEN != '' && secrets.REPO_ADMIN_TOKEN || github.token }}
-          enablement: ${{ secrets.REPO_ADMIN_TOKEN != '' }}
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4

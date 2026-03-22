@@ -162,7 +162,10 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
 
     println!("Dyestuff Gamma beta: {:?}", fit.coefficients);
     println!("Dyestuff Gamma sigma2: {:?}", fit.sigma2);
-    println!("Dyestuff Gamma fitted[0..5]: {:?}", &fit.fitted.iter().take(5).collect::<Vec<_>>());
+    println!(
+        "Dyestuff Gamma fitted[0..5]: {:?}",
+        &fit.fitted.iter().take(5).collect::<Vec<_>>()
+    );
 
     assert!(fit.converged.unwrap_or(false));
     assert_eq!(fit.coefficients.len(), 1);
@@ -191,7 +194,11 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
     for &mu in &fit.fitted {
         assert!(mu.is_finite());
         assert!(mu > 0.0);
-        assert!(mu < mean_y * 10.0, "Gamma fitted value implausibly large: {}", mu);
+        assert!(
+            mu < mean_y * 10.0,
+            "Gamma fitted value implausibly large: {}",
+            mu
+        );
     }
 
     let sigma2 = fit.sigma2.unwrap();
