@@ -140,6 +140,8 @@ pub struct LmeFit {
     pub v_beta_unscaled: Option<Array2<f64>>,
     /// Optional Robust / Sandwich Standard Error estimates.
     pub robust: Option<RobustResult>,
+    /// Stored levels for categorical dummy encoding
+    pub categorical_levels: Option<std::collections::HashMap<String, Vec<String>>>,
 }
 
 impl LmeFit {
@@ -163,8 +165,8 @@ impl LmeFit {
         }
 
         let n_obs = newdata.height();
-        let (x_new, x_names) =
-            crate::model_matrix::build_x_matrix(&ast, newdata, &response_col_name, n_obs)
+        let (x_new, x_names, _levels) =
+            crate::model_matrix::build_x_matrix(&ast, newdata, &response_col_name, n_obs, self.categorical_levels.as_ref())
                 .map_err(|e| anyhow::anyhow!("Failed building X matrix for predictions: {}", e))?;
 
         // Align beta columns with the AST's generated matrix
@@ -856,6 +858,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         kenward_roger: None,
         v_beta_unscaled: None,
         robust: None,
+        categorical_levels: None,
     })
 }
 
@@ -1019,6 +1022,7 @@ pub fn lmer_weighted(
         kenward_roger: None,
         v_beta_unscaled: Some(coefs.v_beta_unscaled),
         robust: None,
+        categorical_levels: Some(matrices.categorical_levels),
     })
 }
 
@@ -1106,6 +1110,7 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     fit.deviance = Some(deviance);
     fit.aic = Some(aic);
     fit.bic = Some(bic);
+    fit.categorical_levels = Some(matrices.categorical_levels);
 
     Ok(fit)
 }
@@ -1128,7 +1133,7 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
 ///     Ok(())
 /// }
 /// ```
-pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -> Result<LmeFit> {
+pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family, n_agq: usize) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
@@ -1166,6 +1171,7 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         init_theta,
         fam_for_opt,
         matrices.offset.clone(),
+        n_agq,
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("GLMM optimizer failed: {}", e),
@@ -1181,9 +1187,10 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         matrices.y.clone(),
         matrices.re_blocks.clone(),
         fam_for_eval,
+        n_agq,
     );
     let coefs = glmm
-        .pirls(best_theta.as_slice().unwrap(), matrices.offset.as_ref())
+        .pirls(best_theta.as_slice().unwrap(), matrices.offset.as_ref(), n_agq)
         .ok_or_else(|| LmeError::NotImplemented {
             feature: "PIRLS failed to converge at optimal theta".to_string(),
         })?;
@@ -1253,6 +1260,7 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family) -
         kenward_roger: None,
         v_beta_unscaled: Some(coefs.v_beta_unscaled),
         robust: None,
+        categorical_levels: Some(matrices.categorical_levels),
     })
 }
 

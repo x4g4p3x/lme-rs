@@ -38,6 +38,8 @@ pub struct DesignMatrices {
     pub fixed_names: Vec<String>,
     /// Optional vector of offset terms to shift predictions by.
     pub offset: Option<Array1<f64>>,
+    /// Saved categorical dummy variable levels during training.
+    pub categorical_levels: HashMap<String, Vec<String>>,
 }
 
 /// Constructs structural matrices formatting Fixed Effects ($X$) and Random Effects ($Z$) bounds out of `fiasto` inputs.
@@ -79,7 +81,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         .collect();
     let y = Array1::from_vec(y_vec);
 
-    let (x, fixed_names) = build_x_matrix(ast, data, &response_name, n_obs)?;
+    let (x, fixed_names, categorical_levels) = build_x_matrix(ast, data, &response_name, n_obs, None)?;
 
     // 2. Extract Offset (if any)
     let offset = if let Some(off_name) = &ast.offset {
@@ -273,6 +275,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         re_blocks,
         fixed_names,
         offset,
+        categorical_levels,
     })
 }
 
@@ -282,9 +285,13 @@ pub fn build_x_matrix(
     data: &DataFrame,
     response_name: &str,
     n_obs: usize,
-) -> crate::Result<(Array2<f64>, Vec<String>)> {
+    training_levels: Option<&HashMap<String, Vec<String>>>,
+) -> crate::Result<(Array2<f64>, Vec<String>, HashMap<String, Vec<String>>)> {
     let mut fixed_cols = Vec::new();
     let mut fixed_names = Vec::new();
+    let mut intercept_handled = ast.metadata.has_intercept;
+    let mut extracted_levels: HashMap<String, Vec<String>> = HashMap::new();
+
     if ast.metadata.has_intercept {
         fixed_cols.push(Array1::<f64>::ones(n_obs));
         fixed_names.push("(Intercept)".to_string());
@@ -304,18 +311,89 @@ pub fn build_x_matrix(
             .map_err(|_| crate::LmeError::NotImplemented {
                 feature: format!("Missing or invalid column: {}", col_name),
             })?;
-        let s_cast = s
-            .cast(&DataType::Float64)
-            .map_err(|_| crate::LmeError::NotImplemented {
+
+        let is_categorical = match s.dtype() {
+            DataType::String | DataType::Boolean => true,
+            dt if dt.is_categorical() => true,
+            _ => false,
+        };
+
+        if is_categorical {
+            let unique_vals = if let Some(tr_levels) = training_levels {
+                // If predicting, strictly use the training levels
+                tr_levels.get(col_name).cloned().unwrap_or_else(Vec::new)
+            } else {
+                let unique_series = s.unique().map_err(|e| crate::LmeError::NotImplemented {
+                    feature: format!("Failed to compute unique values for {}: {}", col_name, e),
+                })?;
+                let unique_cast =
+                    unique_series
+                        .cast(&DataType::String)
+                        .map_err(|e| crate::LmeError::NotImplemented {
+                            feature: format!(
+                                "Cannot cast unique values of {} to string: {}",
+                                col_name, e
+                            ),
+                        })?;
+                let unique_str = unique_cast.str().unwrap();
+
+                let mut vals: Vec<String> = unique_str
+                    .into_iter()
+                    .flatten()
+                    .map(|x| x.to_string())
+                    .collect();
+                vals.sort();
+                vals
+            };
+
+            // Store for returning if we are training
+            extracted_levels.insert(col_name.clone(), unique_vals.clone());
+
+            let drop_first = intercept_handled;
+            intercept_handled = true;
+
+            let start_idx = if drop_first && unique_vals.len() > 1 {
+                1
+            } else {
+                0
+            };
+
+            let full_str_col = s.cast(&DataType::String).map_err(|e| {
+                crate::LmeError::NotImplemented {
+                    feature: format!("Cannot cast {} to string: {}", col_name, e),
+                }
+            })?;
+            let str_data: Vec<String> = full_str_col
+                .str()
+                .unwrap()
+                .into_iter()
+                .map(|o| o.unwrap_or("").to_string())
+                .collect();
+
+            for val in unique_vals.iter().skip(start_idx) {
+                let mut col_data = ndarray::Array1::<f64>::zeros(n_obs);
+                for i in 0..n_obs {
+                    if str_data[i] == *val {
+                        col_data[i] = 1.0;
+                    }
+                }
+                fixed_cols.push(col_data);
+                fixed_names.push(format!("{}{}", col_name, val));
+            }
+        } else {
+            let s_cast = s
+                .cast(&DataType::Float64)
+                .map_err(|_| crate::LmeError::NotImplemented {
+                    feature: format!("Missing or invalid column: {}", col_name),
+                })?;
+            let s_f64 = s_cast.f64().map_err(|_| crate::LmeError::NotImplemented {
                 feature: format!("Missing or invalid column: {}", col_name),
             })?;
-        let s_f64 = s_cast.f64().map_err(|_| crate::LmeError::NotImplemented {
-            feature: format!("Missing or invalid column: {}", col_name),
-        })?;
 
-        let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
-        fixed_cols.push(Array1::from_vec(vec));
-        fixed_names.push(col_name.clone());
+            let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
+            fixed_cols.push(Array1::from_vec(vec));
+            fixed_names.push(col_name.clone());
+        }
     }
 
     let p = fixed_cols.len();
@@ -324,7 +402,7 @@ pub fn build_x_matrix(
         x.column_mut(j).assign(col);
     }
 
-    Ok((x, fixed_names))
+    Ok((x, fixed_names, extracted_levels))
 }
 
 #[cfg(test)]

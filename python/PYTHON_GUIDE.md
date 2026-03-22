@@ -46,6 +46,7 @@ Top-level functions:
 
 - `lme_python.lm(formula, data)`
 - `lme_python.lmer(formula, data, reml=True)`
+- `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name)`
 - `lme_python.anova(fit_a, fit_b)`  # likelihood ratio test between nested models
 
@@ -152,6 +153,7 @@ model_ml = lme_python.lmer(
 - `"binomial"`
 - `"poisson"`
 - `"gamma"`
+- `"gaussian"`
 
 ```python
 import polars as pl
@@ -218,8 +220,6 @@ df = pl.from_pandas(pdf)
 
 ## Current limitations
 
-- `lm()` currently accepts only numeric predictors (columns must be castable to
-  `Float64`). Categorical encoding (dummy variables) is not yet automatic.
 - The Python binding is not yet a full mirror of the Rust crate.
 - Some advanced inference helpers are still not exposed in the Python binding (for example, detailed simulation helpers and some additional model comparison wrappers).
 - `glmer()` currently exposes only the string family selector described above.

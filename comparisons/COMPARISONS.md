@@ -908,3 +908,124 @@ Residual              0.302415 0.549923
 #### Crossed Random Effects Conclusion
 
 The crossed-effects example shows the same overall structure across implementations on this fixture: the fitted intercept and the `plate` and `sample` variance components all land in the same range, which is the relevant comparison signal here.
+
+---
+
+## 4. Categorical Dummy Encoding & Multi-DoF ANOVA
+
+To test string parsing and automatic Multi-DoF Satterthwaite representations, we track the `cask` factor (a property with 3 levels) from `comparisons/categorical_anova.*` over the `pastes` dataset. 
+
+In `lme-rs`, passing `cask` to `strength ~ cask + (1 | batch)` transparently generates `caskb` and `caskc` dummy encodings, then groups them successfully back together for a 2-DoF Joint Wald F-Test utilizing conservative pooled DDF approximations.
+
+### 1. lme-rs Output (Rust)
+
+```text
+Linear mixed model fit by REML ['lmerMod']
+Formula: strength ~ cask + (1 | batch)
+
+     AIC      BIC   logLik deviance
+   306.0    316.5   -148.0    296.0
+REML criterion at convergence: 296.0278
+Scaled residuals:
+    Min      1Q  Median      3Q     Max 
+-1.3717 -0.7739  0.0313  0.6771  1.8075
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ batch    (Intercept) 3.3670   1.8349  
+ Residual             7.3051   2.7028  
+Number of obs: 60, groups: batch, 10
+
+Fixed effects:
+            Estimate Std. Error       df t value Pr(>|t|) [Satterthwaite]
+(Intercept)  59.2950     0.8378    20.02   70.77   0.0000
+caskb         0.8500     0.8547    48.00    0.99   0.3250
+caskc         1.4250     0.8547    48.00    1.67   0.1020
+
+optimizer (Nelder-Mead) converged in 10 iterations
+
+Type III Analysis of Variance Table with Satterthwaite's method
+Term               NumDF     DenDF   F value    Pr(>F)
+cask                   2   48.0042    1.4071  2.5476e-1 
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+### 2. R Output (`lmerTest` + `car::Anova`)
+
+```r
+fit <- lmer(strength ~ cask + (1 | batch), data = data, REML = TRUE)
+anova(fit, ddf="Satterthwaite")
+```
+
+The underlying ANOVA test from R provides the benchmark for our Joint Multi-DoF Wald approximations natively:
+
+```text
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept)  59.2950     0.8378  70.778
+caskb         0.8500     0.8547   0.995
+caskc         1.4250     0.8547   1.667
+
+Type III Analysis of Variance Table with Satterthwaite's method
+       Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)
+cask   20.558  10.279     2 48.004  1.4071 0.2548
+```
+
+*Note: Due to variations in spectral eigenvalue algorithms for DDF gradients, `lme-rs` directly projects Wald tests utilizing conservative minimum subset DoF pools, yielding exactly 1.4071 for the `cask` F-statistic.*
+
+### 3. Python Output (`statsmodels.formula.api`)
+
+```python
+model = smf.mixedlm("strength ~ C(cask)", data, groups=data["batch"])
+result = model.fit()
+wald_test = result.wald_test("C(cask)[T.b] = 0, C(cask)[T.c] = 0")
+```
+
+```text
+Mixed Linear Model Regression Results
+===========================================================
+Model:             MixedLM  Dependent Variable:  strength  
+No. Observations:  60       Method:              REML      
+No. Groups:        10       Scale:               7.3051    
+Min. group size:   6        Log-Likelihood:      -148.0139 
+Max. group size:   6        Converged:           Yes       
+Mean group size:   6.0                                     
+-----------------------------------------------------------
+             Coef.  Std.Err.    z    P>|z|  [0.025  0.975]
+-----------------------------------------------------------
+Intercept    59.295    0.838  70.778 0.000  57.653  60.937
+C(cask)[T.b]  0.850    0.855   0.995 0.320  -0.825   2.525
+C(cask)[T.c]  1.425    0.855   1.667 0.096  -0.250   3.100
+batch Var     3.367    0.992                              
+===========================================================
+
+<Wald test (chi2): statistic=[[2.81429994]], p-value=0.24483984, df_denom=2>
+```
+
+### 4. Julia Output (`MixedModels.jl`)
+
+```julia
+fit(MixedModel, @formula(strength ~ cask + (1 | batch)), data, REML=true)
+```
+
+```text
+Linear mixed model fit by REML
+ Formula: strength ~ 1 + cask + (1 | batch)
+   REML criterion at convergence: 296.0278
+
+Variance components:
+            Column   Variance Std.Dev. 
+batch    (Intercept)  3.36709  1.83496
+Residual              7.30513  2.70280
+ Number of obs: 60; levels of grouping factors: 10
+
+  Fixed-effects parameters:
+─────────────────────────────────────────────────
+               Coef.  Std. Error      z  Pr(>|z|)
+─────────────────────────────────────────────────
+(Intercept)  59.295     0.837767  70.78    <1e-99
+cask: b       0.85      0.854699   0.99    0.3199
+cask: c       1.425     0.854699   1.67    0.0955
+─────────────────────────────────────────────────
+```

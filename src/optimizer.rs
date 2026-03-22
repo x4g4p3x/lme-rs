@@ -161,6 +161,7 @@ struct GlmmObjective {
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
     lower_bounds: Vec<f64>,
+    n_agq: usize,
 }
 
 impl CostFunction for GlmmObjective {
@@ -178,8 +179,9 @@ impl CostFunction for GlmmObjective {
             self.y.clone(),
             self.re_blocks.clone(),
             self.family.build_clone(),
+            self.n_agq,
         );
-        let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref());
+        let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref(), self.n_agq);
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -199,6 +201,7 @@ pub fn optimize_theta_glmm(
     init_theta: Array1<f64>,
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
+    n_agq: usize,
 ) -> Result<OptimizeResult, anyhow::Error> {
     let lower_bounds = compute_theta_lower_bounds(&re_blocks);
 
@@ -210,6 +213,7 @@ pub fn optimize_theta_glmm(
         family,
         offset,
         lower_bounds: lower_bounds.clone(),
+        n_agq,
     };
 
     let n = init_theta.len();
@@ -284,6 +288,7 @@ mod tests {
             family,
             offset: None,
             lower_bounds,
+            n_agq: 1,
         };
 
         let theta = array![1.0];
