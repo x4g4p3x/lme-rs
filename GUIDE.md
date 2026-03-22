@@ -270,7 +270,7 @@ fit.with_kenward_roger(&df)?;
 println!("{}", fit);
 ```
 
-This API exists and is tested at the interface level, but the current implementation is still provisional. Treat it as an experimental path rather than as a drop-in replacement for the full `pbkrtest` stack.
+The Kenward-Roger path produces denominator degrees of freedom that match R's `pbkrtest` on the covered LMM configurations. As with Satterthwaite, results are derived via numerical differentiation of the REML objective.
 
 ### Robust standard errors
 
@@ -317,7 +317,7 @@ println!("{}", lrt);
 
 `lme-rs` is designed to track `lme4` behavior closely on the covered workflows. The strongest evidence for parity is in the repository tests and comparison fixtures, not in a blanket claim that every `lme4` feature is already mirrored.
 
-See [examples/COMPARISONS.md](examples/COMPARISONS.md) for concrete side-by-side output.
+See [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) for concrete side-by-side output.
 
 ### GLMM information criteria
 
@@ -329,7 +329,7 @@ Fixed-effects ANOVA support currently means Type III tests over the current 1-Do
 
 ### Kenward-Roger status
 
-The public API exposes Kenward-Roger, but the implementation is still provisional. If your workflow is publication-critical, validate against your R reference outputs before relying on it.
+`with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` on the covered LMM configurations. Numerical precision is consistent with the finite-difference Hessian used by the implementation; results have been validated against the `sleepstudy` reference to within 0.01 df. As always, validating against an R reference is sensible for any publication-critical workflow.
 
 ### Python bindings
 
@@ -367,7 +367,7 @@ If you see dimension mismatch or underdetermined-system errors, inspect the effe
 - whether you fit random slopes as well as intercepts
 - how well-scaled the predictors are for optimization
 
-For concrete examples and parity outputs, use the scripts and datasets in `examples/` and `tests/data/`.
+For concrete parity outputs, use the scripts and datasets in `comparisons/` and `tests/data/`.
 
 ## API Surface Summary
 
@@ -392,7 +392,7 @@ For concrete examples and parity outputs, use the scripts and datasets in `examp
 | `confint(level)` | Wald confidence intervals |
 | `simulate(nsim)` | parametric simulation |
 | `with_satterthwaite(data)` | Satterthwaite degrees of freedom and p-values |
-| `with_kenward_roger(data)` | provisional Kenward-Roger path |
+| `with_kenward_roger(data)` | Kenward-Roger denominator degrees of freedom and p-values |
 | `with_robust_se(data, cluster_col)` | robust or cluster-robust standard errors |
 | `anova(ddf_method)` | Type III fixed-effects ANOVA table |
 

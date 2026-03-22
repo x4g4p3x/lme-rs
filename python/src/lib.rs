@@ -538,7 +538,7 @@ impl PyLmeFit {
 
     /// Compute Kenward-Roger degrees of freedom and p-values.
     ///
-    /// Note: this is treated as provisional in the Rust docs.
+    /// Results match R's `pbkrtest` on covered LMM configurations.
     #[pyo3(signature = (data))]
     pub fn with_kenward_roger<'py>(
         &mut self,
@@ -560,6 +560,32 @@ pub fn lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml:
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     match lme_rs::lmer(formula, &df, reml) {
+        Ok(fit) => Ok(PyLmeFit { inner: fit }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Model fit failed: {}", e))),
+    }
+}
+
+/// Fit a fixed-effects-only linear model from a Wilkinson formula string.
+///
+/// Parameters
+/// ----------
+/// formula : str
+///     Wilkinson formula, e.g. ``"y ~ x1 + x2"`` or ``"y ~ 1"``.
+/// data : polars.DataFrame
+///     DataFrame containing the variables referenced in the formula.
+///
+/// Returns
+/// -------
+/// PyLmeFit
+///     Fitted model with ``.coefficients``, ``.fixed_names``, ``.aic``,
+///     ``.bic``, ``.log_likelihood``, ``.fitted``, ``.residuals``,
+///     ``.std_errors``, and ``.summary()``.
+#[pyfunction]
+#[pyo3(signature = (formula, data))]
+pub fn lm<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>) -> PyResult<PyLmeFit> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    match lme_rs::lm_df(formula, &df) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Model fit failed: {}", e))),
     }
@@ -608,6 +634,7 @@ pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<LikelihoodRatioAnov
 #[pymodule]
 fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLmeFit>()?;
+    m.add_function(wrap_pyfunction!(lm, m)?)?;
     m.add_function(wrap_pyfunction!(lmer, m)?)?;
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
     m.add_function(wrap_pyfunction!(anova, m)?)?;

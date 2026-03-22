@@ -109,5 +109,5 @@ plt.tight_layout()
 plt.subplots_adjust(top=0.92)
 fig.suptitle('Numerical Parity of Mixed-Effects Models Across ecosystem implementations', fontsize=24, fontweight='bold')
 
-plt.savefig('examples/comparison_chart.png', dpi=300, bbox_inches='tight')
-print("Saved chart to examples/comparison_chart.png!")
+plt.savefig('comparisons/comparison_chart.png', dpi=300, bbox_inches='tight')
+print("Saved chart to comparisons/comparison_chart.png!")

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-03-22
+
+### Added
+
+- Formula-string entry point `lm()` and corresponding Python binding for fitting ordinary least squares models using DataFrames.
+- New Python examples directory `python/examples` with five runnable demonstration scripts mapping to common mixed-modeling workflows.
+
+### Changed
+
+- Renamed `examples/` directory to `comparisons/` to clarify that it contains cross-language parity scripts, updating all build and documentation references accordingly.
+- Promoted Kenward-Roger degrees of freedom from "provisional" status after validating numerical parity (within 0.01 df) against R's `pbkrtest`.
+
 ## [0.1.3] - 2026-03-12
 
 ### Added

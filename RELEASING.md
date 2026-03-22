@@ -62,7 +62,7 @@ Update all user-visible versioned surfaces together.
 
 - update `CHANGELOG.md`
 - update any README or guide snippets that mention a specific version
-- review `examples/COMPARISONS.md` if release notes depend on changed outputs or behavior
+- review `comparisons/COMPARISONS.md` if release notes depend on changed outputs or behavior
 
 ## Benchmarks before release
 
@@ -83,14 +83,14 @@ python scripts/run_cross_language_benchmarks.py
 ## Git workflow
 
 1. Ensure the worktree is clean enough to understand what is being released.
-2. Commit the release changes.
-3. Create an annotated tag:
+1. Commit the release changes.
+1. Create an annotated tag:
 
 ```bash
 git tag -a v0.1.3 -m "Release v0.1.3"
 ```
 
-4. Push the branch and the tag:
+1. Push the branch and the tag:
 
 ```bash
 git push origin master
@@ -124,7 +124,7 @@ If a release changes the crate description, homepage, keywords, or categories, v
 
 ## Post-release verification
 
-### Rust crate
+### Rust crate (post-release)
 
 Verify the new crate version appears on crates.io and docs.rs.
 
@@ -134,7 +134,7 @@ Check:
 - README rendering on crates.io is sane
 - docs.rs builds and links resolve
 
-### Python package
+### Python package (post-release)
 
 Verify the PyPI release and GitHub Release artifacts.
 

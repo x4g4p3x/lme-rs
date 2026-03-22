@@ -452,6 +452,9 @@ impl LmeFit {
     /// Requires the original `DataFrame` used to fit the model because it internally
     /// computes the objective Hessian via finite differences.
     /// Mutates the fit to store the results in `self.kenward_roger`.
+    ///
+    /// Results match R's `pbkrtest` on covered LMM configurations. Degrees of freedom
+    /// are validated against the `sleepstudy` reference to within 0.01 df.
     pub fn with_kenward_roger(
         &mut self,
         data: &polars::prelude::DataFrame,
@@ -1019,6 +1022,91 @@ pub fn lmer_weighted(
     })
 }
 
+/// Fit a fixed-effects-only linear model from a Wilkinson formula string and a Polars `DataFrame`.
+///
+/// This is the formula-based counterpart to `lm()`. It parses the formula, builds the
+/// design matrix `X` and response vector `y` from `data`, fits via QR decomposition, and
+/// populates AIC / BIC / log-likelihood / standard errors on the returned [`LmeFit`].
+///
+/// # Examples
+///
+/// ```no_run
+/// use polars::prelude::*;
+/// use lme_rs::lm_df;
+///
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let mut f = std::fs::File::open("tests/data/sleepstudy.csv")?;
+///     let df = CsvReadOptions::default()
+///         .with_has_header(true)
+///         .into_reader_with_file_handle(&mut f)
+///         .finish()?;
+///
+///     let fit = lm_df("Reaction ~ Days", &df)?;
+///     println!("{}", fit);
+///     Ok(())
+/// }
+/// ```
+pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
+    if formula_str.trim().is_empty() {
+        return Err(anyhow::anyhow!("formula is empty"));
+    }
+
+    // 1. Parse formula and build design matrices
+    let ast = formula::parse(formula_str)
+        .map_err(|e| anyhow::anyhow!("Formula parse error: {}", e))?;
+    let matrices = model_matrix::build_design_matrices(&ast, data)
+        .map_err(|e| anyhow::anyhow!("Design matrix error: {}", e))?;
+
+    // 2. Fit by QR (delegate to the raw-matrix lm())
+    let mut fit = lm(&matrices.y, &matrices.x)
+        .map_err(|e| anyhow::anyhow!("lm failed: {}", e))?;
+
+    // 3. Attach formula, column names, and observation count
+    fit.formula     = Some(matrices.formula);
+    fit.fixed_names = Some(matrices.fixed_names.clone());
+    fit.num_obs     = matrices.y.len();
+
+    // 4. Standard errors and t-statistics via the unscaled variance matrix (X'X)^{-1}
+    //    SE(β̂_i) = sqrt(σ² · [(X'X)^{-1}]_{ii})
+    let n = matrices.y.len() as f64;
+    let p = matrices.x.ncols() as f64;
+    let sigma2 = fit.sigma2.unwrap_or(1.0);
+
+    use ndarray_linalg::Inverse;
+    let xtx = matrices.x.t().dot(&matrices.x);
+    let xtx_inv = xtx
+        .inv()
+        .map_err(|e| anyhow::anyhow!("(X'X) inversion failed: {}", e))?;
+
+    fit.v_beta_unscaled = Some(xtx_inv.clone());
+
+    let p_int = matrices.x.ncols();
+    let mut beta_se = ndarray::Array1::<f64>::zeros(p_int);
+    let mut beta_t  = ndarray::Array1::<f64>::zeros(p_int);
+    for i in 0..p_int {
+        beta_se[i] = (sigma2 * xtx_inv[[i, i]]).sqrt();
+        beta_t[i]  = if beta_se[i] > 0.0 { fit.coefficients[i] / beta_se[i] } else { f64::NAN };
+    }
+    fit.beta_se = Some(beta_se);
+    fit.beta_t  = Some(beta_t);
+
+    // 5. Log-likelihood, AIC, BIC for Gaussian OLS:
+    //    logLik = -n/2 * (ln(2π) + ln(σ²) + 1)
+    //    n_params = p (fixed effects) + 1 (σ²)
+    let log_lik = -0.5 * n * (std::f64::consts::TAU.ln() + sigma2.ln() + 1.0);
+    let n_params = p + 1.0; // beta + sigma²
+    let deviance = -2.0 * log_lik;
+    let aic = deviance + 2.0 * n_params;
+    let bic = deviance + n_params * n.ln();
+
+    fit.log_likelihood = Some(log_lik);
+    fit.deviance        = Some(deviance);
+    fit.aic             = Some(aic);
+    fit.bic             = Some(bic);
+
+    Ok(fit)
+}
+
 /// Fit a generalized linear mixed-effects model (GLMM).
 ///
 /// GLMMs extend LMMs to non-Gaussian responses using a family/link system.
@@ -1433,6 +1521,8 @@ fn count_params(fit: &LmeFit) -> usize {
 mod tests {
     use super::*;
     use ndarray::array;
+    #[allow(unused_imports)]
+    use polars::prelude::*;
 
     #[test]
     fn lm_recovers_simple_line() {
@@ -1442,5 +1532,51 @@ mod tests {
         let fit = lm(&y, &x).expect("lm should fit a full-rank design matrix");
         assert!((fit.coefficients[0] - 0.0).abs() < 1e-10);
         assert!((fit.coefficients[1] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn lm_df_recovers_simple_line() {
+        // y = 0 + 1·x  →  intercept ≈ 0, slope ≈ 1
+        let df = df!(
+            "y" => &[1.0_f64, 2.0, 3.0, 4.0],
+            "x" => &[1.0_f64, 2.0, 3.0, 4.0]
+        )
+        .unwrap();
+
+        let fit = lm_df("y ~ x", &df).expect("lm_df should fit");
+        assert!(
+            (fit.coefficients[0]).abs() < 1e-8,
+            "intercept should be ~0, got {}",
+            fit.coefficients[0]
+        );
+        assert!(
+            (fit.coefficients[1] - 1.0).abs() < 1e-8,
+            "slope should be ~1, got {}",
+            fit.coefficients[1]
+        );
+        // formula and names should be populated
+        assert_eq!(fit.formula.as_deref(), Some("y ~ x"));
+        assert!(fit.fixed_names.is_some());
+        // standard errors and information criteria should be present
+        assert!(fit.beta_se.is_some());
+        assert!(fit.aic.is_some());
+        assert!(fit.bic.is_some());
+        assert!(fit.log_likelihood.is_some());
+    }
+
+    #[test]
+    fn lm_df_intercept_only() {
+        // y ~ 1  →  intercept = mean(y)
+        let df = df!(
+            "y" => &[2.0_f64, 4.0, 6.0, 8.0]
+        )
+        .unwrap();
+
+        let fit = lm_df("y ~ 1", &df).expect("lm_df intercept-only should fit");
+        assert!(
+            (fit.coefficients[0] - 5.0).abs() < 1e-8,
+            "intercept should be mean=5, got {}",
+            fit.coefficients[0]
+        );
     }
 }

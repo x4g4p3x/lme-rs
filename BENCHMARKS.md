@@ -82,7 +82,7 @@ Recommended rules:
 - note when optimizers are not directly comparable across ecosystems
 - keep output artifacts or raw logs so later releases can be compared to the same baseline
 
-For this repo, the most defensible cross-language benchmark set would start with the same reference datasets already used in `examples/COMPARISONS.md`:
+For this repo, the most defensible cross-language benchmark set would start with the same reference datasets already used in `comparisons/COMPARISONS.md`:
 
 - `sleepstudy`
 - `dyestuff`

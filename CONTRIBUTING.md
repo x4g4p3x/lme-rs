@@ -6,7 +6,7 @@ This repository contains:
 
 - the Rust crate in the repository root
 - the Python bindings in `python/`
-- cross-language comparison examples in `examples/`
+- cross-language comparison scripts in `comparisons/`
 - regression fixtures and integration tests in `tests/`
 
 ## Local setup
@@ -50,7 +50,7 @@ If you change fitting logic, optimizer behavior, variance calculations, or infer
 
 - add or update Rust tests in `tests/`
 - prefer fixture-backed tests for parity-sensitive behavior
-- update `examples/COMPARISONS.md` when the reference output changes materially
+- update `comparisons/COMPARISONS.md` when the reference output changes materially
 - validate hard cases against R `lme4` where practical
 
 Relevant files and directories:
@@ -58,7 +58,7 @@ Relevant files and directories:
 - `src/` for the crate implementation
 - `tests/data/` for fixture inputs
 - `tests/generate_test_data.R` for R-backed fixture generation
-- `examples/` for end-to-end language comparisons
+- `comparisons/` for cross-language parity scripts (R, Python/statsmodels, Julia)
 
 ## Working on documentation
 

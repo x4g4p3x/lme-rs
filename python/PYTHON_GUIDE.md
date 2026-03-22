@@ -44,6 +44,7 @@ export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 Top-level functions:
 
+- `lme_python.lm(formula, data)`
 - `lme_python.lmer(formula, data, reml=True)`
 - `lme_python.glmer(formula, data, family_name)`
 - `lme_python.anova(fit_a, fit_b)`  # likelihood ratio test between nested models
@@ -59,7 +60,7 @@ Available `PyLmeFit` methods:
 - `simulate(nsim)`  # parametric bootstrap
 - `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
 - `with_satterthwaite(data)`  # denominator df and p-values
-- `with_kenward_roger(data)`  # provisional Kenward-Roger path
+- `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
 - `anova(ddf_method="satterthwaite")`  # Type III fixed-effects ANOVA
 
 Selected properties:
@@ -95,6 +96,34 @@ print(model.coefficients)
 ```
 
 ## Fitting models
+
+### Fixed-effects-only linear models
+
+`lm()` fits an ordinary least squares model — no random effects — using the same
+Wilkinson formula syntax and Polars `DataFrame` input as `lmer()`:
+
+```python
+import polars as pl
+import lme_python
+
+df = pl.read_csv("tests/data/sleepstudy.csv")
+fit = lme_python.lm("Reaction ~ Days", data=df)
+
+print(fit)                 # R-style summary
+print(fit.coefficients)    # [intercept, slope]
+print(fit.std_errors)      # standard errors
+print(fit.aic, fit.bic)    # information criteria
+```
+
+Formula shorthand for intercept-only and no-intercept variants:
+
+```python
+# Intercept only
+fit0 = lme_python.lm("Reaction ~ 1", data=df)
+
+# Suppress intercept
+fit_no_int = lme_python.lm("Reaction ~ 0 + Days", data=df)
+```
 
 ### Linear mixed models
 
@@ -189,6 +218,8 @@ df = pl.from_pandas(pdf)
 
 ## Current limitations
 
+- `lm()` currently accepts only numeric predictors (columns must be castable to
+  `Float64`). Categorical encoding (dummy variables) is not yet automatic.
 - The Python binding is not yet a full mirror of the Rust crate.
 - Some advanced inference helpers are still not exposed in the Python binding (for example, detailed simulation helpers and some additional model comparison wrappers).
 - `glmer()` currently exposes only the string family selector described above.
@@ -229,5 +260,6 @@ If fitting or prediction fails:
 ## Related documents
 
 - Rust crate docs: [../GUIDE.md](../GUIDE.md)
-- Cross-language comparisons: [../examples/COMPARISONS.md](../examples/COMPARISONS.md)
+- Cross-language comparisons: [../comparisons/COMPARISONS.md](../comparisons/COMPARISONS.md)
+- Python examples: [examples/](examples/)
 - Contributor setup: [../CONTRIBUTING.md](../CONTRIBUTING.md)

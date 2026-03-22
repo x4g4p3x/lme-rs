@@ -22,27 +22,27 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_CASES = {
     "sleepstudy": {
         "rust_example": "sleepstudy",
-        "python_script": "examples/sleepstudy.py",
-        "r_script": "examples/sleepstudy.R",
-        "julia_script": "examples/sleepstudy.jl",
+        "python_script": "comparisons/sleepstudy.py",
+        "r_script": "comparisons/sleepstudy.R",
+        "julia_script": "comparisons/sleepstudy.jl",
     },
     "pastes": {
         "rust_example": "lmm_pastes",
-        "python_script": "examples/lmm_pastes.py",
-        "r_script": "examples/lmm_pastes.R",
-        "julia_script": "examples/lmm_pastes.jl",
+        "python_script": "comparisons/lmm_pastes.py",
+        "r_script": "comparisons/lmm_pastes.R",
+        "julia_script": "comparisons/lmm_pastes.jl",
     },
     "cbpp": {
         "rust_example": "glmm_cbpp",
-        "python_script": "examples/glmm_cbpp.py",
-        "r_script": "examples/glmm_cbpp.R",
-        "julia_script": "examples/glmm_cbpp.jl",
+        "python_script": "comparisons/glmm_cbpp.py",
+        "r_script": "comparisons/glmm_cbpp.R",
+        "julia_script": "comparisons/glmm_cbpp.jl",
     },
     "grouseticks": {
         "rust_example": "glmm_grouseticks",
-        "python_script": "examples/glmm_grouseticks.py",
-        "r_script": "examples/glmm_grouseticks.R",
-        "julia_script": "examples/glmm_grouseticks.jl",
+        "python_script": "comparisons/glmm_grouseticks.py",
+        "r_script": "comparisons/glmm_grouseticks.R",
+        "julia_script": "comparisons/glmm_grouseticks.jl",
     },
 }
 

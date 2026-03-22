@@ -14,7 +14,7 @@
 - `glmer()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
-- Wald confidence intervals, parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and a provisional Kenward-Roger path
+- Wald confidence intervals, parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and Kenward-Roger denominator degrees of freedom
 - Likelihood ratio tests between nested models and Type III ANOVA tables for 1-DoF fixed effects
 
 ## Quick start
@@ -24,7 +24,7 @@ cargo add lme-rs
 ```
 
 ```rust
-use lme_rs::lmer;
+use lme_rs::{lm_df, lmer};
 use polars::prelude::*;
 
 fn main() -> anyhow::Result<()> {
@@ -34,8 +34,13 @@ fn main() -> anyhow::Result<()> {
         .into_reader_with_file_handle(&mut file)
         .finish()?;
 
-    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
-    println!("{}", fit);
+    // Fixed-effects-only OLS (formula + DataFrame, no random effects)
+    let ols = lm_df("Reaction ~ Days", &df)?;
+    println!("{}", ols);
+
+    // Linear mixed model
+    let mixed = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
+    println!("{}", mixed);
 
     Ok(())
 }
@@ -51,14 +56,14 @@ fn main() -> anyhow::Result<()> {
 
 ## Current status
 
-The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [examples/COMPARISONS.md](examples/COMPARISONS.md). The crate is usable today, but some features are intentionally narrower than the R ecosystem wrappers they resemble.
+The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). The crate is usable today, but some features are intentionally narrower than the R ecosystem wrappers they resemble.
 
 ## Limitations and compatibility notes
 
 - Numerical parity is the goal for the covered LMM and GLMM workflows, but the guarantee is scoped to the models and examples exercised by the repository tests and comparison fixtures.
 - `glmer()` uses a Laplace approximation. Absolute AIC, BIC, and log-likelihood values can differ from R because `lme-rs` optimizes a deviance expression that omits data-dependent constants. Coefficients and variance parameters are the quantities to compare.
 - Fixed-effects ANOVA support is currently Type III only, and only for the current 1-DoF fixed-effect design produced by the parser.
-- `with_kenward_roger()` is available, but the current implementation should be treated as provisional rather than as a mature independent reimplementation of `pbkrtest`.
+- `with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` to within the precision of numerical differentiation on the covered LMM models.
 - The Rust crate exposes a broader surface than the Python bindings. The Python package is useful, but it is not yet a full mirror of the Rust API.
 - Built-in GLMM families currently use their default links through the public `glmer()` API.
 
@@ -67,7 +72,7 @@ The core modeling surface is in place and exercised by the test suite, examples,
 - Rust API docs: [docs.rs](https://docs.rs/lme-rs/latest/lme_rs/)
 - Rust usage guide: [GUIDE.md](GUIDE.md)
 - Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
-- Cross-language numerical comparisons: [examples/COMPARISONS.md](examples/COMPARISONS.md)
+- Cross-language numerical comparisons: [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md)
 - Published benchmark dashboard: [GitHub Pages](https://x4g4p3x.github.io/lme-rs/benchmarks/)
 - Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md)
 - Latest benchmark artifacts: [v0.1.3 release](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)
@@ -77,7 +82,7 @@ The core modeling surface is in place and exercised by the test suite, examples,
 
 ## Examples
 
-The `examples/` directory includes end-to-end fits for common reference datasets:
+The `comparisons/` directory contains cross-language reference fits for common datasets:
 
 - `sleepstudy`
 - `dyestuff`
