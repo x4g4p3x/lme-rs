@@ -1,5 +1,8 @@
 # Please install the required packages before running:
 # import Pkg; Pkg.add(["CSV", "DataFrames", "MixedModels"])
+#
+# MixedModels.jl fits this GLMM with Laplace-style marginal likelihood (no nAGQ knob).
+# For AGQ parity, use the R script (lme4 `nAGQ = 7`) or Rust/Python `n_agq = 7` examples.
 
 using CSV
 using DataFrames

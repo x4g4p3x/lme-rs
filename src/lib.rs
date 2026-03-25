@@ -165,9 +165,14 @@ impl LmeFit {
         }
 
         let n_obs = newdata.height();
-        let (x_new, x_names, _levels) =
-            crate::model_matrix::build_x_matrix(&ast, newdata, &response_col_name, n_obs, self.categorical_levels.as_ref())
-                .map_err(|e| anyhow::anyhow!("Failed building X matrix for predictions: {}", e))?;
+        let (x_new, x_names, _levels) = crate::model_matrix::build_x_matrix(
+            &ast,
+            newdata,
+            &response_col_name,
+            n_obs,
+            self.categorical_levels.as_ref(),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed building X matrix for predictions: {}", e))?;
 
         // Align beta columns with the AST's generated matrix
         if x_names != self.fixed_names.clone().unwrap_or_default() {
@@ -1133,7 +1138,12 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
 ///     Ok(())
 /// }
 /// ```
-pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family, n_agq: usize) -> Result<LmeFit> {
+pub fn glmer(
+    formula_str: &str,
+    data: &DataFrame,
+    family_enum: family::Family,
+    n_agq: usize,
+) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
@@ -1161,7 +1171,7 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family, n
         fam_name
     );
 
-    // 4. Optimize theta using Nelder-Mead on Laplace deviance
+    // 4. Optimize theta using Nelder-Mead on Laplace deviance (AGQ applies in final PIRLS when n_agq > 1)
     let fam_for_opt = family_enum.build();
     let opt_result = optimizer::optimize_theta_glmm(
         matrices.x.clone(),
@@ -1171,7 +1181,6 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family, n
         init_theta,
         fam_for_opt,
         matrices.offset.clone(),
-        n_agq,
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("GLMM optimizer failed: {}", e),
@@ -1190,7 +1199,11 @@ pub fn glmer(formula_str: &str, data: &DataFrame, family_enum: family::Family, n
         n_agq,
     );
     let coefs = glmm
-        .pirls(best_theta.as_slice().unwrap(), matrices.offset.as_ref(), n_agq)
+        .pirls(
+            best_theta.as_slice().unwrap(),
+            matrices.offset.as_ref(),
+            n_agq,
+        )
         .ok_or_else(|| LmeError::NotImplemented {
             feature: "PIRLS failed to converge at optimal theta".to_string(),
         })?;

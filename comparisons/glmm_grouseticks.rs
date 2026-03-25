@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     println!("Evaluating Maximum Likelihood via Laplace Approximation...");
 
     // Evaluate GLMM with Poisson family and its canonical log link
-    let fit = glmer(formula, &df, Family::Poisson)?;
+    let fit = glmer(formula, &df, Family::Poisson, 1)?;
 
     // 4. Print the summary
     println!("\n=== Model Summary ===");

@@ -87,7 +87,7 @@ impl LmeFit {
 
             if let Some(cat_levels) = &self.categorical_levels {
                 // Find if `name` starts with any categorical variable name
-                for (cat_var, _levels) in cat_levels {
+                for cat_var in cat_levels.keys() {
                     if name.starts_with(cat_var) {
                         // Gather all indices that belong to this categorical variable
                         let mut term_indices = Vec::new();
@@ -125,9 +125,12 @@ impl LmeFit {
         let v_beta = if let Some(robust) = &self.robust {
             robust.v_beta_robust.clone()
         } else {
-            let xtx_inv = self.v_beta_unscaled.as_ref().ok_or(crate::LmeError::NotImplemented {
-                feature: "Covariance matrix missing".to_string()
-            })?;
+            let xtx_inv = self
+                .v_beta_unscaled
+                .as_ref()
+                .ok_or(crate::LmeError::NotImplemented {
+                    feature: "Covariance matrix missing".to_string(),
+                })?;
             let sigma2 = self.sigma2.unwrap_or(1.0);
             xtx_inv * sigma2
         };
@@ -167,7 +170,10 @@ impl LmeFit {
                 f_value[term_idx] = f_stat;
 
                 // Approximate multi-DoF denominator df as the conservative minimum of the 1-DoF dfs
-                let min_df = indices.iter().map(|&idx| dfs[idx]).fold(f64::INFINITY, f64::min);
+                let min_df = indices
+                    .iter()
+                    .map(|&idx| dfs[idx])
+                    .fold(f64::INFINITY, f64::min);
                 den_df[term_idx] = min_df;
 
                 if f_stat.is_nan() || min_df <= 0.0 {

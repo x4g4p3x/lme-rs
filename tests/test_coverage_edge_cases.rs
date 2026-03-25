@@ -14,7 +14,7 @@ fn test_lib_log_coverage() {
     .unwrap();
 
     let _ = lme_rs::lmer("y ~ x + offset(x) + (1|g)", &df, false);
-    let _ = lme_rs::glmer("y ~ x + offset(x) + (1|g)", &df, Family::Gaussian);
+    let _ = lme_rs::glmer("y ~ x + offset(x) + (1|g)", &df, Family::Gaussian, 1);
 }
 
 #[test]
@@ -34,6 +34,7 @@ fn test_offset_glmer_errors() {
         "y ~ x + offset(off) + (1|g)",
         &df_err,
         lme_rs::family::Family::Gaussian,
+        1,
     );
     assert!(err1.is_err(), "GLMM should fail when offset is string");
 

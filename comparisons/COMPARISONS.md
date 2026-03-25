@@ -2,6 +2,46 @@
 
 This document collects representative side-by-side outputs for `lme-rs` against reference mixed-effects tooling in R (`lme4`), Python (`statsmodels` where applicable), and Julia (`MixedModels.jl`). These comparisons are evidence that the covered workflows line up closely on the included fixtures; they are not a blanket claim that every model in every ecosystem is identical.
 
+<a id="parity-validation"></a>
+
+## Validation: how results are checked against `lme4` and other languages
+
+### What is *actually* the same engine?
+
+- **Rust (`lme-rs`)** — the primary implementation exercised by integration tests.
+- **Python (`statsmodels`)** — used in most `comparisons/*.py` scripts as an independent (or approximate) reference implementation. Some scripts use row-replication or simplified random structures where `MixedLM` cannot match `lme4` one-to-one; see each subsection.
+- **Python (`lme_python`, optional)** — PyO3 bindings that call the **same Rust code** as the crate. Install with `maturin develop` under `python/` if you need Python to mirror Rust exactly on a fixture.
+- **R (`lme4`)** — the usual numerical reference for mixed models in this repo: `lmer` / `glmer` with the same formula and data.
+- **Julia (`MixedModels.jl`)** — a separate implementation; generally close on standard LMM/GLMM examples but not guaranteed to match `lme4` or `lme-rs` to machine precision.
+
+### Automated checks in the repository (CI / `cargo test`)
+
+These tests re-fit models inside Rust and compare to **stored reference values** (often exported from R) or to **narrow numeric bands** inspired by `lme4` output:
+
+| Area | Test module / data | Role |
+|:-----|:---------------------|:-----|
+| LMM, sleepstudy REML | [`tests/test_numerical_parity.rs`](../tests/test_numerical_parity.rs) vs [`tests/data/sleepstudy.csv`](../tests/data/sleepstudy.csv) | Fixed effects within ~`0.05` of documented `lme4` scalars; SEs, variance components, and REML deviance checked with tolerances documented in that file. |
+| GLMM, CBPP binomial | [`tests/test_glmm.rs`](../tests/test_glmm.rs) vs [`tests/data/glmm_binomial.json`](../tests/data/glmm_binomial.json) | Coefficients and θ compared to values taken from R’s `glmer` fit (same formula as below); typically `\|Δβ\|, \|Δθ\| < 0.05`. |
+| GLMM, Poisson grouseticks | Same `test_glmm.rs` vs [`tests/data/glmm_poisson.json`](../tests/data/glmm_poisson.json) | Looser tolerance on β (`0.15`) because optimizers differ (`Nelder–Mead` in `lme-rs` vs **BOBYQA** in `lme4`). |
+| Other fixtures | e.g. [`tests/data/random_slopes.json`](../tests/data/random_slopes.json), [`tests/data/penicillin.json`](../tests/data/penicillin.json) | Additional REML / design-matrix checks in the test suite. |
+
+AGQ-specific checks (scalar quadrature, `n_agq > 1`) live in the same GLMM tests and in unit tests in [`src/glmm_math.rs`](../src/glmm_math.rs): they assert finite deviances and, for CBPP at a fixed θ, Laplace vs AGQ marginal deviance within **5%** relative scale.
+
+### Known reasons results are *not* identical everywhere
+
+1. **Different optimizers** — `lme-rs` uses derivative-free search on variance parameters; `lme4` often uses **BOBYQA** (`nlopt`). Small shifts in β and θ are expected on awkward data (the grouseticks GLMM section below calls this out explicitly).
+2. **GLMM deviance / likelihood constants** — reported `deviance`, `logLik`, and AIC/BIC can disagree in **level** with R because implementations omit or include different normalizing terms (e.g. Poisson `lgamma` terms); **fitted β, θ, and predictions** are still the right objects to compare. See the footnote in the Poisson GLMM subsection.
+3. **Adaptive quadrature (`nAGQ > 1`)** — In **R**, `glmer(..., nAGQ = k)` uses AGQ inside the **θ** optimization. In **lme-rs**, variance components are optimized with the **Laplace** marginal likelihood; if you request `n_agq > 1`, **AGQ is applied in the final PIRLS / deviance evaluation** at that θ. So θ need not match R’s AGQ fit even when quadrature is implemented consistently. The scripts [`comparisons/glmm_cbpp.R`](glmm_cbpp.R), [`glmm_cbpp.py`](glmm_cbpp.py), and [`glmm_cbpp.rs`](glmm_cbpp.rs) document both Laplace and higher `nAGQ` / `n_agq` runs side by side.
+4. **Julia** — `MixedModels.jl` does not expose the same GLMM AGQ controls as `lme4`; Julia rows in this file are mostly **Laplace / default**-equivalent comparisons.
+
+### Manual reproduction and timing (not coefficient regression tests)
+
+- **This file** — copy/pasteable commands and pasted console output for human review.
+- **[`scripts/run_cross_language_benchmarks.py`](../scripts/run_cross_language_benchmarks.py)** — runs the `comparisons/*` examples (including `sleepstudy`, `pastes`, `cbpp`, `grouseticks`, `categorical`, `weighted`, `gaussian_glmm`) and writes **JSON timing** results; it does **not** assert numerical equality of estimates.
+- **[`BENCHMARKS.md`](../BENCHMARKS.md)** — Criterion micro-benchmarks for the Rust crate (including GLMM / AGQ workloads), not cross-language statistical parity.
+
+To re-run the automated parity tests locally: from the repository root, `cargo test` (optionally filter, e.g. `cargo test numerical_parity` or `cargo test test_glmm`).
+
 ![Parameter Estimates Comparison](./comparison_chart.png)
 
 ## The Model
@@ -389,25 +429,23 @@ Fixed effects:
 (Intercept) 1527.5000    19.3851   78.80
 ```
 
-#### Baseline 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
+#### Baseline 3. Python Output (`statsmodels`)
 
 ```text
-=== Model Summary ===
-Linear mixed model fit by REML ['lmerMod']
-Formula: Yield ~ 1 + (1 | Batch)
-
-     AIC      BIC   logLik deviance
-   325.7    329.9   -159.8    319.7
-REML criterion at convergence: 319.6543
-
-Random effects:
- Groups   Name        Variance Std.Dev.
- Batch    (Intercept) 1764.4592 42.0055 
- Residual             2451.1613 49.5092 
-
-Fixed effects:
-            Estimate Std. Error t value
-(Intercept) 1527.5000    19.3851   78.80
+          Mixed Linear Model Regression Results
+==========================================================
+Model:             MixedLM  Dependent Variable:  Yield    
+No. Observations:  30       Method:              REML     
+No. Groups:        6        Scale:               2451.2239
+Min. group size:   5        Log-Likelihood:      -159.8271
+Max. group size:   5        Converged:           Yes      
+Mean group size:   5.0                                    
+----------------------------------------------------------
+           Coef.   Std.Err.   z    P>|z|  [0.025   0.975] 
+----------------------------------------------------------
+Intercept 1527.500   19.384 78.802 0.000 1489.508 1565.492
+Group Var 1764.171   31.658                               
+==========================================================
 ```
 
 #### Baseline 4. Julia Output (`MixedModels.jl`)
@@ -630,34 +668,27 @@ Predictions (Probabilities for Herd 1 across all 4 periods):
 0.204153, 0.088133, 0.077877, 0.051166
 ```
 
-#### Binomial 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
+#### Binomial 3. Python Output (`statsmodels` — variational Bayes mixed GLM)
+
+[`comparisons/glmm_cbpp.py`](glmm_cbpp.py) uses `BinomialBayesMixedGLM.fit_vb()` — a **different** likelihood approximation than Laplace / AGQ in `lme4` or `lme-rs`. It is included so the cross-language benchmark script runs **without** installing `lme_python`. Posterior means are in the same ballpark as `glmer` on this fixture:
 
 ```text
-=== Model Summary ===
-Generalized linear mixed model fit by ML (Laplace) ['glmerMod']
- Family: binomial ( logit )
-Formula: y ~ period2 + period3 + period4 + (1 | herd)
-
-     AIC      BIC   logLik deviance
-   565.1    588.7   -277.5    555.1
-
-Random effects:
- Groups   Name        Variance Std.Dev.
- herd     (Intercept) 0.4124   0.6422
-Number of obs: 842, groups: herd, 15
-
-Fixed effects:
-            Estimate Std. Error z value
-(Intercept)  -1.3605     0.2276   -5.98
-period2      -0.9761     0.3033   -3.22
-period3      -1.1110     0.3235   -3.43
-period4      -1.5596     0.4245   -3.67
+               Binomial Mixed GLM Results
+========================================================
+          Type Post. Mean Post. SD   SD  SD (LB) SD (UB)
+--------------------------------------------------------
+Intercept    M    -1.4093   0.1120                      
+period2      M    -0.9832   0.2529                      
+period3      M    -1.1199   0.2759                      
+period4      M    -1.5644   0.3745                      
+herd         V    -0.3707   0.1818 0.690   0.480   0.993
+========================================================
 ```
 
-Predictions (Probabilities for Herd 1):
+Inverse-logit of the fixed-only linear predictor (four period patterns):
 
 ```text
-0.204153, 0.088133, 0.077877, 0.051166
+0.1963, 0.0837, 0.0738, 0.0486
 ```
 
 #### Binomial 4. Julia Output (`MixedModels.jl`)
@@ -695,7 +726,7 @@ Predictions (Probabilities for Herd 1):
 
 #### Binomial Conclusion
 
-The binomial GLMM fits are closely aligned across these implementations: the deviance, variance component, and fixed-effect estimates all fall in a narrow range, which is the practical signal this comparison is meant to show.
+The binomial GLMM fits are closely aligned across these implementations: the deviance, variance component, and fixed-effect estimates all fall in a narrow range, which is the practical signal this comparison is meant to show. **Regression coverage:** `cargo test` compares the Rust fit to R-derived coefficients and θ in [`tests/data/glmm_binomial.json`](../tests/data/glmm_binomial.json) (see [Validation](#parity-validation) above). Python’s `statsmodels` row above is a **variational** benchmark, not a Laplace match; use Rust or R for exact agreement with `glmer`.
 
 ---
 
@@ -753,26 +784,20 @@ Fixed effects:
 (Intercept)  60.0533     0.6768   88.73
 ```
 
-#### Nested 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
+#### Nested 3. Python Output (`statsmodels` — single-grouping proxy)
+
+[`comparisons/lmm_pastes.py`](lmm_pastes.py) fits `strength ~ 1` with **one** random intercept at the `sample` (`batch:cask`) level. That is **not** the full two-component nested model in R/Julia/Rust; it is the closest `MixedLM` recipe that runs without extra packages.
 
 ```text
-=== Model Summary ===
-Linear mixed model fit by REML ['lmerMod']
-Formula: strength ~ 1 + (1 | batch/cask)
-
-     AIC      BIC   logLik deviance
-   255.0    263.4   -123.5    247.0
-REML criterion at convergence: 246.9907
-
-Random effects:
- Groups   Name        Variance Std.Dev.
- batch    (Intercept) 1.6572   1.2873  
- batch:cask (Intercept) 8.4317   2.9037  
- Residual             0.6781   0.8235  
-
-Fixed effects:
-            Estimate Std. Error t value
-(Intercept)  60.0533     0.6768   88.73
+         Mixed Linear Model Regression Results
+=======================================================
+Model:            MixedLM Dependent Variable: strength 
+No. Observations: 60      Method:             REML     
+No. Groups:       30      Scale:              0.6780   
+...
+Intercept   60.053    0.586 102.412 0.000 ...
+Group Var    9.977    4.614                            
+=======================================================
 ```
 
 #### Nested 4. Julia Output (`MixedModels.jl`)
@@ -800,7 +825,7 @@ Residual                  0.678000 0.823407
 
 #### Nested Random Effects Conclusion
 
-The nested random-effects model expands `1 | batch/cask` the same way these reference implementations do for this fixture, and the fitted intercept and variance components remain closely aligned across ecosystems.
+The nested random-effects model expands `1 | batch/cask` the same way these reference implementations do for this fixture, and the fitted intercept and variance components remain closely aligned across **R, Julia, and Rust**. Python’s `statsmodels` row is a **partial** one-factor summary for tooling parity only.
 
 ---
 
@@ -858,26 +883,18 @@ Fixed effects:
 (Intercept)  22.9722     0.8087   28.41
 ```
 
-#### Crossed 3. Python Output (`lme_python` — Python bindings for `lme-rs`)
+#### Crossed 3. Python Output (`statsmodels` — plate random intercept only)
+
+[`comparisons/lmm_penicillin.py`](lmm_penicillin.py) uses a **single** `groups` column (`plate`) because `MixedLM` does not fit two crossed random intercepts in one call. The population intercept still matches the crossed models; variance components do **not**.
 
 ```text
-=== Model Summary ===
-Linear mixed model fit by REML ['lmerMod']
-Formula: diameter ~ 1 + (1 | plate) + (1 | sample)
-
-     AIC      BIC   logLik deviance
-   338.9    350.7   -165.4    330.9
-REML criterion at convergence: 330.8606
-
-Random effects:
- Groups   Name        Variance Std.Dev.
- plate    (Intercept) 0.7170   0.8467  
- sample   (Intercept) 3.7318   1.9318  
- Residual             0.3024   0.5499  
-
-Fixed effects:
-            Estimate Std. Error t value
-(Intercept)  22.9722     0.8087   28.41
+         Mixed Linear Model Regression Results
+=======================================================
+Model:            MixedLM Dependent Variable: diameter 
+...
+Intercept   22.972    0.179 128.476 0.000 ...
+Group Var    0.095    0.123                            
+=======================================================
 ```
 
 #### Crossed 4. Julia Output (`MixedModels.jl`)
@@ -907,7 +924,91 @@ Residual              0.302415 0.549923
 
 #### Crossed Random Effects Conclusion
 
-The crossed-effects example shows the same overall structure across implementations on this fixture: the fitted intercept and the `plate` and `sample` variance components all land in the same range, which is the relevant comparison signal here.
+The crossed-effects example shows the same overall structure across **R, Julia, and Rust** on this fixture: the fitted intercept and the `plate` and `sample` variance components all land in the same range. Python (`statsmodels`) matches the **intercept** only in the one-factor proxy above.
+
+---
+
+## Weighted linear mixed models (`lmer_weighted`)
+
+Prior case weights (as in `lme4::lmer(..., weights = w)`) scale each observation’s contribution to the REML objective. The examples [`comparisons/lmer_weighted.rs`](lmer_weighted.rs), [`lmer_weighted.R`](lmer_weighted.R), [`lmer_weighted.jl`](lmer_weighted.jl), and [`lmer_weighted.py`](lmer_weighted.py) use **sleepstudy** with the same synthetic weight vector as `benches/bench_math`: \(w_i = 0.5 + (i \bmod 5)\times 0.1\).
+
+**Python (`statsmodels`)** does not implement prior weights in `MixedLM.fit` the same way as `lme4`. The Python script approximates weights by **replicating rows** in proportion to \(w_i\) and then fits REML `MixedLM` on the expanded table; fixed-effect estimates will **not** match R/Rust/Julia exactly. Use R, Julia, or Rust for direct weighted REML parity.
+
+### Weighted 1. lme-rs Output (Rust)
+
+```text
+Prior weights w_i = 0.5 + (row_index mod 5) * 0.1 (same pattern as `benches/bench_math`)
+...
+Fixed effects:
+            Estimate Std. Error t value
+(Intercept) 250.1770     7.0978   35.25
+Days         10.6710     1.5717    6.79
+```
+
+Population-level predictions for Subject `308` at Days `[0, 1, 5, 10]`:
+
+```text
+250.1770, 260.8480, 303.5318, 356.8865
+```
+
+### Weighted 2. R Output (`lme4`)
+
+Run from the repo root:
+
+```r
+library(lme4)
+data <- read.csv("tests/data/sleepstudy.csv")
+data$w <- 0.5 + ((seq_len(nrow(data)) - 1) %% 5) * 0.1
+fit <- lmer(Reaction ~ Days + (Days | Subject), data = data, weights = w, REML = TRUE)
+summary(fit)
+```
+
+Expect fixed effects and predictions in the same neighborhood as the Rust row above.
+
+### Weighted 3. Julia (`MixedModels.jl`)
+
+See [`comparisons/lmer_weighted.jl`](lmer_weighted.jl) — `fit(MixedModel, ..., wts = ...)` with the same weight vector.
+
+### Weighted 4. Python (`statsmodels` — expanded-data proxy)
+
+See [`comparisons/lmer_weighted.py`](lmer_weighted.py). This is a **benchmark-only** approximation; coefficients differ from the weighted `lmer` fit.
+
+---
+
+## Gaussian family for `glmer` (identity link)
+
+`family = gaussian` with the default identity link recovers a **Gaussian linear mixed model** expressed through the GLMM / PIRLS machinery. Examples: [`comparisons/glmm_gaussian.rs`](glmm_gaussian.rs), [`glmm_gaussian.R`](glmm_gaussian.R), [`glmm_gaussian.jl`](glmm_gaussian.jl), [`glmm_gaussian.py`](glmm_gaussian.py) on **sleepstudy** with `Reaction ~ Days + (1 | Subject)`.
+
+**Python** uses `statsmodels` `MixedLM` with one random intercept per `Subject` (REML), which is the usual native analogue. **Rust** uses `glmer(..., Family::Gaussian, n_agq = 1)`; fixed effects and population predictions should line up with `MixedLM` / `lmer` on this fixture; compare random-effect variance components against `lme4` if you need exact agreement on every line of the summary.
+
+### Gaussian GLMM 1. lme-rs Output (Rust)
+
+```text
+Formula: Reaction ~ Days + (1 | Subject)
+ Family: gaussian ( identity )
+Fixed effects:
+            Estimate Std. Error z value
+(Intercept) 251.4051     8.7987   28.57
+Days         10.4673     0.0259  403.36
+```
+
+Population-level response-scale predictions:
+
+```text
+251.4051, 261.8724
+```
+
+### Gaussian GLMM 2. R Output (`lme4::glmer`)
+
+```r
+library(lme4)
+data <- read.csv("tests/data/sleepstudy.csv")
+summary(glmer(Reaction ~ Days + (1 | Subject), data = data, family = gaussian(link = "identity")))
+```
+
+### Gaussian GLMM 3. Julia / Python
+
+See [`glmm_gaussian.jl`](glmm_gaussian.jl) and [`glmm_gaussian.py`](glmm_gaussian.py) for `MixedModels.jl` and `statsmodels` summaries on the same formula.
 
 ---
 

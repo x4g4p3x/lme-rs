@@ -68,6 +68,18 @@ path = "comparisons/sleepstudy.rs"
 name = "sleepstudy_ml"
 path = "comparisons/sleepstudy_ml.rs"
 
+[[example]]
+name = "categorical_anova"
+path = "comparisons/categorical_anova.rs"
+
+[[example]]
+name = "lmer_weighted"
+path = "comparisons/lmer_weighted.rs"
+
+[[example]]
+name = "glmm_gaussian"
+path = "comparisons/glmm_gaussian.rs"
+
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
 

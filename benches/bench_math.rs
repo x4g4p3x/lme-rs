@@ -441,6 +441,7 @@ fn bench_glmer_end_to_end(c: &mut Criterion) {
                     black_box("TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)"),
                     black_box(&df),
                     black_box(lme_rs::family::Family::Poisson),
+                    black_box(1),
                 )
                 .unwrap(),
             );
@@ -455,11 +456,48 @@ fn bench_glmer_end_to_end(c: &mut Criterion) {
                     black_box("y ~ period2 + period3 + period4 + (1 | herd)"),
                     black_box(&df2),
                     black_box(lme_rs::family::Family::Binomial),
+                    black_box(1),
                 )
                 .unwrap(),
             );
         })
     });
+}
+
+fn bench_glmm_agq_cbpp(c: &mut Criterion) {
+    let df = load_csv("tests/data/cbpp_binary.csv");
+    let mut group = c.benchmark_group("glmm_agq_cbpp");
+    group.sample_size(10);
+
+    group.bench_function("n_agq=1 (Laplace)", |b| {
+        b.iter(|| {
+            black_box(
+                lme_rs::glmer(
+                    black_box("y ~ period2 + period3 + period4 + (1 | herd)"),
+                    black_box(&df),
+                    black_box(lme_rs::family::Family::Binomial),
+                    black_box(1),
+                )
+                .unwrap(),
+            );
+        })
+    });
+
+    group.bench_function("n_agq=7 (scalar AGQ)", |b| {
+        b.iter(|| {
+            black_box(
+                lme_rs::glmer(
+                    black_box("y ~ period2 + period3 + period4 + (1 | herd)"),
+                    black_box(&df),
+                    black_box(lme_rs::family::Family::Binomial),
+                    black_box(7),
+                )
+                .unwrap(),
+            );
+        })
+    });
+
+    group.finish();
 }
 
 fn bench_prediction(c: &mut Criterion) {
@@ -485,6 +523,7 @@ fn bench_glmm_post_fit(c: &mut Criterion) {
         "TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)",
         &poisson_df,
         lme_rs::family::Family::Poisson,
+        1,
     )
     .unwrap();
     let poisson_prediction_df = repeat_dataframe(&poisson_df, 20);
@@ -494,6 +533,7 @@ fn bench_glmm_post_fit(c: &mut Criterion) {
         "y ~ period2 + period3 + period4 + (1 | herd)",
         &binomial_df,
         lme_rs::family::Family::Binomial,
+        1,
     )
     .unwrap();
     let binomial_prediction_df = repeat_dataframe(&binomial_df, 20);
@@ -887,6 +927,7 @@ criterion_group!(
     bench_lmer_end_to_end,
     bench_weighted_models,
     bench_glmer_end_to_end,
+    bench_glmm_agq_cbpp,
     bench_prediction,
     bench_glmm_post_fit,
     bench_lmer_large_synthetic,

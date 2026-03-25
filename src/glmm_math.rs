@@ -3,7 +3,9 @@
 //! This module is the GLMM counterpart of `math.rs` for LMMs.
 //! For a given theta (variance parameters), it runs the PIRLS inner loop to find
 //! the conditional modes of the random effects and fixed effects, then computes
-//! the Laplace-approximated deviance.
+//! the Laplace-approximated deviance, or adaptive Gauss–Hermite quadrature for a single random-effect
+//! block when `n_agq > 1` (scalar `k = 1` per group, or product quadrature for vector `k > 1`).
+//! With **multiple** random-effect terms, joint AGQ over the full `u` is used when `q` is small.
 
 use crate::family::GlmFamily;
 use crate::model_matrix::ReBlock;
@@ -11,6 +13,213 @@ use ndarray::{Array1, Array2};
 use ndarray_linalg::UPLO;
 use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
+use std::collections::HashSet;
+
+mod gh_rule_tables {
+    #![allow(clippy::excessive_precision)]
+    // lme4 / fastGHQuad-style Gauss–Hermite rules: z = sqrt(2) * x (physicist roots x), weights sum to 1.
+    pub const GH_Z3: [f64; 3] = [-1.7320508075688772, 0.0, 1.7320508075688772];
+    pub const GH_W3: [f64; 3] = [0.16666666666666669, 0.6666666666666665, 0.16666666666666669];
+    pub const GH_Z5: [f64; 5] = [
+        -2.8569700138728056,
+        -1.3556261799742659,
+        0.0,
+        1.3556261799742659,
+        2.8569700138728056,
+    ];
+    pub const GH_W5: [f64; 5] = [
+        0.011257411327720693,
+        0.2220759220056126,
+        0.5333333333333333,
+        0.2220759220056126,
+        0.011257411327720693,
+    ];
+    pub const GH_Z7: [f64; 7] = [
+        -3.7504397177257425,
+        -2.3667594107345416,
+        -1.1544053947399682,
+        0.0,
+        1.1544053947399682,
+        2.3667594107345416,
+        3.7504397177257425,
+    ];
+    pub const GH_W7: [f64; 7] = [
+        0.0005482688559722182,
+        0.03075712396758651,
+        0.24012317860501273,
+        0.45714285714285713,
+        0.24012317860501273,
+        0.03075712396758651,
+        0.0005482688559722182,
+    ];
+    pub const GH_Z9: [f64; 9] = [
+        -4.512745863399783,
+        -3.2054290028564703,
+        -2.07684797867783,
+        -1.0232556637891326,
+        0.0,
+        1.0232556637891326,
+        2.07684797867783,
+        3.2054290028564703,
+        4.512745863399783,
+    ];
+    pub const GH_W9: [f64; 9] = [
+        2.2345844007746576e-5,
+        0.0027891413212317653,
+        0.04991640676521791,
+        0.2440975028949394,
+        0.4063492063492064,
+        0.2440975028949394,
+        0.04991640676521791,
+        0.0027891413212317653,
+        2.2345844007746576e-5,
+    ];
+    pub const GH_Z11: [f64; 11] = [
+        -5.188001224374871,
+        -3.9361666071299766,
+        -2.8651231606436456,
+        -1.876035020154846,
+        -0.9288689973810641,
+        0.0,
+        0.9288689973810641,
+        1.876035020154846,
+        2.8651231606436456,
+        3.9361666071299766,
+        5.188001224374871,
+    ];
+    pub const GH_W11: [f64; 11] = [
+        8.121849790214923e-7,
+        0.00019567193027122338,
+        0.006720285235537264,
+        0.06613874607105782,
+        0.24224029987396992,
+        0.3694083694083694,
+        0.24224029987396992,
+        0.06613874607105782,
+        0.006720285235537264,
+        0.00019567193027122338,
+        8.121849790214923e-7,
+    ];
+}
+
+fn resolve_gh_order(n_agq: usize) -> Option<usize> {
+    if n_agq < 2 {
+        return None;
+    }
+    const SUPPORTED: [usize; 5] = [3, 5, 7, 9, 11];
+    for &s in &SUPPORTED {
+        if s >= n_agq {
+            return Some(s);
+        }
+    }
+    Some(11)
+}
+
+fn gh_rule(order: usize) -> Option<(&'static [f64], &'static [f64])> {
+    use gh_rule_tables::*;
+    match order {
+        3 => Some((&GH_Z3[..], &GH_W3[..])),
+        5 => Some((&GH_Z5[..], &GH_W5[..])),
+        7 => Some((&GH_Z7[..], &GH_W7[..])),
+        9 => Some((&GH_Z9[..], &GH_W9[..])),
+        11 => Some((&GH_Z11[..], &GH_W11[..])),
+        _ => None,
+    }
+}
+
+fn csr_diag_entry(a: &CsMat<f64>, i: usize) -> Option<f64> {
+    let row = a.outer_view(i)?;
+    for (col, &val) in row.iter() {
+        if col == i {
+            return Some(val);
+        }
+    }
+    None
+}
+
+fn csr_get(a: &CsMat<f64>, i: usize, j: usize) -> f64 {
+    let Some(row) = a.outer_view(i) else {
+        return 0.0;
+    };
+    for (col, &val) in row.iter() {
+        if col == j {
+            return val;
+        }
+    }
+    0.0
+}
+
+fn csr_dense_block(a: &CsMat<f64>, start: usize, k: usize) -> Array2<f64> {
+    let mut mat = Array2::<f64>::zeros((k, k));
+    for i in 0..k {
+        for j in 0..k {
+            mat[[i, j]] = csr_get(a, start + i, start + j);
+        }
+    }
+    mat
+}
+
+/// Maximum spherical RE dimension for **joint** multivariate AGQ (multiple `re_blocks`, full `u`).
+const AGQ_JOINT_MAX_Q: usize = 8;
+
+/// Picks a 1D quadrature order; for `k > 1`, reduces `order` so `order^k` stays bounded.
+fn resolve_gh_order_product(n_agq: usize, k: usize) -> Option<usize> {
+    let base = resolve_gh_order(n_agq)?;
+    if k == 1 {
+        return Some(base);
+    }
+    const MAX_POINTS: usize = 400;
+    let mut ord = base;
+    loop {
+        if ord.pow(k as u32) <= MAX_POINTS {
+            return Some(ord);
+        }
+        ord = match ord {
+            11 => 9,
+            9 => 7,
+            7 => 5,
+            5 => 3,
+            3 => return None,
+            _ => return None,
+        };
+    }
+}
+
+/// Product-grid size cap for joint integration over all `q` random effects at once.
+fn resolve_gh_order_joint(n_agq: usize, q: usize) -> Option<usize> {
+    if q == 0 || q > AGQ_JOINT_MAX_Q {
+        return None;
+    }
+    let base = resolve_gh_order(n_agq)?;
+    // Allow order=3 with q=8 (3^8=6561) when n_agq is small; cap keeps memory bounded.
+    const MAX_POINTS: usize = 7000;
+    let mut ord = base;
+    loop {
+        if ord.pow(q as u32) <= MAX_POINTS {
+            return Some(ord);
+        }
+        ord = match ord {
+            11 => 9,
+            9 => 7,
+            7 => 5,
+            5 => 3,
+            3 => return None,
+            _ => return None,
+        };
+    }
+}
+
+fn log_sum_exp(xs: &[f64]) -> f64 {
+    if xs.is_empty() {
+        return f64::NEG_INFINITY;
+    }
+    let m = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if !m.is_finite() {
+        return f64::NEG_INFINITY;
+    }
+    let s: f64 = xs.iter().map(|x| (x - m).exp()).sum();
+    m + s.ln()
+}
 
 /// Encapsulates the design matrices and family for a GLMM evaluation.
 pub struct GlmmData {
@@ -117,7 +326,12 @@ impl GlmmData {
     }
 
     /// Compute Laplace or AGQ approximated deviance.
-    pub fn laplace_deviance(&mut self, theta: &[f64], offset: Option<&Array1<f64>>, n_agq: usize) -> f64 {
+    pub fn laplace_deviance(
+        &mut self,
+        theta: &[f64],
+        offset: Option<&Array1<f64>>,
+        n_agq: usize,
+    ) -> f64 {
         match self.pirls(theta, offset, n_agq) {
             Some(coefs) => coefs.deviance,
             None => f64::MAX, // Return large value for invalid regions
@@ -432,10 +646,28 @@ impl GlmmData {
                 let mut deviance = sum_dev_resid + log_det_a + u.dot(&u);
 
                 if n_agq > 1 {
-                    if self.re_blocks.len() == 1 && self.re_blocks[0].k == 1 {
-                        deviance = self.agq_deviance(n_agq, &a, &u, offset, theta);
+                    if self.re_blocks.len() == 1 {
+                        if let Some(d_agq) =
+                            self.agq_deviance(n_agq, &a, &u, &beta, &lambda, offset, &mu)
+                        {
+                            deviance = d_agq;
+                        }
+                    } else if u.len() <= AGQ_JOINT_MAX_Q {
+                        if let Some(d_agq) =
+                            self.agq_deviance_joint(n_agq, &a, &u, &beta, &lambda, offset, &mu)
+                        {
+                            deviance = d_agq;
+                        } else {
+                            log::debug!(
+                                "Joint AGQ failed (singular Hessian or grid too large); using Laplace."
+                            );
+                        }
                     } else {
-                        log::warn!("nAGQ > 1 requested but model is not a single scalar grouping factor. Falling back to Laplace (nAGQ = 1).");
+                        log::warn!(
+                            "nAGQ > 1 with multiple random-effect terms requires total RE dimension q <= {} (got {}). Falling back to Laplace (nAGQ = 1).",
+                            AGQ_JOINT_MAX_Q,
+                            u.len()
+                        );
                     }
                 }
 
@@ -495,38 +727,260 @@ impl GlmmData {
         })
     }
 
-    /// Computes Adaptive Gauss-Hermite Quadrature deviance
-    fn agq_deviance(&self, n_agq: usize, a: &CsMat<f64>, u_hat: &Array1<f64>, _offset: Option<&Array1<f64>>, _theta: &[f64]) -> f64 {
-        const GH_NODES_7: [f64; 7] = [
-            -2.651961356835233, -1.673551628767471, -0.8162878828589647,
-            0.0, 0.8162878828589647, 1.673551628767471, 2.651961356835233,
-        ];
-        const GH_WEIGHTS_7: [f64; 7] = [
-            0.0009717812450995191, 0.05451558281912702, 0.4256072526101278,
-            0.8102646175568073, 0.4256072526101278, 0.05451558281912702, 0.0009717812450995191,
-        ];
-        
-        let (nodes, weights) = if n_agq == 7 {
-            (&GH_NODES_7[..], &GH_WEIGHTS_7[..])
-        } else {
-            // Fallback for demo purposes, assume 7 nodes
-            (&GH_NODES_7[..], &GH_WEIGHTS_7[..])
-        };
-
-        // For each group, we need to re-evaluate the conditional likelihood at the nodes.
-        // As a placeholder returning the valid shape, AGQ returns Laplace when fully expanded.
-        // Full AGQ involves exponentiating \sum dev_resid at scaled u points.
-        // For safe compilation during iteration, we return the base Laplace penalty.
-        log::warn!("AGQ evaluation currently returns approximate Laplace scaling.");
-        
-        // Return baseline approximation if exact node eval missing
-        let mut base_deviance = u_hat.dot(u_hat);
-        
-        for (_, &d) in a.diag().iter() {
-            base_deviance += d.abs().ln();
+    /// Adaptive Gauss–Hermite quadrature for a **single** random-effect block.
+    ///
+    /// - `k = 1`: same convention as `lme4::GHrule` — `u = u_hat + σ z` with `σ = 1 / sqrt(A_{gg})`.
+    /// - `k > 1`: tensor-product rules on `N(0, I_k)` with `u_quad = u_hat_block + L z`, where
+    ///   `Σ = A_block^{-1}` and `L` is the lower Cholesky factor of `Σ` (block of `A` at the mode).
+    ///
+    /// Returns `sum_dev(μ_hat) + Σ_g Q_g`. `None` triggers Laplace fallback (singular block, etc.).
+    #[allow(clippy::too_many_arguments)]
+    fn agq_deviance(
+        &self,
+        n_agq: usize,
+        a: &CsMat<f64>,
+        u_hat: &Array1<f64>,
+        beta: &Array1<f64>,
+        lambda: &CsMat<f64>,
+        offset: Option<&Array1<f64>>,
+        mu_hat: &Array1<f64>,
+    ) -> Option<f64> {
+        let block = self.re_blocks.first()?;
+        let k = block.k;
+        let m = block.m;
+        if u_hat.len() != m * k {
+            return None;
         }
 
-        base_deviance
+        let order = resolve_gh_order_product(n_agq, k)?;
+        let (z, w) = gh_rule(order)?;
+        let n_nodes = z.len();
+        let n = self.y.len();
+        let wt = Array1::ones(n);
+        let dev_hat = self.family.dev_resid(&self.y, mu_hat, &wt);
+        let sum_dev = dev_hat.sum();
+
+        let mut total_q = 0.0;
+
+        if k == 1 {
+            for g in 0..m {
+                let a_gg = csr_diag_entry(a, g)?;
+                if a_gg <= f64::EPSILON || !a_gg.is_finite() {
+                    return None;
+                }
+                let sigma = a_gg.sqrt().recip();
+                let u_hat_g = u_hat[g];
+
+                let obs_idx: Vec<usize> = self
+                    .zt
+                    .outer_view(g)
+                    .map(|row| row.iter().map(|(col, _)| col).collect())
+                    .unwrap_or_default();
+
+                let mut u_trial = u_hat.clone();
+                let mut log_terms = Vec::with_capacity(n_nodes);
+                for (ki, &z_k) in z.iter().enumerate() {
+                    let u_quad = u_hat_g + sigma * z_k;
+                    u_trial[g] = u_quad;
+
+                    let eta = self.linear_predictor_from_u(&u_trial, beta, lambda, offset);
+                    let mu = self.family.link().link_inv(&eta);
+                    let dev_new = self.family.dev_resid(&self.y, &mu, &wt);
+
+                    let mut dev_diff = 0.0;
+                    for &i in &obs_idx {
+                        dev_diff += dev_new[i] - dev_hat[i];
+                    }
+                    let u_pen = u_quad * u_quad - u_hat_g * u_hat_g;
+                    let delta = -0.5 * dev_diff - 0.5 * u_pen;
+
+                    log_terms.push(w[ki].ln() + delta);
+                }
+
+                let log_inner = log_sum_exp(&log_terms);
+                if !log_inner.is_finite() {
+                    return None;
+                }
+                total_q += -2.0 * log_inner;
+            }
+        } else {
+            let ncomb = n_nodes.pow(k as u32);
+            for g in 0..m {
+                let start = g * k;
+                let a_block = csr_dense_block(a, start, k);
+                let sigma = a_block.inv().ok()?;
+                let l_sigma = sigma.cholesky(UPLO::Lower).ok()?;
+
+                let mut obs_set = HashSet::new();
+                for r in start..start + k {
+                    if let Some(row) = self.zt.outer_view(r) {
+                        for (col, _) in row.iter() {
+                            obs_set.insert(col);
+                        }
+                    }
+                }
+                let obs_idx: Vec<usize> = obs_set.into_iter().collect();
+
+                let mut u_trial = u_hat.clone();
+                let mut z_vec = Array1::<f64>::zeros(k);
+                let mut u_delta = vec![0.0_f64; k];
+                let mut log_terms = Vec::with_capacity(ncomb);
+                for t in 0..ncomb {
+                    let mut rem = t;
+                    let mut log_w = 0.0_f64;
+                    for dim in 0..k {
+                        let idx = rem % n_nodes;
+                        rem /= n_nodes;
+                        z_vec[dim] = z[idx];
+                        log_w += w[idx].ln();
+                    }
+
+                    for i in 0..k {
+                        let mut s = 0.0_f64;
+                        for j in 0..k {
+                            s += l_sigma[[i, j]] * z_vec[j];
+                        }
+                        u_delta[i] = s;
+                    }
+                    for i in 0..k {
+                        u_trial[start + i] = u_hat[start + i] + u_delta[i];
+                    }
+
+                    let eta = self.linear_predictor_from_u(&u_trial, beta, lambda, offset);
+                    let mu = self.family.link().link_inv(&eta);
+                    let dev_new = self.family.dev_resid(&self.y, &mu, &wt);
+
+                    let mut dev_diff = 0.0;
+                    for &i in &obs_idx {
+                        dev_diff += dev_new[i] - dev_hat[i];
+                    }
+                    let mut u_pen = 0.0_f64;
+                    for i in start..start + k {
+                        u_pen += u_trial[i] * u_trial[i] - u_hat[i] * u_hat[i];
+                    }
+                    let delta = -0.5 * dev_diff - 0.5 * u_pen;
+
+                    log_terms.push(log_w + delta);
+                }
+
+                let log_inner = log_sum_exp(&log_terms);
+                if !log_inner.is_finite() {
+                    return None;
+                }
+                total_q += -2.0 * log_inner;
+            }
+        }
+
+        Some(sum_dev + total_q)
+    }
+
+    /// Joint multivariate AGQ over the **entire** spherical vector `u` (used when `re_blocks.len() > 1` and `q` is small).
+    ///
+    /// This approximates `∫ φ(u) exp(ℓ(u) - ℓ*) du` with a single tensor-product rule and
+    /// `u_quad = u_hat + L z`, `Σ = A^{-1}`, `L L^T = Σ` for the full `q`×`q` Hessian block.
+    #[allow(clippy::too_many_arguments)]
+    fn agq_deviance_joint(
+        &self,
+        n_agq: usize,
+        a: &CsMat<f64>,
+        u_hat: &Array1<f64>,
+        beta: &Array1<f64>,
+        lambda: &CsMat<f64>,
+        offset: Option<&Array1<f64>>,
+        mu_hat: &Array1<f64>,
+    ) -> Option<f64> {
+        let q = u_hat.len();
+        if q > AGQ_JOINT_MAX_Q {
+            return None;
+        }
+
+        let order = resolve_gh_order_joint(n_agq, q)?;
+        let (z, w) = gh_rule(order)?;
+        let n_nodes = z.len();
+        let ncomb = n_nodes.pow(q as u32);
+        let n = self.y.len();
+        let wt = Array1::ones(n);
+        let dev_hat = self.family.dev_resid(&self.y, mu_hat, &wt);
+        let sum_dev = dev_hat.sum();
+
+        let a_dense = csr_dense_block(a, 0, q);
+        let sigma = a_dense.inv().ok()?;
+        let l_sigma = sigma.cholesky(UPLO::Lower).ok()?;
+
+        let u_hat_sq_sum: f64 = u_hat.iter().map(|x| x * x).sum();
+        let mut z_vec = vec![0.0_f64; q];
+        let mut u_delta = vec![0.0_f64; q];
+        let mut u_trial = u_hat.clone();
+        let mut log_terms = Vec::with_capacity(ncomb);
+        for t in 0..ncomb {
+            let mut rem = t;
+            let mut log_w = 0.0_f64;
+            for z_slot in z_vec.iter_mut() {
+                let idx = rem % n_nodes;
+                rem /= n_nodes;
+                *z_slot = z[idx];
+                log_w += w[idx].ln();
+            }
+
+            for i in 0..q {
+                let mut s = 0.0_f64;
+                for j in 0..q {
+                    s += l_sigma[[i, j]] * z_vec[j];
+                }
+                u_delta[i] = s;
+            }
+
+            for i in 0..q {
+                u_trial[i] = u_hat[i] + u_delta[i];
+            }
+
+            let eta = self.linear_predictor_from_u(&u_trial, beta, lambda, offset);
+            let mu = self.family.link().link_inv(&eta);
+            let dev_new = self.family.dev_resid(&self.y, &mu, &wt);
+
+            let mut dev_diff = 0.0;
+            for i in 0..n {
+                dev_diff += dev_new[i] - dev_hat[i];
+            }
+            let u_trial_sq_sum: f64 = u_trial.iter().map(|x| x * x).sum();
+            let u_pen = u_trial_sq_sum - u_hat_sq_sum;
+            let delta = -0.5 * dev_diff - 0.5 * u_pen;
+
+            log_terms.push(log_w + delta);
+        }
+
+        let log_inner = log_sum_exp(&log_terms);
+        if !log_inner.is_finite() {
+            return None;
+        }
+        let total_q = -2.0 * log_inner;
+        Some(sum_dev + total_q)
+    }
+
+    fn linear_predictor_from_u(
+        &self,
+        u: &Array1<f64>,
+        beta: &Array1<f64>,
+        lambda: &CsMat<f64>,
+        offset: Option<&Array1<f64>>,
+    ) -> Array1<f64> {
+        let q = self.zt.rows();
+        let mut b = Array1::<f64>::zeros(q);
+        for (val, (row, col)) in lambda.iter() {
+            b[row] += val * u[col];
+        }
+        let n = self.y.len();
+        let mut z_b = vec![0.0f64; n];
+        for (j, row_vec) in self.zt.outer_iterator().enumerate() {
+            for (i, &val) in row_vec.iter() {
+                z_b[i] += val * b[j];
+            }
+        }
+        let mut eta = self.x.dot(beta) + Array1::from_vec(z_b);
+        if let Some(off) = offset {
+            eta += off;
+        }
+        eta
     }
 
     /// Build the sparse Lambda matrix from theta (identical to LMM logic).
@@ -605,6 +1059,122 @@ mod tests {
         assert_eq!(mat[[0, 1]], 2.0);
         assert_eq!(mat[[1, 0]], 10.0);
         assert_eq!(mat[[1, 1]], 12.0);
+    }
+
+    #[test]
+    fn test_log_sum_exp_basic() {
+        let xs = [0.0_f64, 1.0, 2.0];
+        let lse = log_sum_exp(&xs);
+        let expected = (1.0 + 1.0_f64.exp() + 2.0_f64.exp()).ln();
+        assert!((lse - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_agq_scalar_re_deviance_finite() {
+        let x = Array2::<f64>::from_shape_vec((4, 2), vec![1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0])
+            .unwrap();
+        let mut zt_tri = TriMat::new((2, 4));
+        zt_tri.add_triplet(0, 0, 1.0);
+        zt_tri.add_triplet(0, 1, 1.0);
+        zt_tri.add_triplet(1, 2, 1.0);
+        zt_tri.add_triplet(1, 3, 1.0);
+        let zt = zt_tri.to_csr();
+
+        let y = array![0.0, 1.0, 0.0, 1.0];
+
+        let re_blocks = vec![ReBlock {
+            m: 2,
+            k: 1,
+            theta_len: 1,
+            group_name: "G".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        }];
+
+        let fam = Box::new(BinomialFamily::new());
+        let mut glmm_lap =
+            GlmmData::new(x.clone(), zt.clone(), y.clone(), re_blocks.clone(), fam, 1);
+        let fam2 = Box::new(BinomialFamily::new());
+        let mut glmm_agq = GlmmData::new(x, zt, y, re_blocks, fam2, 7);
+
+        let theta = [0.8];
+        let d_lap = glmm_lap.laplace_deviance(&theta, None, 1);
+        let d_agq = glmm_agq.laplace_deviance(&theta, None, 7);
+        assert!(d_lap.is_finite() && d_lap < 1e10);
+        assert!(d_agq.is_finite() && d_agq < 1e10);
+    }
+
+    #[test]
+    fn test_agq_vector_k2_deviance_finite() {
+        // m=2 groups, k=2 (intercept + slope), n=4.
+        let x = Array2::<f64>::from_shape_vec((4, 2), vec![1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0])
+            .unwrap();
+        let mut zt_tri = TriMat::new((4, 4));
+        zt_tri.add_triplet(0, 0, 1.0);
+        zt_tri.add_triplet(0, 1, 1.0);
+        zt_tri.add_triplet(1, 0, 0.0);
+        zt_tri.add_triplet(1, 1, 1.0);
+        zt_tri.add_triplet(2, 2, 1.0);
+        zt_tri.add_triplet(2, 3, 1.0);
+        zt_tri.add_triplet(3, 2, 0.0);
+        zt_tri.add_triplet(3, 3, 1.0);
+        let zt = zt_tri.to_csr();
+
+        let y = array![0.0, 1.0, 0.0, 1.0];
+
+        let re_blocks = vec![ReBlock {
+            m: 2,
+            k: 2,
+            theta_len: 3,
+            group_name: "G".to_string(),
+            effect_names: vec!["(Intercept)".to_string(), "x".to_string()],
+            group_map: std::collections::HashMap::new(),
+        }];
+
+        let fam = Box::new(BinomialFamily::new());
+        let mut glmm = GlmmData::new(x, zt, y, re_blocks, fam, 5);
+        let theta = [0.8, 0.0, 0.8];
+        let d = glmm.laplace_deviance(&theta, None, 5);
+        assert!(d.is_finite() && d < 1e10);
+    }
+
+    #[test]
+    fn test_agq_joint_two_scalar_blocks_finite() {
+        // Two `(1|·)` blocks, disjoint observations: q = 4, identity Z.
+        let x = Array2::<f64>::ones((4, 1));
+        let mut zt_tri = TriMat::new((4, 4));
+        zt_tri.add_triplet(0, 0, 1.0);
+        zt_tri.add_triplet(1, 1, 1.0);
+        zt_tri.add_triplet(2, 2, 1.0);
+        zt_tri.add_triplet(3, 3, 1.0);
+        let zt = zt_tri.to_csr();
+
+        let y = array![0.0, 1.0, 0.0, 1.0];
+
+        let re_blocks = vec![
+            ReBlock {
+                m: 2,
+                k: 1,
+                theta_len: 1,
+                group_name: "A".to_string(),
+                effect_names: vec!["(Intercept)".to_string()],
+                group_map: std::collections::HashMap::new(),
+            },
+            ReBlock {
+                m: 2,
+                k: 1,
+                theta_len: 1,
+                group_name: "B".to_string(),
+                effect_names: vec!["(Intercept)".to_string()],
+                group_map: std::collections::HashMap::new(),
+            },
+        ];
+
+        let fam = Box::new(BinomialFamily::new());
+        let mut glmm = GlmmData::new(x, zt, y, re_blocks, fam, 5);
+        let theta = [0.8, 0.8];
+        let d = glmm.laplace_deviance(&theta, None, 5);
+        assert!(d.is_finite() && d < 1e10);
     }
 
     #[test]

@@ -22,11 +22,15 @@ fn main() -> anyhow::Result<()> {
     // Currently, lme-rs assumes Logit as the default link for Binomial if used via parsing wrapper,
     // or we can just pass the string "binomial" to match similar internal tests
     let formula = "y ~ period2 + period3 + period4 + (1 | herd)";
-    let fit = glmer(formula, &df, lme_rs::family::Family::Binomial)?;
+    let fit_laplace = glmer(formula, &df, lme_rs::family::Family::Binomial, 1)?;
+    // θ is optimized with Laplace; AGQ applies in the final PIRLS evaluation (see `optimize_theta_glmm`).
+    let fit_agq = glmer(formula, &df, lme_rs::family::Family::Binomial, 7)?;
 
     // 3. Print the summary
-    println!("\n=== Model Summary ===");
-    println!("{}", fit);
+    println!("\n=== Model Summary (Laplace / n_agq = 1) ===");
+    println!("{}", fit_laplace);
+    println!("\n=== Model Summary (AGQ, n_agq = 7) ===");
+    println!("{}", fit_agq);
 
     println!("\n=== Predictions (Probabilities) ===");
     println!("Generating predictions for herd 1 across periods...");
@@ -46,7 +50,7 @@ fn main() -> anyhow::Result<()> {
 
     // lme-rs `predict` currently evaluates the linear predictor (link scale)
     // We apply the inverse-logit function to get probabilities
-    let eta = fit.predict(&newdata)?;
+    let eta = fit_agq.predict(&newdata)?;
 
     let preds: Vec<f64> = eta.iter().map(|x| 1.0 / (1.0 + (-x).exp())).collect();
 

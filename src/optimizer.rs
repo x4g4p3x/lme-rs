@@ -161,7 +161,6 @@ struct GlmmObjective {
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
     lower_bounds: Vec<f64>,
-    n_agq: usize,
 }
 
 impl CostFunction for GlmmObjective {
@@ -173,15 +172,22 @@ impl CostFunction for GlmmObjective {
         let mut theta_clamped = theta.clone();
         clamp_theta(&mut theta_clamped, &self.lower_bounds);
 
+        // Always use Laplace (n_agq = 1) for θ: AGQ marginal deviance is expensive and can be
+        // poorly behaved for derivative-free search on θ; AGQ is applied in the final `pirls`
+        // pass when the user requests `n_agq > 1`.
         let mut glmm = GlmmData::new(
             self.x.clone(),
             self.zt.clone(),
             self.y.clone(),
             self.re_blocks.clone(),
             self.family.build_clone(),
-            self.n_agq,
+            1,
         );
-        let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref(), self.n_agq);
+        let val = glmm.laplace_deviance(
+            theta_clamped.as_slice().unwrap(),
+            self.offset.as_ref(),
+            1,
+        );
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -193,6 +199,10 @@ impl CostFunction for GlmmObjective {
 /// Optimizes θ for a GLMM using Nelder-Mead on the Laplace-approximated deviance.
 ///
 /// Enforces lower bounds on θ: diagonal elements of the Cholesky factor ≥ 0.
+///
+/// Adaptive quadrature (`n_agq > 1`) is evaluated only in the final [`crate::glmm_math::GlmmData::pirls`]
+/// call after `θ` is estimated; the outer objective stays Laplace for numerical stability.
+#[allow(clippy::too_many_arguments)]
 pub fn optimize_theta_glmm(
     x: Array2<f64>,
     zt: CsMat<f64>,
@@ -201,7 +211,6 @@ pub fn optimize_theta_glmm(
     init_theta: Array1<f64>,
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
-    n_agq: usize,
 ) -> Result<OptimizeResult, anyhow::Error> {
     let lower_bounds = compute_theta_lower_bounds(&re_blocks);
 
@@ -213,7 +222,6 @@ pub fn optimize_theta_glmm(
         family,
         offset,
         lower_bounds: lower_bounds.clone(),
-        n_agq,
     };
 
     let n = init_theta.len();
@@ -288,7 +296,6 @@ mod tests {
             family,
             offset: None,
             lower_bounds,
-            n_agq: 1,
         };
 
         let theta = array![1.0];

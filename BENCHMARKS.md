@@ -15,6 +15,7 @@ It currently covers these benchmark families:
 - end-to-end `lmer()` fitting on `sleepstudy`
 - end-to-end weighted `lmer_weighted()` fitting on fixture-backed and large synthetic cases
 - end-to-end `glmer()` fitting on `grouseticks` and `cbpp`
+- `glmm_agq_cbpp`: same CBPP binomial fit with `n_agq = 1` (Laplace) vs `n_agq = 7` (scalar AGQ), lower sample size because AGQ is expensive
 - population-level and conditional prediction on a larger repeated `sleepstudy` frame
 - response-scale and conditional response-scale GLMM prediction on repeated Poisson and Binomial frames
 - GLMM post-fit helpers such as Wald confidence intervals

@@ -44,6 +44,7 @@ fn make_display_fit(
         kenward_roger: None,
         v_beta_unscaled: None,
         robust: None,
+        categorical_levels: None,
     }
 }
 

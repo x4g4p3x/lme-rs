@@ -228,7 +228,7 @@ fn test_lib_rs_edge_cases() {
     let df = load_sleepstudy();
 
     // 1. Empty formula errors
-    assert!(glmer(" ", &df, Family::Binomial).is_err());
+    assert!(glmer(" ", &df, Family::Binomial, 1).is_err());
     assert!(lmer_weighted(" ", &df, true, None).is_err());
 
     // 2. Anova same parameters error
@@ -237,7 +237,7 @@ fn test_lib_rs_edge_cases() {
     assert!(res.is_err());
 
     // 3. GLMM Gaussian family and predict_response limits
-    let fit_gauss = glmer("Reaction ~ Days + (1 | Subject)", &df, Family::Gaussian).unwrap();
+    let fit_gauss = glmer("Reaction ~ Days + (1 | Subject)", &df, Family::Gaussian, 1).unwrap();
     assert!(fit_gauss.sigma2.is_some()); // uses dispersion
 
     let nd = DataFrame::new(vec![

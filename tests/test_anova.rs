@@ -1,6 +1,6 @@
 use lme_rs::anova::DdfMethod;
 use lme_rs::LmeFit;
-use ndarray::Array1;
+use ndarray::{Array1, Array2};
 
 // Simple mock test ignoring actual data
 #[test]
@@ -33,8 +33,9 @@ fn test_anova_methods_produce_valid_f_tests() {
         family: None,
         satterthwaite: None,
         kenward_roger: None,
-        v_beta_unscaled: None,
+        v_beta_unscaled: Some(Array2::eye(2)),
         robust: None,
+        categorical_levels: None,
     };
 
     // Test rejection without having evaluated tracking matrices

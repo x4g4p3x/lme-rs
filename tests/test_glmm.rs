@@ -1,5 +1,9 @@
+use lme_rs::family::BinomialFamily;
 use lme_rs::family::Family;
+use lme_rs::formula::parse;
+use lme_rs::glmm_math::GlmmData;
 use lme_rs::glmer;
+use lme_rs::model_matrix::build_design_matrices;
 use ndarray::Array1;
 use polars::prelude::*;
 use serde::Deserialize;
@@ -55,6 +59,7 @@ fn test_glmm_binomial_cbpp() {
         "y ~ period2 + period3 + period4 + (1 | herd)",
         &df,
         Family::Binomial,
+        1,
     )
     .unwrap();
 
@@ -100,6 +105,86 @@ fn test_glmm_binomial_cbpp() {
     assert!(!fit.deviance.unwrap().is_nan());
 }
 
+/// At a fixed θ (R reference), Laplace and AGQ marginal deviances should be close; this guards the quadrature path.
+#[test]
+fn test_cbpp_laplace_agq_deviance_at_reference_theta() {
+    let _ = env_logger::try_init();
+    let df = read_csv_data("tests/data/cbpp_binary.csv");
+    let ast = parse("y ~ period2 + period3 + period4 + (1 | herd)").unwrap();
+    let matrices = build_design_matrices(&ast, &df).unwrap();
+    let mut gl_lap = GlmmData::new(
+        matrices.x.clone(),
+        matrices.zt.clone(),
+        matrices.y.clone(),
+        matrices.re_blocks.clone(),
+        Box::new(BinomialFamily::new()),
+        1,
+    );
+    let mut gl_agq = GlmmData::new(
+        matrices.x,
+        matrices.zt,
+        matrices.y,
+        matrices.re_blocks,
+        Box::new(BinomialFamily::new()),
+        7,
+    );
+    let theta = [0.642069741340069_f64];
+    let d_lap = gl_lap.laplace_deviance(&theta, None, 1);
+    let d_agq = gl_agq.laplace_deviance(&theta, None, 7);
+    assert!(d_lap.is_finite() && d_agq.is_finite());
+    let scale = d_lap.abs().max(1.0);
+    assert!(
+        (d_lap - d_agq).abs() < 0.05 * scale,
+        "AGQ vs Laplace deviance at R reference theta: lap={} agq={}",
+        d_lap,
+        d_agq
+    );
+}
+
+/// `n_agq > 1` uses AGQ in the final PIRLS deviance; θ is still optimized with Laplace (stable outer loop).
+#[test]
+fn test_glmm_binomial_cbpp_agq_consistent_with_laplace() {
+    let _ = env_logger::try_init();
+    let df = read_csv_data("tests/data/cbpp_binary.csv");
+    let fit_laplace = glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        &df,
+        Family::Binomial,
+        1,
+    )
+    .unwrap();
+    let fit_agq = glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        &df,
+        Family::Binomial,
+        7,
+    )
+    .unwrap();
+
+    assert!(fit_agq.converged.unwrap_or(false));
+    for i in 0..fit_laplace.coefficients.len() {
+        let diff = (fit_agq.coefficients[i] - fit_laplace.coefficients[i]).abs();
+        assert!(
+            diff < 0.15,
+            "AGQ vs Laplace beta {} differs too much: laplace={} agq={} diff={}",
+            i,
+            fit_laplace.coefficients[i],
+            fit_agq.coefficients[i],
+            diff
+        );
+    }
+    let tl = fit_laplace.theta.unwrap();
+    let ta = fit_agq.theta.unwrap();
+    for i in 0..tl.len() {
+        assert!(
+            (ta[i] - tl[i]).abs() < 1e-6,
+            "theta should match (Laplace θ̂ for both fits): laplace={} agq={}",
+            tl[i],
+            ta[i]
+        );
+    }
+}
+
 #[test]
 fn test_glmm_poisson_grouseticks() {
     let _ = env_logger::try_init();
@@ -111,6 +196,7 @@ fn test_glmm_poisson_grouseticks() {
         "TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)",
         &df,
         Family::Poisson,
+        1,
     )
     .unwrap();
 
@@ -158,7 +244,7 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
     let _ = env_logger::try_init();
     let df = read_csv_data("tests/data/dyestuff.csv");
 
-    let fit = glmer("Yield ~ 1 + (1 | Batch)", &df, Family::Gamma).unwrap();
+    let fit = glmer("Yield ~ 1 + (1 | Batch)", &df, Family::Gamma, 1).unwrap();
 
     println!("Dyestuff Gamma beta: {:?}", fit.coefficients);
     println!("Dyestuff Gamma sigma2: {:?}", fit.sigma2);

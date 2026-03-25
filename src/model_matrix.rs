@@ -81,7 +81,8 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         .collect();
     let y = Array1::from_vec(y_vec);
 
-    let (x, fixed_names, categorical_levels) = build_x_matrix(ast, data, &response_name, n_obs, None)?;
+    let (x, fixed_names, categorical_levels) =
+        build_x_matrix(ast, data, &response_name, n_obs, None)?;
 
     // 2. Extract Offset (if any)
     let offset = if let Some(off_name) = &ast.offset {
@@ -280,6 +281,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
 }
 
 /// Evaluates the `ast` structural formula to isolate and resolve pure population-level ($X$) design matrices.
+#[allow(clippy::type_complexity)]
 pub fn build_x_matrix(
     ast: &FiastoModel,
     data: &DataFrame,
@@ -326,15 +328,14 @@ pub fn build_x_matrix(
                 let unique_series = s.unique().map_err(|e| crate::LmeError::NotImplemented {
                     feature: format!("Failed to compute unique values for {}: {}", col_name, e),
                 })?;
-                let unique_cast =
-                    unique_series
-                        .cast(&DataType::String)
-                        .map_err(|e| crate::LmeError::NotImplemented {
-                            feature: format!(
-                                "Cannot cast unique values of {} to string: {}",
-                                col_name, e
-                            ),
-                        })?;
+                let unique_cast = unique_series.cast(&DataType::String).map_err(|e| {
+                    crate::LmeError::NotImplemented {
+                        feature: format!(
+                            "Cannot cast unique values of {} to string: {}",
+                            col_name, e
+                        ),
+                    }
+                })?;
                 let unique_str = unique_cast.str().unwrap();
 
                 let mut vals: Vec<String> = unique_str
@@ -358,11 +359,11 @@ pub fn build_x_matrix(
                 0
             };
 
-            let full_str_col = s.cast(&DataType::String).map_err(|e| {
-                crate::LmeError::NotImplemented {
-                    feature: format!("Cannot cast {} to string: {}", col_name, e),
-                }
-            })?;
+            let full_str_col =
+                s.cast(&DataType::String)
+                    .map_err(|e| crate::LmeError::NotImplemented {
+                        feature: format!("Cannot cast {} to string: {}", col_name, e),
+                    })?;
             let str_data: Vec<String> = full_str_col
                 .str()
                 .unwrap()
@@ -381,11 +382,11 @@ pub fn build_x_matrix(
                 fixed_names.push(format!("{}{}", col_name, val));
             }
         } else {
-            let s_cast = s
-                .cast(&DataType::Float64)
-                .map_err(|_| crate::LmeError::NotImplemented {
-                    feature: format!("Missing or invalid column: {}", col_name),
-                })?;
+            let s_cast =
+                s.cast(&DataType::Float64)
+                    .map_err(|_| crate::LmeError::NotImplemented {
+                        feature: format!("Missing or invalid column: {}", col_name),
+                    })?;
             let s_f64 = s_cast.f64().map_err(|_| crate::LmeError::NotImplemented {
                 feature: format!("Missing or invalid column: {}", col_name),
             })?;

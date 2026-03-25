@@ -43,8 +43,14 @@ pub fn compute_robust_se(
         }
     }
 
-    let (x_mat, _, _) = crate::model_matrix::build_x_matrix(&ast, data, &response_col, n, fit.categorical_levels.as_ref())
-        .map_err(|e| format!("Failed building X matrix: {}", e))?;
+    let (x_mat, _, _) = crate::model_matrix::build_x_matrix(
+        &ast,
+        data,
+        &response_col,
+        n,
+        fit.categorical_levels.as_ref(),
+    )
+    .map_err(|e| format!("Failed building X matrix: {}", e))?;
 
     let v_beta_unscaled = fit
         .v_beta_unscaled

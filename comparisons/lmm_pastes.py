@@ -1,35 +1,47 @@
-import polars as pl
-import lme_python as lme
+"""
+Pastes LMM using statsmodels.
 
-def main():
-    print("Loading data from tests/data/pastes.csv...")
-    try:
-        df = pl.read_csv("tests/data/pastes.csv")
-    except FileNotFoundError:
-        print("Could not find the dataset. Please run from the root of lme-rs.")
-        return
+`lme4::lmer(strength ~ 1 + (1 | batch/cask))` uses two variance components
+(batch and batch:cask). `statsmodels` `MixedLM` supports only one grouping
+column per fit. We group by the `sample` column (`batch:cask` labels), which
+matches the inner random intercept stratum only — not the full nested model.
+For exact nested parity, use R, Julia, or Rust examples in this folder.
+"""
 
-    print("\nFitting model: strength ~ 1 + (1 | batch/cask)")
-    
-    # Fit the Linear Mixed Model
-    model = lme.lmer("strength ~ 1 + (1 | batch/cask)", df, True)
-    
+from __future__ import annotations
+
+import os
+import sys
+
+try:
+    import pandas as pd
+    import statsmodels.formula.api as smf
+except ImportError:
+    print("Please install pandas and statsmodels:")
+    print("pip install pandas statsmodels")
+    sys.exit(1)
+
+
+def main() -> None:
+    path = os.path.join("tests", "data", "pastes.csv")
+    if not os.path.exists(path):
+        print(f"Could not find the dataset at {path}")
+        print("Please run this example from the root of the lme-rs repository.")
+        sys.exit(1)
+
+    data = pd.read_csv(path)
+    print("\nFitting model: strength ~ 1 + (1 | sample)  [sample = batch:cask level]")
+    print("(statsmodels single-grouping proxy for nested batch/cask)")
+
+    model = smf.mixedlm("strength ~ 1", data, groups=data["sample"])
+    result = model.fit(reml=True)
     print("\n=== Model Summary ===")
-    print(model.summary())
+    print(result.summary())
 
-    print("\n=== Predictions ===")
-    print("Generating predictions for population-level...")
-    
-    newdata = pl.DataFrame({
-        "batch": ["A", "B", "C"],
-        "cask": ["a", "b", "c"]
-    })
+    print("\n=== Predictions (population-level) ===")
+    fe = result.fe_params
+    print("Intercept (population mean):", float(fe["Intercept"]))
 
-    # lme_python predict defaults to population-level
-    preds = model.predict(newdata)
-    
-    print("Predictions:")
-    print(preds)
 
 if __name__ == "__main__":
     main()

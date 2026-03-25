@@ -181,7 +181,13 @@ fn test_simulate_mean_close_to_fitted() {
 #[test]
 fn test_simulate_poisson_stays_nonnegative_counts() {
     let df = load_grouseticks();
-    let fit = glmer("TICKS ~ YEAR + HEIGHT + (1 | BROOD)", &df, Family::Poisson).unwrap();
+    let fit = glmer(
+        "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+        &df,
+        Family::Poisson,
+        1,
+    )
+    .unwrap();
 
     let sim = fit.simulate(5).unwrap();
     for s in &sim.simulations {
@@ -207,6 +213,7 @@ fn test_simulate_binomial_stays_binary() {
         "y ~ period2 + period3 + period4 + (1 | herd)",
         &df,
         Family::Binomial,
+        1,
     )
     .unwrap();
 

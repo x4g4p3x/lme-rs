@@ -44,6 +44,24 @@ BENCHMARK_CASES = {
         "r_script": "comparisons/glmm_grouseticks.R",
         "julia_script": "comparisons/glmm_grouseticks.jl",
     },
+    "categorical": {
+        "rust_example": "categorical_anova",
+        "python_script": "comparisons/categorical_anova.py",
+        "r_script": "comparisons/categorical_anova.R",
+        "julia_script": "comparisons/categorical_anova.jl",
+    },
+    "weighted": {
+        "rust_example": "lmer_weighted",
+        "python_script": "comparisons/lmer_weighted.py",
+        "r_script": "comparisons/lmer_weighted.R",
+        "julia_script": "comparisons/lmer_weighted.jl",
+    },
+    "gaussian_glmm": {
+        "rust_example": "glmm_gaussian",
+        "python_script": "comparisons/glmm_gaussian.py",
+        "r_script": "comparisons/glmm_gaussian.R",
+        "julia_script": "comparisons/glmm_gaussian.jl",
+    },
 }
 
 
@@ -60,7 +78,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--cases",
-        default="sleepstudy,pastes,cbpp,grouseticks",
+        default="sleepstudy,pastes,cbpp,grouseticks,categorical,weighted,gaussian_glmm",
         help="Comma-separated benchmark cases to run.",
     )
     parser.add_argument(

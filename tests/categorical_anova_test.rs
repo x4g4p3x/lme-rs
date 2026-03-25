@@ -12,11 +12,11 @@ fn test_categorical_anova() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut fit = lmer("strength ~ cask + (1 | batch)", &df, true)?;
     fit.with_satterthwaite(&df)?;
-    
+
     println!("{}", fit);
     let anova_res = fit.anova(DdfMethod::Satterthwaite)?;
     println!("{}", anova_res);
-    
+
     // Test the specific Multi-DoF Wald Output
     assert_eq!(anova_res.terms.len(), 1); // 1 grouped term (cask)
     assert_eq!(anova_res.terms[0], "cask");
