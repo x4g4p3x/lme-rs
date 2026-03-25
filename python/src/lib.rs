@@ -67,6 +67,12 @@ impl PyLmeFit {
         self.inner.sigma2
     }
 
+    /// Random-effects covariance parameters (θ) on the Cholesky scale (see `lme4::getME(., "theta")`).
+    #[getter]
+    pub fn theta(&self) -> Option<Vec<f64>> {
+        self.inner.theta.as_ref().map(|t| t.to_vec())
+    }
+
     /// Akaike Information Criterion.
     #[getter]
     pub fn aic(&self) -> Option<f64> {

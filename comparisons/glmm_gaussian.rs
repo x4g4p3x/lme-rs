@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 
     let formula = "Reaction ~ Days + (1 | Subject)";
     println!("\nFitting Gaussian GLMM (identity link): {}", formula);
-    println!("Laplace / n_agq = 1 (PIRLS matches Gaussian LMM with ML-style objective in this family).");
+    println!("(Same likelihood as LMM with ML; lme-rs uses the LMM engine for this family.)");
 
     let fit = glmer(formula, &df, Family::Gaussian, 1)?;
 

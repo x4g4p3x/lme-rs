@@ -13,3 +13,4 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.23.4", features = ["extension-module"] }
 polars = { version = "0.46.0", features = ["lazy", "csv", "ipc"] }
 lme-rs = { path = ".." }
+ndarray = "0.16"

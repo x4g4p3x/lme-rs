@@ -262,4 +262,5 @@ If fitting or prediction fails:
 - Rust crate docs: [../GUIDE.md](../GUIDE.md)
 - Cross-language comparisons: [../comparisons/COMPARISONS.md](../comparisons/COMPARISONS.md)
 - Python examples: [examples/](examples/)
+- End-to-end Python parity checks (fixtures + assertions): [examples/verification_project/README.md](examples/verification_project/README.md)
 - Contributor setup: [../CONTRIBUTING.md](../CONTRIBUTING.md)

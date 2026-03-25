@@ -236,9 +236,15 @@ fn test_lib_rs_edge_cases() {
     let res = anova(&fit, &fit);
     assert!(res.is_err());
 
-    // 3. GLMM Gaussian family and predict_response limits
+    // 3. GLMM Gaussian family and predict_response limits (delegates to LMM ML)
     let fit_gauss = glmer("Reaction ~ Days + (1 | Subject)", &df, Family::Gaussian, 1).unwrap();
     assert!(fit_gauss.sigma2.is_some()); // uses dispersion
+    let fit_lmm_ml = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    assert!((fit_gauss.sigma2.unwrap() - fit_lmm_ml.sigma2.unwrap()).abs() < 1e-9);
+    assert_eq!(
+        fit_gauss.theta.as_ref().unwrap().as_slice().unwrap(),
+        fit_lmm_ml.theta.as_ref().unwrap().as_slice().unwrap()
+    );
 
     let nd = DataFrame::new(vec![
         Series::new("Days".into(), &[0.0, 1.0]).into(),
@@ -265,6 +271,7 @@ fn test_lib_rs_edge_cases() {
     let glmm_str = format!("{}", fit_gauss);
     assert!(glmm_str.contains("Generalized linear mixed model fit"));
     assert!(glmm_str.contains("Family: gaussian"));
+    assert!(!glmm_str.contains("(Laplace)"));
 
     let a_res = AnovaResult {
         n_params_0: 1,

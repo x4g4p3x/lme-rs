@@ -977,19 +977,28 @@ See [`comparisons/lmer_weighted.py`](lmer_weighted.py). This is a **benchmark-on
 
 ## Gaussian family for `glmer` (identity link)
 
-`family = gaussian` with the default identity link recovers a **Gaussian linear mixed model** expressed through the GLMM / PIRLS machinery. Examples: [`comparisons/glmm_gaussian.rs`](glmm_gaussian.rs), [`glmm_gaussian.R`](glmm_gaussian.R), [`glmm_gaussian.jl`](glmm_gaussian.jl), [`glmm_gaussian.py`](glmm_gaussian.py) on **sleepstudy** with `Reaction ~ Days + (1 | Subject)`.
+`family = gaussian` with the default identity link is the same likelihood as a **linear mixed model fit by ML** (as in `lme4::glmer` and `lmer(..., REML = FALSE)`). In **lme-rs**, `glmer(..., Family::Gaussian)` delegates to the LMM engine with `reml = false` so variance components and \(\sigma^2\) stay on the same scale as `lmer` ML (the Laplace GLMM objective for \(\theta\) would not match that parameterization). The `n_agq` argument is ignored for this family.
 
-**Python** uses `statsmodels` `MixedLM` with one random intercept per `Subject` (REML), which is the usual native analogue. **Rust** uses `glmer(..., Family::Gaussian, n_agq = 1)`; fixed effects and population predictions should line up with `MixedLM` / `lmer` on this fixture; compare random-effect variance components against `lme4` if you need exact agreement on every line of the summary.
+Examples: [`comparisons/glmm_gaussian.rs`](glmm_gaussian.rs), [`glmm_gaussian.R`](glmm_gaussian.R), [`glmm_gaussian.jl`](glmm_gaussian.jl), [`glmm_gaussian.py`](glmm_gaussian.py) on **sleepstudy** with `Reaction ~ Days + (1 | Subject)`.
+
+**Python** uses `statsmodels` `MixedLM` with one random intercept per `Subject` (**REML**). **Rust** uses **ML** here, so standard errors and variance splits can differ slightly from the Python row; both are in the same neighborhood as `lme4`.
 
 ### Gaussian GLMM 1. lme-rs Output (Rust)
 
 ```text
-Formula: Reaction ~ Days + (1 | Subject)
+Generalized linear mixed model fit by ML ['glmerMod']
  Family: gaussian ( identity )
+Formula: Reaction ~ Days + (1 | Subject)
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ Subject  (Intercept) 1296.8967 36.0125 
+ Residual             954.5258 30.8954 
+
 Fixed effects:
             Estimate Std. Error z value
-(Intercept) 251.4051     8.7987   28.57
-Days         10.4673     0.0259  403.36
+(Intercept) 251.4051     9.5063   26.45
+Days         10.4673     0.8017   13.06
 ```
 
 Population-level response-scale predictions:

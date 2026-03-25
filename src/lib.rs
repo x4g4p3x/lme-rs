@@ -543,10 +543,17 @@ impl fmt::Display for LmeFit {
         if let Some(formula) = &self.formula {
             if let Some(fam) = &self.family_name {
                 let link = self.link_name.as_deref().unwrap_or("unknown");
-                writeln!(
-                    f,
-                    "Generalized linear mixed model fit by ML (Laplace) ['glmerMod']"
-                )?;
+                if self.family == Some(family::Family::Gaussian) {
+                    writeln!(
+                        f,
+                        "Generalized linear mixed model fit by ML ['glmerMod']"
+                    )?;
+                } else {
+                    writeln!(
+                        f,
+                        "Generalized linear mixed model fit by ML (Laplace) ['glmerMod']"
+                    )?;
+                }
                 writeln!(f, " Family: {} ( {} )", fam, link)?;
             } else if self.reml.is_some() {
                 writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
@@ -606,7 +613,6 @@ impl fmt::Display for LmeFit {
         // For GLMMs without dispersion (Poisson, Binomial), sigma2 is None but
         // the RE variances are stored in theta relative to sigma2=1.0
         let display_sigma2 = self.sigma2.unwrap_or(1.0);
-        let is_glmm = self.family_name.is_some();
         if let (Some(theta), Some(re_blocks)) = (&self.theta, &self.re_blocks) {
             let sigma2 = display_sigma2;
             let mut theta_idx = 0;
@@ -659,8 +665,9 @@ impl fmt::Display for LmeFit {
 
                 obs_groups.push(format!("{}, {}", block.group_name, block.m));
             }
-            // Only show residual variance for LMMs (GLMMs without dispersion don't have sigma)
-            if !is_glmm {
+            // Residual variance: always for LMMs; for GLMMs only when dispersion is estimated
+            // (Gaussian, Gamma, …). Binomial/Poisson fits keep sigma² implicit (None here).
+            if self.sigma2.is_some() {
                 writeln!(
                     f,
                     " Residual             {:<8.4} {:<8.4}",
@@ -1126,6 +1133,11 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
 /// Uses Penalized Iteratively Reweighted Least Squares (PIRLS) with
 /// Laplace approximation for the marginal likelihood.
 ///
+/// **Gaussian family:** With the identity link, the model coincides with a linear mixed model
+/// fit by **ML** (same target as `lme4::glmer` with `family = gaussian(identity)`). In that case
+/// the implementation delegates to [`lmer`] with `reml = false` so variance components and
+/// \(\sigma^2\) match the LMM parameterization. The `n_agq` argument is ignored.
+///
 /// # Examples
 ///
 /// ```
@@ -1146,6 +1158,19 @@ pub fn glmer(
 ) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
+    }
+
+    // Gaussian + identity: same likelihood as LMM with ML. The GLMM Laplace objective for θ
+    // is not on the LMM scale, so optimizing it mis-reports Var(b) = σ² ΛΛ′ vs lmer / MixedLM.
+    if family_enum == family::Family::Gaussian {
+        let fam = family_enum.build();
+        let fam_name = fam.name().to_string();
+        let link_name = fam.link().name().to_string();
+        let mut fit = lmer(formula_str, data, false)?;
+        fit.family_name = Some(fam_name);
+        fit.link_name = Some(link_name);
+        fit.family = Some(family_enum);
+        return Ok(fit);
     }
 
     let fam = family_enum.build();
