@@ -23,8 +23,8 @@ pub struct OptimizeResult {
 /// In R's `lme4`, diagonal entries of the lower-triangular Cholesky factor Λ must be ≥ 0
 /// (they represent standard deviations), while off-diagonal entries are unbounded (correlations).
 /// The lower-triangular factor for a k×k block is stored column-major:
-///   col 0: θ[0] (diagonal), θ[1] (off-diag), ..., θ[k-1] (off-diag)
-///   col 1: θ[k] (diagonal), θ[k+1] (off-diag), ...
+///   col 0: θ\[0\] (diagonal), θ\[1\] (off-diag), ..., θ\[k-1\] (off-diag)
+///   col 1: θ\[k\] (diagonal), θ\[k+1\] (off-diag), ...
 /// Diagonal positions within each column j are the first element: row index j.
 pub fn compute_theta_lower_bounds(re_blocks: &[ReBlock]) -> Vec<f64> {
     let mut bounds = Vec::new();
