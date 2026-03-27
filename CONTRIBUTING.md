@@ -25,6 +25,16 @@ cargo fmt --check
 cargo clippy -- -D warnings
 ```
 
+To run the same checks as [GitHub Actions CI](.github/workflows/ci.yml) locally (`build`, `test`, `fmt`, `clippy`, `doc`):
+
+```bash
+./scripts/local_ci.sh
+```
+
+```powershell
+.\scripts\local_ci.ps1
+```
+
 ### Python bindings
 
 If you are changing `python/` or verifying the Python package locally:

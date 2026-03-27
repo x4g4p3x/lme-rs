@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-03-27
+
+### Added
+
+- Python `examples/plotting_demo`: matplotlib figures from `lme_python`, optional **lme4** parity (`plot_r.R`), side-by-side PNGs (`figures_compare/`), numeric overlay on shared axes (`figures_overlay/` via `figures_data/` JSON/CSV), `run_all.py`, Windows `Rscript` discovery (`find_rscript.py`), and raster fallback (`figures_overlay_raster/`).
+- `scripts/local_ci.sh` and `scripts/local_ci.ps1` to run the same checks as [`.github/workflows/ci.yml`](.github/workflows/ci.yml) locally (`fmt`, `clippy`, build, test, `doc`).
+
 ## [0.1.5] - 2026-03-22
 
 ### Added

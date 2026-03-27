@@ -544,10 +544,7 @@ impl fmt::Display for LmeFit {
             if let Some(fam) = &self.family_name {
                 let link = self.link_name.as_deref().unwrap_or("unknown");
                 if self.family == Some(family::Family::Gaussian) {
-                    writeln!(
-                        f,
-                        "Generalized linear mixed model fit by ML ['glmerMod']"
-                    )?;
+                    writeln!(f, "Generalized linear mixed model fit by ML ['glmerMod']")?;
                 } else {
                     writeln!(
                         f,

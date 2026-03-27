@@ -183,11 +183,7 @@ impl CostFunction for GlmmObjective {
             self.family.build_clone(),
             1,
         );
-        let val = glmm.laplace_deviance(
-            theta_clamped.as_slice().unwrap(),
-            self.offset.as_ref(),
-            1,
-        );
+        let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref(), 1);
         if val.is_nan() {
             Ok(f64::MAX)
         } else {

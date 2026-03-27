@@ -24,15 +24,13 @@ fn main() -> anyhow::Result<()> {
 
     let formula = "Reaction ~ Days + (Days | Subject)";
     println!("\nFitting weighted model: {}", formula);
-    println!("Prior weights w_i = 0.5 + (row_index mod 5) * 0.1 (same pattern as `benches/bench_math`)");
+    println!(
+        "Prior weights w_i = 0.5 + (row_index mod 5) * 0.1 (same pattern as `benches/bench_math`)"
+    );
     println!("Evaluating Restricted Maximum Likelihood (REML)...");
 
     let n = df.height();
-    let weights = Array1::from_vec(
-        (0..n)
-            .map(|i| 0.5_f64 + (i % 5) as f64 * 0.1)
-            .collect(),
-    );
+    let weights = Array1::from_vec((0..n).map(|i| 0.5_f64 + (i % 5) as f64 * 0.1).collect());
 
     let fit = lmer_weighted(formula, &df, true, Some(weights))?;
 

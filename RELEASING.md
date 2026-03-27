@@ -14,7 +14,19 @@ A release in this repository can touch three public surfaces:
 
 Run these from the repository root unless noted otherwise.
 
-### Rust validation
+### Rust validation (same as GitHub CI)
+
+To match [`.github/workflows/ci.yml`](.github/workflows/ci.yml) in one shot (build, test, `fmt --check`, `clippy -D warnings`, `doc`):
+
+```bash
+./scripts/local_ci.sh
+```
+
+```powershell
+.\scripts\local_ci.ps1
+```
+
+### Rust validation (manual)
 
 ```bash
 cargo build
@@ -121,6 +133,17 @@ If a release changes the crate description, homepage, keywords, or categories, v
 
 - `.github/workflows/benchmarks.yml` runs Criterion benchmarks and cross-language timing runs.
 - It uploads benchmark artifacts in CI and attaches them to GitHub Releases on tag pushes.
+
+## Publishing the Rust crate to crates.io
+
+From the repository root (after a successful `local_ci` run and a version bump):
+
+```bash
+cargo publish --dry-run
+cargo publish
+```
+
+`cargo publish` requires a [crates.io API token](https://crates.io/settings/tokens) (`cargo login` once per machine). The `--dry-run` step validates the package without uploading.
 
 ## Post-release verification
 

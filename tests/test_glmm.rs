@@ -1,8 +1,8 @@
 use lme_rs::family::BinomialFamily;
 use lme_rs::family::Family;
 use lme_rs::formula::parse;
-use lme_rs::glmm_math::GlmmData;
 use lme_rs::glmer;
+use lme_rs::glmm_math::GlmmData;
 use lme_rs::model_matrix::build_design_matrices;
 use ndarray::Array1;
 use polars::prelude::*;

@@ -1,6 +1,6 @@
 [package]
 name = "lme_python"
-version = "0.1.4"
+version = "0.1.6"
 edition = "2021"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Python bindings for lme-rs"
