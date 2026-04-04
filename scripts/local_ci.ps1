@@ -42,7 +42,7 @@ try {
     $env:PYO3_PYTHON = (& $vpy -c 'import sys; print(sys.executable)').Trim()
     Remove-Item Env:\VIRTUAL_ENV -ErrorAction SilentlyContinue
     & $vpy -m pip install -q -U pip
-    & $vpy -m pip install -q maturin polars pytest
+    & $vpy -m pip install -q -r requirements-ci.txt
     & $vpy -m maturin develop --release
     if ($LASTEXITCODE -ne 0) { throw "maturin develop failed" }
     & $vpy -m pytest tests/ -v

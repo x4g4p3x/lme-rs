@@ -66,7 +66,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: python/pyproject.toml
+          cache-dependency-path: python/requirements-ci.txt
 
       - name: Python bindings (maturin develop, pytest, wheel install, pytest)
         working-directory: python
@@ -80,7 +80,7 @@ jobs:
             VPY=.venv/bin/python
           fi
           "$VPY" -m pip install -U pip
-          "$VPY" -m pip install maturin polars pytest
+          "$VPY" -m pip install -r requirements-ci.txt
           "$VPY" -m maturin develop --release
           "$VPY" -m pytest tests/ -v
           "$VPY" -m maturin build --release -o dist
@@ -160,7 +160,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: python/pyproject.toml
+          cache-dependency-path: python/requirements-ci.txt
       - name: Python bindings (maturin develop, pytest, wheel install, pytest)
         working-directory: python
         shell: bash
@@ -173,7 +173,7 @@ jobs:
             VPY=.venv/bin/python
           fi
           "$VPY" -m pip install -U pip
-          "$VPY" -m pip install maturin polars pytest
+          "$VPY" -m pip install -r requirements-ci.txt
           "$VPY" -m maturin develop --release
           "$VPY" -m pytest tests/ -v
           "$VPY" -m maturin build --release -o dist

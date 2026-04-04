@@ -54,7 +54,7 @@ echo "==> python: maturin develop + pytest (from python/)"
   export PYO3_PYTHON="$("$VPY" -c "import sys; print(sys.executable)")"
   unset VIRTUAL_ENV
   "$VPY" -m pip install -q -U pip
-  "$VPY" -m pip install -q maturin polars pytest
+  "$VPY" -m pip install -q -r requirements-ci.txt
   "$VPY" -m maturin develop --release
   "$VPY" -m pytest tests/ -v
   "$VPY" -m maturin build --release -o dist

@@ -51,14 +51,22 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-pip install maturin polars pytest
+pip install -r requirements-ci.txt
 maturin develop --release
 pytest tests/
 ```
 
+[`python/requirements-ci.txt`](python/requirements-ci.txt) is a pinned tree for CI and local scripts (generated from [`python/pyproject.toml`](python/pyproject.toml) `[project.optional-dependencies] dev`). Regenerate it after changing those dependencies:
+
+```bash
+pip install pip-tools
+cd python
+pip-compile pyproject.toml --extra dev -o requirements-ci.txt --allow-unsafe --strip-extras
+```
+
 Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
 
-The same flow runs in CI on every push/PR: a fresh `python/.venv` is created with Python **3.11**, then `maturin develop` and `pytest tests/`. CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)). The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers temporarily back up existing `python/.venv` and repo-root `.venv`, run the Python 3.11 flow, then restore them.
+The same flow runs in CI on every push/PR: a fresh `python/.venv` is created with Python **3.11**, then `pip install -r requirements-ci.txt`, `maturin develop`, and `pytest tests/`. CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)). The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers temporarily back up existing `python/.venv` and repo-root `.venv`, run the Python 3.11 flow, then restore them.
 
 ## Working on numerical changes
 
@@ -89,7 +97,7 @@ Do not describe a feature as supported unless it is exposed by the public API an
 
 ## Other GitHub Actions workflows
 
-- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` lockfiles (scheduled weekly + on lockfile changes). The audit steps use `continue-on-error: true` until upstream advisories are cleared; tighten when ready.
+- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` Rust crates, plus `pip-audit` against [`python/requirements-ci.txt`](python/requirements-ci.txt) (scheduled weekly + on Rust/Python lock changes).
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — `cargo publish --dry-run --locked` on `v*` tags and manual dispatch.
 
 Pushes and PRs that **only** change `**/*.md` or `LICENSE` do not run the main [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (see `paths-ignore` there).

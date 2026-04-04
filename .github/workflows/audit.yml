@@ -10,11 +10,15 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+      - "python/pyproject.toml"
+      - "python/requirements-ci.txt"
   pull_request:
     branches: [master]
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+      - "python/pyproject.toml"
+      - "python/requirements-ci.txt"
 
 permissions:
   contents: read
@@ -37,12 +41,33 @@ jobs:
         with:
           tool: cargo-audit@0.22.1
 
-      # Remove continue-on-error once advisories are addressed in Cargo.lock / upstream crates.
       - name: Run cargo audit (root)
-        continue-on-error: true
         run: cargo audit
 
       - name: Run cargo audit (python/)
-        continue-on-error: true
         working-directory: python
         run: cargo audit
+
+  pip-audit:
+    name: pip-audit (python lockfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: python/requirements-ci.txt
+
+      - name: Install locked CI dependencies
+        working-directory: python
+        run: |
+          set -euo pipefail
+          python -m pip install -U pip
+          python -m pip install -r requirements-ci.txt
+
+      - name: pip-audit
+        working-directory: python
+        run: python -m pip_audit
