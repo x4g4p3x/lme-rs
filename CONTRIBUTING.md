@@ -25,7 +25,7 @@ cargo fmt --check
 cargo clippy -- -D warnings
 ```
 
-To run the same checks as [GitHub Actions CI](.github/workflows/ci.yml) locally (`build`, `test`, `fmt`, `clippy`, `doc`):
+To run the same checks as [GitHub Actions CI](.github/workflows/ci.yml) locally (`build`, `test`, Python `maturin develop` + `pytest`, `fmt`, `clippy`, `doc`):
 
 ```bash
 ./scripts/local_ci.sh
@@ -51,8 +51,12 @@ source .venv/bin/activate
 
 pip install maturin polars pytest
 maturin develop --release
-pytest
+pytest tests/
 ```
+
+Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
+
+The same flow runs in CI on every push/PR: a fresh `python/.venv` is created with Python **3.11**, then `maturin develop` and `pytest tests/`. If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)). The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers temporarily back up existing `python/.venv` and repo-root `.venv`, run that flow, then restore them.
 
 ## Working on numerical changes
 

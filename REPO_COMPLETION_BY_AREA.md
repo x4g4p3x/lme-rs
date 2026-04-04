@@ -24,10 +24,10 @@ This file gives **approximate completion percentages** for major parts of the `l
 | 3 | **Rust crate: formula & model matrices** — [`formula`](src/formula.rs), [`model_matrix`](src/model_matrix.rs) | **87%** | Broad Wilkinson + RE support; remaining gap is breadth of edge cases vs R, not missing baseline features ([`tests/test_formula.rs`](tests/test_formula.rs), [`tests/test_crossed_mock.rs`](tests/test_crossed_mock.rs), etc.). |
 | 4 | **Rust crate: post-fit inference** — [`confint`](src/lib.rs), [`simulate`](src/lib.rs), [`with_robust_se`](src/lib.rs), [`with_satterthwaite`](src/lib.rs), [`with_kenward_roger`](src/lib.rs) | **86%** | Covered by targeted tests ([`test_confint_simulate.rs`](tests/test_confint_simulate.rs), [`test_robust.rs`](tests/test_robust.rs), [`test_satterthwaite.rs`](tests/test_satterthwaite.rs), [`test_kenward_roger.rs`](tests/test_kenward_roger.rs)); scope matches guides and comparisons, not every GLMM edge case. |
 | 5 | **Rust crate: ANOVA & model comparison** — Type III: [`LmeFit::anova`](src/anova.rs); nested LRT: [`anova`](src/lib.rs) (`AnovaResult`) | **76%** | Type III only; 1-DoF rows for continuous terms, joint multi-DoF Wald rows for grouped categorical dummies ([`src/anova.rs`](src/anova.rs), [`CHANGELOG.md`](CHANGELOG.md) 0.1.5). Not Type II ANOVA or a full `car` / `lmerTest` superset. |
-| 6 | **Python bindings** (`python/`, import `lme_python`) | **68%** | Top-level fitters + rich [`PyLmeFit`](python/src/lib.rs) mirror major Rust workflows; README states Rust exposes a **broader** surface ([`README.md`](README.md)). Not exposed from Python: e.g. matrix-only [`lm(y, x)`](src/lib.rs) without a formula. Tests live under [`python/tests/`](python/tests/) (run locally per [`CONTRIBUTING.md`](CONTRIBUTING.md)). |
+| 6 | **Python bindings** (`python/`, import `lme_python`) | **68%** | Top-level fitters + rich [`PyLmeFit`](python/src/lib.rs) mirror major Rust workflows; README states Rust exposes a **broader** surface ([`README.md`](README.md)). Not exposed from Python: e.g. matrix-only [`lm(y, x)`](src/lib.rs) without a formula. [`python/tests/`](python/tests/) run in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and via [`CONTRIBUTING.md`](CONTRIBUTING.md) locally. |
 | 7 | **Cross-language validation** — [`comparisons/`](comparisons/), JSON/CSV fixtures, Rust tests | **91%** | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md) explains what is regression-tested vs manual; strong for listed fixtures, not universal ecosystem parity. |
 | 8 | **Benchmarks** — [`benches/bench_math.rs`](benches/bench_math.rs), [`BENCHMARKS.md`](BENCHMARKS.md), [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) | **82%** | Criterion coverage is substantive but explicitly **not** comprehensive ([`BENCHMARKS.md`](BENCHMARKS.md) states this plainly); workflow runs on `v*` tags and `workflow_dispatch`, not every PR. |
-| 9 | **CI, release, and repo automation** | **92%** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `cargo` build/test on Ubuntu/Windows/macOS; `fmt`, `clippy`, `doc` on Ubuntu. [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml): maturin wheels when `python/**` or `src/**` changes. [`.github/workflows/repo-metadata.yml`](.github/workflows/repo-metadata.yml): GitHub metadata. **Gap:** default Rust CI does **not** run `pytest` (Python validated via contributor workflow + wheel builds). |
+| 9 | **CI, release, and repo automation** | **94%** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `cargo` build/test on Ubuntu/Windows/macOS; fresh `python/.venv` (Python 3.11), **`maturin develop` + `pytest tests/`** on the same matrix; `fmt`, `clippy`, `doc` on Ubuntu. [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml): maturin wheels when `python/**` or `src/**` changes. [`.github/workflows/repo-metadata.yml`](.github/workflows/repo-metadata.yml): GitHub metadata. |
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md) | **90%** | README documentation map is accurate; some release links (e.g. benchmark artifacts version on README) may lag the current crate version—prefer [`CHANGELOG.md`](CHANGELOG.md) for history. |
 | 11 | **Examples & optional demos** — Cargo `[[example]]` entries in [`Cargo.toml`](Cargo.toml) under `comparisons/`, [`python/examples/`](python/examples/), [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | **76%** | Comparison binaries are first-class; plotting and cross-language scripts are useful but partly manual or environment-dependent. |
 | 12 | **Experimental / exploratory code** — [`scripts/ast_explorations/`](scripts/ast_explorations/) | **35%** | Standalone Rust snippets; not wired into the crate or CI. Other `scripts/` helpers (benchmark drivers, R dumps) are **tooling**, not “library completion.” |
@@ -35,7 +35,7 @@ This file gives **approximate completion percentages** for major parts of the `l
 ## Weighted “overall” (illustrative only)
 
 Simple mean of the twelve percentages:  
-(93 + 80 + 87 + 86 + 76 + 68 + 91 + 82 + 92 + 90 + 76 + 35) ÷ 12 = 956 ÷ 12 ≈ **79.7%**.
+(93 + 80 + 87 + 86 + 76 + 68 + 91 + 82 + 94 + 90 + 76 + 35) ÷ 12 = 958 ÷ 12 ≈ **79.8%**.
 
 So the rough figure is **~80%** toward a hypothetical “full statistics stack with universal parity.” That target is **not** the project goal—[`README.md`](README.md) describes the crate as usable with **documented**, narrower scope than the full R ecosystem.
 
@@ -48,7 +48,7 @@ So the rough figure is **~80%** toward a hypothetical “full statistics stack w
 | Python vs Rust breadth | [`README.md`](README.md); [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 | Numerical validation | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md); [`tests/test_numerical_parity.rs`](tests/test_numerical_parity.rs); [`tests/test_glmm.rs`](tests/test_glmm.rs) |
 | Rust workflows | [`GUIDE.md`](GUIDE.md) |
-| CI layout | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| CI layout | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (includes `pytest tests/` under `python/`) |
 | Integration tests | **22** Rust modules under [`tests/`](tests/) (including `categorical_anova_test.rs`; counted 2026-04-04) |
 
 ## Largely unrealized in this repository (≈0% or “not started”)
@@ -60,7 +60,6 @@ These are **major gaps** relative to a very large reference (full `lme4` + relat
 | **Nonlinear mixed models** (`nlmer`-style nonlinear predictors) | **0%** | No API or docs in-repo; search finds no `nlmer` / NLMM workflow. |
 | **Weighted GLMMs** (`glmer` + observation weights) | **0%** | [`lmer_weighted`](src/lib.rs) exists for LMMs; [`glmer`](src/lib.rs) has **no** parallel weights parameter. [`BENCHMARKS.md`](BENCHMARKS.md) lists weighted GLMM as a possible **future** workload. |
 | **Publication-grade cross-language benchmark harness** | **0%** (as a product) | [`BENCHMARKS.md`](BENCHMARKS.md) states the repo does **not** provide a fully normalized, machine-locked harness for public speed claims; example-level timing exists, but not that system. |
-| **`pytest` in default GitHub Actions** | **0%** | Rust CI does not run [`python/tests/`](python/tests/); see row 9 above. |
 
 **Narrow / partial rather than “zero”** (already shipped, but incomplete vs a big reference):
 
