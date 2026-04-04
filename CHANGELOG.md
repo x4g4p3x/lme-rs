@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- GitHub Actions: bump `actions/checkout`, `actions/cache`, `actions/setup-python`, and upload/download-artifact to major versions aligned with [`benchmarks.yml`](.github/workflows/benchmarks.yml) (Node.js 24–compatible runtimes; avoids deprecated Node 20 actions).
 - Python CI and [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) install dev dependencies from a pinned [`python/requirements-ci.txt`](python/requirements-ci.txt) (regenerated with `pip-compile`). [`.github/workflows/audit.yml`](.github/workflows/audit.yml) runs `pip-audit` on that file.
 
 ## [0.1.6] - 2026-03-27

@@ -23,8 +23,8 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       - name: Build wheels
@@ -44,7 +44,7 @@ jobs:
           CFLAGS: "-std=gnu99"
           CFLAGS_aarch64_unknown_linux_gnu: "-std=gnu99"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-${{ matrix.target }}
           path: dist
@@ -55,8 +55,8 @@ jobs:
       matrix:
         target: [x64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
           architecture: ${{ matrix.target }}
@@ -67,7 +67,7 @@ jobs:
           args: --release --out dist --manifest-path python/Cargo.toml
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-windows-${{ matrix.target }}
           path: dist
@@ -78,8 +78,8 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       - name: Install OpenBLAS
@@ -91,7 +91,7 @@ jobs:
           args: --release --out dist --manifest-path python/Cargo.toml
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-macos-${{ matrix.target }}
           path: dist
@@ -99,14 +99,14 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist --manifest-path python/Cargo.toml
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-sdist
           path: dist
@@ -122,7 +122,7 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
       contents: write  # needed to create GitHub Release
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
           pattern: wheels-*
