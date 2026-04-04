@@ -293,9 +293,9 @@ println!("{}", table);
 
 Current scope:
 
-- Type III fixed-effect tables only
-- 1-DoF fixed-effect terms only
-- Requires a denominator degrees of freedom method to be computed first
+- Type III fixed-effect tables only (no Type II)
+- 1-DoF marginal tests for continuous predictors; joint multi-DoF Wald F-tests for categorical predictors when dummy columns are grouped in the fit
+- Requires a denominator degrees of freedom method to be computed first (`with_satterthwaite` or `with_kenward_roger` before `anova`, depending on method)
 
 ## Model Comparison
 
@@ -325,7 +325,7 @@ For GLMMs, `lme-rs` computes the optimization target from a Laplace-approximated
 
 ### ANOVA scope
 
-Fixed-effects ANOVA support currently means Type III tests over the current 1-DoF fixed-effect design. If you need a richer ANOVA design matrix story, treat this as a current limitation rather than as a hidden assumption.
+Fixed-effects ANOVA is Type III only. Continuous terms use 1-DoF marginal tests; categorical predictors with multiple dummies use joint multi-DoF Wald rows when those columns are grouped. Type II tables and arbitrary contrast matrices are not implemented—if you need those, treat it as a current limitation.
 
 ### Kenward-Roger status
 

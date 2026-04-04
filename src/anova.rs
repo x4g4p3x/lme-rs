@@ -13,15 +13,15 @@ pub enum DdfMethod {
 
 /// A structured container for analysis of variance (ANOVA) tests of fixed-effect terms.
 ///
-/// Under `lme-rs`'s strictly continuous/1-DoF design matrix parsing, Type III ANOVA
-/// evaluates independent marginal F-tests for each fixed effect analogous to `lmerTest`.
+/// Type III ANOVA: marginal 1-DoF tests for continuous terms, and joint multi-DoF Wald
+/// F-tests for grouped categorical dummy columns when `categorical_levels` is present.
 #[derive(Debug, Clone)]
 pub struct FixedEffectsAnovaResult {
     /// The denominator degrees of freedom method used for the estimates.
     pub method: DdfMethod,
     /// The string name of the fixed effect variable.
     pub terms: Vec<String>,
-    /// Numerator degrees of freedom (always 1.0 for the current `lme-rs` single-DoF implementation).
+    /// Numerator degrees of freedom per row (1 for a single coefficient; `q` for a grouped categorical with `q` dummies).
     pub num_df: Array1<f64>,
     /// Denominator degrees of freedom approximated by the chosen method.
     pub den_df: Array1<f64>,

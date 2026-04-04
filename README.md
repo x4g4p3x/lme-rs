@@ -15,7 +15,7 @@
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
 - Wald confidence intervals, parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and Kenward-Roger denominator degrees of freedom
-- Likelihood ratio tests between nested models and Type III ANOVA tables for 1-DoF fixed effects
+- Likelihood ratio tests between nested models and Type III ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)
 
 ## Quick start
 
@@ -58,11 +58,13 @@ fn main() -> anyhow::Result<()> {
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). The crate is usable today, but some features are intentionally narrower than the R ecosystem wrappers they resemble.
 
+For a subjective, area-by-area view of what is implemented versus still open (including items not started), see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
+
 ## Limitations and compatibility notes
 
 - Numerical parity is the goal for the covered LMM and GLMM workflows, but the guarantee is scoped to the models and examples exercised by the repository tests and comparison fixtures.
 - `glmer()` uses a Laplace approximation. Absolute AIC, BIC, and log-likelihood values can differ from R because `lme-rs` optimizes a deviance expression that omits data-dependent constants. Coefficients and variance parameters are the quantities to compare.
-- Fixed-effects ANOVA support is currently Type III only, and only for the current 1-DoF fixed-effect design produced by the parser.
+- Fixed-effects ANOVA is **Type III** only (no Type II table). Continuous fixed effects use 1-DoF marginal tests; categorical predictors encoded as multiple dummies are summarized with **joint multi-DoF Wald F-tests** when those columns are grouped in the fit. Very general contrast or multi-df designs beyond that are not covered.
 - `with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` to within the precision of numerical differentiation on the covered LMM models.
 - The Rust crate exposes a broader surface than the Python bindings. The Python package is useful, but it is not yet a full mirror of the Rust API.
 - Built-in GLMM families currently use their default links through the public `glmer()` API.
@@ -73,8 +75,9 @@ The core modeling surface is in place and exercised by the test suite, examples,
 - Rust usage guide: [GUIDE.md](GUIDE.md)
 - Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
 - Cross-language numerical comparisons: [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md)
+- Approximate completion by repository area: [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
 - Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md)
-- Latest benchmark artifacts: [v0.1.3 release](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)
+- Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Release workflow: [RELEASING.md](RELEASING.md)
@@ -95,3 +98,5 @@ Each example is mirrored across Rust, R, Python, and Julia where that comparison
 ## Development notes
 
 Repository metadata on GitHub is synced from `Cargo.toml` by the workflow in [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml). If you change the package description, homepage, keywords, or categories, the GitHub About box will be updated on the next metadata sync run.
+
+To run the same checks as CI locally (format, clippy, build, tests, docs), use [`scripts/local_ci.sh`](scripts/local_ci.sh) or [`scripts/local_ci.ps1`](scripts/local_ci.ps1) (see [CHANGELOG.md](CHANGELOG.md) 0.1.6).
