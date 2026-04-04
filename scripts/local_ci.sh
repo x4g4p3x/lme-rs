@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Mirrors .github/workflows/ci.yml (Ubuntu job: build, test, fmt, clippy, docs).
+# Mirrors .github/workflows/ci.yml (Rust + Python checks on Ubuntu-style hosts).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> cargo build"
-cargo build --verbose
+echo "==> cargo build --locked"
+cargo build --verbose --locked
 
-echo "==> cargo test"
-cargo test --verbose
+echo "==> cargo test --locked"
+cargo test --verbose --locked
 
 echo "==> python: maturin develop + pytest (from python/)"
 (
@@ -57,15 +57,30 @@ echo "==> python: maturin develop + pytest (from python/)"
   "$VPY" -m pip install -q maturin polars pytest
   "$VPY" -m maturin develop --release
   "$VPY" -m pytest tests/ -v
+  "$VPY" -m maturin build --release -o dist
+  shopt -s nullglob
+  wheels=(dist/lme_python-*.whl)
+  if [ ${#wheels[@]} -eq 0 ]; then
+    echo "No wheel under python/dist"
+    exit 1
+  fi
+  "$VPY" -m pip install -q --force-reinstall "${wheels[0]}"
+  "$VPY" -m pytest tests/ -v
 )
 
 echo "==> cargo fmt --check"
 cargo fmt --check
 
-echo "==> cargo clippy"
-cargo clippy -- -D warnings
+echo "==> cargo clippy --locked"
+cargo clippy --locked -- -D warnings
 
-echo "==> cargo doc"
-cargo doc --no-deps --verbose
+echo "==> cargo check --workspace --all-targets --locked"
+cargo check --workspace --all-targets --locked -v
 
-echo "local_ci.sh: OK (matches GitHub CI)"
+echo "==> cargo test --doc --locked"
+cargo test --doc --locked --verbose
+
+echo "==> cargo doc --locked"
+cargo doc --no-deps --verbose --locked
+
+echo "local_ci.sh: OK (matches GitHub CI core jobs; extra Python 3.10/3.12/3.13 matrix is CI-only)"

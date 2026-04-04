@@ -1,0 +1,48 @@
+name: Security audit
+
+on:
+  schedule:
+    # Weekly: Mondays 12:00 UTC
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+  pull_request:
+    branches: [master]
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.1
+
+      # Remove continue-on-error once advisories are addressed in Cargo.lock / upstream crates.
+      - name: Run cargo audit (root)
+        continue-on-error: true
+        run: cargo audit
+
+      - name: Run cargo audit (python/)
+        continue-on-error: true
+        working-directory: python
+        run: cargo audit

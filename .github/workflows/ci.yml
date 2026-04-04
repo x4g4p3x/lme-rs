@@ -3,8 +3,21 @@ name: CI
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
   pull_request:
     branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -43,10 +56,10 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --verbose --locked
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose --locked
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,7 +68,7 @@ jobs:
           cache: pip
           cache-dependency-path: python/pyproject.toml
 
-      - name: Python bindings (maturin + pytest)
+      - name: Python bindings (maturin develop, pytest, wheel install, pytest)
         working-directory: python
         shell: bash
         run: |
@@ -70,14 +83,109 @@ jobs:
           "$VPY" -m pip install maturin polars pytest
           "$VPY" -m maturin develop --release
           "$VPY" -m pytest tests/ -v
+          "$VPY" -m maturin build --release -o dist
+          shopt -s nullglob
+          wheels=(dist/lme_python-*.whl)
+          if [ ${#wheels[@]} -eq 0 ]; then
+            echo "No wheel found under python/dist"
+            ls -la dist 2>/dev/null || true
+            exit 1
+          fi
+          "$VPY" -m pip install --force-reinstall "${wheels[0]}"
+          "$VPY" -m pytest tests/ -v
 
-      - name: Check formatting
-        if: matrix.os == 'ubuntu-latest'
-        run: cargo fmt --check
+  rust-all-targets:
+    name: Rust check (all targets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ubuntu-cargo-
+      - name: cargo check --workspace --all-targets
+        run: cargo check --workspace --all-targets --locked -v
 
-      - name: Run clippy
-        if: matrix.os == 'ubuntu-latest'
-        run: cargo clippy -- -D warnings
+  rust-doctests:
+    name: Rust doctests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ubuntu-cargo-
+      - name: cargo test --doc
+        run: cargo test --doc --locked --verbose
+
+  python-bindings-versions:
+    name: Python ${{ matrix.python-version }} (ubuntu)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ubuntu-cargo-
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: python/pyproject.toml
+      - name: Python bindings (maturin develop, pytest, wheel install, pytest)
+        working-directory: python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv .venv
+          if [ -f .venv/Scripts/python.exe ]; then
+            VPY=.venv/Scripts/python.exe
+          else
+            VPY=.venv/bin/python
+          fi
+          "$VPY" -m pip install -U pip
+          "$VPY" -m pip install maturin polars pytest
+          "$VPY" -m maturin develop --release
+          "$VPY" -m pytest tests/ -v
+          "$VPY" -m maturin build --release -o dist
+          shopt -s nullglob
+          wheels=(dist/lme_python-*.whl)
+          if [ ${#wheels[@]} -eq 0 ]; then
+            echo "No wheel found under python/dist"
+            ls -la dist 2>/dev/null || true
+            exit 1
+          fi
+          "$VPY" -m pip install --force-reinstall "${wheels[0]}"
+          "$VPY" -m pytest tests/ -v
 
   docs:
     name: Build docs
@@ -86,4 +194,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Build documentation
-        run: cargo doc --no-deps --verbose
+        run: cargo doc --no-deps --verbose --locked

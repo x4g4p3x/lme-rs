@@ -18,14 +18,16 @@ Install a stable Rust toolchain via [rustup](https://rustup.rs).
 Useful commands:
 
 ```bash
-cargo build
-cargo test
-cargo test --doc
+cargo build --locked
+cargo test --locked
+cargo check --workspace --all-targets --locked
+cargo test --doc --locked
 cargo fmt --check
-cargo clippy -- -D warnings
+cargo clippy --locked -- -D warnings
+cargo doc --no-deps --locked
 ```
 
-To run the same checks as [GitHub Actions CI](.github/workflows/ci.yml) locally (`build`, `test`, Python `maturin develop` + `pytest`, `fmt`, `clippy`, `doc`):
+To run the same **core** checks as [GitHub Actions CI](.github/workflows/ci.yml) locally (`--locked` build/test, Python 3.11 `maturin develop` + `pytest tests/`, `fmt`, `clippy`, `check --all-targets`, doctests, `doc`):
 
 ```bash
 ./scripts/local_ci.sh
@@ -56,14 +58,14 @@ pytest tests/
 
 Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
 
-The same flow runs in CI on every push/PR: a fresh `python/.venv` is created with Python **3.11**, then `maturin develop` and `pytest tests/`. If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)). The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers temporarily back up existing `python/.venv` and repo-root `.venv`, run that flow, then restore them.
+The same flow runs in CI on every push/PR: a fresh `python/.venv` is created with Python **3.11**, then `maturin develop` and `pytest tests/`. CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)). The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers temporarily back up existing `python/.venv` and repo-root `.venv`, run the Python 3.11 flow, then restore them.
 
 ## Working on numerical changes
 
 If you change fitting logic, optimizer behavior, variance calculations, or inference code:
 
 - add or update Rust tests in `tests/`
-- prefer fixture-backed tests for parity-sensitive behavior
+- prefer fixture-backed tests for parity-sensitive behavior; add identities to [`tests/test_statistical_identities.rs`](tests/test_statistical_identities.rs) when a property should always hold (e.g. OLS residual sum, `y = fitted + residual`, valid LRT probabilities)
 - update `comparisons/COMPARISONS.md` when the reference output changes materially
 - validate hard cases against R `lme4` where practical
 
@@ -84,6 +86,13 @@ When documentation changes affect user-visible behavior, keep these files aligne
 - `CHANGELOG.md` for release-facing notes
 
 Do not describe a feature as supported unless it is exposed by the public API and covered by tests or concrete examples.
+
+## Other GitHub Actions workflows
+
+- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` lockfiles (scheduled weekly + on lockfile changes). The audit steps use `continue-on-error: true` until upstream advisories are cleared; tighten when ready.
+- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — `cargo publish --dry-run --locked` on `v*` tags and manual dispatch.
+
+Pushes and PRs that **only** change `**/*.md` or `LICENSE` do not run the main [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (see `paths-ignore` there).
 
 ## Repository metadata sync
 

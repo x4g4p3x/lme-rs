@@ -1,0 +1,28 @@
+name: Crate publish (dry-run)
+
+# Verifies `cargo publish` packaging (metadata, README, excluded files) without uploading.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-dry-run-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dry-run:
+    name: cargo publish --dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Dry-run publish (root crate)
+        run: cargo publish --dry-run --locked

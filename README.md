@@ -79,7 +79,7 @@ For a subjective, area-by-area view of what is implemented versus still open (in
 - Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md)
 - Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
-- Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md) (also lists security audit and crate publish dry-run workflows)
 - Release workflow: [RELEASING.md](RELEASING.md)
 
 ## Examples

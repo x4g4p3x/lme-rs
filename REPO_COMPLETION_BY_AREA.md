@@ -27,7 +27,7 @@ This file gives **approximate completion percentages** for major parts of the `l
 | 6 | **Python bindings** (`python/`, import `lme_python`) | **68%** | Top-level fitters + rich [`PyLmeFit`](python/src/lib.rs) mirror major Rust workflows; README states Rust exposes a **broader** surface ([`README.md`](README.md)). Not exposed from Python: e.g. matrix-only [`lm(y, x)`](src/lib.rs) without a formula. [`python/tests/`](python/tests/) run in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and via [`CONTRIBUTING.md`](CONTRIBUTING.md) locally. |
 | 7 | **Cross-language validation** — [`comparisons/`](comparisons/), JSON/CSV fixtures, Rust tests | **91%** | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md) explains what is regression-tested vs manual; strong for listed fixtures, not universal ecosystem parity. |
 | 8 | **Benchmarks** — [`benches/bench_math.rs`](benches/bench_math.rs), [`BENCHMARKS.md`](BENCHMARKS.md), [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) | **82%** | Criterion coverage is substantive but explicitly **not** comprehensive ([`BENCHMARKS.md`](BENCHMARKS.md) states this plainly); workflow runs on `v*` tags and `workflow_dispatch`, not every PR. |
-| 9 | **CI, release, and repo automation** | **94%** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `cargo` build/test on Ubuntu/Windows/macOS; fresh `python/.venv` (Python 3.11), **`maturin develop` + `pytest tests/`** on the same matrix; `fmt`, `clippy`, `doc` on Ubuntu. [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml): maturin wheels when `python/**` or `src/**` changes. [`.github/workflows/repo-metadata.yml`](.github/workflows/repo-metadata.yml): GitHub metadata. |
+| 9 | **CI, release, and repo automation** | **97%** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): **`--locked`**, concurrency, least-privilege `permissions`, doc-only `paths-ignore`; **`cargo check --all-targets`**, **`cargo test --doc`**; multi-OS; Python **3.11** + wheel reinstall + second **`pytest`**; **3.10 / 3.12 / 3.13** on Ubuntu. [`.github/workflows/audit.yml`](.github/workflows/audit.yml), [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml). [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml): maturin wheels. [`.github/workflows/repo-metadata.yml`](.github/workflows/repo-metadata.yml): GitHub metadata. |
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md) | **90%** | README documentation map is accurate; some release links (e.g. benchmark artifacts version on README) may lag the current crate version—prefer [`CHANGELOG.md`](CHANGELOG.md) for history. |
 | 11 | **Examples & optional demos** — Cargo `[[example]]` entries in [`Cargo.toml`](Cargo.toml) under `comparisons/`, [`python/examples/`](python/examples/), [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | **76%** | Comparison binaries are first-class; plotting and cross-language scripts are useful but partly manual or environment-dependent. |
 | 12 | **Experimental / exploratory code** — [`scripts/ast_explorations/`](scripts/ast_explorations/) | **35%** | Standalone Rust snippets; not wired into the crate or CI. Other `scripts/` helpers (benchmark drivers, R dumps) are **tooling**, not “library completion.” |
@@ -35,7 +35,7 @@ This file gives **approximate completion percentages** for major parts of the `l
 ## Weighted “overall” (illustrative only)
 
 Simple mean of the twelve percentages:  
-(93 + 80 + 87 + 86 + 76 + 68 + 91 + 82 + 94 + 90 + 76 + 35) ÷ 12 = 958 ÷ 12 ≈ **79.8%**.
+(93 + 80 + 87 + 86 + 76 + 68 + 91 + 82 + 97 + 90 + 76 + 35) ÷ 12 = 961 ÷ 12 ≈ **80.1%**.
 
 So the rough figure is **~80%** toward a hypothetical “full statistics stack with universal parity.” That target is **not** the project goal—[`README.md`](README.md) describes the crate as usable with **documented**, narrower scope than the full R ecosystem.
 
@@ -48,8 +48,8 @@ So the rough figure is **~80%** toward a hypothetical “full statistics stack w
 | Python vs Rust breadth | [`README.md`](README.md); [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 | Numerical validation | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md); [`tests/test_numerical_parity.rs`](tests/test_numerical_parity.rs); [`tests/test_glmm.rs`](tests/test_glmm.rs) |
 | Rust workflows | [`GUIDE.md`](GUIDE.md) |
-| CI layout | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (includes `pytest tests/` under `python/`) |
-| Integration tests | **22** Rust modules under [`tests/`](tests/) (including `categorical_anova_test.rs`; counted 2026-04-04) |
+| CI layout | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`--locked`, all-targets check, doctests, `pytest tests/`, Python version matrix on Ubuntu) |
+| Integration tests | **23** Rust modules under [`tests/`](tests/) (including `test_statistical_identities.rs`; counted 2026-04-04) |
 
 ## Largely unrealized in this repository (≈0% or “not started”)
 
