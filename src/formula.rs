@@ -159,6 +159,12 @@ fn expand_nested_re(formula: &str) -> String {
                     }
                     j += 1;
                 }
+                if depth != 0 {
+                    // Unmatched `(` — leave it literal so callers never slice with start+1 > j-1.
+                    expanded.push('(');
+                    i = start + 1;
+                    continue;
+                }
                 let re_term = &result[start..j]; // includes parens
                 let inner = &result[start + 1..j - 1]; // without parens
 
@@ -231,6 +237,11 @@ fn expand_independent_re(formula: &str) -> String {
                         depth -= 1;
                     }
                     j += 1;
+                }
+                if depth != 0 {
+                    expanded.push('(');
+                    i = start + 1;
+                    continue;
                 }
                 let re_term = &result[start..j]; // includes parens
                 let inner = &result[start + 1..j - 1]; // without parens
@@ -318,6 +329,16 @@ mod tests {
         let original = "y ~ x + (1 | school)";
         let expanded = expand_nested_re(original);
         assert_eq!(expanded, original);
+    }
+
+    #[test]
+    fn expand_nested_re_unmatched_open_paren_is_literal() {
+        assert_eq!(expand_nested_re("y ~ )("), "y ~ )(");
+    }
+
+    #[test]
+    fn expand_independent_re_unmatched_open_paren_is_literal() {
+        assert_eq!(expand_independent_re("y ~ )("), "y ~ )(");
     }
 
     #[test]

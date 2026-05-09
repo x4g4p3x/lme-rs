@@ -11,6 +11,10 @@ readme = "README.md"
 keywords = ["statistics", "lme4", "mixed-effects", "glmm", "regression"]
 categories = ["science", "mathematics"]
 
+[features]
+# Enables `bench_load_production` (large synthetic workloads; not run by default `cargo bench`).
+slow-production-benches = []
+
 [dependencies]
 polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
 ndarray = "0.16"
@@ -39,6 +43,11 @@ debug = true
 [[bench]]
 name = "bench_math"
 harness = false
+
+[[bench]]
+name = "bench_load_production"
+harness = false
+required-features = ["slow-production-benches"]
 
 [[example]]
 name = "glmm_cbpp"

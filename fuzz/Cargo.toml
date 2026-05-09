@@ -1,0 +1,37 @@
+[package]
+name = "lme-rs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+lme-rs = { path = ".." }
+polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
+
+[[bin]]
+name = "formula_parse"
+path = "fuzz_targets/formula_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "formula_pipeline"
+path = "fuzz_targets/formula_pipeline.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+debug = 1

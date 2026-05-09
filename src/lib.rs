@@ -908,6 +908,7 @@ pub fn lmer_weighted(
 
     // 2. Build design matrices X, Zt, y from DataFrame and AST
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
+    validate_observation_weights(weights.as_ref(), matrices.y.len())?;
 
     // 3. Setup initial theta vector (length depends on the random effects structure)
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
@@ -1179,6 +1180,7 @@ pub fn glmer(
 
     // 2. Build design matrices X, Zt, y from DataFrame and AST
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
+    validate_glmm_response(&matrices.y, family_enum)?;
 
     // 3. Setup initial theta vector
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
@@ -1297,6 +1299,80 @@ pub fn glmer(
         robust: None,
         categorical_levels: Some(matrices.categorical_levels),
     })
+}
+
+fn validate_observation_weights(weights: Option<&Array1<f64>>, n_obs: usize) -> Result<()> {
+    let Some(w) = weights else {
+        return Ok(());
+    };
+    if w.len() != n_obs {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "weights: length {} does not match number of observations ({})",
+                w.len(),
+                n_obs
+            ),
+        });
+    }
+    for (i, &wi) in w.iter().enumerate() {
+        if !wi.is_finite() {
+            return Err(LmeError::NotImplemented {
+                feature: format!("weights: non-finite value at index {}", i),
+            });
+        }
+        if wi <= 0.0 {
+            return Err(LmeError::NotImplemented {
+                feature: format!(
+                    "weights: must be strictly positive (index {} has {})",
+                    i, wi
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn validate_glmm_response(y: &Array1<f64>, family_enum: family::Family) -> Result<()> {
+    match family_enum {
+        family::Family::Binomial => {
+            for (i, &v) in y.iter().enumerate() {
+                if !v.is_finite() || !(0.0..=1.0).contains(&v) {
+                    return Err(LmeError::NotImplemented {
+                        feature: format!(
+                            "binomial response must be finite and within [0, 1] (observation {} has {})",
+                            i, v
+                        ),
+                    });
+                }
+            }
+        }
+        family::Family::Poisson => {
+            for (i, &v) in y.iter().enumerate() {
+                if !v.is_finite() || v < 0.0 {
+                    return Err(LmeError::NotImplemented {
+                        feature: format!(
+                            "Poisson response must be finite and non-negative (observation {} has {})",
+                            i, v
+                        ),
+                    });
+                }
+            }
+        }
+        family::Family::Gamma => {
+            for (i, &v) in y.iter().enumerate() {
+                if !v.is_finite() || v <= 0.0 {
+                    return Err(LmeError::NotImplemented {
+                        feature: format!(
+                            "Gamma response must be finite and strictly positive (observation {} has {})",
+                            i, v
+                        ),
+                    });
+                }
+            }
+        }
+        family::Family::Gaussian => {}
+    }
+    Ok(())
 }
 
 /// Gap 2: Builds a ranef DataFrame from the b vector organized per group/effect.

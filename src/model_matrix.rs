@@ -183,7 +183,18 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
 
                 Column::new(g_var.as_str().into(), &interaction_values)
             } else {
-                data.column(g_var).unwrap().cast(&DataType::String).unwrap()
+                data.column(g_var)
+                    .map_err(|e| crate::LmeError::NotImplemented {
+                        feature: format!("Grouping column '{}' not found: {}", g_var, e),
+                    })?
+                    .cast(&DataType::String)
+                    .map_err(|e| crate::LmeError::NotImplemented {
+                        feature: format!(
+                            "Grouping column '{}' could not be cast to string: {}",
+                            g_var, e
+                        ),
+                    })?
+                    .into()
             };
             let g_str = g_series.str().unwrap();
 

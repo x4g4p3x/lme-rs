@@ -54,6 +54,46 @@ fn clamp_theta(theta: &mut Array1<f64>, lower_bounds: &[f64]) {
     }
 }
 
+fn nelder_mead_optimize<C>(
+    init_theta: Array1<f64>,
+    lower_bounds: &[f64],
+    max_iters: u64,
+    cost: C,
+) -> Result<OptimizeResult, anyhow::Error>
+where
+    C: CostFunction<Param = Array1<f64>, Output = f64>,
+{
+    let n = init_theta.len();
+    let mut initial_simplex = vec![init_theta.clone()];
+
+    for i in 0..n {
+        let mut param = init_theta.clone();
+        param[i] += 0.2;
+        clamp_theta(&mut param, lower_bounds);
+        initial_simplex.push(param);
+    }
+
+    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(1e-6)?;
+
+    let res = Executor::new(cost, solver)
+        .configure(|state| state.max_iters(max_iters))
+        .run()?;
+
+    let state = res.state();
+    let mut best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    clamp_theta(&mut best_theta, lower_bounds);
+    let best_cost = state.get_best_cost();
+    let iterations = state.get_iter();
+    let converged = iterations < max_iters;
+
+    Ok(OptimizeResult {
+        theta: best_theta,
+        converged,
+        iterations,
+        final_cost: best_cost,
+    })
+}
+
 /// Wrapper for the REML deviance function to be used by argmin.
 struct LmmObjective {
     x: Array2<f64>,
@@ -114,37 +154,7 @@ pub fn optimize_theta_nd(
         weights,
     };
 
-    let n = init_theta.len();
-    let max_iters = 1000u64;
-    let mut initial_simplex = vec![init_theta.clone()];
-
-    // Create an initial simplex by perturbing each dimension, respecting bounds
-    for i in 0..n {
-        let mut param = init_theta.clone();
-        param[i] += 0.2;
-        clamp_theta(&mut param, &lower_bounds);
-        initial_simplex.push(param);
-    }
-
-    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(1e-6)?;
-
-    let res = Executor::new(cost, solver)
-        .configure(|state| state.max_iters(max_iters))
-        .run()?;
-
-    let state = res.state();
-    let mut best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
-    clamp_theta(&mut best_theta, &lower_bounds);
-    let best_cost = state.get_best_cost();
-    let iterations = state.get_iter();
-    let converged = iterations < max_iters;
-
-    Ok(OptimizeResult {
-        theta: best_theta,
-        converged,
-        iterations,
-        final_cost: best_cost,
-    })
+    nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
 }
 
 // ─── GLMM Optimizer ───────────────────────────────────────────────────────────
@@ -220,36 +230,7 @@ pub fn optimize_theta_glmm(
         lower_bounds: lower_bounds.clone(),
     };
 
-    let n = init_theta.len();
-    let max_iters = 1000u64;
-    let mut initial_simplex = vec![init_theta.clone()];
-
-    for i in 0..n {
-        let mut param = init_theta.clone();
-        param[i] += 0.2;
-        clamp_theta(&mut param, &lower_bounds);
-        initial_simplex.push(param);
-    }
-
-    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(1e-6)?;
-
-    let res = Executor::new(cost, solver)
-        .configure(|state| state.max_iters(max_iters))
-        .run()?;
-
-    let state = res.state();
-    let mut best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
-    clamp_theta(&mut best_theta, &lower_bounds);
-    let best_cost = state.get_best_cost();
-    let iterations = state.get_iter();
-    let converged = iterations < max_iters;
-
-    Ok(OptimizeResult {
-        theta: best_theta,
-        converged,
-        iterations,
-        final_cost: best_cost,
-    })
+    nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
 }
 
 #[cfg(test)]
@@ -297,5 +278,40 @@ mod tests {
         let theta = array![1.0];
         let cost = cost_fn.cost(&theta).unwrap();
         assert_eq!(cost, f64::MAX);
+    }
+
+    #[test]
+    fn nelder_mead_marks_not_converged_when_iteration_budget_exhausted() {
+        let y = array![1.0_f64, 2.0];
+        let x = Array2::from_shape_vec((2, 2), vec![1.0, 1.0, 1.0, 2.0]).unwrap();
+        let mut zt_tri = TriMat::new((2, 2));
+        zt_tri.add_triplet(0, 0, 1.0);
+        zt_tri.add_triplet(1, 1, 1.0);
+        let zt = zt_tri.to_csr();
+        let re_blocks = vec![ReBlock {
+            m: 2,
+            k: 1,
+            theta_len: 1,
+            group_name: "G".to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map: std::collections::HashMap::new(),
+        }];
+        let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+        let cost = LmmObjective {
+            x,
+            zt,
+            y,
+            re_blocks,
+            reml: true,
+            lower_bounds: lower_bounds.clone(),
+            weights: None,
+        };
+        let res = nelder_mead_optimize(array![1.0], &lower_bounds, 1, cost).unwrap();
+        assert!(
+            !res.converged,
+            "expected max-iteration exhaustion to set converged=false, got {:?}",
+            res
+        );
+        assert!(res.iterations >= 1, "iterations={}", res.iterations);
     }
 }

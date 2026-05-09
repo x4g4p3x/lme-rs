@@ -114,6 +114,34 @@ jobs:
       - name: cargo check --workspace --all-targets
         run: cargo check --workspace --all-targets --locked -v
 
+  production-load:
+    name: Production load & perf gates (ubuntu, release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install OpenBLAS (Ubuntu)
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-prodload-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ubuntu-prodload-
+
+      - name: Production load tests (smoke + release wall-clock gates)
+        run: cargo test --release --locked --verbose --test test_production_load
+
+      - name: Heavy production load tests (ignored)
+        run: cargo test --release --locked --verbose --test test_production_load -- --ignored --test-threads=1
+
   rust-doctests:
     name: Rust doctests
     runs-on: ubuntu-latest
