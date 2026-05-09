@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "reference_environment": {
+    "engine": "R",
+    "generator": "tests/generate_test_data.R",
+    "r_version": "R version 4.5.3 (2026-03-11 ucrt)",
+    "platform": "x86_64-w64-mingw32",
+    "notes": ["Reference values are generated from R mixed-model tooling and stored with per-check tolerances.", "GLMM deviance/log-likelihood levels are intentionally not asserted because lme-rs and lme4 use different data-dependent constants. Coefficients and variance parameters are the parity targets for GLMM cases.", "Tolerance choices are part of the golden fixture because optimizer and approximation differences are expected for some models."],
+    "packages": {
+      "lme4": "1.1.38",
+      "lmerTest": "3.2.0",
+      "pbkrtest": "0.5.5",
+      "clubSandwich": "0.6.2",
+      "jsonlite": "2.0.0"
+    }
+  },
+  "cases": [
+    {
+      "id": "sleepstudy_random_slopes_reml",
+      "description": "Canonical lme4 sleepstudy random-intercept/random-slope LMM fitted by REML.",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ Days + (Days | Subject), sleepstudy, REML = TRUE)",
+        "source_fixture": "tests/data/random_slopes.json"
+      },
+      "post_fit": {
+        "robust_cluster": "Subject",
+        "satterthwaite": true,
+        "kenward_roger": true
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 251.405104848485,
+            "tolerance": 0.05
+          },
+          {
+            "name": "Days",
+            "value": 10.467285959596,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 0.966741773967412,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days.(Intercept)",
+            "value": 0.0151690588960361,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days",
+            "value": 0.230909953207795,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 654.940008259961,
+          "tolerance": 0.1
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1743.62827195995,
+          "tolerance": 0.1
+        },
+        "beta_se": [
+          {
+            "name": "SE((Intercept))",
+            "value": 6.82459669495491,
+            "tolerance": 0.02
+          },
+          {
+            "name": "SE(Days)",
+            "value": 1.54578964390598,
+            "tolerance": 0.02
+          }
+        ],
+        "population_predictions": [
+          {
+            "name": "predict(re.form = NA) for Days 0,1,5,10",
+            "newdata": {
+              "Days": [0, 1, 5, 10],
+              "Subject": ["308", "308", "308", "308"]
+            },
+            "values": [251.405104848485, 261.872390808081, 303.741534646465, 356.077964444445],
+            "tolerance": 1e-06,
+            "allow_new_levels": false
+          }
+        ],
+        "conditional_predictions": [
+          {
+            "name": "predict for Subject 308 including conditional modes",
+            "newdata": {
+              "Days": [0, 1, 5],
+              "Subject": ["308", "308", "308"]
+            },
+            "values": [253.663655798386, 273.329917523548, 351.994964424196],
+            "tolerance": 0.1,
+            "allow_new_levels": false
+          }
+        ],
+        "satterthwaite_anova": [
+          {
+            "term": "Days",
+            "f_value": {
+              "name": "F",
+              "value": 45.8529615558586,
+              "tolerance": 0.01
+            },
+            "p_value": {
+              "name": "p",
+              "value": 3.26382446992738e-06,
+              "tolerance": 2e-06
+            },
+            "num_df": {
+              "name": "NumDF",
+              "value": 1,
+              "tolerance": 1e-06
+            },
+            "den_df": {
+              "name": "DenDF",
+              "value": 16.9999837255917,
+              "tolerance": 0.01
+            }
+          }
+        ],
+        "kenward_roger_anova": [
+          {
+            "term": "Days",
+            "f_value": {
+              "name": "F",
+              "value": 45.8529615558584,
+              "tolerance": 0.01
+            },
+            "p_value": {
+              "name": "p",
+              "value": 3.26380801814764e-06,
+              "tolerance": 2e-06
+            },
+            "num_df": {
+              "name": "NumDF",
+              "value": 1,
+              "tolerance": 1e-06
+            },
+            "den_df": {
+              "name": "DenDF",
+              "value": 17.0000000000005,
+              "tolerance": 0.01
+            }
+          }
+        ],
+        "robust_se": [
+          {
+            "name": "CR0 SE((Intercept))",
+            "value": 6.6322768070245,
+            "tolerance": 0.0001
+          },
+          {
+            "name": "CR0 SE(Days)",
+            "value": 1.50223678231341,
+            "tolerance": 0.0001
+          }
+        ],
+        "robust_t": [
+          {
+            "name": "CR0 t((Intercept))",
+            "value": 37.9063046014925,
+            "tolerance": 0.0001
+          },
+          {
+            "name": "CR0 t(Days)",
+            "value": 6.96780033802437,
+            "tolerance": 0.0001
+          }
+        ]
+      }
+    },
+    {
+      "id": "sleepstudy_random_slopes_ml",
+      "description": "Same sleepstudy random-slope model fitted by ML for model-comparison workflows.",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "reml": false,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ Days + (Days | Subject), sleepstudy, REML = FALSE)",
+        "source_fixture": "tests/data/mock_ml.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 251.405104848486,
+            "tolerance": 0.05
+          },
+          {
+            "name": "Days",
+            "value": 10.4672859595958,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 0.929190605278248,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days.(Intercept)",
+            "value": 0.018165754720412,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days",
+            "value": 0.222643205612618,
+            "tolerance": 0.02
+          }
+        ],
+        "deviance": {
+          "name": "ML deviance",
+          "value": 1751.93934448899,
+          "tolerance": 0.1
+        }
+      }
+    },
+    {
+      "id": "penicillin_crossed_reml",
+      "description": "Crossed random-intercept LMM from lme4 Penicillin data.",
+      "kind": "lmm",
+      "data_path": "tests/data/penicillin.csv",
+      "formula": "diameter ~ 1 + (1 | plate) + (1 | sample)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(diameter ~ 1 + (1 | plate) + (1 | sample), Penicillin, REML = TRUE)",
+        "source_fixture": "tests/data/penicillin.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 22.9722222222219,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "plate.(Intercept)",
+            "value": 1.53967555430648,
+            "tolerance": 0.05
+          },
+          {
+            "name": "sample.(Intercept)",
+            "value": 3.51251885988167,
+            "tolerance": 0.05
+          }
+        ],
+        "deviance": {
+          "name": "REML criterion",
+          "value": 330.860588999604,
+          "tolerance": 0.2
+        }
+      }
+    },
+    {
+      "id": "cbpp_binomial_laplace",
+      "description": "Binomial GLMM using expanded CBPP binary-trial data and Laplace approximation.",
+      "kind": "glmm",
+      "data_path": "tests/data/cbpp_binary.csv",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "family": "binomial",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(y ~ period2 + period3 + period4 + (1 | herd), cbpp_binary, family = binomial)",
+        "source_fixture": "tests/data/glmm_binomial.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": -1.39832910653919,
+            "tolerance": 0.05
+          },
+          {
+            "name": "period2",
+            "value": -0.99192228556066,
+            "tolerance": 0.05
+          },
+          {
+            "name": "period3",
+            "value": -1.12821572105263,
+            "tolerance": 0.05
+          },
+          {
+            "name": "period4",
+            "value": -1.57974426476488,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "herd.(Intercept)",
+            "value": 0.642069741340069,
+            "tolerance": 0.05
+          }
+        ],
+        "finite_deviance": true
+      }
+    },
+    {
+      "id": "grouseticks_poisson_laplace",
+      "description": "Poisson GLMM for grouseticks with brood random intercept.",
+      "kind": "glmm",
+      "data_path": "tests/data/grouseticks.csv",
+      "formula": "TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)",
+      "family": "poisson",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(TICKS ~ YEAR96 + YEAR97 + (1 | BROOD), grouseticks, family = poisson)",
+        "source_fixture": "tests/data/glmm_poisson.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 0.351445031299036,
+            "tolerance": 0.15
+          },
+          {
+            "name": "YEAR96",
+            "value": 1.34493087759854,
+            "tolerance": 0.15
+          },
+          {
+            "name": "YEAR97",
+            "value": -0.90417933743634,
+            "tolerance": 0.15
+          }
+        ],
+        "theta": [
+          {
+            "name": "BROOD.(Intercept)",
+            "value": 1.26649773638462,
+            "tolerance": 0.01
+          }
+        ],
+        "finite_deviance": true
+      }
+    }
+  ]
+}

@@ -38,6 +38,11 @@ fn grouseticks_df() -> DataFrame {
         .expect("csv")
 }
 
+fn f64_column(df: &DataFrame, name: &str) -> Vec<f64> {
+    let series = df.column(name).unwrap().cast(&DataType::Float64).unwrap();
+    series.f64().unwrap().into_no_null_iter().collect()
+}
+
 /// OLS with an intercept: residuals sum to zero (exact under full-rank fixed-effects design).
 #[test]
 fn ols_residuals_sum_to_zero_with_intercept() {
@@ -48,6 +53,33 @@ fn ols_residuals_sum_to_zero_with_intercept() {
         s.abs() < 1e-5,
         "sum(residuals) should be ~0 for OLS with intercept, got {}",
         s
+    );
+}
+
+/// OLS normal equations: residuals are orthogonal to each fixed-effect design column.
+#[test]
+fn ols_residuals_orthogonal_to_intercept_and_slope() {
+    let df = sleepstudy_df();
+    let fit = lm_df("Reaction ~ Days", &df).expect("lm_df");
+    let days = f64_column(&df, "Days");
+
+    let dot_intercept: f64 = fit.residuals.iter().sum();
+    let dot_days: f64 = fit
+        .residuals
+        .iter()
+        .zip(days.iter())
+        .map(|(resid, day)| resid * day)
+        .sum();
+
+    assert!(
+        dot_intercept.abs() < 1e-5,
+        "residuals should be orthogonal to intercept, got {}",
+        dot_intercept
+    );
+    assert!(
+        dot_days.abs() < 1e-4,
+        "residuals should be orthogonal to Days column, got {}",
+        dot_days
     );
 }
 
@@ -67,6 +99,40 @@ fn lmm_y_equals_fitted_plus_residual() {
         assert!(
             (recon - yv).abs() < 1e-5,
             "y[{i}] = {yv} but fitted + residual = {recon}"
+        );
+    }
+}
+
+/// Population-level predictions use fixed effects only.
+#[test]
+fn lmm_population_predictions_equal_fixed_effect_linear_predictor() {
+    let df = sleepstudy_df();
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).expect("lmer");
+    let days = f64_column(&df, "Days");
+    let pop = fit.predict(&df).expect("population predictions");
+
+    for (i, (&pred, &day)) in pop.iter().zip(days.iter()).enumerate() {
+        let expected = fit.coefficients[0] + fit.coefficients[1] * day;
+        assert!(
+            (pred - expected).abs() < 1e-8,
+            "population prediction[{i}] = {pred} but Xβ = {expected}"
+        );
+    }
+}
+
+/// Conditional predictions on training data reproduce stored fitted values.
+#[test]
+fn lmm_training_conditional_predictions_equal_fitted_values() {
+    let df = sleepstudy_df();
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).expect("lmer");
+    let cond = fit
+        .predict_conditional(&df, false)
+        .expect("conditional predictions");
+
+    for (i, (&pred, &fitted)) in cond.iter().zip(fit.fitted.iter()).enumerate() {
+        assert!(
+            (pred - fitted).abs() < 1e-8,
+            "conditional prediction[{i}] = {pred} but stored fitted = {fitted}"
         );
     }
 }
@@ -108,6 +174,46 @@ fn lmm_variance_parameters_sane() {
     }
 }
 
+/// Fixed-effect standard errors should be finite and strictly positive on standard identifiable fits.
+#[test]
+fn fixed_effect_standard_errors_are_positive_and_finite() {
+    let sleepstudy = sleepstudy_df();
+    let cbpp = cbpp_df();
+    let grouseticks = grouseticks_df();
+    let fits = vec![
+        lmer("Reaction ~ Days + (Days | Subject)", &sleepstudy, true).expect("lmer"),
+        glmer(
+            "y ~ period2 + period3 + period4 + (1 | herd)",
+            &cbpp,
+            Family::Binomial,
+            1,
+        )
+        .expect("binomial glmer"),
+        glmer(
+            "TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)",
+            &grouseticks,
+            Family::Poisson,
+            1,
+        )
+        .expect("poisson glmer"),
+    ];
+
+    for (fit_idx, fit) in fits.iter().enumerate() {
+        let beta_se = fit.beta_se.as_ref().expect("beta_se");
+        assert_eq!(
+            beta_se.len(),
+            fit.coefficients.len(),
+            "fit {fit_idx}: beta_se length should match coefficient length"
+        );
+        for (coef_idx, &se) in beta_se.iter().enumerate() {
+            assert!(
+                se > 0.0 && se.is_finite(),
+                "fit {fit_idx}: beta_se[{coef_idx}] = {se}"
+            );
+        }
+    }
+}
+
 /// Binomial GLMM: response-scale predictions lie strictly in (0, 1) for a standard fit.
 #[test]
 fn glmm_binomial_fitted_probabilities_in_open_unit_interval() {
@@ -121,10 +227,28 @@ fn glmm_binomial_fitted_probabilities_in_open_unit_interval() {
     .expect("glmer");
     let mu = fit.predict_response(&df).expect("predict_response");
     for (i, &p) in mu.iter().enumerate() {
+        assert!(p > 1e-12 && p < 1.0 - 1e-12, "mu[{i}] = {} not in (0,1)", p);
+    }
+}
+
+/// Binomial GLMM response-scale residual decomposition: y = μ + residual.
+#[test]
+fn glmm_binomial_response_residual_decomposition() {
+    let df = cbpp_df();
+    let fit = glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        &df,
+        Family::Binomial,
+        1,
+    )
+    .expect("glmer");
+    let y = f64_column(&df, "y");
+
+    for (i, &yv) in y.iter().enumerate() {
+        let recon = fit.fitted[i] + fit.residuals[i];
         assert!(
-            p > 1e-12 && p < 1.0 - 1e-12,
-            "mu[{i}] = {} not in (0,1)",
-            p
+            (recon - yv).abs() < 1e-8,
+            "binomial y[{i}] = {yv} but fitted + residual = {recon}"
         );
     }
 }
@@ -144,5 +268,27 @@ fn glmm_poisson_fitted_rates_positive() {
     let mu = fit.predict_response(&df).expect("predict_response");
     for (i, &m) in mu.iter().enumerate() {
         assert!(m > 0.0 && m.is_finite(), "mu[{i}] = {}", m);
+    }
+}
+
+/// Poisson GLMM response-scale residual decomposition: y = μ + residual.
+#[test]
+fn glmm_poisson_response_residual_decomposition() {
+    let df = grouseticks_df();
+    let fit = glmer(
+        "TICKS ~ YEAR96 + YEAR97 + (1 | BROOD)",
+        &df,
+        Family::Poisson,
+        1,
+    )
+    .expect("glmer");
+    let y = f64_column(&df, "TICKS");
+
+    for (i, &yv) in y.iter().enumerate() {
+        let recon = fit.fitted[i] + fit.residuals[i];
+        assert!(
+            (recon - yv).abs() < 1e-8,
+            "poisson y[{i}] = {yv} but fitted + residual = {recon}"
+        );
     }
 }
