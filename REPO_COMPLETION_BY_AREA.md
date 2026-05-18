@@ -2,9 +2,9 @@
 
 This file gives **approximate completion percentages** for major parts of the `lme-rs` repository. The numbers are **judgment calls** for planning and transparency, not precise metrics (they are not derived from line coverage or a formal roadmap).
 
-**Last assessed:** 2026-04-04.
+**Last assessed:** 2026-05-18.
 
-**Versions checked:** `lme-rs` **0.1.6** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.1.6** ([`python/Cargo.toml`](python/Cargo.toml)).
+**Versions checked:** `lme-rs` **0.1.7** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.1.7** ([`python/Cargo.toml`](python/Cargo.toml)).
 
 ## How to read the percentages
 
@@ -23,9 +23,9 @@ This file gives **approximate completion percentages** for major parts of the `l
 | 2 | **Rust crate: GLMM** — [`glmer`](src/lib.rs), [`family`](src/family.rs), PIRLS in [`glmm_math`](src/glmm_math.rs), Laplace vs scalar AGQ (`n_agq`) | **80%** | Implemented and tested ([`tests/test_glmm.rs`](tests/test_glmm.rs)); README documents Laplace optimization vs AGQ-in-final-eval, deviance constants, and default links ([`README.md`](README.md) “Limitations”). |
 | 3 | **Rust crate: formula & model matrices** — [`formula`](src/formula.rs), [`model_matrix`](src/model_matrix.rs) | **87%** | Broad Wilkinson + RE support; remaining gap is breadth of edge cases vs R, not missing baseline features ([`tests/test_formula.rs`](tests/test_formula.rs), [`tests/test_crossed_mock.rs`](tests/test_crossed_mock.rs), etc.). |
 | 4 | **Rust crate: post-fit inference** — [`confint`](src/lib.rs), [`simulate`](src/lib.rs), [`with_robust_se`](src/lib.rs), [`with_satterthwaite`](src/lib.rs), [`with_kenward_roger`](src/lib.rs) | **86%** | Covered by targeted tests ([`test_confint_simulate.rs`](tests/test_confint_simulate.rs), [`test_robust.rs`](tests/test_robust.rs), [`test_satterthwaite.rs`](tests/test_satterthwaite.rs), [`test_kenward_roger.rs`](tests/test_kenward_roger.rs)); scope matches guides and comparisons, not every GLMM edge case. |
-| 5 | **Rust crate: ANOVA & model comparison** — Type III: [`LmeFit::anova`](src/anova.rs); nested LRT: [`anova`](src/lib.rs) (`AnovaResult`) | **76%** | Type III only; 1-DoF rows for continuous terms, joint multi-DoF Wald rows for grouped categorical dummies ([`src/anova.rs`](src/anova.rs), [`CHANGELOG.md`](CHANGELOG.md) 0.1.5). Not Type II ANOVA or a full `car` / `lmerTest` superset. |
+| 5 | **Rust crate: ANOVA & model comparison** — Type III: [`LmeFit::anova`](src/anova.rs); nested LRT: [`anova`](src/lib.rs) (`AnovaResult`) | **83%** | Type III only; 1-DoF marginal tests; joint multi-DoF Wald for grouped categoricals with **`lmerTest::contestMD()`**-style Satterthwaite DenDF ([`src/ddf.rs`](src/ddf.rs)). Golden case `pastes_cask_multi_dof_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json). Not Type II, arbitrary contrasts, or full `car` / `lmerTest` superset (e.g. no `KRmodcomp` per multi-df term). |
 | 6 | **Python bindings** (`python/`, import `lme_python`) | **68%** | Top-level fitters + rich [`PyLmeFit`](python/src/lib.rs) mirror major Rust workflows; README states Rust exposes a **broader** surface ([`README.md`](README.md)). Not exposed from Python: e.g. matrix-only [`lm(y, x)`](src/lib.rs) without a formula. [`python/tests/`](python/tests/) run in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and via [`CONTRIBUTING.md`](CONTRIBUTING.md) locally. |
-| 7 | **Cross-language validation** — [`comparisons/`](comparisons/), JSON/CSV fixtures, Rust tests | **91%** | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md) explains what is regression-tested vs manual; strong for listed fixtures, not universal ecosystem parity. |
+| 7 | **Cross-language validation** — [`comparisons/`](comparisons/), JSON/CSV fixtures, Rust tests | **92%** | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md) explains what is regression-tested vs manual; [`tests/test_golden_parity.rs`](tests/test_golden_parity.rs) now includes pastes / `cask` multi-DoF ANOVA; not universal ecosystem parity. |
 | 8 | **Benchmarks** — [`benches/bench_math.rs`](benches/bench_math.rs), [`BENCHMARKS.md`](BENCHMARKS.md), [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) | **82%** | Criterion coverage is substantive but explicitly **not** comprehensive ([`BENCHMARKS.md`](BENCHMARKS.md) states this plainly); workflow runs on `v*` tags and `workflow_dispatch`, not every PR. |
 | 9 | **CI, release, and repo automation** | **97%** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): **`--locked`**, concurrency, least-privilege `permissions`, doc-only `paths-ignore`; **`cargo check --all-targets`**, **`cargo test --doc`**; multi-OS; Python **3.11** + wheel reinstall + second **`pytest`**; **3.10 / 3.12 / 3.13** on Ubuntu. [`.github/workflows/audit.yml`](.github/workflows/audit.yml), [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml). [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml): maturin wheels. [`.github/workflows/repo-metadata.yml`](.github/workflows/repo-metadata.yml): GitHub metadata. |
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md) | **90%** | README documentation map is accurate; some release links (e.g. benchmark artifacts version on README) may lag the current crate version—prefer [`CHANGELOG.md`](CHANGELOG.md) for history. |
@@ -35,7 +35,7 @@ This file gives **approximate completion percentages** for major parts of the `l
 ## Weighted “overall” (illustrative only)
 
 Simple mean of the twelve percentages:  
-(93 + 80 + 87 + 86 + 76 + 68 + 91 + 82 + 97 + 90 + 76 + 35) ÷ 12 = 961 ÷ 12 ≈ **80.1%**.
+(93 + 80 + 87 + 86 + 83 + 68 + 92 + 82 + 97 + 90 + 76 + 35) ÷ 12 = 969 ÷ 12 ≈ **80.8%**.
 
 So the rough figure is **~80%** toward a hypothetical “full statistics stack with universal parity.” That target is **not** the project goal—[`README.md`](README.md) describes the crate as usable with **documented**, narrower scope than the full R ecosystem.
 
@@ -44,12 +44,12 @@ So the rough figure is **~80%** toward a hypothetical “full statistics stack w
 | Topic | Primary sources |
 |:------|:----------------|
 | Scope and limitations | [`README.md`](README.md) (“Current status”, “Limitations and compatibility notes”) |
-| Type III ANOVA (incl. categorical joint tests) | [`README.md`](README.md); [`src/anova.rs`](src/anova.rs) (`FixedEffectsAnovaResult`, `DdfMethod`) |
+| Type III ANOVA (incl. categorical joint tests) | [`README.md`](README.md); [`src/anova.rs`](src/anova.rs); [`src/ddf.rs`](src/ddf.rs); [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (`pastes_cask_multi_dof_reml`) |
 | Python vs Rust breadth | [`README.md`](README.md); [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 | Numerical validation | [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md); [`tests/test_numerical_parity.rs`](tests/test_numerical_parity.rs); [`tests/test_glmm.rs`](tests/test_glmm.rs) |
 | Rust workflows | [`GUIDE.md`](GUIDE.md) |
 | CI layout | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`--locked`, all-targets check, doctests, `pytest tests/`, Python version matrix on Ubuntu) |
-| Integration tests | **23** Rust modules under [`tests/`](tests/) (including `test_statistical_identities.rs`; counted 2026-04-04) |
+| Integration tests | **29** Rust modules under [`tests/`](tests/) (including `test_golden_parity.rs`, `categorical_anova_test.rs`; counted 2026-05-18) |
 
 ## Largely unrealized in this repository (≈0% or “not started”)
 
@@ -63,7 +63,7 @@ These are **major gaps** relative to a very large reference (full `lme4` + relat
 
 **Narrow / partial rather than “zero”** (already shipped, but incomplete vs a big reference):
 
-- **Fixed-effects ANOVA:** Type **III** only ([`README.md`](README.md)). **Type II** tables and arbitrary user-defined contrasts are **not** implemented. Multi-df **joint Wald** rows for grouped categorical dummies **are** implemented ([`src/anova.rs`](src/anova.rs)); general multi-df designs beyond that are not.
+- **Fixed-effects ANOVA:** Type **III** only ([`README.md`](README.md)). **Type II** tables and arbitrary user-defined contrasts are **not** implemented. Multi-df **joint Wald** rows for grouped categorical dummies **are** implemented with **`lmerTest`-style** Satterthwaite DenDF ([`src/ddf.rs`](src/ddf.rs)); Kenward–Roger multi-df pooling is partial vs `pbkrtest::KRmodcomp`. General multi-df designs beyond grouped categoricals are not.
 - **GLMM families / links:** Public [`glmer`](src/lib.rs) + [`Family`](src/family.rs) enum cover binomial, Poisson, Gaussian, gamma with **default** links ([`README.md`](README.md)); arbitrary link choice per fit is not a documented first-class path.
 - **Python ↔ Rust API:** Intentionally **partial** ([`README.md`](README.md)); matrix-only [`lm(y, x)`](src/lib.rs) and other Rust-only entry points are not in `lme_python`.
 

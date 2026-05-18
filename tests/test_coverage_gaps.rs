@@ -33,6 +33,8 @@ fn make_display_fit(
         beta_t: Some(array![2.0, 6.67]),
         formula: Some("y ~ x + (x | g)".to_string()),
         fixed_names: Some(vec!["(Intercept)".to_string(), "x".to_string()]),
+        fixed_term_assign: None,
+        fixed_design_x: None,
         re_blocks: Some(re_blocks),
         num_obs: 4,
         converged,

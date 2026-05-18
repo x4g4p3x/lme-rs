@@ -112,7 +112,9 @@ fn nested_random_effect_expansion_end_to_end() {
     assert_eq!(ast.formula, "y ~ x + (1 | school/student)");
     assert!(ast.metadata.is_random_effects_model);
     assert!(
-        ast.all_generated_columns.iter().any(|c| c.contains("school")),
+        ast.all_generated_columns
+            .iter()
+            .any(|c| c.contains("school")),
         "columns: {:?}",
         ast.all_generated_columns
     );
@@ -226,7 +228,10 @@ fn poly_syntax_is_accepted_by_parser() {
     // Parsed into generated basis column names; not the same as R's `poly()` evaluation.
     let ast = assert_parse_ok("y ~ poly(x, 2) + (1 | g)");
     assert!(ast.columns.contains_key("y"));
-    assert!(ast.columns.contains_key("x") || ast.all_generated_columns.iter().any(|c| c.contains("poly")));
+    assert!(
+        ast.columns.contains_key("x")
+            || ast.all_generated_columns.iter().any(|c| c.contains("poly"))
+    );
 }
 
 #[test]

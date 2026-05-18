@@ -236,7 +236,11 @@ fn release_gate_prediction_throughput_sleepstudy() {
 
     let days = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();
     let days = days.f64().unwrap().into_no_null_iter().collect::<Vec<_>>();
-    let subjects = df.column("Subject").unwrap().cast(&DataType::String).unwrap();
+    let subjects = df
+        .column("Subject")
+        .unwrap()
+        .cast(&DataType::String)
+        .unwrap();
     let subjects = subjects
         .str()
         .unwrap()
@@ -322,12 +326,7 @@ fn heavy_highest_expected_group_count() {
 #[ignore = "heavy: high random-effect dimension (run with --release --ignored)"]
 fn heavy_highest_random_effect_dimension() {
     let df = synthetic_high_rank_re(35_000, 600, 107);
-    let fit = lmer(
-        "y ~ x1 + x2 + x3 + (x1 + x2 + x3 | group)",
-        &df,
-        false,
-    )
-    .expect("fit");
+    let fit = lmer("y ~ x1 + x2 + x3 + (x1 + x2 + x3 | group)", &df, false).expect("fit");
     let theta = fit.theta.as_ref().expect("theta");
     assert_eq!(theta.len(), 10, "k=4 RE block => 10 Cholesky parameters");
     assert!(
@@ -335,7 +334,10 @@ fn heavy_highest_random_effect_dimension() {
         "all theta elements should be finite"
     );
     let s2 = fit.sigma2.expect("sigma2");
-    assert!(s2.is_finite() && s2 > 0.0, "sigma2 should be positive finite");
+    assert!(
+        s2.is_finite() && s2 > 0.0,
+        "sigma2 should be positive finite"
+    );
     if !fit.converged.unwrap_or(false) {
         eprintln!(
             "note: k=4 vector RE may exhaust Nelder-Mead iteration budget; iterations={:?}",

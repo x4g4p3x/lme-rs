@@ -43,7 +43,7 @@ pub fn compute_robust_se(
         }
     }
 
-    let (x_mat, _, _) = crate::model_matrix::build_x_matrix(
+    let (x_mat, _, _, _) = crate::model_matrix::build_x_matrix(
         &ast,
         data,
         &response_col,

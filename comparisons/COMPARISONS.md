@@ -1025,7 +1025,7 @@ See [`glmm_gaussian.jl`](glmm_gaussian.jl) and [`glmm_gaussian.py`](glmm_gaussia
 
 To test string parsing and automatic Multi-DoF Satterthwaite representations, we track the `cask` factor (a property with 3 levels) from `comparisons/categorical_anova.*` over the `pastes` dataset. 
 
-In `lme-rs`, passing `cask` to `strength ~ cask + (1 | batch)` transparently generates `caskb` and `caskc` dummy encodings, then groups them successfully back together for a 2-DoF Joint Wald F-Test utilizing conservative pooled DDF approximations.
+In `lme-rs`, passing `cask` to `strength ~ cask + (1 | batch)` transparently generates `caskb` and `caskc` dummy encodings, then groups them for a **2-DoF joint Wald F-test** with Satterthwaite denominator df computed the same way as **`lmerTest::contestMD()`** (eigen-decomposed contrast directions, per-direction Satterthwaite dfs, then `get_Fstat_ddf()` pooling). Regression checks live in [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) (`pastes_cask_multi_dof_reml`) and [`tests/categorical_anova_test.rs`](../tests/categorical_anova_test.rs).
 
 ### 1. lme-rs Output (Rust)
 
@@ -1082,7 +1082,7 @@ Type III Analysis of Variance Table with Satterthwaite's method
 cask   20.558  10.279     2 48.004  1.4071 0.2548
 ```
 
-*Note: Due to variations in spectral eigenvalue algorithms for DDF gradients, `lme-rs` directly projects Wald tests utilizing conservative minimum subset DoF pools, yielding exactly 1.4071 for the `cask` F-statistic.*
+*Note: F and DenDF match `lmerTest` on this example (F ≈ 1.4071, DenDF ≈ 48.004). When per-coefficient Satterthwaite dfs differ within a grouped term, pooled DenDF uses `lmerTest`'s `get_Fstat_ddf()` rather than the minimum of the marginal dfs.*
 
 ### 3. Python Output (`statsmodels.formula.api`)
 

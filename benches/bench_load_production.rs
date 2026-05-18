@@ -62,7 +62,11 @@ fn prediction_grid_sleepstudy(base: &DataFrame, repeats: usize) -> DataFrame {
         .cast(&DataType::Float64)
         .unwrap();
     let days = days.f64().unwrap().into_no_null_iter().collect::<Vec<_>>();
-    let subjects = base.column("Subject").unwrap().cast(&DataType::String).unwrap();
+    let subjects = base
+        .column("Subject")
+        .unwrap()
+        .cast(&DataType::String)
+        .unwrap();
     let subjects = subjects
         .str()
         .unwrap()
@@ -167,7 +171,10 @@ fn bench_production_prediction_throughput(c: &mut Criterion) {
         })
     });
     g.finish();
-    eprintln!("prediction grid rows per predict call: {}", pred_df.height());
+    eprintln!(
+        "prediction grid rows per predict call: {}",
+        pred_df.height()
+    );
 }
 
 criterion_group!(

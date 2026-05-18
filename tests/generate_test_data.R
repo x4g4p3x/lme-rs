@@ -188,6 +188,13 @@ data("Penicillin", package = "lme4")
 fm3 <- lmer(diameter ~ 1 + (1 | plate) + (1 | sample), data = Penicillin, REML = TRUE)
 out3 <- get_model_data("diameter ~ 1 + (1 | plate) + (1 | sample)", fm3)
 
+# Pastes: categorical fixed effect with multi-DoF Type III ANOVA (Satterthwaite).
+pastes_data <- read.csv("tests/data/pastes.csv")
+pastes_data$cask <- as.factor(pastes_data$cask)
+pastes_data$batch <- as.factor(pastes_data$batch)
+fm_pastes_cask <- lmer(strength ~ cask + (1 | batch), data = pastes_data, REML = TRUE)
+out_pastes_cask <- get_model_data("strength ~ cask + (1 | batch)", fm_pastes_cask)
+
 # ML Optimization baseline.
 fm4 <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = FALSE)
 out4 <- get_model_data("Reaction ~ Days + (Days | Subject) [ML]", fm4)
@@ -368,6 +375,43 @@ build_golden_manifest <- function() {
         )
       ),
       list(
+        id = jsonlite::unbox("pastes_cask_multi_dof_reml"),
+        description = jsonlite::unbox("Pastes strength ~ cask with batch RE; multi-DoF Type III Satterthwaite ANOVA for cask."),
+        kind = jsonlite::unbox("lmm"),
+        data_path = jsonlite::unbox("tests/data/pastes.csv"),
+        formula = jsonlite::unbox("strength ~ cask + (1 | batch)"),
+        reml = jsonlite::unbox(TRUE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::lmer"),
+          call = jsonlite::unbox("lmer(strength ~ cask + (1 | batch), pastes, REML = TRUE)"),
+          source_fixture = jsonlite::unbox("tests/data/pastes_cask_reml.json")
+        ),
+        post_fit = list(
+          satterthwaite = jsonlite::unbox(TRUE)
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("(Intercept)", out_pastes_cask$outputs$beta[1], 0.05),
+            scalar_check("caskb", out_pastes_cask$outputs$beta[2], 0.05),
+            scalar_check("caskc", out_pastes_cask$outputs$beta[3], 0.05)
+          ),
+          theta = list(
+            scalar_check("batch.(Intercept)", out_pastes_cask$outputs$theta[1], 0.02)
+          ),
+          sigma2 = scalar_check("sigma2", out_pastes_cask$outputs$sigma2, 0.1),
+          deviance = scalar_check("REML criterion", out_pastes_cask$outputs$reml_crit, 0.1),
+          satterthwaite_anova = list(
+            anova_check(
+              "cask",
+              out_pastes_cask$outputs$sat_anova_f[1],
+              out_pastes_cask$outputs$sat_anova_p[1],
+              out_pastes_cask$outputs$sat_anova_ndf[1],
+              out_pastes_cask$outputs$sat_anova_ddf[1]
+            )
+          )
+        )
+      ),
+      list(
         id = jsonlite::unbox("penicillin_crossed_reml"),
         description = jsonlite::unbox("Crossed random-intercept LMM from lme4 Penicillin data."),
         kind = jsonlite::unbox("lmm"),
@@ -450,6 +494,7 @@ dir.create("tests/data", recursive = TRUE, showWarnings = FALSE)
 write_json(out1, "tests/data/intercept_only.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out2, "tests/data/random_slopes.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out3, "tests/data/penicillin.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_pastes_cask, "tests/data/pastes_cask_reml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out4, "tests/data/mock_ml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_binom, "tests/data/glmm_binomial.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_pois, "tests/data/glmm_poisson.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)

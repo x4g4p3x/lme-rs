@@ -6,14 +6,18 @@ use statrs::distribution::{ContinuousCDF, StudentsT};
 use crate::formula::parse;
 use crate::math::LmmData;
 use crate::model_matrix::build_design_matrices;
-use crate::{LmeError, LmeFit};
+use crate::{LmeError, LmeFit, SatterthwaiteResult};
+
+/// Jacobian of `vcov(beta)` w.r.t. variance parameters, for multi-DoF Satterthwaite F-tests.
+#[derive(Debug, Clone)]
+pub(crate) struct SatterthwaiteMultiDofData {
+    pub a_mat: Array2<f64>,
+    pub jac_vcov: Vec<Array2<f64>>,
+}
 
 /// Computes the Satterthwaite approximation for degrees of freedom and p-values
 /// for the fixed effects of a fitted Linear Mixed-Effects Model.
-pub fn compute_satterthwaite(
-    fit: &LmeFit,
-    data: &DataFrame,
-) -> crate::Result<(Array1<f64>, Array1<f64>)> {
+pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<SatterthwaiteResult> {
     if fit.family.is_some() {
         return Err(LmeError::NotImplemented {
             feature: "Satterthwaite approximation is only available for linear mixed models (LMMs), not GLMMs.".to_string(),
@@ -55,7 +59,6 @@ pub fn compute_satterthwaite(
 
     // 2. Compute analytical baseline
     let base_coefs = lmm.evaluate(theta.as_slice().unwrap(), reml);
-    let var_beta_base = base_coefs.beta_se.mapv(|se| se * se);
     let base_sigma2 = base_coefs.sigma2;
     let n = matrices.y.len();
     let reml_df = if reml { (n - p) as f64 } else { n as f64 };
@@ -141,19 +144,18 @@ pub fn compute_satterthwaite(
     })?;
     let a_mat = hess_inv * 2.0;
 
-    let get_var_beta = |th: &[f64], sig2: f64| -> Array1<f64> {
+    let get_vcov_beta = |th: &[f64], sig2: f64| -> Array2<f64> {
         let c = lmm.evaluate(th, reml);
         let ilx = c.l_x.inv().unwrap();
         let unscaled_phi = ilx.t().dot(&ilx);
-        let mut vb = Array1::<f64>::zeros(p);
-        for i in 0..p {
-            vb[i] = unscaled_phi[[i, i]] * sig2;
-        }
-        vb
+        unscaled_phi * sig2
     };
 
-    // 4. Compute gradient of Var(beta_i) w.r.t rho
-    let mut grad_v = Array2::<f64>::zeros((p, n_rho)); // row i is gradient for beta_i
+    // 4. Jacobian of vcov(beta) w.r.t. rho, and diagonal gradients for univariate dfs
+    let mut grad_v = Array2::<f64>::zeros((p, n_rho));
+    let vcov_beta_base = get_vcov_beta(&rho.as_slice().unwrap()[0..n_theta], rho[n_theta]);
+
+    let mut jac_vcov = Vec::with_capacity(n_rho);
     for j in 0..n_rho {
         let mut r_p = rho.clone();
         let mut r_m = rho.clone();
@@ -165,12 +167,13 @@ pub fn compute_satterthwaite(
         r_p[j] += hj;
         r_m[j] -= hj;
 
-        let vp = get_var_beta(&r_p.as_slice().unwrap()[0..n_theta], r_p[n_theta]);
-        let vm = get_var_beta(&r_m.as_slice().unwrap()[0..n_theta], r_m[n_theta]);
-
+        let vp = get_vcov_beta(&r_p.as_slice().unwrap()[0..n_theta], r_p[n_theta]);
+        let vm = get_vcov_beta(&r_m.as_slice().unwrap()[0..n_theta], r_m[n_theta]);
+        let jac_j = (vp - vm) / (2.0 * hj);
         for i in 0..p {
-            grad_v[[i, j]] = (vp[i] - vm[i]) / (2.0 * hj);
+            grad_v[[i, j]] = jac_j[[i, i]];
         }
+        jac_vcov.push(jac_j);
     }
 
     // 5. Compute df and p-values
@@ -187,7 +190,7 @@ pub fn compute_satterthwaite(
             }
         }
 
-        let v_i = var_beta_base[i];
+        let v_i = vcov_beta_base[[i, i]];
         let mut df = if denom > 1e-12 {
             2.0 * v_i * v_i / denom
         } else {
@@ -216,7 +219,11 @@ pub fn compute_satterthwaite(
         }
     }
 
-    Ok((dfs, p_values))
+    Ok(SatterthwaiteResult {
+        dfs,
+        p_values,
+        multi_dof: Some(SatterthwaiteMultiDofData { a_mat, jac_vcov }),
+    })
 }
 
 #[cfg(test)]
@@ -251,6 +258,8 @@ mod tests {
             var_corr: None,
             ranef: None,
             fixed_names: None,
+            fixed_term_assign: None,
+            fixed_design_x: None,
             re_blocks: None,
             family_name: None,
             link_name: None,
@@ -314,9 +323,9 @@ mod tests {
         // We just want to ensure it either errors gracefully on Hessian inv, or returns successfully
         // bypassing the near-zero denom branch.
         match res {
-            Ok((dfs, _)) => {
+            Ok(result) => {
                 // Should hit fallback DF if it succeeds
-                assert!(dfs.len() == 2);
+                assert!(result.dfs.len() == 2);
             }
             Err(_) => {
                 // Or fails on Hessian

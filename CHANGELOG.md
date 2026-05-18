@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-05-18
+
+### Added
+
+- **Type II** fixed-effects ANOVA via `LmeFit::anova_typed(AnovaType::Type2, ddf)` ([`src/anova_contrasts.rs`](src/anova_contrasts.rs), `lmerTest`-style Doolittle contrasts for contained terms). `anova(ddf)` remains Type III. Python: `fit.anova("satterthwaite", anova_type="II")`.
+- Design-matrix support for **`FixedEffect`** / **`InteractionTerm`** fiasto roles and two-way categorical interactions (`y ~ a * b`).
+- Golden parity case **`pastes_cask_multi_dof_reml`** in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (Type III Satterthwaite ANOVA for `cask` on the pastes dataset), with fixture [`tests/data/pastes_cask_reml.json`](tests/data/pastes_cask_reml.json) and R regeneration via [`tests/generate_test_data.R`](tests/generate_test_data.R).
+- Numeric parity checks for categorical multi-DoF ANOVA in [`tests/categorical_anova_test.rs`](tests/categorical_anova_test.rs) and [`python/examples/verification_project/parity.py`](python/examples/verification_project/parity.py).
+
 ### Changed
 
-- GitHub Actions: bump `actions/checkout`, `actions/cache`, `actions/setup-python`, and upload/download-artifact to major versions aligned with [`benchmarks.yml`](.github/workflows/benchmarks.yml) (Node.js 24–compatible runtimes; avoids deprecated Node 20 actions).
-- Python CI and [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) install dev dependencies from a pinned [`python/requirements-ci.txt`](python/requirements-ci.txt) (regenerated with `pip-compile`). [`.github/workflows/audit.yml`](.github/workflows/audit.yml) runs `pip-audit` on that file.
+- Multi-DoF Type III ANOVA denominator df for Satterthwaite now follows **`lmerTest::contestMD()`** ([`src/ddf.rs`](src/ddf.rs)): eigen-decomposed Wald contrasts, per-direction Satterthwaite dfs, and `get_Fstat_ddf()` pooling (replacing `min()` of marginal dfs). Kenward–Roger multi-DoF rows use the same pooling on marginal dfs.
 
 ## [0.1.6] - 2026-03-27
 

@@ -21,7 +21,7 @@ This guide covers the practical Rust workflow for fitting linear and generalized
 
 ```toml
 [dependencies]
-lme-rs = "0.1.6"
+lme-rs = "0.1.7"
 polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```
@@ -281,21 +281,24 @@ fit.with_robust_se(&df, Some("Subject"))?;
 
 Use the first form for observation-level HC0 robust errors and the second for clustered robust errors.
 
-### Type III ANOVA table
+### Fixed-effects ANOVA (Type II / III)
 
 ```rust
-use lme_rs::DdfMethod;
+use lme_rs::{AnovaType, DdfMethod};
 
 fit.with_satterthwaite(&df)?;
-let table = fit.anova(DdfMethod::Satterthwaite)?;
+let table = fit.anova(DdfMethod::Satterthwaite)?; // Type III (default)
+let table_ii = fit.anova_typed(AnovaType::Type2, DdfMethod::Satterthwaite)?;
 println!("{}", table);
 ```
 
 Current scope:
 
-- Type III fixed-effect tables only (no Type II)
+- Type **II** and Type **III** tables (`anova_typed` / `AnovaType`)
 - 1-DoF marginal tests for continuous predictors; joint multi-DoF Wald F-tests for categorical predictors when dummy columns are grouped in the fit
-- Requires a denominator degrees of freedom method to be computed first (`with_satterthwaite` or `with_kenward_roger` before `anova`, depending on method)
+- Multi-DoF Satterthwaite denominator df follows **`lmerTest::contestMD()`** (orthogonal contrast directions + `get_Fstat_ddf()` pooling); call `with_satterthwaite()` before `anova()` so the vcov Jacobian is available
+- Kenward–Roger multi-DoF rows pool marginal dfs with the same `get_Fstat_ddf()` rule (full `pbkrtest::KRmodcomp` per term is not implemented)
+- Golden regression for categorical multi-DoF ANOVA: manifest case `pastes_cask_multi_dof_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (pastes / `cask`)
 
 ## Model Comparison
 
@@ -325,7 +328,7 @@ For GLMMs, `lme-rs` computes the optimization target from a Laplace-approximated
 
 ### ANOVA scope
 
-Fixed-effects ANOVA is Type III only. Continuous terms use 1-DoF marginal tests; categorical predictors with multiple dummies use joint multi-DoF Wald rows when those columns are grouped. Type II tables and arbitrary contrast matrices are not implemented—if you need those, treat it as a current limitation.
+Fixed-effects ANOVA supports Type **II** and Type **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary user-defined contrast matrices are not implemented.
 
 ### Kenward-Roger status
 

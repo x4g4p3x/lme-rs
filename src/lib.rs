@@ -8,6 +8,10 @@
 
 /// Analysis of Variance (ANOVA) result wrappers and F-tests.
 pub mod anova;
+/// Type II / III contrast construction for fixed-effects ANOVA.
+pub mod anova_contrasts;
+/// Multi-dimensional denominator degrees of freedom (lmerTest-style).
+pub(crate) mod ddf;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
 pub mod family;
 /// Wilkinson formula parsing and data matrix construction.
@@ -28,6 +32,7 @@ pub mod robust;
 pub mod satterthwaite;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
+pub use anova_contrasts::AnovaType;
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 use polars::prelude::*;
@@ -116,6 +121,10 @@ pub struct LmeFit {
     pub formula: Option<String>,
     /// Variable names corresponding to the fixed-effect coefficients.
     pub fixed_names: Option<Vec<String>>,
+    /// Model-term label per fixed-effects coefficient (parallel to `fixed_names`).
+    pub fixed_term_assign: Option<Vec<String>>,
+    /// Fixed-effects design matrix from fitting (used for Type II ANOVA contrasts).
+    pub fixed_design_x: Option<Array2<f64>>,
     /// Dimensional grouping data for random effects.
     pub re_blocks: Option<Vec<model_matrix::ReBlock>>,
     /// Number of observations used in the fit.
@@ -165,7 +174,7 @@ impl LmeFit {
         }
 
         let n_obs = newdata.height();
-        let (x_new, x_names, _levels) = crate::model_matrix::build_x_matrix(
+        let (x_new, x_names, _assign, _levels) = crate::model_matrix::build_x_matrix(
             &ast,
             newdata,
             &response_col_name,
@@ -449,8 +458,7 @@ impl LmeFit {
         &mut self,
         data: &polars::prelude::DataFrame,
     ) -> anyhow::Result<&mut Self> {
-        let (dfs, p_values) = crate::satterthwaite::compute_satterthwaite(self, data)?;
-        self.satterthwaite = Some(SatterthwaiteResult { dfs, p_values });
+        self.satterthwaite = Some(crate::satterthwaite::compute_satterthwaite(self, data)?);
         Ok(self)
     }
 
@@ -495,6 +503,39 @@ pub struct SatterthwaiteResult {
     pub dfs: ndarray::Array1<f64>,
     /// Two-sided p-values derived from t-distributions using `dfs`.
     pub p_values: ndarray::Array1<f64>,
+    /// Variance-parameter Jacobian data for multi-DoF Wald F-tests (`anova()`).
+    pub(crate) multi_dof: Option<crate::satterthwaite::SatterthwaiteMultiDofData>,
+}
+
+impl SatterthwaiteResult {
+    /// Build a univariate-only result (no multi-DoF Jacobian cache).
+    pub fn univariate(dfs: ndarray::Array1<f64>, p_values: ndarray::Array1<f64>) -> Self {
+        Self {
+            dfs,
+            p_values,
+            multi_dof: None,
+        }
+    }
+
+    /// Build a result with zero Jacobians (sufficient for unit tests of `anova()`).
+    #[doc(hidden)]
+    pub fn mock_for_anova(
+        dfs: ndarray::Array1<f64>,
+        p_values: ndarray::Array1<f64>,
+        p: usize,
+        n_varpar: usize,
+    ) -> Self {
+        Self {
+            dfs,
+            p_values,
+            multi_dof: Some(crate::satterthwaite::SatterthwaiteMultiDofData {
+                a_mat: ndarray::Array2::eye(n_varpar),
+                jac_vcov: (0..n_varpar)
+                    .map(|_| ndarray::Array2::<f64>::zeros((p, p)))
+                    .collect(),
+            }),
+        }
+    }
 }
 
 /// Result of `confint()`: Wald confidence intervals for fixed effects.
@@ -856,6 +897,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         beta_t: None,
         formula: None,
         fixed_names: None,
+        fixed_term_assign: None,
+        fixed_design_x: None,
         re_blocks: None,
         num_obs: y.len(),
         converged: None,
@@ -1021,6 +1064,8 @@ pub fn lmer_weighted(
         beta_t: Some(coefs.beta_t),
         formula: Some(matrices.formula),
         fixed_names: Some(matrices.fixed_names),
+        fixed_term_assign: Some(matrices.fixed_term_assign),
+        fixed_design_x: Some(matrices.x),
         re_blocks: Some(matrices.re_blocks),
         num_obs: matrices.y.len(),
         converged: Some(opt_result.converged),
@@ -1077,6 +1122,8 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     // 3. Attach formula, column names, and observation count
     fit.formula = Some(matrices.formula);
     fit.fixed_names = Some(matrices.fixed_names.clone());
+    fit.fixed_term_assign = Some(matrices.fixed_term_assign);
+    fit.fixed_design_x = Some(matrices.x.clone());
     fit.num_obs = matrices.y.len();
 
     // 4. Standard errors and t-statistics via the unscaled variance matrix (X'X)^{-1}
@@ -1286,6 +1333,8 @@ pub fn glmer(
         beta_t: Some(coefs.beta_z), // z-values for GLMM, stored in beta_t field
         formula: Some(matrices.formula),
         fixed_names: Some(matrices.fixed_names),
+        fixed_term_assign: Some(matrices.fixed_term_assign),
+        fixed_design_x: Some(matrices.x),
         re_blocks: Some(matrices.re_blocks),
         num_obs: matrices.y.len(),
         converged: Some(opt_result.converged),

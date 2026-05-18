@@ -130,14 +130,18 @@ def verify_penicillin_crossed() -> None:
 
 
 def verify_type3_anova_pastes() -> None:
-    """Type III ANOVA with Satterthwaite (categorical fixed effect)."""
+    """Type III ANOVA with Satterthwaite (categorical fixed effect, multi-DoF cask)."""
     df = pl.read_csv(tests_data("pastes.csv"))
     fit = lme_python.lmer("strength ~ cask + (1 | batch)", data=df, reml=True)
     fit.with_satterthwaite(df)
     terms, num_df, den_df, f_val, p_val, method = fit.anova("satterthwaite")
-    assert any("cask" in str(t).lower() for t in terms)
-    assert len(num_df) >= 1
-    assert all(x > 0 for x in num_df)
+    assert method == "satterthwaite"
+    assert len(terms) == 1
+    assert "cask" in str(terms[0]).lower()
+    _close("cask NumDF", num_df[0], 2.0, 1e-6)
+    _close("cask DenDF", den_df[0], 48.004, 0.01)
+    _close("cask F", f_val[0], 1.4071, 0.01)
+    _close("cask Pr(>F)", p_val[0], 0.2548, 0.0001)
 
 
 def verify_weighted_sleepstudy() -> None:

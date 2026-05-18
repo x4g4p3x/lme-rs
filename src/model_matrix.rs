@@ -36,6 +36,8 @@ pub struct DesignMatrices {
     pub re_blocks: Vec<ReBlock>,
     /// Extracted names of fixed-effect features from the dataframe.
     pub fixed_names: Vec<String>,
+    /// Model-term label per fixed-effects column (parallel to `fixed_names`).
+    pub fixed_term_assign: Vec<String>,
     /// Optional vector of offset terms to shift predictions by.
     pub offset: Option<Array1<f64>>,
     /// Saved categorical dummy variable levels during training.
@@ -81,7 +83,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         .collect();
     let y = Array1::from_vec(y_vec);
 
-    let (x, fixed_names, categorical_levels) =
+    let (x, fixed_names, fixed_term_assign, categorical_levels) =
         build_x_matrix(ast, data, &response_name, n_obs, None)?;
 
     // 2. Extract Offset (if any)
@@ -183,7 +185,8 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
 
                 Column::new(g_var.as_str().into(), &interaction_values)
             } else {
-                data.column(g_var)
+                data
+                    .column(g_var)
                     .map_err(|e| crate::LmeError::NotImplemented {
                         feature: format!("Grouping column '{}' not found: {}", g_var, e),
                     })?
@@ -194,7 +197,6 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
                             g_var, e
                         ),
                     })?
-                    .into()
             };
             let g_str = g_series.str().unwrap();
 
@@ -286,9 +288,56 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         y,
         re_blocks,
         fixed_names,
+        fixed_term_assign,
         offset,
         categorical_levels,
     })
+}
+
+fn is_fixed_effect_column(
+    info: &crate::formula::ColumnInfo,
+    col_name: &str,
+    response_name: &str,
+) -> bool {
+    if col_name == response_name || col_name == "intercept" {
+        return false;
+    }
+    info.roles
+        .iter()
+        .any(|r| matches!(r.as_str(), "Identity" | "FixedEffect" | "InteractionTerm"))
+}
+
+/// Map fiasto interaction column name (`trt_blk`) to R-style term label (`trt:blk`).
+fn interaction_term_label(col_name: &str, factor_names: &[String]) -> String {
+    if col_name.contains(':') {
+        return col_name.to_string();
+    }
+    for a in factor_names {
+        if let Some(rest) = col_name.strip_prefix(a.as_str()) {
+            if let Some(b) = rest.strip_prefix('_') {
+                if factor_names.iter().any(|f| f == b) {
+                    return format!("{}:{}", a, b);
+                }
+            }
+        }
+    }
+    col_name.replace('_', ":")
+}
+
+fn interaction_factor_names(col_name: &str, factor_names: &[String]) -> Option<Vec<String>> {
+    if col_name.contains(':') {
+        return Some(col_name.split(':').map(|s| s.to_string()).collect());
+    }
+    for a in factor_names {
+        if let Some(rest) = col_name.strip_prefix(a.as_str()) {
+            if let Some(b) = rest.strip_prefix('_') {
+                if factor_names.iter().any(|f| f == b) {
+                    return Some(vec![a.clone(), b.to_string()]);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Evaluates the `ast` structural formula to isolate and resolve pure population-level ($X$) design matrices.
@@ -299,15 +348,35 @@ pub fn build_x_matrix(
     response_name: &str,
     n_obs: usize,
     training_levels: Option<&HashMap<String, Vec<String>>>,
-) -> crate::Result<(Array2<f64>, Vec<String>, HashMap<String, Vec<String>>)> {
+) -> crate::Result<(
+    Array2<f64>,
+    Vec<String>,
+    Vec<String>,
+    HashMap<String, Vec<String>>,
+)> {
     let mut fixed_cols = Vec::new();
     let mut fixed_names = Vec::new();
+    let mut fixed_term_assign = Vec::new();
     let mut intercept_handled = ast.metadata.has_intercept;
     let mut extracted_levels: HashMap<String, Vec<String>> = HashMap::new();
+
+    let factor_names: Vec<String> = ast
+        .columns
+        .iter()
+        .filter(|(name, info)| {
+            *name != response_name
+                && !info.roles.contains(&"InteractionTerm".to_string())
+                && is_fixed_effect_column(info, name, response_name)
+        })
+        .map(|(n, _)| n.clone())
+        .collect();
+
+    let mut term_col_arrays: HashMap<String, Vec<Array1<f64>>> = HashMap::new();
 
     if ast.metadata.has_intercept {
         fixed_cols.push(Array1::<f64>::ones(n_obs));
         fixed_names.push("(Intercept)".to_string());
+        fixed_term_assign.push("(Intercept)".to_string());
     }
 
     // Ordered columns per the formula
@@ -315,7 +384,80 @@ pub fn build_x_matrix(
         let Some(info) = ast.columns.get(col_name) else {
             continue;
         };
-        if !info.roles.contains(&"Identity".to_string()) || col_name == response_name {
+        if !is_fixed_effect_column(info, col_name, response_name) {
+            continue;
+        }
+
+        if info.roles.contains(&"InteractionTerm".to_string()) {
+            let factors = interaction_factor_names(col_name, &factor_names).ok_or_else(|| {
+                crate::LmeError::NotImplemented {
+                    feature: format!("Cannot resolve interaction factors for '{}'", col_name),
+                }
+            })?;
+            let term_label = interaction_term_label(col_name, &factor_names);
+            let mut factor_dummy_cols: Vec<Vec<Array1<f64>>> = Vec::new();
+            for f in &factors {
+                let cols =
+                    term_col_arrays
+                        .get(f)
+                        .ok_or_else(|| crate::LmeError::NotImplemented {
+                            feature: format!(
+                            "Interaction '{}' requires main effect '{}' in the design matrix first",
+                            col_name, f
+                        ),
+                        })?;
+                factor_dummy_cols.push(cols.clone());
+            }
+            let mut interaction_cols: Vec<Array1<f64>> = Vec::new();
+            if factor_dummy_cols.len() == 2 {
+                for a_col in &factor_dummy_cols[0] {
+                    for b_col in &factor_dummy_cols[1] {
+                        interaction_cols.push(a_col * b_col);
+                    }
+                }
+            } else {
+                return Err(crate::LmeError::NotImplemented {
+                    feature: format!(
+                        "Interactions with {} factors are not supported yet",
+                        factor_dummy_cols.len()
+                    ),
+                });
+            }
+            let mut dummy_names: Vec<String> = Vec::new();
+            if factor_dummy_cols.len() == 2 && !factor_dummy_cols[0].is_empty() {
+                let a_prefix = &factors[0];
+                let b_prefix = &factors[1];
+                let a_levels = extracted_levels.get(a_prefix).cloned().unwrap_or_default();
+                let b_levels = extracted_levels.get(b_prefix).cloned().unwrap_or_default();
+                let a_start = if intercept_handled && a_levels.len() > 1 {
+                    1
+                } else {
+                    0
+                };
+                let b_start = if intercept_handled && b_levels.len() > 1 {
+                    1
+                } else {
+                    0
+                };
+                for (ai, _) in factor_dummy_cols[0].iter().enumerate() {
+                    for (bi, _) in factor_dummy_cols[1].iter().enumerate() {
+                        let av = a_levels.get(a_start + ai).map(|s| s.as_str()).unwrap_or("");
+                        let bv = b_levels.get(b_start + bi).map(|s| s.as_str()).unwrap_or("");
+                        dummy_names.push(format!("{}:{}", av, bv));
+                    }
+                }
+            }
+            let int_start = fixed_cols.len();
+            for (k, col) in interaction_cols.into_iter().enumerate() {
+                let name = dummy_names
+                    .get(k)
+                    .map(|d| format!("{}{}", term_label, d))
+                    .unwrap_or_else(|| format!("{}{}_i{}", term_label, col_name, k));
+                fixed_cols.push(col);
+                fixed_names.push(name);
+                fixed_term_assign.push(term_label.clone());
+            }
+            term_col_arrays.insert(term_label.clone(), fixed_cols[int_start..].to_vec());
             continue;
         }
 
@@ -382,6 +524,7 @@ pub fn build_x_matrix(
                 .map(|o| o.unwrap_or("").to_string())
                 .collect();
 
+            let mut term_cols: Vec<Array1<f64>> = Vec::new();
             for val in unique_vals.iter().skip(start_idx) {
                 let mut col_data = ndarray::Array1::<f64>::zeros(n_obs);
                 for i in 0..n_obs {
@@ -389,8 +532,13 @@ pub fn build_x_matrix(
                         col_data[i] = 1.0;
                     }
                 }
+                term_cols.push(col_data.clone());
                 fixed_cols.push(col_data);
                 fixed_names.push(format!("{}{}", col_name, val));
+                fixed_term_assign.push(col_name.clone());
+            }
+            if !term_cols.is_empty() {
+                term_col_arrays.insert(col_name.clone(), term_cols);
             }
         } else {
             let s_cast =
@@ -403,8 +551,11 @@ pub fn build_x_matrix(
             })?;
 
             let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
-            fixed_cols.push(Array1::from_vec(vec));
+            let col = Array1::from_vec(vec);
+            fixed_cols.push(col.clone());
             fixed_names.push(col_name.clone());
+            fixed_term_assign.push(col_name.clone());
+            term_col_arrays.insert(col_name.clone(), vec![col]);
         }
     }
 
@@ -414,7 +565,7 @@ pub fn build_x_matrix(
         x.column_mut(j).assign(col);
     }
 
-    Ok((x, fixed_names, extracted_levels))
+    Ok((x, fixed_names, fixed_term_assign, extracted_levels))
 }
 
 #[cfg(test)]

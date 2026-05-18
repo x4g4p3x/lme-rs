@@ -458,15 +458,18 @@ impl PyLmeFit {
             .map(|r| r.p_values.to_vec())
     }
 
-    /// Type III fixed-effects ANOVA table (requires a denominator df path).
+    /// Fixed-effects ANOVA table (requires a denominator df path).
     ///
     /// `ddf_method` can be:
     /// - `"satterthwaite"`
     /// - `"kenward_roger"` / `"kenward-roger"`
-    #[pyo3(signature = (ddf_method="satterthwaite"))]
+    ///
+    /// `anova_type` can be `"III"` (default) or `"II"`.
+    #[pyo3(signature = (ddf_method="satterthwaite", anova_type="III"))]
     pub fn anova(
         &self,
         ddf_method: &str,
+        anova_type: &str,
     ) -> PyResult<FixedEffectsAnovaPy> {
         let method = match ddf_method.to_lowercase().as_str() {
             "satterthwaite" => DdfMethod::Satterthwaite,
@@ -478,8 +481,18 @@ impl PyLmeFit {
                 )))
             }
         };
+        let atype = match anova_type.to_uppercase().as_str() {
+            "III" | "3" | "TYPE3" | "TYPE III" => lme_rs::AnovaType::Type3,
+            "II" | "2" | "TYPE2" | "TYPE II" => lme_rs::AnovaType::Type2,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unsupported anova_type '{}'",
+                    other
+                )))
+            }
+        };
 
-        match self.inner.anova(method) {
+        match self.inner.anova_typed(atype, method) {
             Ok(res) => Ok((
                 res.terms,
                 res.num_df.to_vec(),

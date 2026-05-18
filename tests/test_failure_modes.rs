@@ -18,7 +18,8 @@ fn assert_notimplemented_contains(err: &LmeError, needle: &str) {
         LmeError::NotImplemented { feature } => assert!(
             feature.contains(needle),
             "expected message containing {:?}, got {}",
-            needle, feature
+            needle,
+            feature
         ),
         e => panic!("expected NotImplemented, got {:?}", e),
     }
@@ -154,7 +155,9 @@ fn lmer_tight_fixed_rhs_with_few_observations_is_fragile() {
     match outcome {
         Err(_) => {}
         Ok(Err(_)) => {}
-        Ok(Ok(_)) => panic!("expected panic or Err for underdetermined / ill-conditioned fixed system"),
+        Ok(Ok(_)) => {
+            panic!("expected panic or Err for underdetermined / ill-conditioned fixed system")
+        }
     }
 }
 

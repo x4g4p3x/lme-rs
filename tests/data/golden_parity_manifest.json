@@ -234,6 +234,83 @@
       }
     },
     {
+      "id": "pastes_cask_multi_dof_reml",
+      "description": "Pastes strength ~ cask with batch RE; multi-DoF Type III Satterthwaite ANOVA for cask.",
+      "kind": "lmm",
+      "data_path": "tests/data/pastes.csv",
+      "formula": "strength ~ cask + (1 | batch)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(strength ~ cask + (1 | batch), pastes, REML = TRUE)",
+        "source_fixture": "tests/data/pastes_cask_reml.json"
+      },
+      "post_fit": {
+        "satterthwaite": true
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 59.295,
+            "tolerance": 0.05
+          },
+          {
+            "name": "caskb",
+            "value": 0.85,
+            "tolerance": 0.05
+          },
+          {
+            "name": "caskc",
+            "value": 1.425,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "batch.(Intercept)",
+            "value": 0.67890625,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 7.3051073425443045,
+          "tolerance": 0.1
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 296.02777605038466,
+          "tolerance": 0.1
+        },
+        "satterthwaite_anova": [
+          {
+            "term": "cask",
+            "f_value": {
+              "name": "F",
+              "value": 1.4071,
+              "tolerance": 0.01
+            },
+            "p_value": {
+              "name": "p",
+              "value": 0.2548,
+              "tolerance": 0.0001
+            },
+            "num_df": {
+              "name": "NumDF",
+              "value": 2,
+              "tolerance": 1e-06
+            },
+            "den_df": {
+              "name": "DenDF",
+              "value": 48.004,
+              "tolerance": 0.01
+            }
+          }
+        ]
+      }
+    },
+    {
       "id": "penicillin_crossed_reml",
       "description": "Crossed random-intercept LMM from lme4 Penicillin data.",
       "kind": "lmm",

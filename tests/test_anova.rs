@@ -24,6 +24,8 @@ fn test_anova_methods_produce_valid_f_tests() {
         beta_t: None,
         formula: None,
         fixed_names: Some(vec!["(Intercept)".to_string(), "Days".to_string()]),
+        fixed_term_assign: Some(vec!["(Intercept)".to_string(), "Days".to_string()]),
+        fixed_design_x: Some(Array2::from_shape_vec((1, 2), vec![1.0, 1.0]).unwrap()),
         re_blocks: None,
         num_obs: 180,
         converged: Some(true),
@@ -45,10 +47,7 @@ fn test_anova_methods_produce_valid_f_tests() {
     // Inject mock evaluations
     let s_df = Array1::from_vec(vec![17.0, 17.0]);
     let s_p = Array1::from_vec(vec![0.001, 0.002]);
-    fit.satterthwaite = Some(lme_rs::SatterthwaiteResult {
-        dfs: s_df,
-        p_values: s_p,
-    });
+    fit.satterthwaite = Some(lme_rs::SatterthwaiteResult::mock_for_anova(s_df, s_p, 2, 1));
 
     // Inject corresponding beta_t for F mapping
     let t_vals = Array1::from_vec(vec![10.0, 5.0]);
