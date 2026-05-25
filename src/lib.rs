@@ -1214,6 +1214,20 @@ pub fn glmer(
     family_enum: family::Family,
     n_agq: usize,
 ) -> Result<LmeFit> {
+    glmer_weighted(formula_str, data, family_enum, n_agq, None)
+}
+
+/// Fit a GLMM with optional prior observation weights.
+///
+/// Weights multiply each observation's contribution to the Laplace / AGQ deviance and enter
+/// the PIRLS working weights as `prior_w × (dμ/dη)² / V(μ)`, matching `lme4::glmer(..., weights=)`.
+pub fn glmer_weighted(
+    formula_str: &str,
+    data: &DataFrame,
+    family_enum: family::Family,
+    n_agq: usize,
+    weights: Option<Array1<f64>>,
+) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
@@ -1224,7 +1238,7 @@ pub fn glmer(
         let fam = family_enum.build();
         let fam_name = fam.name().to_string();
         let link_name = fam.link().name().to_string();
-        let mut fit = lmer(formula_str, data, false)?;
+        let mut fit = lmer_weighted(formula_str, data, false, weights)?;
         fit.family_name = Some(fam_name);
         fit.link_name = Some(link_name);
         fit.family = Some(family_enum);
@@ -1240,6 +1254,7 @@ pub fn glmer(
 
     // 2. Build design matrices X, Zt, y from DataFrame and AST
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
+    validate_observation_weights(weights.as_ref(), matrices.y.len())?;
     validate_glmm_response(&matrices.y, family_enum)?;
 
     // 3. Setup initial theta vector
@@ -1265,6 +1280,7 @@ pub fn glmer(
         init_theta,
         fam_for_opt,
         matrices.offset.clone(),
+        weights.clone(),
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("GLMM optimizer failed: {}", e),
@@ -1274,13 +1290,14 @@ pub fn glmer(
 
     // 5. Re-evaluate PIRLS at optimal theta to get coefficients
     let fam_for_eval = family_enum.build();
-    let mut glmm = glmm_math::GlmmData::new(
+    let mut glmm = glmm_math::GlmmData::new_weighted(
         matrices.x.clone(),
         matrices.zt.clone(),
         matrices.y.clone(),
         matrices.re_blocks.clone(),
         fam_for_eval,
         n_agq,
+        weights,
     );
     let coefs = glmm
         .pirls(

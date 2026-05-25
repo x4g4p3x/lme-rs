@@ -664,6 +664,19 @@ pub fn lm<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>) -> PyRe
 #[pyfunction]
 #[pyo3(signature = (formula, data, family_name, n_agq=1))]
 pub fn glmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, family_name: &str, n_agq: usize) -> PyResult<PyLmeFit> {
+    glmer_weighted(py, formula, data, family_name, n_agq, None)
+}
+
+#[pyfunction]
+#[pyo3(signature = (formula, data, family_name, n_agq=1, weights=None))]
+pub fn glmer_weighted<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    family_name: &str,
+    n_agq: usize,
+    weights: Option<Vec<f64>>,
+) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     let family = match family_name.to_lowercase().as_str() {
@@ -671,12 +684,19 @@ pub fn glmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, fami
         "poisson" => Family::Poisson,
         "gamma" => Family::Gamma,
         "gaussian" => Family::Gaussian,
-        _ => return Err(pyo3::exceptions::PyValueError::new_err(format!("Unsupported or invalid family: {}", family_name))),
+        _ => return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Unsupported or invalid family: {}",
+            family_name
+        ))),
     };
+    let weights_arr = weights.map(ndarray::Array1::from_vec);
 
-    match lme_rs::glmer(formula, &df, family, n_agq) {
+    match lme_rs::glmer_weighted(formula, &df, family, n_agq, weights_arr) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Model fit failed: {}", e))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Model fit failed: {}",
+            e
+        ))),
     }
 }
 
@@ -721,6 +741,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lmer, m)?)?;
     m.add_function(wrap_pyfunction!(lmer_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
+    m.add_function(wrap_pyfunction!(glmer_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(anova, m)?)?;
     Ok(())
 }

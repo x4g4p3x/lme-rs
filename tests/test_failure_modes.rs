@@ -3,7 +3,7 @@
 
 use lme_rs::family::Family;
 use lme_rs::formula::parse;
-use lme_rs::glmer;
+use lme_rs::{glmer, glmer_weighted};
 use lme_rs::glmm_math::GlmmData;
 use lme_rs::lm_df;
 use lme_rs::lmer;
@@ -63,6 +63,19 @@ fn lmer_weights_nan_is_rejected() {
     let w = ndarray::Array1::from_vec(vec![1.0, f64::NAN]);
     let err = lmer_weighted("y ~ x + (1 | g)", &df, true, Some(w)).unwrap_err();
     assert_notimplemented_contains(&err, "non-finite");
+}
+
+#[test]
+fn glmer_weights_length_mismatch_is_rejected() {
+    let df = df!(
+        "y" => &[0.0_f64, 1.0],
+        "x" => &[0.0_f64, 1.0],
+        "g" => &["a", "b"],
+    )
+    .unwrap();
+    let w = ndarray::Array1::from_vec(vec![1.0]);
+    let err = glmer_weighted("y ~ x + (1 | g)", &df, Family::Binomial, 1, Some(w)).unwrap_err();
+    assert_notimplemented_contains(&err, "weights");
 }
 
 #[test]

@@ -202,6 +202,24 @@ Built-in family support through the public enum:
 
 At the public API level, `glmer()` currently dispatches through these built-in families and their default links.
 
+### `glmer_weighted()` for prior observation weights
+
+```rust
+use lme_rs::{family::Family, glmer_weighted};
+use ndarray::Array1;
+
+let w = Array1::from_vec(vec![1.0; df.height()]);
+let fit = glmer_weighted(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    &df,
+    Family::Binomial,
+    1,
+    Some(w),
+)?;
+```
+
+Weights must be strictly positive and match the number of rows. For `Family::Gaussian`, fitting delegates to `lmer_weighted` with ML.
+
 ### Understanding model output
 
 The `Display` implementation intentionally mirrors the shape of R output.
@@ -417,6 +435,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, one RE parameter) |
 | `glmer(formula, data, family)` | generalized linear mixed model |
+| `glmer_weighted(formula, data, family, n_agq, weights)` | GLMM with prior observation weights |
 | `anova(fit_a, fit_b)` | likelihood ratio test between nested models |
 
 ### `LmeFit` methods

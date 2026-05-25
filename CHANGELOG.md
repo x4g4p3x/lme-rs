@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Weighted GLMMs: [`glmer_weighted`](src/lib.rs) with prior observation weights in PIRLS / Laplace deviance (delegates to [`lmer_weighted`](src/lib.rs) for Gaussian). Python: `lme_python.glmer_weighted(..., weights=...)`. Tests: [`tests/test_glmm_weighted.rs`](tests/test_glmm_weighted.rs).
 - Nonlinear mixed models (`nlmer`-style): [`nlmer`](src/nlmm/mod.rs) with three-part formulas (`response ~ SSlogis(cov, Asym, xmid, scal) ~ Asym|group`), penalized Gauss–Newton inner loop, and golden-section profiling of a single random-effect standard deviation. Parity test [`tests/test_nlmm_orange.rs`](tests/test_nlmm_orange.rs) against `lme4::nlmer(Orange)` (ML, random effect on `Asym` only).
 - User-defined fixed-effects contrast tests: [`LmeFit::test_contrast`](src/contrast.rs), [`test_contrast_vs`](src/contrast.rs), and [`contrast_matrix_from_names`](src/contrast.rs) ([`tests/test_contrast.rs`](tests/test_contrast.rs)). Python: `fit.test_contrast(l_matrix)`.
 - Kenward–Roger multi-DoF ANOVA via `pbkrtest::KRmodcomp` / `.KR_adjust` ([`src/kr_modcomp.rs`](src/kr_modcomp.rs)) and structural `vcovAdj16` ([`src/kr_vcov_adj.rs`](src/kr_vcov_adj.rs)), wired from [`src/anova.rs`](src/anova.rs). Parity test [`tests/test_kr_modcomp_pastes.rs`](tests/test_kr_modcomp_pastes.rs); golden case `pastes_cask_multi_dof_reml` now checks KR ANOVA.

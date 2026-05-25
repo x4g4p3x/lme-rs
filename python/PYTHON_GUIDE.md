@@ -47,6 +47,7 @@ Top-level functions:
 - `lme_python.lm(formula, data)`
 - `lme_python.lmer(formula, data, reml=True)`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
+- `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
 - `lme_python.glmer(formula, data, family_name)`
 - `lme_python.anova(fit_a, fit_b)`  # likelihood ratio test between nested models
 

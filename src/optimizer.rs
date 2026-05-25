@@ -170,6 +170,7 @@ struct GlmmObjective {
     re_blocks: Vec<ReBlock>,
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
+    weights: Option<Array1<f64>>,
     lower_bounds: Vec<f64>,
 }
 
@@ -185,13 +186,14 @@ impl CostFunction for GlmmObjective {
         // Always use Laplace (n_agq = 1) for θ: AGQ marginal deviance is expensive and can be
         // poorly behaved for derivative-free search on θ; AGQ is applied in the final `pirls`
         // pass when the user requests `n_agq > 1`.
-        let mut glmm = GlmmData::new(
+        let mut glmm = GlmmData::new_weighted(
             self.x.clone(),
             self.zt.clone(),
             self.y.clone(),
             self.re_blocks.clone(),
             self.family.build_clone(),
             1,
+            self.weights.clone(),
         );
         let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref(), 1);
         if val.is_nan() {
@@ -217,6 +219,7 @@ pub fn optimize_theta_glmm(
     init_theta: Array1<f64>,
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
+    weights: Option<Array1<f64>>,
 ) -> Result<OptimizeResult, anyhow::Error> {
     let lower_bounds = compute_theta_lower_bounds(&re_blocks);
 
@@ -227,6 +230,7 @@ pub fn optimize_theta_glmm(
         re_blocks: re_blocks.clone(),
         family,
         offset,
+        weights,
         lower_bounds: lower_bounds.clone(),
     };
 
@@ -272,6 +276,7 @@ mod tests {
             re_blocks,
             family,
             offset: None,
+            weights: None,
             lower_bounds,
         };
 

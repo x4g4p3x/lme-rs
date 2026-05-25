@@ -233,6 +233,8 @@ pub struct GlmmData {
     pub re_blocks: Vec<ReBlock>,
     /// Family distribution specification detailing variance and link properties.
     pub family: Box<dyn GlmFamily>,
+    /// Optional prior observation weights (multiply deviance and IRLS contributions).
+    pub weights: Option<Array1<f64>>,
     // Cached structural matrices
     /// Cross product of the transposed design matrix ($Z^T Z$).
     pub zt_z: CsMat<f64>,
@@ -277,6 +279,19 @@ impl GlmmData {
         family: Box<dyn GlmFamily>,
         _n_agq: usize,
     ) -> Self {
+        Self::new_weighted(x, zt, y, re_blocks, family, _n_agq, None)
+    }
+
+    /// Construct a GLMM data block with optional prior observation weights.
+    pub fn new_weighted(
+        x: Array2<f64>,
+        zt: CsMat<f64>,
+        y: Array1<f64>,
+        re_blocks: Vec<ReBlock>,
+        family: Box<dyn GlmFamily>,
+        _n_agq: usize,
+        weights: Option<Array1<f64>>,
+    ) -> Self {
         let zt_z = &zt * &zt.transpose_view();
 
         let z_csc = zt.to_csc();
@@ -320,9 +335,16 @@ impl GlmmData {
             y,
             re_blocks,
             family,
+            weights,
             zt_z,
             zt_w_z_map,
         }
+    }
+
+    fn observation_weights(&self) -> Array1<f64> {
+        self.weights
+            .clone()
+            .unwrap_or_else(|| Array1::ones(self.y.len()))
     }
 
     /// Compute Laplace or AGQ approximated deviance.
@@ -371,8 +393,7 @@ impl GlmmData {
             eta += off;
         }
 
-        // Unit weights (no prior weights for now)
-        let wt = Array1::ones(n);
+        let wt = self.observation_weights();
 
         let max_iter = if link.name() == "inverse" { 1000 } else { 100 };
         let tol = 1e-8;
@@ -388,12 +409,12 @@ impl GlmmData {
             let mu_eta_val = link.mu_eta(&eta);
             let var_mu = self.family.variance(&mu);
 
-            // Working weights: w = (dmu/deta)^2 / V(mu)
+            // Combined weights: prior wt * IRLS (dμ/dη)² / V(μ)
             let mut w = Array1::<f64>::zeros(n);
             for i in 0..n {
                 let me = mu_eta_val[i];
                 let v = var_mu[i].max(f64::EPSILON);
-                w[i] = (me * me / v).max(f64::EPSILON);
+                w[i] = (wt[i] * me * me / v).max(f64::EPSILON);
             }
 
             // Working response: z = eta + (y - mu) / (dmu/deta)
@@ -755,8 +776,7 @@ impl GlmmData {
         let order = resolve_gh_order_product(n_agq, k)?;
         let (z, w) = gh_rule(order)?;
         let n_nodes = z.len();
-        let n = self.y.len();
-        let wt = Array1::ones(n);
+        let wt = self.observation_weights();
         let dev_hat = self.family.dev_resid(&self.y, mu_hat, &wt);
         let sum_dev = dev_hat.sum();
 
@@ -899,7 +919,7 @@ impl GlmmData {
         let n_nodes = z.len();
         let ncomb = n_nodes.pow(q as u32);
         let n = self.y.len();
-        let wt = Array1::ones(n);
+        let wt = self.observation_weights();
         let dev_hat = self.family.dev_resid(&self.y, mu_hat, &wt);
         let sum_dev = dev_hat.sum();
 

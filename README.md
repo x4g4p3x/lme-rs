@@ -12,7 +12,7 @@
 - `lm()` for fixed-effects-only linear models
 - `lmer()` and `lmer_weighted()` for linear mixed models
 - `nlmer()` for nonlinear mixed models (`SSlogis` mean; random effect on one nonlinear parameter, e.g. Orange-tree growth)
-- `glmer()` for binomial, poisson, gaussian, and gamma mixed models
+- `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
 - Wald confidence intervals, parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and Kenward-Roger denominator degrees of freedom
