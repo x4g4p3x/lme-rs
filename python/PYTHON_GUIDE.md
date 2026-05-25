@@ -40,16 +40,24 @@ set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 ```
 
-## What the Python package currently exposes
+## What the Python package exposes
+
+The Python module mirrors the Rust crate: formula fits, matrix OLS, contrasts, inference, prediction, and simulation. Type hints live in [`lme_python.pyi`](lme_python.pyi).
 
 Top-level functions:
 
 - `lme_python.lm(formula, data)`
+- `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
 - `lme_python.lmer(formula, data, reml=True)`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
+- `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
-- `lme_python.glmer(formula, data, family_name)`
-- `lme_python.anova(fit_a, fit_b)`  # likelihood ratio test between nested models
+- `lme_python.nlmer(formula, data, start=None, reml=False)` — `SSlogis` NLMM (Orange-tree workflow)
+- `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
+- `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
+- `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
+
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`.
 
 Available `PyLmeFit` methods:
 
@@ -58,22 +66,23 @@ Available `PyLmeFit` methods:
 - `predict_conditional(newdata, allow_new_levels=False)`
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
-- `confint(level=0.95)`
-- `simulate(nsim)`  # parametric bootstrap
+- `confint(level=0.95)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`)
+- `simulate(nsim)` → `PySimulateResult` (use `.simulations` for the draw list)
 - `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
 - `with_satterthwaite(data)`  # denominator df and p-values
 - `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
-- `anova(ddf_method="satterthwaite")`  # Type III fixed-effects ANOVA
-- `test_contrast(l_matrix, ddf_method="satterthwaite")`  # user-defined q×p contrast (H₀: Lβ=0)
+- `anova(ddf_method="satterthwaite", anova_type="III")` → `PyFixedEffectsAnova`
+- `test_contrast(l_matrix, ddf_method="satterthwaite")`  # H₀: Lβ = 0
+- `test_contrast_vs(l_matrix, beta_h, ddf_method="satterthwaite")`  # H₀: Lβ = β_h
 
 Selected properties:
 
-- `coefficients`
-- `fixed_names`
-- `sigma2`
-- `aic`, `bic`, `log_likelihood`, `deviance`
-- `converged`, `num_obs`
-- `std_errors`
+- `coefficients`, `b`, `fixed_names`, `formula`, `u`, `beta_se`, `fixed_term_assign`, `categorical_levels`, `v_beta_unscaled`
+- `family_name`, `link_name`, `family` (GLMM / NLMM)
+- `sigma2`, `theta`
+- `aic`, `bic`, `log_likelihood`, `deviance`, `reml_criterion`
+- `converged`, `iterations`, `num_obs`
+- `std_errors`, `beta_t` (LMM t-values; GLMM z-values)
 - `residuals`, `fitted`
 - `ranef`  # random effects modes
 - `var_corr`  # random-effects variance/covariance summary
@@ -168,6 +177,22 @@ model = lme_python.glmer(
     family_name="poisson",
 )
 ```
+
+Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer_weighted`).
+
+### Nonlinear mixed models
+
+```python
+df = pl.read_csv("tests/data/orange.csv")
+fit = lme_python.nlmer(
+    "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+    data=df,
+    start={"Asym": 200.0, "xmid": 725.0, "scal": 350.0},
+    reml=False,
+)
+```
+
+`predict()` is not yet supported for NLMM fits; use `fitted` and `residuals` on the training data.
 
 ## Predictions
 

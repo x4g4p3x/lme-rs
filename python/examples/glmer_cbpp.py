@@ -77,9 +77,10 @@ def main():
     # ── Parametric simulation ─────────────────────────────────────────────────
     print("\n--- Parametric simulation (3 draws, showing first obs) ---")
     sims = fit.simulate(3)
+    draws = sims.simulations
     print(f"  Number of simulations : {len(sims)}")
-    print(f"  Observations per sim  : {len(sims[0])}")
-    for k, sim in enumerate(sims):
+    print(f"  Observations per sim  : {len(draws[0])}")
+    for k, sim in enumerate(draws):
         # Binomial draws should be 0 or 1
         assert all(x in (0.0, 1.0) for x in sim), f"Simulation {k} has non-binary values!"
         print(f"  sim[{k}][0:5] = {list(sim[:5])}")

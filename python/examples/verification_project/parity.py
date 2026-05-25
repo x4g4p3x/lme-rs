@@ -54,15 +54,13 @@ def verify_sleepstudy_nested_lrt() -> None:
     m1 = lme_python.lmer("Reaction ~ Days + (1 | Subject)", data=df, reml=False)
     m2 = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=False)
     r01 = lme_python.anova(m0, m1)
-    chi01 = r01[4]
-    p01 = r01[6]
-    if chi01 <= 0:
-        raise AssertionError(f"LRT M0 vs M1: expected positive chi^2, got {chi01}")
+    if r01.chi_sq <= 0:
+        raise AssertionError(f"LRT M0 vs M1: expected positive chi^2, got {r01.chi_sq}")
     # p can be 0.0 when χ² is huge (numerical underflow); still a valid LRT.
-    if p01 < 0.0 or p01 > 1.0:
-        raise AssertionError(f"LRT M0 vs M1: p-value in [0,1], got {p01}")
+    if r01.p_value < 0.0 or r01.p_value > 1.0:
+        raise AssertionError(f"LRT M0 vs M1: p-value in [0,1], got {r01.p_value}")
     r12 = lme_python.anova(m1, m2)
-    if r12[4] < 0:
+    if r12.chi_sq < 0:
         raise AssertionError("LRT M1 vs M2: chi^2 should be non-negative")
     # AIC: more complex model should not be worse than intercept-only by huge margin
     if m2.aic >= m0.aic + 500:
@@ -134,14 +132,14 @@ def verify_type3_anova_pastes() -> None:
     df = pl.read_csv(tests_data("pastes.csv"))
     fit = lme_python.lmer("strength ~ cask + (1 | batch)", data=df, reml=True)
     fit.with_satterthwaite(df)
-    terms, num_df, den_df, f_val, p_val, method = fit.anova("satterthwaite")
-    assert method == "satterthwaite"
-    assert len(terms) == 1
-    assert "cask" in str(terms[0]).lower()
-    _close("cask NumDF", num_df[0], 2.0, 1e-6)
-    _close("cask DenDF", den_df[0], 48.004, 0.01)
-    _close("cask F", f_val[0], 1.4071, 0.01)
-    _close("cask Pr(>F)", p_val[0], 0.2548, 0.0001)
+    tab = fit.anova("satterthwaite")
+    assert "satterthwaite" in tab.method.lower()
+    assert len(tab.terms) == 1
+    assert "cask" in str(tab.terms[0]).lower()
+    _close("cask NumDF", tab.num_df[0], 2.0, 1e-6)
+    _close("cask DenDF", tab.den_df[0], 48.004, 0.01)
+    _close("cask F", tab.f_value[0], 1.4071, 0.01)
+    _close("cask Pr(>F)", tab.p_value[0], 0.2548, 0.0001)
 
 
 def verify_weighted_sleepstudy() -> None:
@@ -168,10 +166,10 @@ def verify_confint_and_simulate() -> None:
     fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
     ci = fit.confint(0.95)
     assert len(ci) == 2
-    assert ci[0][0] < fit.coefficients[0] < ci[0][1]
+    assert ci.lower[0] < fit.coefficients[0] < ci.upper[0]
     sim = fit.simulate(3)
     assert len(sim) == 3
-    assert len(sim[0]) == 180
+    assert len(sim.simulations[0]) == 180
 
 
 def run_all_checks() -> list[tuple[str, Exception | None]]:

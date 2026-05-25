@@ -213,9 +213,9 @@ def test_simulate():
 
     sims = model.simulate(3)
     assert len(sims) == 3
-    assert all(len(v) == model.num_obs for v in sims)
+    assert all(len(v) == model.num_obs for v in sims.simulations)
     # Spot-check finiteness (avoid scanning the entire simulation tensor).
-    for v in sims:
+    for v in sims.simulations:
         for x in v[:5]:
             assert math.isfinite(x)
 
@@ -225,7 +225,7 @@ def test_simulate_poisson_nonnegative_counts():
 
     sims = model.simulate(3)
     assert len(sims) == 3
-    for v in sims:
+    for v in sims.simulations:
         for x in v[:20]:
             assert x >= 0.0
             assert abs(x - round(x)) < 1e-9
@@ -236,7 +236,7 @@ def test_simulate_binomial_binary():
 
     sims = model.simulate(3)
     assert len(sims) == 3
-    for v in sims:
+    for v in sims.simulations:
         for x in v[:20]:
             assert x in (0.0, 1.0)
 
@@ -246,7 +246,7 @@ def test_simulate_gamma_positive():
 
     sims = model.simulate(3)
     assert len(sims) == 3
-    for v in sims:
+    for v in sims.simulations:
         for x in v[:20]:
             assert x > 0.0
             assert math.isfinite(x)
@@ -258,13 +258,12 @@ def test_anova_lrt_nested_lmer():
     fit1 = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=False)
 
     res = lme_python.anova(fit0, fit1)
-    (n_params_0, n_params_1, dev0, dev1, chi_sq, df_diff, p_value, formula_0, formula_1) = res
 
-    assert n_params_0 < n_params_1
-    assert df_diff > 0
-    assert chi_sq >= 0.0
-    assert 0.0 <= p_value <= 1.0
-    assert isinstance(formula_0, str) and isinstance(formula_1, str)
+    assert res.n_params_0 < res.n_params_1
+    assert res.df > 0
+    assert res.chi_sq >= 0.0
+    assert 0.0 <= res.p_value <= 1.0
+    assert isinstance(res.formula_0, str) and isinstance(res.formula_1, str)
 
 def test_with_robust_se():
     df = pl.read_csv("../tests/data/sleepstudy.csv")
@@ -344,13 +343,13 @@ def test_anova_satterthwaite_fixed_effects():
     model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
     model.with_satterthwaite(subset_df)
 
-    terms, num_df, den_df, f_value, p_value, method = model.anova("satterthwaite")
+    tab = model.anova("satterthwaite")
 
-    assert terms == ["Days"]
-    assert len(num_df) == len(den_df) == len(f_value) == len(p_value) == 1
-    assert 0.0 <= p_value[0] <= 1.0
-    assert den_df[0] > 0.0
-    assert isinstance(method, str)
+    assert tab.terms == ["Days"]
+    assert len(tab.num_df) == len(tab.den_df) == len(tab.f_value) == len(tab.p_value) == 1
+    assert 0.0 <= tab.p_value[0] <= 1.0
+    assert tab.den_df[0] > 0.0
+    assert isinstance(tab.method, str)
 
 def test_anova_kenward_roger_fixed_effects():
     df = pl.read_csv("../tests/data/sleepstudy.csv")
@@ -359,13 +358,13 @@ def test_anova_kenward_roger_fixed_effects():
     model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=subset_df, reml=True)
     model.with_kenward_roger(subset_df)
 
-    terms, num_df, den_df, f_value, p_value, method = model.anova("kenward_roger")
+    tab = model.anova("kenward_roger")
 
-    assert terms == ["Days"]
-    assert len(num_df) == len(den_df) == len(f_value) == len(p_value) == 1
-    assert 0.0 <= p_value[0] <= 1.0
-    assert den_df[0] > 0.0
-    assert isinstance(method, str)
+    assert tab.terms == ["Days"]
+    assert len(tab.num_df) == len(tab.den_df) == len(tab.f_value) == len(tab.p_value) == 1
+    assert 0.0 <= tab.p_value[0] <= 1.0
+    assert tab.den_df[0] > 0.0
+    assert isinstance(tab.method, str)
 
 def test_anova_invalid_ddf_method():
     df = pl.read_csv("../tests/data/sleepstudy.csv")

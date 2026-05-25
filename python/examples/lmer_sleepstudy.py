@@ -57,7 +57,7 @@ def main():
     # ── 3. Wald confidence intervals ──────────────────────────────────────────
     print("\n--- 95% Wald confidence intervals ---")
     ci = reml_fit.confint(0.95)
-    for name, (lo, hi) in zip(reml_fit.fixed_names, ci):
+    for name, lo, hi in zip(reml_fit.fixed_names, ci.lower, ci.upper):
         print(f"  {name:<20} [{lo:8.4f}, {hi:8.4f}]")
 
     # ── 4. ML fit (needed for likelihood ratio tests) ─────────────────────────

@@ -58,7 +58,7 @@ def main():
     print("\n--- Wald 95% confidence intervals ---")
     ci = fit.confint(0.95)
     names = fit.fixed_names
-    for name, (lo, hi) in zip(names, ci):
+    for name, lo, hi in zip(names, ci.lower, ci.upper):
         print(f"  {name:<20} [{lo:8.4f}, {hi:8.4f}]")
 
     # ── 3. Intercept-only model ───────────────────────────────────────────────

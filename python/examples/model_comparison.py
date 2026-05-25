@@ -62,22 +62,24 @@ def main():
     print("LRT: M0 vs M1  (does Days as a fixed effect improve fit?)")
     print("=" * 60)
     res01 = lme_python.anova(m0, m1)
-    n0, n1, dev0, dev1, chi_sq, df_diff, p_val, fml0, fml1 = res01
-    print(f"  Model 0 ({n0} params): deviance = {dev0:.4f}")
-    print(f"  Model 1 ({n1} params): deviance = {dev1:.4f}")
-    print(f"  χ²({df_diff}) = {chi_sq:.4f},  p = {p_val:.4e}  {fmt_stars(p_val)}")
-    print(f"  → Adding Days as a fixed effect {'significantly' if p_val < 0.05 else 'does not significantly'} improves fit.")
+    print(f"  Model 0 ({res01.n_params_0} params): deviance = {res01.deviance_0:.4f}")
+    print(f"  Model 1 ({res01.n_params_1} params): deviance = {res01.deviance_1:.4f}")
+    print(f"  χ²({res01.df}) = {res01.chi_sq:.4f},  p = {res01.p_value:.4e}  {fmt_stars(res01.p_value)}")
+    print(
+        f"  → Adding Days as a fixed effect {'significantly' if res01.p_value < 0.05 else 'does not significantly'} improves fit."
+    )
 
     # ── 2. Likelihood ratio test: M1 vs M2 ───────────────────────────────────
     print("\n" + "=" * 60)
     print("LRT: M1 vs M2  (does a random slope for Days improve fit?)")
     print("=" * 60)
     res12 = lme_python.anova(m1, m2)
-    n0, n1, dev0, dev1, chi_sq, df_diff, p_val, fml0, fml1 = res12
-    print(f"  Model 0 ({n0} params): deviance = {dev0:.4f}")
-    print(f"  Model 1 ({n1} params): deviance = {dev1:.4f}")
-    print(f"  χ²({df_diff}) = {chi_sq:.4f},  p = {p_val:.4e}  {fmt_stars(p_val)}")
-    print(f"  → Adding random slopes {'significantly' if p_val < 0.05 else 'does not significantly'} improves fit.")
+    print(f"  Model 0 ({res12.n_params_0} params): deviance = {res12.deviance_0:.4f}")
+    print(f"  Model 1 ({res12.n_params_1} params): deviance = {res12.deviance_1:.4f}")
+    print(f"  χ²({res12.df}) = {res12.chi_sq:.4f},  p = {res12.p_value:.4e}  {fmt_stars(res12.p_value)}")
+    print(
+        f"  → Adding random slopes {'significantly' if res12.p_value < 0.05 else 'does not significantly'} improves fit."
+    )
 
     # ── 3. Type III ANOVA table for the full model ────────────────────────────
     print("\n" + "=" * 60)
@@ -87,10 +89,10 @@ def main():
     m2_reml = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
     m2_reml.with_satterthwaite(df)
 
-    terms, num_df, den_df, f_val, p_val_anova, method = m2_reml.anova("satterthwaite")
-    print(f"  Method: {method}")
+    tab = m2_reml.anova("satterthwaite")
+    print(f"  Method: {tab.method}")
     print(f"\n  {'Term':<16}  {'NumDf':>5}  {'DenDf':>8}  {'F':>8}  {'Pr(>F)':>10}  Sig")
-    for term, nd, dd, fv, pv in zip(terms, num_df, den_df, f_val, p_val_anova):
+    for term, nd, dd, fv, pv in zip(tab.terms, tab.num_df, tab.den_df, tab.f_value, tab.p_value):
         print(f"  {term:<16}  {nd:>5.0f}  {dd:>8.2f}  {fv:>8.4f}  {pv:>10.4e}  {fmt_stars(pv)}")
 
     print("\nSignif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
