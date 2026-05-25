@@ -54,7 +54,7 @@ fn clamp_theta(theta: &mut Array1<f64>, lower_bounds: &[f64]) {
     }
 }
 
-fn nelder_mead_optimize<C>(
+pub(crate) fn nelder_mead_optimize<C>(
     init_theta: Array1<f64>,
     lower_bounds: &[f64],
     max_iters: u64,

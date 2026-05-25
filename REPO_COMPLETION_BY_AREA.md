@@ -57,7 +57,7 @@ These are **major gaps** relative to a very large reference (full `lme4` + relat
 
 | Topic | Status | Notes |
 |:------|:-------|:------|
-| **Nonlinear mixed models** (`nlmer`-style nonlinear predictors) | **0%** | No API or docs in-repo; search finds no `nlmer` / NLMM workflow. |
+| **Nonlinear mixed models** (`nlmer`-style) | **~35%** | [`nlmer`](src/nlmm/mod.rs): `SSlogis` mean, one RE param on `Asym`, ML/REML option, Orange parity test. Not yet: custom nonlinear functions, multiple RE params, `selfStart`, AGQ, Python bindings, `predict()` on NL fits. |
 | **Weighted GLMMs** (`glmer` + observation weights) | **0%** | [`lmer_weighted`](src/lib.rs) exists for LMMs; [`glmer`](src/lib.rs) has **no** parallel weights parameter. [`BENCHMARKS.md`](BENCHMARKS.md) lists weighted GLMM as a possible **future** workload. |
 | **Publication-grade cross-language benchmark harness** | **0%** (as a product) | [`BENCHMARKS.md`](BENCHMARKS.md) states the repo does **not** provide a fully normalized, machine-locked harness for public speed claims; example-level timing exists, but not that system. |
 

@@ -12,6 +12,8 @@ pub mod anova;
 pub mod anova_contrasts;
 /// User-defined fixed-effects contrast tests (Wald F-tests).
 pub mod contrast;
+/// Nonlinear mixed-effects models (`nlmer`-style).
+pub mod nlmm;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
 pub(crate) mod ddf;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
@@ -43,6 +45,7 @@ pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec,
     ContrastTestResult,
 };
+pub use nlmm::{nlmer, NlmerOptions, NlmmStart};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 use polars::prelude::*;

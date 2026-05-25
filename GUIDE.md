@@ -134,6 +134,39 @@ let weights = Array1::from_vec(vec![1.0; df.height()]);
 let fit = lmer_weighted("y ~ x + (1 | group)", &df, true, Some(weights))?;
 ```
 
+### `nlmer()` for nonlinear mixed models
+
+`nlmer` fits Gaussian nonlinear mixed models with a three-part formula (response, nonlinear mean, random part):
+
+```text
+circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree
+```
+
+```rust
+use lme_rs::nlmer;
+use std::collections::HashMap;
+
+let mut start = HashMap::new();
+start.insert("Asym".to_string(), 200.0);
+start.insert("xmid".to_string(), 725.0);
+start.insert("scal".to_string(), 350.0);
+
+// ML (matches R `nlmer` default); pass `true` for REML profiling
+let fit = nlmer(
+    "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+    &df,
+    start,
+    false,
+)?;
+```
+
+Current limitations:
+
+- Only `SSlogis` is implemented as the mean function.
+- Only one random effect, on a single nonlinear parameter (the canonical Orange-tree example).
+- `predict()` is not wired for NLMM fits yet; use `fitted` / `residuals` on the training data.
+- Log-likelihood and residual variance can differ slightly from `lme4` because this release uses a Laplace / penalized Gauss–Newton path (`nAGQ = 0` style), not full adaptive quadrature.
+
 ### `glmer()` for generalized linear mixed models
 
 ```rust
@@ -382,6 +415,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, one RE parameter) |
 | `glmer(formula, data, family)` | generalized linear mixed model |
 | `anova(fit_a, fit_b)` | likelihood ratio test between nested models |
 

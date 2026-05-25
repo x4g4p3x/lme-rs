@@ -1,0 +1,15 @@
+{
+  "model": "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+  "reference": "lme4::nlmer(Orange, start=c(Asym=200, xmid=725, scal=350), ML)",
+  "outputs": {
+    "Asym": 192.0528,
+    "xmid": 727.9045,
+    "scal": 348.0721,
+    "theta_re_Asym": 31.646,
+    "sigma": 7.843,
+    "sigma2": 61.5128,
+    "logLik": -131.5719,
+    "AIC": 273.1438,
+    "deviance": 263.1438
+  }
+}
