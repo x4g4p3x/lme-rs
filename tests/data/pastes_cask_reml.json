@@ -8,6 +8,10 @@
     "sat_anova_f": [1.4071],
     "sat_anova_p": [0.2548],
     "sat_anova_ndf": [2],
-    "sat_anova_ddf": [48.004]
+    "sat_anova_ddf": [48.004],
+    "kr_anova_f": [1.4069],
+    "kr_anova_p": [0.2548],
+    "kr_anova_ndf": [2],
+    "kr_anova_ddf": [48]
   }
 }

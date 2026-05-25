@@ -20,6 +20,10 @@ pub mod formula;
 pub mod glmm_math;
 /// Kenward-Roger denominator degrees of freedom approximation.
 pub mod kenward_roger;
+/// Kenward–Roger model-comparison F-tests (`pbkrtest::KRmodcomp`).
+pub(crate) mod kr_modcomp;
+/// Kenward–Roger adjusted covariance (`pbkrtest::vcovAdj16`).
+pub(crate) mod kr_vcov_adj;
 /// Core linear algebra evaluation routines for generalized models.
 pub mod math;
 /// Building design matrices (X, Z) from DataFrames.

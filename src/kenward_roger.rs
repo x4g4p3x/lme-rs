@@ -4,6 +4,8 @@ use polars::prelude::DataFrame;
 use statrs::distribution::{ContinuousCDF, StudentsT};
 
 use crate::formula::parse;
+use crate::kr_modcomp::KenwardRogerModcompData;
+use crate::kr_vcov_adj;
 use crate::math::LmmData;
 use crate::model_matrix::build_design_matrices;
 use crate::{LmeError, LmeFit};
@@ -15,6 +17,8 @@ pub struct KenwardRogerResult {
     pub dfs: Array1<f64>,
     /// Two-sided p-values derived from generalized t-distributions using computed `dfs`.
     pub p_values: Array1<f64>,
+    /// Matrices for multi-DoF `KRmodcomp` F-tests (`anova(..., KenwardRoger)`).
+    pub(crate) modcomp: KenwardRogerModcompData,
 }
 
 /// Derives conservative fixed effects F-tests by accounting for the small-sample
@@ -315,5 +319,11 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
         }
     }
 
-    Ok(KenwardRogerResult { dfs, p_values })
+    let modcomp = kr_vcov_adj::kenward_roger_modcomp_data(fit, data)?;
+
+    Ok(KenwardRogerResult {
+        dfs,
+        p_values,
+        modcomp,
+    })
 }

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Kenward–Roger multi-DoF ANOVA via `pbkrtest::KRmodcomp` / `.KR_adjust` ([`src/kr_modcomp.rs`](src/kr_modcomp.rs)) and structural `vcovAdj16` ([`src/kr_vcov_adj.rs`](src/kr_vcov_adj.rs)), wired from [`src/anova.rs`](src/anova.rs). Parity test [`tests/test_kr_modcomp_pastes.rs`](tests/test_kr_modcomp_pastes.rs); golden case `pastes_cask_multi_dof_reml` now checks KR ANOVA.
+
+### Changed
+
+- Kenward–Roger multi-DoF rows no longer use marginal-df pooling only; they use full `KRmodcomp` when `vcovAdj` differs from `vcov`, with pooling when adjustment is negligible (e.g. pastes batch RE).
+
 ## [0.1.7] - 2026-05-18
 
 ### Added

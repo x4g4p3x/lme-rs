@@ -2,7 +2,6 @@ pub use crate::anova_contrasts::AnovaType;
 use crate::anova_contrasts::{self, contrast_for_term, AnovaTerm};
 use crate::LmeFit;
 use ndarray::Array1;
-use statrs::distribution::ContinuousCDF;
 use std::fmt;
 
 /// Approximation methods for creating denominator degrees of freedom in an ANOVA table.
@@ -167,6 +166,11 @@ impl LmeFit {
                     }
                 }
                 DdfMethod::KenwardRoger => {
+                    let kr = self.kenward_roger.as_ref().ok_or(
+                        crate::LmeError::NotImplemented {
+                            feature: "Kenward-Roger values missing.".to_string(),
+                        },
+                    )?;
                     if q == 1 {
                         if let Some(idx) = single_unit_contrast_index(&l_mat) {
                             let t_stats =
@@ -179,15 +183,23 @@ impl LmeFit {
                             den_df[term_idx] = dfs[idx];
                             p_value[term_idx] = _pvals[idx];
                         } else {
-                            let (f_stat, ddf_val, p_val) =
-                                kenward_roger_contrast_f(&self.coefficients, &v_beta, &l_mat, dfs)?;
+                            let (f_stat, ddf_val, p_val) = crate::kr_modcomp::kenward_roger_contrast_f_test(
+                                &kr.modcomp,
+                                &self.coefficients,
+                                &l_mat,
+                                dfs,
+                            )?;
                             f_value[term_idx] = f_stat;
                             den_df[term_idx] = ddf_val;
                             p_value[term_idx] = p_val;
                         }
                     } else {
-                        let (f_stat, ddf_val, p_val) =
-                            kenward_roger_contrast_f(&self.coefficients, &v_beta, &l_mat, dfs)?;
+                        let (f_stat, ddf_val, p_val) = crate::kr_modcomp::kenward_roger_contrast_f_test(
+                            &kr.modcomp,
+                            &self.coefficients,
+                            &l_mat,
+                            dfs,
+                        )?;
                         f_value[term_idx] = f_stat;
                         den_df[term_idx] = ddf_val;
                         p_value[term_idx] = p_val;
@@ -267,42 +279,6 @@ fn single_unit_contrast_index(l_mat: &ndarray::Array2<f64>) -> Option<usize> {
         found = Some(j);
     }
     found
-}
-
-fn kenward_roger_contrast_f(
-    beta: &ndarray::Array1<f64>,
-    v_beta: &ndarray::Array2<f64>,
-    l_mat: &ndarray::Array2<f64>,
-    marginal_dfs: &ndarray::Array1<f64>,
-) -> crate::Result<(f64, f64, f64)> {
-    let q = l_mat.nrows();
-    let beta_s = l_mat.dot(beta);
-    let v_s = l_mat.dot(v_beta).dot(&l_mat.t());
-    let f_stat = {
-        use ndarray_linalg::Inverse;
-        if let Ok(v_inv) = v_s.inv() {
-            beta_s.dot(&v_inv.dot(&beta_s)) / (q as f64)
-        } else {
-            f64::NAN
-        }
-    };
-    let nu_m: Vec<f64> = (0..l_mat.ncols())
-        .filter(|&j| l_mat.column(j).iter().any(|v| v.abs() > 1e-12))
-        .map(|j| marginal_dfs[j])
-        .collect();
-    let ddf_val = if nu_m.iter().any(|d| d.is_nan()) {
-        f64::NAN
-    } else {
-        crate::ddf::get_fstat_ddf(&nu_m, 1e-8)
-    };
-    let p = if f_stat.is_nan() || ddf_val.is_nan() || ddf_val <= 0.0 {
-        f64::NAN
-    } else if let Ok(dist) = statrs::distribution::FisherSnedecor::new(q as f64, ddf_val) {
-        1.0 - dist.cdf(f_stat)
-    } else {
-        f64::NAN
-    };
-    Ok((f_stat, ddf_val, p))
 }
 
 fn run_satterthwaite_contrast(

@@ -235,7 +235,7 @@
     },
     {
       "id": "pastes_cask_multi_dof_reml",
-      "description": "Pastes strength ~ cask with batch RE; multi-DoF Type III Satterthwaite ANOVA for cask.",
+      "description": "Pastes strength ~ cask with batch RE; multi-DoF Type III Satterthwaite and Kenward-Roger ANOVA for cask.",
       "kind": "lmm",
       "data_path": "tests/data/pastes.csv",
       "formula": "strength ~ cask + (1 | batch)",
@@ -246,7 +246,8 @@
         "source_fixture": "tests/data/pastes_cask_reml.json"
       },
       "post_fit": {
-        "satterthwaite": true
+        "satterthwaite": true,
+        "kenward_roger": true
       },
       "expected": {
         "coefficients": [
@@ -305,6 +306,31 @@
               "name": "DenDF",
               "value": 48.004,
               "tolerance": 0.01
+            }
+          }
+        ],
+        "kenward_roger_anova": [
+          {
+            "term": "cask",
+            "f_value": {
+              "name": "F",
+              "value": 1.4069,
+              "tolerance": 0.02
+            },
+            "p_value": {
+              "name": "p",
+              "value": 0.2548,
+              "tolerance": 0.001
+            },
+            "num_df": {
+              "name": "NumDF",
+              "value": 2,
+              "tolerance": 1e-06
+            },
+            "den_df": {
+              "name": "DenDF",
+              "value": 48,
+              "tolerance": 0.05
             }
           }
         ]
