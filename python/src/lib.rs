@@ -14,6 +14,7 @@ pub struct PyLmeFit {
 type RanefRow = (String, String, String, f64);
 type VarCorrRow = (String, String, String, f64, f64);
 type FixedEffectsAnovaPy = (Vec<String>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, String);
+type ContrastTestPy = (f64, f64, f64, f64, String);
 type LikelihoodRatioAnovaPy = (usize, usize, f64, f64, f64, usize, f64, String, String);
 
 fn get_ipc_bytes<'py>(py: Python<'py>, data: &Bound<'py, PyAny>) -> PyResult<Vec<u8>> {
@@ -24,6 +25,16 @@ fn get_ipc_bytes<'py>(py: Python<'py>, data: &Bound<'py, PyAny>) -> PyResult<Vec
     let py_bytes = bytes_io.call_method0("getvalue")?;
     let bytes: &Bound<'py, PyBytes> = py_bytes.downcast()?;
     Ok(bytes.as_bytes().to_vec())
+}
+
+fn parse_ddf_method(ddf_method: &str) -> PyResult<DdfMethod> {
+    match ddf_method.to_lowercase().as_str() {
+        "satterthwaite" => Ok(DdfMethod::Satterthwaite),
+        "kenward_roger" | "kenward-roger" | "kenwardroger" => Ok(DdfMethod::KenwardRoger),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Unsupported ddf_method '{other}'"
+        ))),
+    }
 }
 
 fn read_ipc_bytes(data: &[u8]) -> PyResult<DataFrame> {
@@ -471,16 +482,7 @@ impl PyLmeFit {
         ddf_method: &str,
         anova_type: &str,
     ) -> PyResult<FixedEffectsAnovaPy> {
-        let method = match ddf_method.to_lowercase().as_str() {
-            "satterthwaite" => DdfMethod::Satterthwaite,
-            "kenward_roger" | "kenward-roger" | "kenwardroger" => DdfMethod::KenwardRoger,
-            other => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unsupported ddf_method '{}'",
-                    other
-                )))
-            }
-        };
+        let method = parse_ddf_method(ddf_method)?;
         let atype = match anova_type.to_uppercase().as_str() {
             "III" | "3" | "TYPE3" | "TYPE III" => lme_rs::AnovaType::Type3,
             "II" | "2" | "TYPE2" | "TYPE II" => lme_rs::AnovaType::Type2,
@@ -503,6 +505,55 @@ impl PyLmeFit {
             )),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "anova failed: {}",
+                e
+            ))),
+        }
+    }
+
+    /// Wald F-test for a user-defined contrast matrix **L** (H₀: L β = 0).
+    ///
+    /// `l_matrix` is a list of rows; each row is a list of length `p` (number of fixed effects),
+    /// aligned with `fit.fixed_names` order.
+    ///
+    /// Returns `(num_df, den_df, f_value, p_value, method)`.
+    #[pyo3(signature = (l_matrix, ddf_method="satterthwaite"))]
+    pub fn test_contrast(
+        &self,
+        l_matrix: Vec<Vec<f64>>,
+        ddf_method: &str,
+    ) -> PyResult<ContrastTestPy> {
+        let method = parse_ddf_method(ddf_method)?;
+        let p = self.inner.coefficients.len();
+        let q = l_matrix.len();
+        if q == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "l_matrix must have at least one row",
+            ));
+        }
+        let mut l = ndarray::Array2::<f64>::zeros((q, p));
+        for (i, row) in l_matrix.iter().enumerate() {
+            if row.len() != p {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Row {} has length {} but the model has {} coefficients",
+                    i,
+                    row.len(),
+                    p
+                )));
+            }
+            for (j, &v) in row.iter().enumerate() {
+                l[[i, j]] = v;
+            }
+        }
+        match self.inner.test_contrast(&l, method) {
+            Ok(res) => Ok((
+                res.num_df,
+                res.den_df,
+                res.f_value,
+                res.p_value,
+                format!("{:?}", res.method),
+            )),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "test_contrast failed: {}",
                 e
             ))),
         }

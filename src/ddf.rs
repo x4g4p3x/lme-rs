@@ -58,13 +58,16 @@ fn transform_contrast(
 }
 
 /// Multi-DoF Satterthwaite F-test for contrast matrix `l_mat` (q × p), `lmerTest::contestMD`.
+///
+/// Tests **H₀: L β = L β_H**; pass `beta_h = None` for **β_H = 0**.
 pub(crate) fn satterthwaite_contrast_f_test(
     beta: &Array1<f64>,
     v_beta: &Array2<f64>,
     l_mat: &Array2<f64>,
     jac_vcov: &[Array2<f64>],
     a_mat: &Array2<f64>,
-) -> crate::Result<(f64, f64, f64)> {
+    beta_h: Option<&Array1<f64>>,
+) -> crate::Result<(f64, f64, f64, f64)> {
     let q = l_mat.nrows();
     if q == 0 {
         return Err(LmeError::NotImplemented {
@@ -72,7 +75,10 @@ pub(crate) fn satterthwaite_contrast_f_test(
         });
     }
 
-    let beta_s = l_mat.dot(beta);
+    let beta_s = match beta_h {
+        Some(h) => l_mat.dot(beta) - l_mat.dot(h),
+        None => l_mat.dot(beta),
+    };
     let (v_s, jac_s) = transform_contrast(l_mat, v_beta, jac_vcov);
 
     if q == 1 {
@@ -92,7 +98,7 @@ pub(crate) fn satterthwaite_contrast_f_test(
             den_df = f64::NAN;
         }
         let p = fisher_p(f, 1.0, den_df);
-        return Ok((f, den_df, p));
+        return Ok((f, den_df, p, 1.0));
     }
 
     let (eval, evec) = v_s
@@ -118,7 +124,7 @@ pub(crate) fn satterthwaite_contrast_f_test(
 
     let q_eff = directions.len();
     if q_eff == 0 {
-        return Ok((f64::NAN, f64::NAN, f64::NAN));
+        return Ok((f64::NAN, f64::NAN, f64::NAN, 0.0));
     }
 
     let mut t2_sum = 0.0;
@@ -152,7 +158,7 @@ pub(crate) fn satterthwaite_contrast_f_test(
         get_fstat_ddf(&nu_m, 1e-8)
     };
     let p = fisher_p(f_stat, q_eff as f64, den_df);
-    Ok((f_stat, den_df, p))
+    Ok((f_stat, den_df, p, q_eff as f64))
 }
 
 fn fisher_p(f_stat: f64, num_df: f64, den_df: f64) -> f64 {

@@ -1,5 +1,6 @@
 pub use crate::anova_contrasts::AnovaType;
 use crate::anova_contrasts::{self, contrast_for_term, AnovaTerm};
+use crate::contrast::fixed_effect_contrast_test;
 use crate::LmeFit;
 use ndarray::Array1;
 use std::fmt;
@@ -59,27 +60,6 @@ impl LmeFit {
             });
         }
 
-        let (dfs, _pvals) = match ddf {
-            DdfMethod::Satterthwaite => {
-                if let Some(res) = &self.satterthwaite {
-                    (&res.dfs, &res.p_values)
-                } else {
-                    return Err(crate::LmeError::NotImplemented {
-                        feature: "Satterthwaite values missing. Please ensure the model was evaluated with them tracking on.".to_string()
-                    });
-                }
-            }
-            DdfMethod::KenwardRoger => {
-                if let Some(res) = &self.kenward_roger {
-                    (&res.dfs, &res.p_values)
-                } else {
-                    return Err(crate::LmeError::NotImplemented {
-                        feature: "Kenward-Roger values missing. Please ensure the model evaluated them tracking on.".to_string()
-                    });
-                }
-            }
-        };
-
         let anova_terms = self.grouped_anova_terms(&fixed_names, start_idx)?;
         if anova_terms.is_empty() {
             return Err(crate::LmeError::NotImplemented {
@@ -104,19 +84,6 @@ impl LmeFit {
         let term_names: Vec<String> = anova_terms.iter().map(|t| t.name.clone()).collect();
         let containment = anova_contrasts::term_containment(&term_names);
 
-        let v_beta = if let Some(robust) = &self.robust {
-            robust.v_beta_robust.clone()
-        } else {
-            let xtx_inv = self
-                .v_beta_unscaled
-                .as_ref()
-                .ok_or(crate::LmeError::NotImplemented {
-                    feature: "Covariance matrix missing".to_string(),
-                })?;
-            let sigma2 = self.sigma2.unwrap_or(1.0);
-            xtx_inv * sigma2
-        };
-
         let n_terms = anova_terms.len();
         let mut terms = Vec::with_capacity(n_terms);
         let mut num_df = Array1::<f64>::zeros(n_terms);
@@ -134,78 +101,12 @@ impl LmeFit {
                 &term.col_indices,
                 &containment,
             );
-            let q = l_mat.nrows();
-            num_df[term_idx] = q as f64;
 
-            match ddf {
-                DdfMethod::Satterthwaite => {
-                    if q == 1 {
-                        if let Some(idx) = single_unit_contrast_index(&l_mat) {
-                            let t_stats =
-                                self.beta_t
-                                    .as_ref()
-                                    .ok_or(crate::LmeError::NotImplemented {
-                                        feature: "t-statistics missing".to_string(),
-                                    })?;
-                            f_value[term_idx] = t_stats[idx] * t_stats[idx];
-                            den_df[term_idx] = dfs[idx];
-                            p_value[term_idx] = _pvals[idx];
-                        } else {
-                            let (f_stat, ddf_val, p_val) =
-                                run_satterthwaite_contrast(self, &l_mat, &v_beta)?;
-                            f_value[term_idx] = f_stat;
-                            den_df[term_idx] = ddf_val;
-                            p_value[term_idx] = p_val;
-                        }
-                    } else {
-                        let (f_stat, ddf_val, p_val) =
-                            run_satterthwaite_contrast(self, &l_mat, &v_beta)?;
-                        f_value[term_idx] = f_stat;
-                        den_df[term_idx] = ddf_val;
-                        p_value[term_idx] = p_val;
-                    }
-                }
-                DdfMethod::KenwardRoger => {
-                    let kr = self.kenward_roger.as_ref().ok_or(
-                        crate::LmeError::NotImplemented {
-                            feature: "Kenward-Roger values missing.".to_string(),
-                        },
-                    )?;
-                    if q == 1 {
-                        if let Some(idx) = single_unit_contrast_index(&l_mat) {
-                            let t_stats =
-                                self.beta_t
-                                    .as_ref()
-                                    .ok_or(crate::LmeError::NotImplemented {
-                                        feature: "t-statistics missing".to_string(),
-                                    })?;
-                            f_value[term_idx] = t_stats[idx] * t_stats[idx];
-                            den_df[term_idx] = dfs[idx];
-                            p_value[term_idx] = _pvals[idx];
-                        } else {
-                            let (f_stat, ddf_val, p_val) = crate::kr_modcomp::kenward_roger_contrast_f_test(
-                                &kr.modcomp,
-                                &self.coefficients,
-                                &l_mat,
-                                dfs,
-                            )?;
-                            f_value[term_idx] = f_stat;
-                            den_df[term_idx] = ddf_val;
-                            p_value[term_idx] = p_val;
-                        }
-                    } else {
-                        let (f_stat, ddf_val, p_val) = crate::kr_modcomp::kenward_roger_contrast_f_test(
-                            &kr.modcomp,
-                            &self.coefficients,
-                            &l_mat,
-                            dfs,
-                        )?;
-                        f_value[term_idx] = f_stat;
-                        den_df[term_idx] = ddf_val;
-                        p_value[term_idx] = p_val;
-                    }
-                }
-            }
+            let res = fixed_effect_contrast_test(self, &l_mat, ddf, None)?;
+            num_df[term_idx] = res.num_df;
+            den_df[term_idx] = res.den_df;
+            f_value[term_idx] = res.f_value;
+            p_value[term_idx] = res.p_value;
         }
 
         Ok(FixedEffectsAnovaResult {
@@ -261,46 +162,6 @@ impl LmeFit {
             .map(|(name, col_indices)| AnovaTerm { name, col_indices })
             .collect())
     }
-}
-
-fn single_unit_contrast_index(l_mat: &ndarray::Array2<f64>) -> Option<usize> {
-    if l_mat.nrows() != 1 {
-        return None;
-    }
-    let mut found = None;
-    for j in 0..l_mat.ncols() {
-        let v = l_mat[[0, j]];
-        if v.abs() <= 1e-12 {
-            continue;
-        }
-        if found.is_some() || (v - 1.0).abs() > 1e-12 {
-            return None;
-        }
-        found = Some(j);
-    }
-    found
-}
-
-fn run_satterthwaite_contrast(
-    fit: &LmeFit,
-    l_mat: &ndarray::Array2<f64>,
-    v_beta: &ndarray::Array2<f64>,
-) -> crate::Result<(f64, f64, f64)> {
-    let multi = fit
-        .satterthwaite
-        .as_ref()
-        .and_then(|r| r.multi_dof.as_ref())
-        .ok_or(crate::LmeError::NotImplemented {
-            feature: "Multi-DoF Satterthwaite requires with_satterthwaite() on the fit."
-                .to_string(),
-        })?;
-    crate::ddf::satterthwaite_contrast_f_test(
-        &fit.coefficients,
-        v_beta,
-        l_mat,
-        &multi.jac_vcov,
-        &multi.a_mat,
-    )
 }
 
 fn legacy_term_label(

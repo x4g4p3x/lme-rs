@@ -299,6 +299,7 @@ Current scope:
 - Multi-DoF Satterthwaite denominator df follows **`lmerTest::contestMD()`** (orthogonal contrast directions + `get_Fstat_ddf()` pooling); call `with_satterthwaite()` before `anova()` so the vcov Jacobian is available
 - Kenward–Roger multi-DoF rows use `pbkrtest::KRmodcomp` / `.KR_adjust` via [`kr_modcomp`](src/kr_modcomp.rs) and `vcovAdj16` via [`kr_vcov_adj`](src/kr_vcov_adj.rs); when `vcovAdj` ≈ `vcov`, DenDF matches marginal KR pooling (pastes `cask` reference)
 - Golden regression for categorical multi-DoF ANOVA: manifest case `pastes_cask_multi_dof_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (pastes / `cask`)
+- **User-defined contrasts:** any **q × p** matrix `L` via [`LmeFit::test_contrast`](src/contrast.rs) / [`test_contrast_vs`](src/contrast.rs) (`lmerTest::contestMD` / `KRmodcomp`); helpers [`contrast_matrix`](src/contrast.rs) and [`contrast_matrix_from_names`](src/contrast.rs). Python: `fit.test_contrast(l_matrix, ddf_method=...)`.
 
 ## Model Comparison
 
@@ -328,7 +329,7 @@ For GLMMs, `lme-rs` computes the optimization target from a Laplace-approximated
 
 ### ANOVA scope
 
-Fixed-effects ANOVA supports Type **II** and Type **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary user-defined contrast matrices are not implemented.
+Fixed-effects ANOVA supports Type **II** and Type **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary **q × p** contrast matrices are supported via [`test_contrast`](src/contrast.rs).
 
 ### Kenward-Roger status
 

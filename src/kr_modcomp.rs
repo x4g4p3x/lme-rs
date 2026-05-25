@@ -253,12 +253,16 @@ pub fn kenward_roger_contrast_f_test(
     beta: &Array1<f64>,
     l_mat: &Array2<f64>,
     marginal_dfs: &Array1<f64>,
-) -> crate::Result<(f64, f64, f64)> {
-    if phi_a_near_phi(&data.phi, &data.phi_a, 1e-8) {
-        return kenward_roger_contrast_marginal_pool(beta, l_mat, marginal_dfs, data);
+    beta_h: Option<&Array1<f64>>,
+) -> crate::Result<(f64, f64, f64, f64)> {
+    let eps = f64::EPSILON.sqrt();
+    let num_df = contrast_rank(l_mat, eps) as f64;
+    if phi_a_near_phi(&data.phi, &data.phi_a, 1e-8) && beta_h.is_none() {
+        let (f, ddf, p) = kenward_roger_contrast_marginal_pool(beta, l_mat, marginal_dfs, data)?;
+        return Ok((f, ddf, p, num_df));
     }
-    let res = kr_modcomp_test(data, l_mat, beta, None)?;
-    Ok((res.f_stat, res.den_df, res.p_value))
+    let res = kr_modcomp_test(data, l_mat, beta, beta_h)?;
+    Ok((res.f_stat, res.den_df, res.p_value, num_df))
 }
 
 /// Marginal-df pooling on unadjusted `Phi` (equivalent to `KRmodcomp` when `PhiA` = `Phi`).
@@ -268,13 +272,13 @@ fn kenward_roger_contrast_marginal_pool(
     marginal_dfs: &Array1<f64>,
     data: &KenwardRogerModcompData,
 ) -> crate::Result<(f64, f64, f64)> {
-    let q = l_mat.nrows();
+    let q = contrast_rank(l_mat, f64::EPSILON.sqrt()) as f64;
     let beta_s = l_mat.dot(beta);
     let v_s = l_mat.dot(&data.phi).dot(&l_mat.t());
     let f_stat = {
         use ndarray_linalg::Inverse;
         if let Ok(v_inv) = v_s.inv() {
-            beta_s.dot(&v_inv.dot(&beta_s)) / (q as f64)
+            beta_s.dot(&v_inv.dot(&beta_s)) / q
         } else {
             f64::NAN
         }
@@ -288,7 +292,7 @@ fn kenward_roger_contrast_marginal_pool(
     } else {
         crate::ddf::get_fstat_ddf(&nu_m, 1e-8)
     };
-    let p = fisher_upper_tail(f_stat, q as f64, den_df);
+    let p = fisher_upper_tail(f_stat, q, den_df);
     Ok((f_stat, den_df, p))
 }
 

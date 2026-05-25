@@ -63,6 +63,7 @@ Available `PyLmeFit` methods:
 - `with_satterthwaite(data)`  # denominator df and p-values
 - `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
 - `anova(ddf_method="satterthwaite")`  # Type III fixed-effects ANOVA
+- `test_contrast(l_matrix, ddf_method="satterthwaite")`  # user-defined q×p contrast (H₀: Lβ=0)
 
 Selected properties:
 

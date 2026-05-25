@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- User-defined fixed-effects contrast tests: [`LmeFit::test_contrast`](src/contrast.rs), [`test_contrast_vs`](src/contrast.rs), and [`contrast_matrix_from_names`](src/contrast.rs) ([`tests/test_contrast.rs`](tests/test_contrast.rs)). Python: `fit.test_contrast(l_matrix)`.
 - Kenward–Roger multi-DoF ANOVA via `pbkrtest::KRmodcomp` / `.KR_adjust` ([`src/kr_modcomp.rs`](src/kr_modcomp.rs)) and structural `vcovAdj16` ([`src/kr_vcov_adj.rs`](src/kr_vcov_adj.rs)), wired from [`src/anova.rs`](src/anova.rs). Parity test [`tests/test_kr_modcomp_pastes.rs`](tests/test_kr_modcomp_pastes.rs); golden case `pastes_cask_multi_dof_reml` now checks KR ANOVA.
 
 ### Changed

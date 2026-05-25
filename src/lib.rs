@@ -10,6 +10,8 @@
 pub mod anova;
 /// Type II / III contrast construction for fixed-effects ANOVA.
 pub mod anova_contrasts;
+/// User-defined fixed-effects contrast tests (Wald F-tests).
+pub mod contrast;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
 pub(crate) mod ddf;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
@@ -37,6 +39,10 @@ pub mod satterthwaite;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
 pub use anova_contrasts::AnovaType;
+pub use contrast::{
+    contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec,
+    ContrastTestResult,
+};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 use polars::prelude::*;
