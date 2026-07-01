@@ -240,7 +240,7 @@ fn get_ipc_bytes<'py>(py: Python<'py>, data: &Bound<'py, PyAny>) -> PyResult<Vec
     data.call_method1("write_ipc", (&bytes_io,))
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("DataFrame must have a write_ipc method (e.g., polars.DataFrame): {}", e)))?;
     let py_bytes = bytes_io.call_method0("getvalue")?;
-    let bytes: &Bound<'py, PyBytes> = py_bytes.downcast()?;
+    let bytes: Bound<'py, PyBytes> = py_bytes.cast()?.clone();
     Ok(bytes.as_bytes().to_vec())
 }
 
