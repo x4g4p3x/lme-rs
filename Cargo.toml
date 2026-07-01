@@ -89,8 +89,14 @@ path = "comparisons/lmer_weighted.rs"
 name = "glmm_gaussian"
 path = "comparisons/glmm_gaussian.rs"
 
+# x86_64 (Linux, Windows, macOS cross-targets): static Intel MKL.
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
 
-[target.'cfg(not(target_arch = "x86_64"))'.dependencies]
+# macOS Apple Silicon: link Homebrew OpenBLAS (openblas-static source builds fail on GHA).
+[target.'cfg(all(not(target_arch = "x86_64"), target_os = "macos"))'.dependencies]
+ndarray-linalg = { version = "0.17", features = ["openblas-system"] }
+
+# Other non-x86_64 (e.g. Linux aarch64 manylinux wheels): static OpenBLAS.
+[target.'cfg(all(not(target_arch = "x86_64"), not(target_os = "macos")))'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["openblas-static"] }
