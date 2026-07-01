@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-07-01
+
 ### Added
 
 - Python bindings pushed to ~95% Rust parity: `lm_matrix`, `contrast_matrix`, structured results (`PyConfintResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PySimulateResult`), extra [`PyLmeFit`](python/src/lib.rs) getters (`b`, `u`, `beta_se`, `fixed_term_assign`, `categorical_levels`, `v_beta_unscaled`), and [`lme_python.pyi`](python/lme_python.pyi). Prior: `nlmer`, `glmer_weighted`, `contrast_matrix_from_names`, `test_contrast_vs`, metadata getters. Tests in [`python/tests/test_api_parity.py`](python/tests/test_api_parity.py).
@@ -18,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Kenward–Roger multi-DoF rows no longer use marginal-df pooling only; they use full `KRmodcomp` when `vcovAdj` differs from `vcov`, with pooling when adjustment is negligible (e.g. pastes batch RE).
+- CI and local dev tooling: single cross-platform [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py) runner (Task, Lefthook, GitHub Actions, legacy `local_ci` scripts); [`Taskfile.yml`](Taskfile.yml), [`lefthook.yml`](lefthook.yml), [`mise.toml`](mise.toml) pins; Ruff on `python/tests` and `python/examples`. See [`AGENTS.md`](AGENTS.md).
 
 ## [0.1.7] - 2026-05-18
 
