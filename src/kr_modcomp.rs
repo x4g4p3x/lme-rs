@@ -61,7 +61,11 @@ fn contrast_rank(l: &Array2<f64>, eps: f64) -> usize {
         return 0;
     }
     if q == 1 {
-        return if l.iter().any(|v| v.abs() > eps) { 1 } else { 0 };
+        return if l.iter().any(|v| v.abs() > eps) {
+            1
+        } else {
+            0
+        };
     }
     let gram = l.dot(&l.t());
     let (eval, _) = gram
@@ -158,12 +162,20 @@ pub fn kr_modcomp_test(
 
     let v0 = {
         let x = 1.0 + c1 * b;
-        if x.abs() < 1e-10 { 0.0 } else { x }
+        if x.abs() < 1e-10 {
+            0.0
+        } else {
+            x
+        }
     };
     let v1 = 1.0 - c2 * b;
     let v2 = {
         let x = 1.0 - c3 * b;
-        if x.abs() < 1e-10 { 0.0 } else { x }
+        if x.abs() < 1e-10 {
+            0.0
+        } else {
+            x
+        }
     };
 
     let rho = (1.0 / q) * div_zero(1.0 - a2 / q, v1, 1e-10).powi(2) * div_zero(v0, v2, 1e-10);

@@ -1,0 +1,16 @@
+# Tool versions for local dev. Install mise: https://mise.jdx.dev
+# Then: mise install  &&  mise trust
+
+[tools]
+rust = "stable"
+python = "3.11"
+uv = "latest"
+lefthook = "latest"
+task = "latest"
+
+[settings]
+# Put mise-managed tools on PATH in new shells (Windows + Unix).
+activate_aggressive = true
+
+[env]
+CARGO_TERM_COLOR = "always"

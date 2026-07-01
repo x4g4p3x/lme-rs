@@ -18,8 +18,8 @@ import os
 import sys
 
 try:
-    import polars as pl
     import lme_python
+    import polars as pl
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure lme_python is built and the virtual environment is active:")
@@ -77,11 +77,13 @@ def main():
 
     # ── 6. Population-level vs conditional predictions ────────────────────────
     print("\n--- Predictions for Subject 308 at Days 0, 5, 10 ---")
-    newdata = pl.DataFrame({
-        "Reaction": [0.0, 0.0, 0.0],
-        "Days": [0.0, 5.0, 10.0],
-        "Subject": ["308", "308", "308"],
-    })
+    newdata = pl.DataFrame(
+        {
+            "Reaction": [0.0, 0.0, 0.0],
+            "Days": [0.0, 5.0, 10.0],
+            "Subject": ["308", "308", "308"],
+        }
+    )
     pop_preds = reml_fit.predict(newdata)
     cond_preds = reml_fit.predict_conditional(newdata, allow_new_levels=False)
 

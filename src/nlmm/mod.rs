@@ -5,7 +5,7 @@ mod formula;
 mod sslogis;
 
 pub use fit::{fit_nlmer, NlmerOptions, NlmmStart};
-pub use formula::{parse_nlmer_formula, NlmmMeanKind, NlmerFormula};
+pub use formula::{parse_nlmer_formula, NlmerFormula, NlmmMeanKind};
 
 use polars::prelude::DataFrame;
 

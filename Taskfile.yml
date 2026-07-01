@@ -1,0 +1,93 @@
+version: '3'
+
+vars:
+  RUN: '{{if eq OS "windows"}}python{{else}}python3{{end}} scripts/ci/lme_ci.py'
+
+tasks:
+  default:
+    aliases: [ci]
+    desc: Full local CI (mirrors GitHub Actions core jobs)
+    cmds:
+      - task: ci
+
+  ci:
+    desc: Run full local CI (build, test, Python bindings, fmt, clippy, check, doctest, doc)
+    cmds:
+      - '{{.RUN}} ci'
+
+  ci:fast:
+    desc: CI with reused python/.venv and no wheel-reinstall pytest pass
+    cmds:
+      - '{{.RUN}} ci --reuse-venv --skip-wheel-reinstall'
+
+  lint:
+    desc: Pre-push lint (rustfmt + clippy + Ruff on python/tests and examples)
+    cmds:
+      - '{{.RUN}} lint'
+
+  lint:rust:
+    desc: Rust-only lint (fmt check + clippy)
+    cmds:
+      - '{{.RUN}} rust-lint'
+
+  lint:python:
+    desc: Ruff check/format on python/tests and python/examples
+    cmds:
+      - '{{.RUN}} ruff-lint'
+
+  lint:ci:
+    desc: lint + cargo check (no tests, no maturin/pytest)
+    cmds:
+      - task: lint
+      - task: check
+
+  fmt:
+    desc: Apply rustfmt to the workspace
+    cmds:
+      - '{{.RUN}} fmt'
+
+  fmt:check:
+    desc: Check rustfmt formatting
+    cmds:
+      - '{{.RUN}} fmt-check'
+
+  clippy:
+    desc: Run clippy with warnings denied
+    cmds:
+      - '{{.RUN}} clippy'
+
+  check:
+    desc: cargo check --workspace --all-targets --locked
+    cmds:
+      - '{{.RUN}} check'
+
+  rust:
+    desc: Rust-only CI slice (fmt check, clippy, check, build/test, doctest, doc)
+    cmds:
+      - '{{.RUN}} rust-all'
+
+  python:
+    desc: Python bindings flow (maturin develop + pytest + wheel reinstall)
+    cmds:
+      - '{{.RUN}} python'
+
+  lint:python:staged:
+    desc: Ruff check/format staged python/**/*.py (pre-commit)
+    cmds:
+      - '{{.RUN}} ruff-staged --fix'
+
+  hooks:install:
+    desc: Install lefthook git hooks (pre-commit + pre-push)
+    cmds:
+      - '{{.RUN}} hooks-install'
+
+  hooks:uninstall:
+    desc: Remove lefthook pre-commit hook
+    cmds:
+      - '{{.RUN}} hooks-uninstall'
+
+  setup:
+    desc: Install pinned toolchain (mise) and git hooks
+    cmds:
+      - mise install
+      - task: hooks:install

@@ -87,7 +87,11 @@ fn parse_nonlinear_part(s: &str) -> crate::Result<(NlmmMeanKind, String, [String
     Ok((
         mean,
         args[0].to_string(),
-        [args[1].to_string(), args[2].to_string(), args[3].to_string()],
+        [
+            args[1].to_string(),
+            args[2].to_string(),
+            args[3].to_string(),
+        ],
     ))
 }
 
@@ -109,10 +113,9 @@ mod tests {
 
     #[test]
     fn parses_orange_formula() {
-        let (f, kind) = parse_nlmer_formula(
-            "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
-        )
-        .unwrap();
+        let (f, kind) =
+            parse_nlmer_formula("circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree")
+                .unwrap();
         assert_eq!(kind, NlmmMeanKind::Sslogis);
         assert_eq!(f.response, "circumference");
         assert_eq!(f.covariate, "age");

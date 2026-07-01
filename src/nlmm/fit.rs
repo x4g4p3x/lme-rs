@@ -1,12 +1,12 @@
 //! Nonlinear mixed-model fitting (Laplace / penalized Gauss–Newton, `nAGQ = 0` style).
 
-use ndarray::{Array1, Array2};
-use ndarray_linalg::{Cholesky, Solve, UPLO};
 use crate::model_matrix::ReBlock;
-use crate::nlmm::formula::{NlmmMeanKind, NlmerFormula};
+use crate::nlmm::formula::{NlmerFormula, NlmmMeanKind};
 use crate::nlmm::sslogis::sslogis_eval;
 use crate::optimizer::compute_theta_lower_bounds;
 use crate::{LmeError, LmeFit};
+use ndarray::{Array1, Array2};
+use ndarray_linalg::{Cholesky, Solve, UPLO};
 use polars::prelude::*;
 
 /// Starting values for fixed nonlinear parameters (by name).
@@ -169,7 +169,12 @@ impl NlmmProblem {
         }
 
         let mu = self.predict(asym, xmid, scal, &b);
-        let rss: f64 = self.y.iter().zip(mu.iter()).map(|(&y, &m)| (y - m).powi(2)).sum();
+        let rss: f64 = self
+            .y
+            .iter()
+            .zip(mu.iter())
+            .map(|(&y, &m)| (y - m).powi(2))
+            .sum();
         (asym, xmid, scal, b, rss)
     }
 
@@ -189,7 +194,8 @@ impl NlmmProblem {
         let tau2 = tau.max(1e-8).powi(2);
         let b_pen: f64 = b.iter().map(|v| v * v).sum::<f64>() / tau2;
         let twopi = std::f64::consts::PI * 2.0;
-        let mut crit = df * (twopi * sigma2).ln() + rss / sigma2 + b_pen + self.m as f64 * tau2.ln();
+        let mut crit =
+            df * (twopi * sigma2).ln() + rss / sigma2 + b_pen + self.m as f64 * tau2.ln();
         if reml {
             crit += (self.m as f64 - p) * (1.0 + sigma2.ln());
         }
@@ -212,20 +218,8 @@ fn optimize_tau_golden(
     let mut b = hi;
     let mut c = b - (b - a) / phi;
     let mut d = a + (b - a) / phi;
-    let mut fc = problem.profile_objective(
-        c,
-        start,
-        &parsed.fixed_param_names,
-        reml,
-        max_inner,
-    );
-    let mut fd = problem.profile_objective(
-        d,
-        start,
-        &parsed.fixed_param_names,
-        reml,
-        max_inner,
-    );
+    let mut fc = problem.profile_objective(c, start, &parsed.fixed_param_names, reml, max_inner);
+    let mut fd = problem.profile_objective(d, start, &parsed.fixed_param_names, reml, max_inner);
     let mut fc_cost = fc.0;
     let mut fd_cost = fd.0;
     let mut iters = 0u64;
@@ -237,13 +231,7 @@ fn optimize_tau_golden(
             fd = fc;
             fd_cost = fc_cost;
             c = b - (b - a) / phi;
-            fc = problem.profile_objective(
-                c,
-                start,
-                &parsed.fixed_param_names,
-                reml,
-                max_inner,
-            );
+            fc = problem.profile_objective(c, start, &parsed.fixed_param_names, reml, max_inner);
             fc_cost = fc.0;
         } else {
             a = c;
@@ -251,32 +239,15 @@ fn optimize_tau_golden(
             fc = fd;
             fc_cost = fd_cost;
             d = a + (b - a) / phi;
-            fd = problem.profile_objective(
-                d,
-                start,
-                &parsed.fixed_param_names,
-                reml,
-                max_inner,
-            );
+            fd = problem.profile_objective(d, start, &parsed.fixed_param_names, reml, max_inner);
             fd_cost = fd.0;
         }
     }
     let tau = (a + b) / 2.0;
-    let (_, _, _, _, _, _) = problem.profile_objective(
-        tau,
-        start,
-        &parsed.fixed_param_names,
-        reml,
-        max_inner,
-    );
+    let (_, _, _, _, _, _) =
+        problem.profile_objective(tau, start, &parsed.fixed_param_names, reml, max_inner);
     let final_cost = problem
-        .profile_objective(
-            tau,
-            start,
-            &parsed.fixed_param_names,
-            reml,
-            max_inner,
-        )
+        .profile_objective(tau, start, &parsed.fixed_param_names, reml, max_inner)
         .0;
     (tau, final_cost, iters)
 }
@@ -419,13 +390,13 @@ pub fn fit_nlmer(
 }
 
 fn column_f64(df: &DataFrame, name: &str) -> crate::Result<Array1<f64>> {
-    let s = df
-        .column(name)
-        .map_err(|e| LmeError::NotImplemented {
-            feature: format!("Column '{name}': {e}"),
-        })?;
+    let s = df.column(name).map_err(|e| LmeError::NotImplemented {
+        feature: format!("Column '{name}': {e}"),
+    })?;
     if let Ok(ca) = s.f64() {
-        return Ok(Array1::from_iter(ca.into_iter().map(|v| v.unwrap_or(f64::NAN))));
+        return Ok(Array1::from_iter(
+            ca.into_iter().map(|v| v.unwrap_or(f64::NAN)),
+        ));
     }
     if let Ok(ca) = s.i64() {
         return Ok(Array1::from_iter(
@@ -443,11 +414,9 @@ fn column_f64(df: &DataFrame, name: &str) -> crate::Result<Array1<f64>> {
 }
 
 fn column_str(df: &DataFrame, name: &str) -> crate::Result<Vec<String>> {
-    let s = df
-        .column(name)
-        .map_err(|e| LmeError::NotImplemented {
-            feature: format!("Column '{name}': {e}"),
-        })?;
+    let s = df.column(name).map_err(|e| LmeError::NotImplemented {
+        feature: format!("Column '{name}': {e}"),
+    })?;
     if let Ok(ca) = s.str() {
         return Ok(ca
             .into_iter()
@@ -467,9 +436,11 @@ fn column_str(df: &DataFrame, name: &str) -> crate::Result<Vec<String>> {
             .collect());
     }
     // Factor-like categoricals from CSV
-    let cast = s.cast(&DataType::String).map_err(|e| LmeError::NotImplemented {
-        feature: format!("Column '{name}' could not be cast to string: {e}"),
-    })?;
+    let cast = s
+        .cast(&DataType::String)
+        .map_err(|e| LmeError::NotImplemented {
+            feature: format!("Column '{name}' could not be cast to string: {e}"),
+        })?;
     let ca = cast.str().map_err(|e| LmeError::NotImplemented {
         feature: format!("Column '{name}' string cast failed: {e}"),
     })?;
@@ -531,12 +502,8 @@ mod orange_inner {
             m: 5,
             mean,
         };
-        let (asym, xmid, scal, _, _) = problem.inner_gauss_newton(
-            31.646,
-            &start,
-            &parsed.fixed_param_names,
-            200,
-        );
+        let (asym, xmid, scal, _, _) =
+            problem.inner_gauss_newton(31.646, &start, &parsed.fixed_param_names, 200);
         assert!(
             (asym - 192.0528).abs() < 3.0,
             "asym={asym} xmid={xmid} scal={scal}"

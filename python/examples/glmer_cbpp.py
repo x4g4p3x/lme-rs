@@ -15,13 +15,13 @@ Run from the repository root:
     python python/examples/glmer_cbpp.py
 """
 
+import math
 import os
 import sys
-import math
 
 try:
-    import polars as pl
     import lme_python
+    import polars as pl
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure lme_python is built and the virtual environment is active:")

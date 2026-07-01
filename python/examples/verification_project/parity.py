@@ -11,10 +11,8 @@ import json
 import math
 from typing import Any
 
-import polars as pl
-
 import lme_python
-
+import polars as pl
 from paths import repo_root, tests_data
 
 
@@ -68,7 +66,7 @@ def verify_sleepstudy_nested_lrt() -> None:
 
 
 def verify_cbpp_binomial_json() -> None:
-    """Match `tests/data/glmm_binomial.json` R-exported beta and theta (see `tests/test_glmm.rs`)."""
+    """Match glmm_binomial.json R-exported beta/theta (see tests/test_glmm.rs)."""
     path = repo_root() / "tests" / "data" / "glmm_binomial.json"
     with open(path, encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)

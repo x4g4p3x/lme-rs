@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Tuple
 
 try:
     import matplotlib.pyplot as plt
@@ -60,7 +59,7 @@ def _figures_data_dir() -> Path:
     return d
 
 
-def plot_sleepstudy_lmm() -> Tuple[Path, Path]:
+def plot_sleepstudy_lmm() -> tuple[Path, Path]:
     """LMM: residual vs fitted + Days × Reaction with population and conditional curves."""
     df = pl.read_csv(tests_data("sleepstudy.csv"))
     fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
@@ -114,7 +113,14 @@ def plot_sleepstudy_lmm() -> Tuple[Path, Path]:
             linewidth=0.9,
         )
     ax2.plot(grid_days, line_pop, color="tab:blue", linewidth=2.2, label="Population (×β)")
-    ax2.plot(grid_days, line_cond, color="tab:orange", linewidth=2.0, linestyle="--", label=f"Conditional (×β+Zb), Subject {subj}")
+    ax2.plot(
+        grid_days,
+        line_cond,
+        color="tab:orange",
+        linewidth=2.0,
+        linestyle="--",
+        label=f"Conditional (×β+Zb), Subject {subj}",
+    )
     ax2.scatter(days, reaction, s=12, alpha=0.25, c="black", zorder=0)
     ax2.set_xlabel("Days")
     ax2.set_ylabel("Reaction (ms)")

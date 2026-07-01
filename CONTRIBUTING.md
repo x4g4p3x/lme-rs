@@ -11,9 +11,31 @@ This repository contains:
 
 ## Local setup
 
+### Recommended toolchain
+
+Install [mise](https://mise.jdx.dev) and run once per clone:
+
+```bash
+mise install
+task setup    # installs pinned tools + lefthook git hooks
+```
+
+[`mise.toml`](mise.toml) pins Rust (stable), Python 3.11, [uv](https://docs.astral.sh/uv/), [lefthook](https://lefthook.dev/), and [go-task](https://taskfile.dev).
+
+See [AGENTS.md](AGENTS.md) for the four-tier pre-flight model (Lefthook commit/push hooks → `task lint` → `task ci`).
+
+### CI runner
+
+All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic.
+
+```bash
+python3 scripts/ci/lme_ci.py ci
+python3 scripts/ci/lme_ci.py rust-lint
+```
+
 ### Rust
 
-Install a stable Rust toolchain via [rustup](https://rustup.rs).
+Install a stable Rust toolchain via [rustup](https://rustup.rs) (or `mise install`).
 
 Useful commands:
 
@@ -27,14 +49,34 @@ cargo clippy --locked -- -D warnings
 cargo doc --no-deps --locked
 ```
 
-To run the same **core** checks as [GitHub Actions CI](.github/workflows/ci.yml) locally (`--locked` build/test, Python 3.11 `maturin develop` + `pytest tests/`, `fmt`, `clippy`, `check --all-targets`, doctests, `doc`):
+Or via Task:
+
+```powershell
+task lint      # fmt --check + clippy + Ruff (python/tests + examples)
+task lint:rust # Rust only
+task rust      # full Rust slice (no Python)
+task           # full core CI mirror
+task ci:fast   # reuse python/.venv, skip wheel-reinstall pytest
+```
+
+To run the same **core** checks as [GitHub Actions CI](.github/workflows/ci.yml) locally:
 
 ```bash
-./scripts/local_ci.sh
+task ci
+# or
+python3 scripts/ci/lme_ci.py ci
 ```
 
 ```powershell
-.\scripts\local_ci.ps1
+task ci
+# or
+python scripts/ci/lme_ci.py ci
+```
+
+Git hooks (parallel pre-commit + pre-push lint) via Lefthook:
+
+```powershell
+task hooks:install
 ```
 
 ### Python bindings
@@ -66,7 +108,7 @@ pip-compile pyproject.toml --extra dev -o requirements-ci.txt --allow-unsafe --s
 
 Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
 
-The same flow runs in CI on every push/PR: a fresh `python/.venv` is created with Python **3.11**, then `pip install -r requirements-ci.txt`, `maturin develop`, and `pytest tests/`. CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)). The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers temporarily back up existing `python/.venv` and repo-root `.venv`, run the Python 3.11 flow, then restore them.
+The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers use **uv** to create `python/.venv` with Python **3.11** explicitly, then `pip install -r requirements-ci.txt`, `maturin develop`, and `pytest tests/`. CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 ## Working on numerical changes
 

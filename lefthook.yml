@@ -1,0 +1,30 @@
+# Git hooks — parallel, staged-file-aware. Install: task hooks:install  (lefthook install)
+# Docs: https://lefthook.dev/configuration/
+
+min_version: 1.6.0
+
+pre-commit:
+  parallel: true
+  commands:
+    rust-fmt:
+      priority: 1
+      glob: "*.rs"
+      exclude: "(^|/)target/"
+      run: bash scripts/ci/run.sh fmt
+      stage_fixed: true
+
+    rust-clippy:
+      priority: 2
+      glob: "*.rs"
+      exclude: "(^|/)target/"
+      run: bash scripts/ci/run.sh clippy
+
+    ruff:
+      glob: "python/**/*.py"
+      run: bash scripts/ci/run.sh ruff-staged --fix
+      stage_fixed: true
+
+pre-push:
+  commands:
+    lint:
+      run: bash scripts/ci/run.sh lint

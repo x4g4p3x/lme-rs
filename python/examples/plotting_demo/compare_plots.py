@@ -21,7 +21,6 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Tuple, Union
 
 try:
     import numpy as np
@@ -55,7 +54,7 @@ def _have_numeric_overlay_data(here: Path) -> bool:
     return all((fd / a).is_file() and (fd / b).is_file() for a, b in pairs)
 
 
-def _title_font(size: int = 17) -> Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]:
+def _title_font(size: int = 17) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates: list[str] = []
     windir = os.environ.get("WINDIR", r"C:\Windows")
     candidates.extend(
@@ -83,7 +82,7 @@ def _offset_rgb(
     img: Image.Image,
     dx: int,
     dy: int,
-    fill: Tuple[int, int, int] = (255, 255, 255),
+    fill: tuple[int, int, int] = (255, 255, 255),
 ) -> Image.Image:
     """Translate RGB image by (dx, dy), padding with ``fill``."""
     img = img.convert("RGB")
@@ -98,7 +97,9 @@ def _best_shift_py_r(py_c: Image.Image, r_c: Image.Image, max_shift: int) -> tup
     py = np.asarray(py_c.convert("L"), dtype=np.float32)
     r0 = np.asarray(r_c.convert("L"), dtype=np.float32)
     if py.shape != r0.shape:
-        r0 = np.asarray(r_c.resize(py_c.size, Image.Resampling.LANCZOS).convert("L"), dtype=np.float32)
+        r0 = np.asarray(
+            r_c.resize(py_c.size, Image.Resampling.LANCZOS).convert("L"), dtype=np.float32
+        )
     h, w = py.shape
     iy, ix = np.meshgrid(np.arange(h, dtype=np.int32), np.arange(w, dtype=np.int32), indexing="ij")
     best_dx, best_dy = 0, 0
@@ -117,7 +118,9 @@ def _best_shift_py_r(py_c: Image.Image, r_c: Image.Image, max_shift: int) -> tup
     return best_dx, best_dy
 
 
-def _crop_frac(img: Image.Image, left: float, top: float, right: float, bottom: float) -> Image.Image:
+def _crop_frac(
+    img: Image.Image, left: float, top: float, right: float, bottom: float
+) -> Image.Image:
     """Remove fractional margins from left, top, right, bottom (each in [0,1))."""
     w, h = img.size
     x0 = int(round(w * left))
@@ -144,7 +147,7 @@ def _diff_stats_full(py_path: Path, r_path: Path) -> tuple[float, float]:
 def _diff_stats_cropped(
     py_path: Path,
     r_path: Path,
-    crop: Tuple[float, float, float, float],
+    crop: tuple[float, float, float, float],
 ) -> tuple[float, float]:
     """Mean and max |RGB| on cropped panels after the same shift alignment as the overlay."""
     a = Image.open(py_path).convert("RGBA")
@@ -164,7 +167,9 @@ def _diff_stats_cropped(
     return float(np.mean(diff)), float(np.max(diff))
 
 
-def _side_by_side(py_path: Path, r_path: Path, out_path: Path, gap: int = 24, header: int = 40) -> None:
+def _side_by_side(
+    py_path: Path, r_path: Path, out_path: Path, gap: int = 24, header: int = 40
+) -> None:
     py = Image.open(py_path).convert("RGBA")
     r = Image.open(r_path).convert("RGBA")
     if r.size != py.size:
@@ -187,7 +192,7 @@ def _aligned_color_overlay(
     py_path: Path,
     r_path: Path,
     out_path: Path,
-    crop: Tuple[float, float, float, float],
+    crop: tuple[float, float, float, float],
 ) -> None:
     """Crop panels, align R to Python by small shift search, tint, blend 50/50."""
     py = Image.open(py_path).convert("RGBA")
@@ -246,8 +251,14 @@ def main() -> None:
         print(f"Missing {py_dir} — run plot_demo.py first.", file=sys.stderr)
         sys.exit(1)
     if not r_dir.is_dir():
-        print(f"Missing {r_dir} — generate R figures first (install R + lme4, then plot_r.R).", file=sys.stderr)
-        print("  Windows: winget install RProject.R  then: Rscript python/examples/plotting_demo/plot_r.R", file=sys.stderr)
+        print(
+            f"Missing {r_dir} — generate R figures first (install R + lme4, then plot_r.R).",
+            file=sys.stderr,
+        )
+        print(
+            "  Windows: winget install RProject.R  then: Rscript python/examples/plotting_demo/plot_r.R",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     default_crop = (0.12, 0.10, 0.04, 0.12)
@@ -266,10 +277,7 @@ def main() -> None:
         print(f"    -> {out_p}")
         print(f"    full-frame RGB |d| mean / max: {mae:.2f} / {mmax:.2f}")
 
-    use_numeric = (
-        write_all_numeric_overlays is not None
-        and _have_numeric_overlay_data(here)
-    )
+    use_numeric = write_all_numeric_overlays is not None and _have_numeric_overlay_data(here)
     if use_numeric:
         print("\nNumeric overlay (shared axes; Python=blue, R=orange) -> figures_overlay/:")
         ok = write_all_numeric_overlays(here)

@@ -185,8 +185,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
 
                 Column::new(g_var.as_str().into(), &interaction_values)
             } else {
-                data
-                    .column(g_var)
+                data.column(g_var)
                     .map_err(|e| crate::LmeError::NotImplemented {
                         feature: format!("Grouping column '{}' not found: {}", g_var, e),
                     })?

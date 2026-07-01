@@ -9,6 +9,8 @@ use crate::math::LmmData;
 use crate::model_matrix::build_design_matrices;
 use crate::{LmeError, LmeFit};
 
+type VcovAdj16Result = (Array2<f64>, Vec<Array2<f64>>, Array2<f64>);
+
 /// Build `PhiA`, `P`, and `W` via the pbkrtest `vcovAdj16` recipe (structural `G` matrices).
 pub fn kenward_roger_modcomp_data(
     fit: &LmeFit,
@@ -79,12 +81,7 @@ fn build_sigma_g(
         let q_block = m * k;
 
         // pbkrtest `ggamma` uses `VarCorr` lower-tri entries (= λ λᵀ σ²), not raw θ².
-        let th = theta
-            .as_slice()
-            .unwrap()[theta_offset..theta_offset + block.theta_len]
-            .iter()
-            .copied()
-            .collect::<Vec<_>>();
+        let th = theta.as_slice().unwrap()[theta_offset..theta_offset + block.theta_len].to_vec();
         let mut lambda = Array2::<f64>::zeros((k, k));
         let mut idx = 0usize;
         for j in 0..k {
@@ -104,7 +101,7 @@ fn build_sigma_g(
                 let col_start = group * k;
                 let z_g = z_block.slice(ndarray::s![.., col_start..col_start + k]);
                 let u = z_g.dot(&ee);
-                g = g + &u.dot(&z_g.t());
+                g += &u.dot(&z_g.t());
             }
             // Covariance entry matching the Cholesky basis direction (lower-tri order).
             let mut gi = 0usize;
@@ -166,11 +163,11 @@ fn vcov_adj16_with_pw(
     g_list: &[Array2<f64>],
     ggamma: &[f64],
     _n_obs: usize,
-) -> crate::Result<(Array2<f64>, Vec<Array2<f64>>, Array2<f64>)> {
+) -> crate::Result<VcovAdj16Result> {
     let n_g = g_list.len();
     let mut sigma = ggamma[0] * g_list[0].clone();
     for i in 1..n_g {
-        sigma = sigma + &(ggamma[i] * &g_list[i]);
+        sigma += &(ggamma[i] * &g_list[i]);
     }
 
     let sigma_chol = sigma
@@ -198,8 +195,8 @@ fn vcov_adj16_with_pw(
     for r in 0..n_g {
         let oot = oo[r].t();
         pp.push(-1.0 * oot.dot(&tt));
-        for s in r..n_g {
-            qq.push(oot.dot(&sigma_inv).dot(&oo[s]));
+        for oo_s in oo.iter().skip(r) {
+            qq.push(oot.dot(&sigma_inv).dot(oo_s));
         }
     }
 
@@ -218,8 +215,7 @@ fn vcov_adj16_with_pw(
         let phi_p_ii = phi.dot(&pp[ii]);
         for jj in ii..n_g {
             let www = index_symmat2vec(ii, jj, n_g);
-            let term = ktrace[[ii, jj]]
-                - 2.0 * sum_elementwise(phi, &qq[www])
+            let term = ktrace[[ii, jj]] - 2.0 * sum_elementwise(phi, &qq[www])
                 + sum_elementwise(&phi_p_ii, &(pp[jj].dot(phi)));
             ie2[[ii, jj]] = term;
             ie2[[jj, ii]] = term;
@@ -256,7 +252,7 @@ fn vcov_adj16_with_pw(
         for jj in (ii + 1)..n_g {
             let www = index_symmat2vec(ii, jj, n_g);
             let term = &qq[www] - &pp[ii].dot(phi).dot(&pp[jj]);
-            uu = uu + &(term * w[[ii, jj]]);
+            uu += &(term * w[[ii, jj]]);
         }
     }
     let uu_sym = &uu + &uu.t();
@@ -264,7 +260,7 @@ fn vcov_adj16_with_pw(
     for ii in 0..n_g {
         let www = index_symmat2vec(ii, ii, n_g);
         let term = &qq[www] - &pp[ii].dot(phi).dot(&pp[ii]);
-        uu = uu + &(term * w[[ii, ii]]);
+        uu += &(term * w[[ii, ii]]);
     }
 
     let gamma = phi.dot(&uu).dot(phi);

@@ -16,8 +16,8 @@ import os
 import sys
 
 try:
-    import polars as pl
     import lme_python
+    import polars as pl
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure lme_python is built and the virtual environment is active:")
@@ -49,9 +49,9 @@ def main():
     # M1: random intercept, fixed slope for Days
     # M2: random intercept + random slope (full model)
     print("Fitting nested models with ML (reml=False)...")
-    m0 = lme_python.lmer("Reaction ~ 1 + (1 | Subject)",            data=df, reml=False)
-    m1 = lme_python.lmer("Reaction ~ Days + (1 | Subject)",          data=df, reml=False)
-    m2 = lme_python.lmer("Reaction ~ Days + (Days | Subject)",       data=df, reml=False)
+    m0 = lme_python.lmer("Reaction ~ 1 + (1 | Subject)", data=df, reml=False)
+    m1 = lme_python.lmer("Reaction ~ Days + (1 | Subject)", data=df, reml=False)
+    m2 = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=False)
 
     print(f"  M0: AIC={m0.aic:.2f}  logLik={m0.log_likelihood:.2f}")
     print(f"  M1: AIC={m1.aic:.2f}  logLik={m1.log_likelihood:.2f}")
@@ -64,10 +64,10 @@ def main():
     res01 = lme_python.anova(m0, m1)
     print(f"  Model 0 ({res01.n_params_0} params): deviance = {res01.deviance_0:.4f}")
     print(f"  Model 1 ({res01.n_params_1} params): deviance = {res01.deviance_1:.4f}")
-    print(f"  χ²({res01.df}) = {res01.chi_sq:.4f},  p = {res01.p_value:.4e}  {fmt_stars(res01.p_value)}")
-    print(
-        f"  → Adding Days as a fixed effect {'significantly' if res01.p_value < 0.05 else 'does not significantly'} improves fit."
-    )
+    stars01 = fmt_stars(res01.p_value)
+    print(f"  χ²({res01.df}) = {res01.chi_sq:.4f},  p = {res01.p_value:.4e}  {stars01}")
+    sig01 = "significantly" if res01.p_value < 0.05 else "does not significantly"
+    print(f"  → Adding Days as a fixed effect {sig01} improves fit.")
 
     # ── 2. Likelihood ratio test: M1 vs M2 ───────────────────────────────────
     print("\n" + "=" * 60)
@@ -76,10 +76,10 @@ def main():
     res12 = lme_python.anova(m1, m2)
     print(f"  Model 0 ({res12.n_params_0} params): deviance = {res12.deviance_0:.4f}")
     print(f"  Model 1 ({res12.n_params_1} params): deviance = {res12.deviance_1:.4f}")
-    print(f"  χ²({res12.df}) = {res12.chi_sq:.4f},  p = {res12.p_value:.4e}  {fmt_stars(res12.p_value)}")
-    print(
-        f"  → Adding random slopes {'significantly' if res12.p_value < 0.05 else 'does not significantly'} improves fit."
-    )
+    stars12 = fmt_stars(res12.p_value)
+    print(f"  χ²({res12.df}) = {res12.chi_sq:.4f},  p = {res12.p_value:.4e}  {stars12}")
+    sig12 = "significantly" if res12.p_value < 0.05 else "does not significantly"
+    print(f"  → Adding random slopes {sig12} improves fit.")
 
     # ── 3. Type III ANOVA table for the full model ────────────────────────────
     print("\n" + "=" * 60)
@@ -102,9 +102,9 @@ def main():
     print("AIC ranking (lower is better)")
     print("=" * 60)
     models = [
-        ("M0: intercept only",        m0),
-        ("M1: fixed Days",            m1),
-        ("M2: fixed+random Days",     m2),
+        ("M0: intercept only", m0),
+        ("M1: fixed Days", m1),
+        ("M2: fixed+random Days", m2),
     ]
     models_sorted = sorted(models, key=lambda x: x[1].aic)
     best_aic = models_sorted[0][1].aic

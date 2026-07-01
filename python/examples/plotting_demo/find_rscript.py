@@ -8,7 +8,6 @@ import glob
 import os
 import shutil
 import sys
-from typing import Optional
 
 
 def _rscript_from_windows_registry() -> list[str]:
@@ -61,7 +60,7 @@ def _rscript_from_program_files_glob() -> list[str]:
     return candidates
 
 
-def find_rscript() -> Optional[str]:
+def find_rscript() -> str | None:
     """
     Resolve Rscript for this machine.
 

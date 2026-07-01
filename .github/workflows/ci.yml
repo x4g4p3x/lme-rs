@@ -23,6 +23,28 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  rust-lint:
+    name: Rust fmt & clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-lint-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ubuntu-lint-
+      - name: rustfmt --check
+        run: python3 scripts/ci/lme_ci.py fmt-check
+      - name: clippy
+        run: python3 scripts/ci/lme_ci.py clippy
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

@@ -32,13 +32,16 @@ fn test_pastes_cask_contrast_matches_anova() -> Result<(), Box<dyn std::error::E
     let names = fit.fixed_names.clone().unwrap();
     let l = contrast_matrix_from_names(
         &names,
-        &[ContrastRowSpec {
-            label: "caskb",
-            weights: &[("caskb", 1.0)],
-        }, ContrastRowSpec {
-            label: "caskc",
-            weights: &[("caskc", 1.0)],
-        }],
+        &[
+            ContrastRowSpec {
+                label: "caskb",
+                weights: &[("caskb", 1.0)],
+            },
+            ContrastRowSpec {
+                label: "caskc",
+                weights: &[("caskc", 1.0)],
+            },
+        ],
     )?;
 
     let res = fit.test_contrast(&l, DdfMethod::Satterthwaite)?;

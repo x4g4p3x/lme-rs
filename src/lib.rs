@@ -12,8 +12,6 @@ pub mod anova;
 pub mod anova_contrasts;
 /// User-defined fixed-effects contrast tests (Wald F-tests).
 pub mod contrast;
-/// Nonlinear mixed-effects models (`nlmer`-style).
-pub mod nlmm;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
 pub(crate) mod ddf;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
@@ -32,6 +30,8 @@ pub(crate) mod kr_vcov_adj;
 pub mod math;
 /// Building design matrices (X, Z) from DataFrames.
 pub mod model_matrix;
+/// Nonlinear mixed-effects models (`nlmer`-style).
+pub mod nlmm;
 /// Optimization routines (Nelder-Mead) for theta estimation.
 pub mod optimizer;
 /// Robust Standard Errors (Sandwich Estimators).
@@ -42,12 +42,11 @@ pub mod satterthwaite;
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
 pub use anova_contrasts::AnovaType;
 pub use contrast::{
-    contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec,
-    ContrastTestResult,
+    contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
-pub use nlmm::{nlmer, NlmerOptions, NlmmStart};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
+pub use nlmm::{nlmer, NlmerOptions, NlmmStart};
 use polars::prelude::*;
 pub use robust::RobustResult;
 use std::fmt;

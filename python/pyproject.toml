@@ -25,3 +25,16 @@ dev = [
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+src = ["."]
+exclude = [".venv", "target", "dist", "build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Optional demo scripts: long print strings and PIL crop tuple names.
+"python/examples/plotting_demo/**" = ["E501", "E741"]

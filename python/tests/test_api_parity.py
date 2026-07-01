@@ -2,9 +2,8 @@
 
 import math
 
-import polars as pl
-import pytest
 import lme_python
+import polars as pl
 
 
 def test_model_metadata_getters():

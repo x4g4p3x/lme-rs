@@ -100,4 +100,4 @@ Each example is mirrored across Rust, R, Python, and Julia where that comparison
 
 Repository metadata on GitHub is synced from `Cargo.toml` by the workflow in [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml). If you change the package description, homepage, keywords, or categories, the GitHub About box will be updated on the next metadata sync run.
 
-To run the same checks as CI locally (format, clippy, build, tests, docs), use [`scripts/local_ci.sh`](scripts/local_ci.sh) or [`scripts/local_ci.ps1`](scripts/local_ci.ps1) (see [CHANGELOG.md](CHANGELOG.md) 0.1.6).
+To run the same checks as CI locally, use [`task ci`](Taskfile.yml) or `python scripts/ci/lme_ci.py ci`. See [AGENTS.md](AGENTS.md) for Lefthook git hooks and lighter pre-flights (`task lint`).

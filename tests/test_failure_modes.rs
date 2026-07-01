@@ -3,13 +3,13 @@
 
 use lme_rs::family::Family;
 use lme_rs::formula::parse;
-use lme_rs::{glmer, glmer_weighted};
 use lme_rs::glmm_math::GlmmData;
 use lme_rs::lm_df;
 use lme_rs::lmer;
 use lme_rs::lmer_weighted;
 use lme_rs::model_matrix::build_design_matrices;
 use lme_rs::LmeError;
+use lme_rs::{glmer, glmer_weighted};
 use ndarray::array;
 use polars::prelude::*;
 

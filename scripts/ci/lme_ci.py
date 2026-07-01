@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""Cross-platform CI runner for lme-rs — single source of truth for local + GitHub Actions."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Sequence
+
+ROOT = Path(__file__).resolve().parents[2]
+PYTHON_DIR = ROOT / "python"
+PYTHON_VENV = PYTHON_DIR / ".venv"
+
+
+class CiError(Exception):
+    pass
+
+
+def _echo(cmd: Sequence[str], *, cwd: Path | None = None) -> None:
+    where = f" (cwd={cwd})" if cwd else ""
+    print(f"==> {' '.join(cmd)}{where}", flush=True)
+
+
+def run(
+    cmd: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    _echo(cmd, cwd=cwd)
+    merged = os.environ.copy()
+    if env:
+        merged.update(env)
+    result = subprocess.run(
+        list(cmd),
+        cwd=cwd or ROOT,
+        env=merged,
+        text=True,
+    )
+    if check and result.returncode != 0:
+        raise CiError(f"command failed ({result.returncode}): {' '.join(cmd)}")
+    return result
+
+
+def _require_tool(name: str) -> str:
+    path = shutil.which(name)
+    if not path:
+        raise CiError(
+            f"{name!r} not found on PATH. Install via mise (`mise install`) or see CONTRIBUTING.md."
+        )
+    return path
+
+
+def venv_python(venv: Path = PYTHON_VENV) -> Path:
+    win = venv / "Scripts" / "python.exe"
+    if win.exists():
+        return win
+    unix = venv / "bin" / "python"
+    if unix.exists():
+        return unix
+    raise CiError(f"no python executable in {venv}")
+
+
+def staged_files(pattern: str) -> list[str]:
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    if not result.stdout:
+        return []
+    paths = [p for p in result.stdout.split("\0") if p]
+    if pattern == "rust":
+        return [p for p in paths if p.endswith(".rs") and not p.startswith("target/")]
+    if pattern == "python":
+        return [p for p in paths if p.startswith("python/") and p.endswith(".py")]
+    return paths
+
+
+def restage(paths: list[str]) -> None:
+    if not paths:
+        return
+    run(["git", "add", "--", *paths], cwd=ROOT)
+
+
+def cargo_fmt(*, apply: bool) -> None:
+    cmd = ["cargo", "fmt", "--all"]
+    if not apply:
+        cmd.append("--check")
+    run(cmd)
+
+
+def cargo_clippy() -> None:
+    run(["cargo", "clippy", "--locked", "--", "-D", "warnings"])
+
+
+def cargo_check() -> None:
+    run(["cargo", "check", "--workspace", "--all-targets", "--locked", "-v"])
+
+
+def cargo_build_test() -> None:
+    run(["cargo", "build", "--verbose", "--locked"])
+    run(["cargo", "test", "--verbose", "--locked"])
+
+
+def cargo_doctest() -> None:
+    run(["cargo", "test", "--doc", "--locked", "--verbose"])
+
+
+def cargo_doc() -> None:
+    run(["cargo", "doc", "--no-deps", "--verbose", "--locked"])
+
+
+def rust_lint() -> None:
+    cargo_fmt(apply=False)
+    cargo_clippy()
+
+
+def _ruff_invocation() -> tuple[list[str], str]:
+    _require_tool("uv")
+    return ["uv", "tool", "run", "ruff"], str(PYTHON_DIR / "pyproject.toml")
+
+
+# Linted on `task lint` / pre-push (excludes .venv via pyproject exclude).
+RUFF_PATHS = [PYTHON_DIR / "tests", PYTHON_DIR / "examples"]
+
+
+def ruff_lint() -> None:
+    cmd, config = _ruff_invocation()
+    paths = [str(p.relative_to(ROOT)) for p in RUFF_PATHS]
+    run([*cmd, "check", "--config", config, *paths])
+    run([*cmd, "format", "--check", "--config", config, *paths])
+
+
+def lint() -> None:
+    """Static checks for Rust and Python (no tests, no builds)."""
+    rust_lint()
+    ruff_lint()
+
+
+def rust_all() -> None:
+    rust_lint()
+    cargo_check()
+    cargo_build_test()
+    cargo_doctest()
+    cargo_doc()
+
+
+def ruff_staged(*, fix: bool) -> None:
+    files = staged_files("python")
+    if not files:
+        return
+    cmd, config = _ruff_invocation()
+    if fix:
+        run([*cmd, "check", "--fix", "--config", config, *files])
+        run([*cmd, "format", "--config", config, *files])
+        restage(files)
+    else:
+        run([*cmd, "check", "--config", config, *files])
+        run([*cmd, "format", "--check", "--config", config, *files])
+
+
+def _venv_python_version(venv: Path) -> tuple[int, int]:
+    py = venv_python(venv)
+    result = subprocess.run(
+        [str(py), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    major, minor = result.stdout.strip().split(".")
+    return int(major), int(minor)
+
+
+def _uv_venv(*, reuse: bool) -> Path:
+    _require_tool("uv")
+    if reuse and PYTHON_VENV.exists():
+        major, minor = _venv_python_version(PYTHON_VENV)
+        if (major, minor) == (3, 11):
+            print("    (reusing python/.venv)", flush=True)
+            return PYTHON_VENV
+        print(
+            f"    (replacing python/.venv: found Python {major}.{minor}, need 3.11)",
+            flush=True,
+        )
+    if PYTHON_VENV.exists():
+        shutil.rmtree(PYTHON_VENV)
+    run(["uv", "venv", "--python", "3.11", str(PYTHON_VENV)], cwd=PYTHON_DIR)
+    return PYTHON_VENV
+
+
+def python_bindings(*, reuse_venv: bool = False, skip_wheel: bool = False) -> None:
+    venv = _uv_venv(reuse=reuse_venv)
+    py = venv_python(venv)
+    env = {
+        "PYO3_PYTHON": str(py),
+        "VIRTUAL_ENV": str(venv),
+    }
+    run(
+        ["uv", "pip", "install", "-r", "requirements-ci.txt", "--python", str(py)],
+        cwd=PYTHON_DIR,
+    )
+    run([str(py), "-m", "maturin", "develop", "--release"], cwd=PYTHON_DIR, env=env)
+    run([str(py), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+
+    if skip_wheel:
+        return
+
+    run([str(py), "-m", "maturin", "build", "--release", "-o", "dist"], cwd=PYTHON_DIR, env=env)
+    wheels = sorted((PYTHON_DIR / "dist").glob("lme_python-*.whl"))
+    if not wheels:
+        raise CiError("no wheel under python/dist")
+    run(
+        [str(py), "-m", "pip", "install", "--force-reinstall", str(wheels[-1])],
+        cwd=PYTHON_DIR,
+        env=env,
+    )
+    run([str(py), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+
+
+def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
+    cargo_build_test()
+    if not skip_python:
+        python_bindings(reuse_venv=reuse_venv, skip_wheel=skip_wheel)
+    lint()
+    cargo_check()
+    cargo_doctest()
+    cargo_doc()
+    print(
+        "lme_ci.py ci: OK (core jobs; multi-OS matrix, Python 3.10/3.12/3.13, "
+        "production-load gates are CI-only)",
+        flush=True,
+    )
+
+
+def hooks_install() -> None:
+    _require_tool("lefthook")
+    run(["lefthook", "install"], cwd=ROOT)
+    print("Git hooks installed via lefthook (see lefthook.yml).", flush=True)
+
+
+def hooks_uninstall() -> None:
+    hook = ROOT / ".git" / "hooks" / "pre-commit"
+    if hook.is_symlink() or hook.exists():
+        hook.unlink(missing_ok=True)
+    print("Removed lefthook pre-commit hook if present.", flush=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="lme-rs CI runner (cross-platform; shared by Task, lefthook, GitHub Actions).",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("fmt", help="Apply rustfmt").set_defaults(fn=lambda _: cargo_fmt(apply=True))
+    sub.add_parser("fmt-check", help="Check rustfmt").set_defaults(
+        fn=lambda _: cargo_fmt(apply=False)
+    )
+    sub.add_parser("clippy", help="Run clippy").set_defaults(fn=lambda _: cargo_clippy())
+    sub.add_parser("check", help="cargo check --all-targets").set_defaults(
+        fn=lambda _: cargo_check()
+    )
+    sub.add_parser("build-test", help="cargo build + test").set_defaults(
+        fn=lambda _: cargo_build_test()
+    )
+    sub.add_parser("doctest", help="cargo test --doc").set_defaults(fn=lambda _: cargo_doctest())
+    sub.add_parser("doc", help="cargo doc").set_defaults(fn=lambda _: cargo_doc())
+    sub.add_parser("rust-lint", help="fmt --check + clippy").set_defaults(fn=lambda _: rust_lint())
+    sub.add_parser("ruff-lint", help="Ruff check/format on python/tests + examples").set_defaults(
+        fn=lambda _: ruff_lint()
+    )
+    sub.add_parser("lint", help="Rust + Python static checks").set_defaults(fn=lambda _: lint())
+    sub.add_parser("rust-all", help="Rust slice without Python").set_defaults(fn=lambda _: rust_all())
+
+    p_py = sub.add_parser("python", help="Python bindings CI flow")
+    p_py.add_argument("--reuse-venv", action="store_true")
+    p_py.add_argument("--skip-wheel-reinstall", action="store_true")
+    p_py.set_defaults(
+        fn=lambda a: python_bindings(
+            reuse_venv=a.reuse_venv,
+            skip_wheel=a.skip_wheel_reinstall,
+        )
+    )
+
+    p_ruff = sub.add_parser("ruff-staged", help="Ruff check/format staged python/**/*.py")
+    p_ruff.add_argument("--fix", action="store_true")
+    p_ruff.set_defaults(fn=lambda a: ruff_staged(fix=a.fix))
+
+    p_ci = sub.add_parser("ci", help="Full core CI mirror")
+    p_ci.add_argument("--reuse-venv", action="store_true")
+    p_ci.add_argument("--skip-wheel-reinstall", action="store_true")
+    p_ci.add_argument("--skip-python", action="store_true")
+    p_ci.set_defaults(
+        fn=lambda a: ci(
+            reuse_venv=a.reuse_venv,
+            skip_wheel=a.skip_wheel_reinstall,
+            skip_python=a.skip_python,
+        )
+    )
+
+    sub.add_parser("hooks-install", help="lefthook install").set_defaults(
+        fn=lambda _: hooks_install()
+    )
+    sub.add_parser("hooks-uninstall", help="Remove lefthook pre-commit hook").set_defaults(
+        fn=lambda _: hooks_uninstall()
+    )
+
+    args = parser.parse_args(argv)
+    os.chdir(ROOT)
+    os.environ.setdefault("CARGO_TERM_COLOR", "always")
+    try:
+        args.fn(args)
+    except CiError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

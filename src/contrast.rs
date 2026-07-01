@@ -51,12 +51,11 @@ pub fn contrast_matrix_from_names(
     for row in rows {
         let mut idx_row = Vec::with_capacity(row.weights.len());
         for &(name, w) in row.weights {
-            let j = fixed_names
-                .iter()
-                .position(|n| n == name)
-                .ok_or_else(|| LmeError::NotImplemented {
+            let j = fixed_names.iter().position(|n| n == name).ok_or_else(|| {
+                LmeError::NotImplemented {
                     feature: format!("Unknown coefficient name '{name}' in contrast"),
-                })?;
+                }
+            })?;
             idx_row.push((j, w));
         }
         index_rows.push(idx_row);
@@ -78,7 +77,11 @@ impl LmeFit {
     /// `l_mat` must have `ncols()` equal to the number of fixed-effect coefficients.
     /// Call [`Self::with_satterthwaite`] / [`Self::with_kenward_roger`] before testing when using
     /// the corresponding `ddf` method.
-    pub fn test_contrast(&self, l_mat: &Array2<f64>, ddf: DdfMethod) -> crate::Result<ContrastTestResult> {
+    pub fn test_contrast(
+        &self,
+        l_mat: &Array2<f64>,
+        ddf: DdfMethod,
+    ) -> crate::Result<ContrastTestResult> {
         fixed_effect_contrast_test(self, l_mat, ddf, None)
     }
 

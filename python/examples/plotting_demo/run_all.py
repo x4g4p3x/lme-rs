@@ -43,14 +43,21 @@ def main() -> int:
     rscript = find_rscript()
     if not rscript:
         print("Rscript not found (not on PATH, registry, or Program Files).", file=sys.stderr)
-        print("If R is installed, add ...\\R\\R-x.y.z\\bin to PATH or reinstall R.", file=sys.stderr)
-        print(f'Or run manually: "<path-to>\\Rscript.exe" "{HERE / "plot_r.R"}" "{ROOT}"', file=sys.stderr)
+        print(
+            "If R is installed, add ...\\R\\R-x.y.z\\bin to PATH or reinstall R.", file=sys.stderr
+        )
+        print(
+            f'Or run manually: "<path-to>\\Rscript.exe" "{HERE / "plot_r.R"}" "{ROOT}"',
+            file=sys.stderr,
+        )
         return 2
 
     print(f"Using Rscript: {rscript}", flush=True)
     subprocess.run([rscript, str(HERE / "plot_r.R"), str(ROOT)], cwd=str(ROOT), check=True)
     subprocess.run([str(py), str(HERE / "compare_plots.py")], cwd=str(ROOT), check=True)
-    print("\nDone: figures/, figures_r/, figures_data/, figures_compare/, figures_overlay/ (numeric overlay)")
+    print(
+        "\nDone: figures/, figures_r/, figures_data/, figures_compare/, figures_overlay/ (numeric overlay)"
+    )
     return 0
 
 

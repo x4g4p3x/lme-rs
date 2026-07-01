@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-
 from figure_specs import (
     DPI,
     GROUSETICKS_SCATTER,
@@ -134,7 +132,7 @@ def overlay_grouse(here: Path, out_path: Path) -> bool:
     return True
 
 
-def write_all_numeric_overlays(here: Path) -> Tuple[bool, bool, bool]:
+def write_all_numeric_overlays(here: Path) -> tuple[bool, bool, bool]:
     """Return (ok_residual, ok_spaghetti, ok_grouse)."""
     od = here / "figures_overlay"
     a = overlay_residual(here, od / "sleepstudy_residuals_vs_fitted.png")

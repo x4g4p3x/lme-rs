@@ -23,8 +23,7 @@ fn glmer_weighted_changes_fit_vs_unweighted() {
     }
     let formula = "y ~ period2 + period3 + period4 + (1 | herd)";
     let uw = glmer(formula, &df, Family::Binomial, 1).unwrap();
-    let ww = glmer_weighted(formula, &df, Family::Binomial, 1, Some(Array1::from_vec(w)))
-        .unwrap();
+    let ww = glmer_weighted(formula, &df, Family::Binomial, 1, Some(Array1::from_vec(w))).unwrap();
     assert!(uw.converged.unwrap_or(false));
     assert!(ww.converged.unwrap_or(false));
     let udev = uw.deviance.unwrap();

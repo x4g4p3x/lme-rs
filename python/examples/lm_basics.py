@@ -16,8 +16,8 @@ import os
 import sys
 
 try:
-    import polars as pl
     import lme_python
+    import polars as pl
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure lme_python is built and the virtual environment is active:")

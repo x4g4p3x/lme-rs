@@ -14,13 +14,13 @@ Run from the repository root:
     python python/examples/glmer_grouseticks.py
 """
 
+import math
 import os
 import sys
-import math
 
 try:
-    import polars as pl
     import lme_python
+    import polars as pl
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure lme_python is built and the virtual environment is active:")
@@ -33,8 +33,7 @@ GROUSETICKS = os.path.join(DATA_DIR, "grouseticks.csv")
 
 def main():
     df = pl.read_csv(GROUSETICKS)
-    print(f"Loaded grouseticks: {df.height} rows, "
-          f"{df['BROOD'].n_unique()} broods\n")
+    print(f"Loaded grouseticks: {df.height} rows, {df['BROOD'].n_unique()} broods\n")
 
     FORMULA = "TICKS ~ YEAR + HEIGHT + (1 | BROOD)"
 
@@ -57,8 +56,8 @@ def main():
 
     # ── Link-scale vs response-scale predictions ──────────────────────────────
     print("\n--- Predictions (first 6 rows) ---")
-    eta = fit.predict(df)           # log(μ)
-    mu_pop = fit.predict_response(df)   # exp(η) — expected count, population level
+    eta = fit.predict(df)  # log(μ)
+    mu_pop = fit.predict_response(df)  # exp(η) — expected count, population level
     mu_cond = fit.predict_conditional_response(df, allow_new_levels=False)
 
     print(f"  {'TICKS':>5}  {'η (log μ)':>10}  {'μ̂ pop':>8}  {'μ̂ cond':>8}")
@@ -74,20 +73,22 @@ def main():
     print("\n--- Cluster-robust SEs (clustered by BROOD) ---")
     fit.with_robust_se(df, cluster_col="BROOD")
     robust_se = fit.robust_se
-    robust_p  = fit.robust_p_values
+    robust_p = fit.robust_p_values
     for name, se_r, p_r in zip(fit.fixed_names, robust_se, robust_p):
         print(f"  {name:<12}  robust SE={se_r:.4f}  p={p_r:.4f}")
 
     # ── Out-of-sample prediction with allow_new_levels ────────────────────────
     print("\n--- Prediction for an unseen brood (allow_new_levels=True) ---")
-    new_brood = pl.DataFrame({
-        "TICKS": [0.0],
-        "YEAR": [2001.0],
-        "HEIGHT": [450.0],
-        "BROOD": ["UNSEEN_BROOD"],
-    })
+    new_brood = pl.DataFrame(
+        {
+            "TICKS": [0.0],
+            "YEAR": [2001.0],
+            "HEIGHT": [450.0],
+            "BROOD": ["UNSEEN_BROOD"],
+        }
+    )
     mu_new_cond = fit.predict_conditional_response(new_brood, allow_new_levels=True)
-    mu_new_pop  = fit.predict_response(new_brood)
+    mu_new_pop = fit.predict_response(new_brood)
     print(f"  Population prediction : {mu_new_pop[0]:.4f}")
     print(f"  Conditional prediction: {mu_new_cond[0]:.4f}")
     print("  (Should match because unseen brood gets zero RE contribution)")
