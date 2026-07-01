@@ -59,16 +59,6 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install OpenBLAS (macOS)
-        if: matrix.os == 'macos-latest'
-        run: brew install openblas
-
-      - name: Export OpenBLAS paths (macOS Apple Silicon)
-        if: matrix.os == 'macos-latest'
-        run: |
-          echo "OPENBLAS_DIR=$(brew --prefix openblas)" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
-
       - name: Install OpenBLAS (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
