@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -168,6 +169,62 @@ def repo_metadata() -> None:
     """Validate Cargo.toml-derived metadata; verify token when available."""
     repo_metadata_dry_run()
     repo_metadata_verify()
+
+
+def benchmarks_smoke() -> None:
+    """Fast Rust-only cross-language benchmark smoke (release examples)."""
+    run(["cargo", "build", "--release", "--locked", "--examples"])
+    run(
+        [
+            sys.executable,
+            "scripts/run_cross_language_benchmarks.py",
+            "--cases",
+            "sleepstudy",
+            "--implementations",
+            "rust",
+            "--warmups",
+            "0",
+            "--repeats",
+            "1",
+            "--skip-rust-build",
+            "--output",
+            "benchmark-results/preflight-cross-language.json",
+        ]
+    )
+
+
+def benchmarks_r_smoke() -> None:
+    """Run one R comparison script when Rscript and lme4 are available."""
+    if not shutil.which("Rscript"):
+        print("skip: Rscript not installed (full R benchmarks are CI-only)", flush=True)
+        return
+    probe = subprocess.run(
+        ["Rscript", "-e", "suppressPackageStartupMessages(library(lme4))"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        print("skip: R package lme4 not installed (full R benchmarks are CI-only)", flush=True)
+        return
+    run(["Rscript", "comparisons/sleepstudy.R"])
+
+
+def benchmarks_preflight() -> None:
+    benchmarks_smoke()
+    benchmarks_r_smoke()
+
+
+def print_benchmark_failures(path: str) -> None:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    for failure in payload.get("failures", []):
+        print(
+            f"- {failure['case']} [{failure['implementation']}]: {failure.get('error')}",
+            file=sys.stderr,
+        )
+        details = failure.get("details")
+        if details:
+            print(f"  {details}", file=sys.stderr)
 
 
 def preflight() -> None:
@@ -354,6 +411,20 @@ def main(argv: list[str] | None = None) -> int:
         "repo-metadata",
         help="Dry-run Cargo.toml metadata sync; verify REPO_ADMIN_TOKEN if set",
     ).set_defaults(fn=lambda _: repo_metadata())
+    sub.add_parser(
+        "benchmarks-smoke",
+        help="Build release examples + run sleepstudy Rust benchmark once",
+    ).set_defaults(fn=lambda _: benchmarks_smoke())
+    sub.add_parser(
+        "benchmarks-preflight",
+        help="benchmarks-smoke + optional R sleepstudy.R when lme4 is installed",
+    ).set_defaults(fn=lambda _: benchmarks_preflight())
+    p_bench_fail = sub.add_parser(
+        "benchmark-failures",
+        help="Print cross-language benchmark failure details from JSON",
+    )
+    p_bench_fail.add_argument("path")
+    p_bench_fail.set_defaults(fn=lambda a: print_benchmark_failures(a.path))
     sub.add_parser("rust-all", help="Rust slice without Python").set_defaults(fn=lambda _: rust_all())
 
     p_py = sub.add_parser("python", help="Python bindings CI flow")

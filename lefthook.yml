@@ -33,6 +33,10 @@ pre-commit:
       glob: "{Cargo.toml,scripts/sync_github_repo_metadata.py}"
       run: bash scripts/ci/run.sh repo-metadata
 
+    benchmarks-smoke:
+      glob: "{comparisons/**,scripts/run_cross_language_benchmarks.py,.github/workflows/benchmarks.yml}"
+      run: bash scripts/ci/run.sh benchmarks-smoke
+
 pre-push:
   parallel: true
   commands:

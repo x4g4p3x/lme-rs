@@ -1,4 +1,5 @@
 suppressPackageStartupMessages(library(lme4))
+source("comparisons/r_setup.R")
 
 file_path <- file.path("tests", "data", "sleepstudy.csv")
 if (!file.exists(file_path)) {

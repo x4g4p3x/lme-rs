@@ -67,6 +67,7 @@ task hooks:install
 | `python/**/*.py` | `ruff-staged --fix` | Ruff check + format; auto-stages fixes |
 | `Cargo.toml`, `Cargo.lock`, `python/Cargo.toml`, `python/Cargo.lock` | `cargo check --all-targets` | Catches link/BLAS issues on your platform when manifests change |
 | `Cargo.toml`, `scripts/sync_github_repo_metadata.py` | `repo-metadata` dry-run (+ token verify if `REPO_ADMIN_TOKEN` set) | Validates About-box payload before GHA metadata sync |
+| `comparisons/**`, benchmark script/workflow | `benchmarks-smoke` | Rust sleepstudy example timing (release build) |
 
 Runs **in parallel** where safe (Ruff vs Rust fmt). Clippy waits on fmt (`priority`); manifest `check` runs after clippy (`priority` 3).
 
@@ -97,6 +98,8 @@ If GHA reports `401 Bad credentials` on **Sync Repository Metadata**, rotate the
 Bypass: `git push --no-verify`.
 
 **macOS Apple Silicon BLAS** (`openblas-static` vs MKL) is only exercised on `macos-latest` in GHA — Windows/Linux preflights cannot catch that matrix cell. After changing `Cargo.toml` BLAS target tables or release workflows, run `task ci` or wait for the macOS CI job.
+
+**Cross-language benchmarks** (R + Julia, tag-only [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml)): pre-commit runs `benchmarks-smoke` when `comparisons/**` changes (Rust `sleepstudy` example only). Full matrix needs R (`lme4`, `lmerTest`, `car`, `rlang`) and Julia — CI-only unless you run `task benchmarks:preflight` with R installed.
 
 ## 3. Before finishing work (manual)
 
@@ -161,6 +164,8 @@ python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 | `preflight` | Pre-push: lint + check + cargo audit + repo metadata |
 | `audit` | cargo audit + pip-audit (GHA mirror) |
 | `repo-metadata` | Dry-run GitHub About sync; verify token if `REPO_ADMIN_TOKEN` set |
+| `benchmarks-smoke` | Release examples + one Rust cross-language benchmark |
+| `benchmarks-preflight` | `benchmarks-smoke` + optional `sleepstudy.R` when R/lme4 present |
 | `rust-lint` | `fmt --check` + clippy |
 | `ruff-lint` | Ruff on `python/tests` + `python/examples` |
 | `rust-all` | Rust slice without Python bindings tests |

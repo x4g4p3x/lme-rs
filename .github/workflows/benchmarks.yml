@@ -122,7 +122,7 @@ jobs:
       - name: Install R benchmark dependencies
         run: |
           mkdir -p "$R_LIBS_USER"
-          Rscript -e 'install.packages("lme4", repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
+          Rscript -e 'install.packages(c("lme4", "lmerTest", "car", "rlang"), repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
 
       - name: Install Julia benchmark dependencies
         run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "MixedModels"])'
@@ -168,6 +168,10 @@ jobs:
       - name: Fail if cross-language benchmarks failed
         if: steps.cross_language_run.outputs.status != '0'
         run: |
+          json="benchmark-results/cross-language-${{ github.sha }}.json"
+          if [ -f "$json" ]; then
+            python3 scripts/ci/lme_ci.py benchmark-failures "$json" >&2 || true
+          fi
           echo "Cross-language benchmark script failed with exit code ${{ steps.cross_language_run.outputs.status }}." >&2
           exit 1
 

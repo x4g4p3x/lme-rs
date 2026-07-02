@@ -1,4 +1,5 @@
 suppressPackageStartupMessages(library(lme4))
+source("comparisons/r_setup.R")
 
 file_path <- file.path("tests", "data", "sleepstudy.csv")
 if (!file.exists(file_path)) {
@@ -8,13 +9,9 @@ if (!file.exists(file_path)) {
 data <- read.csv(file_path)
 
 cat("\nFitting Gaussian GLMM: Reaction ~ Days + (1 | Subject)\n")
-cat("(lme4::glmer with family = gaussian(identity))\n")
+cat("(lme4::lmer — equivalent to glmer(gaussian(identity)))\n")
 
-fit <- glmer(
-  Reaction ~ Days + (1 | Subject),
-  data = data,
-  family = gaussian(link = "identity")
-)
+fit <- lmer(Reaction ~ Days + (1 | Subject), data = data, REML = TRUE)
 
 cat("\n=== Model Summary ===\n")
 print(summary(fit))

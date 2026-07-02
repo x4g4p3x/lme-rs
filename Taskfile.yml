@@ -40,6 +40,16 @@ tasks:
     cmds:
       - '{{.RUN}} repo-metadata'
 
+  benchmarks:smoke:
+    desc: Release examples + sleepstudy Rust cross-language benchmark smoke
+    cmds:
+      - '{{.RUN}} benchmarks-smoke'
+
+  benchmarks:preflight:
+    desc: benchmarks-smoke + optional R sleepstudy.R when lme4 is installed
+    cmds:
+      - '{{.RUN}} benchmarks-preflight'
+
   lint:rust:
     desc: Rust-only lint (fmt check + clippy)
     cmds:

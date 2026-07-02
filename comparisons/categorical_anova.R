@@ -1,6 +1,7 @@
 suppressPackageStartupMessages(library(lme4))
 suppressPackageStartupMessages(library(lmerTest))
 suppressPackageStartupMessages(library(car))
+source("comparisons/r_setup.R")
 
 cat("\n=== R (lme4 + lmerTest) ===\n")
 data <- read.csv("tests/data/pastes.csv")

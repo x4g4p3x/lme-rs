@@ -1,4 +1,5 @@
 suppressPackageStartupMessages(library(lme4))
+source("comparisons/r_setup.R")
 
 # 1. Load the dataset
 data <- read.csv("tests/data/pastes.csv")
