@@ -98,6 +98,6 @@ Each example is mirrored across Rust, R, Python, and Julia where that comparison
 
 ## Development notes
 
-Repository metadata on GitHub is synced from `Cargo.toml` by the workflow in [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml). If you change the package description, homepage, keywords, or categories, the GitHub About box will be updated on the next metadata sync run.
+Repository metadata on GitHub is synced from `Cargo.toml` by [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml). Preflight with `task repo-metadata`; the workflow needs a valid **`REPO_ADMIN_TOKEN`** secret (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-To run the same checks as CI locally, use [`task ci`](Taskfile.yml) or `python scripts/ci/lme_ci.py ci`. See [AGENTS.md](AGENTS.md) for Lefthook git hooks and lighter pre-flights (`task lint`).
+Local checks mirror CI in layers: **`task preflight`** before push (lint, compile graph, `cargo audit`, metadata dry-run), **`task ci`** before a PR ([AGENTS.md](AGENTS.md) for hook details). Install `cargo-audit` once: `cargo install cargo-audit`.

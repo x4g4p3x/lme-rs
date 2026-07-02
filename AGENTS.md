@@ -40,7 +40,7 @@ flowchart TD
 | [`mise.toml`](../mise.toml) | Pins Rust, Python 3.11, uv, lefthook, task — reproducible dev env |
 | [`uv`](https://docs.astral.sh/uv/) | Fast venv creation (`uv venv --python 3.11`), no repo-root `.venv` backup dance |
 | **Ruff** | `python/tests` + `python/examples` on `task lint`; staged auto-fix on commit |
-| **pre-push hook** | Automatic `lint` (Rust + Python) on `git push` |
+| **pre-push hook** | Automatic `preflight` (lint + `cargo check --all-targets` + `cargo audit` + repo metadata dry-run) |
 
 [`Taskfile.yml`](../Taskfile.yml) is a thin alias layer; it does not duplicate logic.
 
@@ -65,18 +65,38 @@ task hooks:install
 |---|---|---|
 | `**/*.rs` | `fmt` then `clippy` | `stage_fixed: true` re-stages rustfmt fixes |
 | `python/**/*.py` | `ruff-staged --fix` | Ruff check + format; auto-stages fixes |
+| `Cargo.toml`, `Cargo.lock`, `python/Cargo.toml`, `python/Cargo.lock` | `cargo check --all-targets` | Catches link/BLAS issues on your platform when manifests change |
+| `Cargo.toml`, `scripts/sync_github_repo_metadata.py` | `repo-metadata` dry-run (+ token verify if `REPO_ADMIN_TOKEN` set) | Validates About-box payload before GHA metadata sync |
 
-Runs **in parallel** where safe (Ruff vs Rust fmt). Clippy waits on fmt (`priority`).
+Runs **in parallel** where safe (Ruff vs Rust fmt). Clippy waits on fmt (`priority`); manifest `check` runs after clippy (`priority` 3).
 
-**Not** on commit: tests, `cargo check`, maturin/pytest.
+**Not** on commit: full `cargo test`, maturin/pytest, `pip-audit`.
 
 Bypass once: `git commit --no-verify`.
 
 ## 2. On `git push` (Lefthook pre-push)
 
-Runs `lint` (Rust fmt/clippy + Ruff on `python/tests` and `python/examples`) before the push leaves your machine.
+Runs **`preflight`** in parallel with itself as one command:
+
+1. `lint` — Rust fmt/clippy + Ruff
+2. `cargo check --workspace --all-targets --locked` — compile graph including tests/examples
+3. `cargo audit` — root crate + `python/` (same as GHA audit job, without `pip-audit`)
+4. `repo-metadata` — dry-run from `Cargo.toml`; **`--verify-token`** when `REPO_ADMIN_TOKEN` is in the environment
+
+Install `cargo-audit` once: `cargo install cargo-audit` (pinned in GHA as 0.22.1).
+
+To catch **expired metadata tokens** before push (optional):
+
+```powershell
+$env:REPO_ADMIN_TOKEN = "<fine-grained PAT with Administration: Read and write>"
+task repo-metadata
+```
+
+If GHA reports `401 Bad credentials` on **Sync Repository Metadata**, rotate the secret: **Settings → Secrets and variables → Actions → `REPO_ADMIN_TOKEN`**.
 
 Bypass: `git push --no-verify`.
+
+**macOS Apple Silicon BLAS** (`openblas-static` vs MKL) is only exercised on `macos-latest` in GHA — Windows/Linux preflights cannot catch that matrix cell. After changing `Cargo.toml` BLAS target tables or release workflows, run `task ci` or wait for the macOS CI job.
 
 ## 3. Before finishing work (manual)
 
@@ -84,6 +104,8 @@ Bypass: `git push --no-verify`.
 
 ```powershell
 task lint
+task preflight   # same as pre-push hook (without pip-audit)
+task audit       # full security audit incl. pip-audit
 ```
 
 Runs Rust (`fmt --check` + clippy) and Python Ruff on `python/tests` and `python/examples`.
@@ -136,6 +158,9 @@ python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 |---|---|
 | `ci` | Full core CI |
 | `lint` | Rust + Python static checks |
+| `preflight` | Pre-push: lint + check + cargo audit + repo metadata |
+| `audit` | cargo audit + pip-audit (GHA mirror) |
+| `repo-metadata` | Dry-run GitHub About sync; verify token if `REPO_ADMIN_TOKEN` set |
 | `rust-lint` | `fmt --check` + clippy |
 | `ruff-lint` | Ruff on `python/tests` + `python/examples` |
 | `rust-all` | Rust slice without Python bindings tests |

@@ -24,7 +24,17 @@ pre-commit:
       run: bash scripts/ci/run.sh ruff-staged --fix
       stage_fixed: true
 
+    rust-check-manifest:
+      priority: 3
+      glob: "{Cargo.toml,Cargo.lock,python/Cargo.toml,python/Cargo.lock}"
+      run: bash scripts/ci/run.sh check
+
+    repo-metadata:
+      glob: "{Cargo.toml,scripts/sync_github_repo_metadata.py}"
+      run: bash scripts/ci/run.sh repo-metadata
+
 pre-push:
+  parallel: true
   commands:
-    lint:
-      run: bash scripts/ci/run.sh lint
+    preflight:
+      run: bash scripts/ci/run.sh preflight

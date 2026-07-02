@@ -89,13 +89,14 @@ path = "comparisons/lmer_weighted.rs"
 name = "glmm_gaussian"
 path = "comparisons/glmm_gaussian.rs"
 
-# x86_64 (Linux, Windows, macOS cross-targets): static Intel MKL.
+# x86_64 (Linux, Windows, macOS x86_64 wheels via cross-compile): static Intel MKL.
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
 
-# macOS Apple Silicon: static MKL (Homebrew OpenBLAS pulls libgcc dylibs maturin cannot repair).
-[target.'cfg(all(not(target_arch = "x86_64"), target_os = "macos"))'.dependencies]
-ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
+# macOS Apple Silicon: static OpenBLAS (MKL does not link on aarch64-apple-darwin;
+# Homebrew OpenBLAS pulls libgcc dylibs maturin cannot repair).
+[target.'cfg(all(target_arch = "aarch64", target_os = "macos"))'.dependencies]
+ndarray-linalg = { version = "0.17", features = ["openblas-static"] }
 
 # Other non-x86_64 (e.g. Linux aarch64 manylinux wheels): static OpenBLAS.
 [target.'cfg(all(not(target_arch = "x86_64"), not(target_os = "macos")))'.dependencies]

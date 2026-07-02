@@ -27,8 +27,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--repository",
-        default=os.environ.get("GITHUB_REPOSITORY"),
-        help="GitHub repository in owner/name form. Defaults to GITHUB_REPOSITORY.",
+        default=os.environ.get("GITHUB_REPOSITORY") or default_repository(),
+        help="GitHub repository in owner/name form. Defaults to GITHUB_REPOSITORY or Cargo.toml repository.",
     )
     parser.add_argument(
         "--token",
@@ -40,7 +40,19 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the derived payloads without calling the GitHub API.",
     )
+    parser.add_argument(
+        "--verify-token",
+        action="store_true",
+        help="Validate the token against the GitHub API without mutating repository metadata.",
+    )
     return parser.parse_args()
+
+
+def default_repository() -> str | None:
+    package = load_package_metadata()
+    repo = str(package.get("repository", "")).strip()
+    match = re.fullmatch(r"https://github\.com/([^/]+/[^/.]+)(?:\.git)?/?", repo)
+    return match.group(1) if match else None
 
 
 def load_package_metadata() -> dict[str, object]:
@@ -99,11 +111,12 @@ def github_request(
     method: str,
     url: str,
     token: str,
-    payload: dict[str, object],
+    payload: dict[str, object] | None = None,
 ) -> dict[str, object] | None:
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
     request = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
+        data=data,
         method=method,
         headers={
             "Accept": "application/vnd.github+json",
@@ -120,9 +133,22 @@ def github_request(
             return json.loads(body) if body else None
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 401:
+            raise RuntimeError(
+                "GitHub API rejected the token (401 Bad credentials). "
+                "Rotate REPO_ADMIN_TOKEN: repository Settings → Secrets and variables → "
+                "Actions → REPO_ADMIN_TOKEN. Use a fine-grained PAT with "
+                "Administration: Read and write on this repository. "
+                f"API response: {details}"
+            ) from exc
         raise RuntimeError(
             f"GitHub API {method} {url} failed with {exc.code}: {details}"
         ) from exc
+
+
+def verify_token(token: str, repository: str) -> None:
+    github_request("GET", f"{API_BASE}/user", token)
+    github_request("GET", f"{API_BASE}/repos/{repository}", token)
 
 
 def main() -> int:
@@ -148,6 +174,11 @@ def main() -> int:
     if not args.token:
         print("error: missing --token or REPO_ADMIN_TOKEN/GITHUB_TOKEN", file=sys.stderr)
         return 1
+
+    if args.verify_token:
+        verify_token(args.token, args.repository)
+        print("Token verified against GitHub API.")
+        return 0
 
     repo_url = f"{API_BASE}/repos/{args.repository}"
     github_request("PATCH", repo_url, args.token, patch_payload)

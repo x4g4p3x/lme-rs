@@ -155,6 +155,11 @@ cargo publish
 
 - `.github/workflows/repo-metadata.yml` updates the GitHub About description, topics, and website from `Cargo.toml`.
 - It runs when `Cargo.toml`, the metadata sync script, or the workflow file changes.
+- The workflow dry-runs the payload, verifies `REPO_ADMIN_TOKEN`, then PATCHes the repository.
+
+Preflight locally: `task repo-metadata` (dry-run; add `REPO_ADMIN_TOKEN` to verify the PAT before push).
+
+If CI fails with **401 Bad credentials**, rotate **Settings → Secrets and variables → Actions → `REPO_ADMIN_TOKEN`** (fine-grained PAT with **Administration: Read and write** on this repository).
 
 If a release changes the crate description, homepage, keywords, or categories, verify that the metadata sync workflow has completed successfully after the push.
 
@@ -217,11 +222,19 @@ The most common release mistake in this repo is version drift between:
 
 ### Python build breakage
 
-The wheel workflow depends on platform-specific build configuration. If the release tag is pushed without validating the Python package locally first, the release may fail after tagging.
+The wheel workflow depends on platform-specific BLAS linking:
+
+- **x86_64** (all OSes): static Intel MKL
+- **macOS aarch64**: static OpenBLAS (`OPENBLAS_TARGET=ARMV8` in CI); Homebrew OpenBLAS breaks maturin wheel repair; MKL does not link on native Apple Silicon
+- **Linux aarch64**: static OpenBLAS
+
+macOS Apple Silicon is only fully validated on `macos-latest` in GHA. After changing `Cargo.toml` BLAS tables or wheel workflows, run `task ci` or confirm the macOS CI job passes.
+
+If the release tag is pushed without validating the Python package locally first, the release may fail after tagging.
 
 ### Metadata drift
 
-If `Cargo.toml` changes but the metadata sync workflow fails, the GitHub About box can become stale even when the crate metadata is correct.
+If `Cargo.toml` changes but the metadata sync workflow fails, the GitHub About box can become stale even when the crate metadata is correct. Common cause: expired **`REPO_ADMIN_TOKEN`** (401). Rotate the secret and re-run the workflow.
 
 ### Forgotten `cargo publish`
 
@@ -231,6 +244,7 @@ Tagging updates PyPI automatically but **not** crates.io. Symptoms: PyPI and Git
 
 - update versions (`Cargo.toml`, `python/Cargo.toml`, `CHANGELOG.md`, version pins in docs)
 - run build, tests, docs, fmt, and `clippy` (`task ci` or `python scripts/ci/lme_ci.py ci`)
+- run `task preflight` before push (lint, `cargo check --all-targets`, `cargo audit`, metadata dry-run)
 - run benchmarks if performance-sensitive code changed
 - validate Python packaging if `python/` or release plumbing changed
 - commit

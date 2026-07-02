@@ -82,6 +82,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
+      - name: Set OpenBLAS target (Apple Silicon wheel)
+        if: matrix.target == 'aarch64'
+        run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:

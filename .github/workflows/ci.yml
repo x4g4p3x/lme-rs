@@ -73,6 +73,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
+      - name: Set OpenBLAS target (macOS)
+        if: matrix.os == 'macos-latest'
+        run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
+
       - name: Build
         run: cargo build --verbose --locked
 

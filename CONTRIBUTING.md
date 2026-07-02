@@ -22,7 +22,9 @@ task setup    # installs pinned tools + lefthook git hooks
 
 [`mise.toml`](mise.toml) pins Rust (stable), Python 3.11, [uv](https://docs.astral.sh/uv/), [lefthook](https://lefthook.dev/), and [go-task](https://taskfile.dev).
 
-See [AGENTS.md](AGENTS.md) for the four-tier pre-flight model (Lefthook commit/push hooks → `task lint` → `task ci`).
+See [AGENTS.md](AGENTS.md) for the four-tier pre-flight model (Lefthook commit/push hooks → `task lint` / `task preflight` → `task ci`).
+
+Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (GHA pins 0.22.1).
 
 ### CI runner
 
@@ -52,11 +54,12 @@ cargo doc --no-deps --locked
 Or via Task:
 
 ```powershell
-task lint      # fmt --check + clippy + Ruff (python/tests + examples)
-task lint:rust # Rust only
-task rust      # full Rust slice (no Python)
-task           # full core CI mirror
-task ci:fast   # reuse python/.venv, skip wheel-reinstall pytest
+task lint        # fmt --check + clippy + Ruff (python/tests + examples)
+task preflight   # pre-push hook: lint + check + cargo audit + repo-metadata dry-run
+task audit       # cargo audit + pip-audit (GHA security audit mirror)
+task rust        # full Rust slice (no Python)
+task             # full core CI mirror
+task ci:fast     # reuse python/.venv, skip wheel-reinstall pytest
 ```
 
 To run the same **core** checks as [GitHub Actions CI](.github/workflows/ci.yml) locally:
@@ -73,7 +76,7 @@ task ci
 python scripts/ci/lme_ci.py ci
 ```
 
-Git hooks (parallel pre-commit + pre-push lint) via Lefthook:
+Git hooks (parallel pre-commit + pre-push **preflight**) via Lefthook:
 
 ```powershell
 task hooks:install
@@ -152,6 +155,15 @@ The GitHub About box is synced from `Cargo.toml` using:
 - `scripts/sync_github_repo_metadata.py`
 
 If you change `package.description`, `homepage`, `keywords`, or `categories`, the metadata workflow will update the GitHub repository metadata on the next run.
+
+Preflight locally:
+
+```powershell
+task repo-metadata          # dry-run; verifies token if REPO_ADMIN_TOKEN is set
+python scripts/sync_github_repo_metadata.py --dry-run
+```
+
+The workflow needs a valid **`REPO_ADMIN_TOKEN`** repository secret (fine-grained PAT with **Administration: Read and write** on this repo). If CI fails with `401 Bad credentials`, create a new PAT and update **Settings → Secrets and variables → Actions → REPO_ADMIN_TOKEN**.
 
 ## Pull request expectations
 

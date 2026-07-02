@@ -121,6 +121,69 @@ def cargo_doc() -> None:
     run(["cargo", "doc", "--no-deps", "--verbose", "--locked"])
 
 
+def cargo_audit() -> None:
+    if not shutil.which("cargo-audit"):
+        raise CiError(
+            "cargo-audit not found on PATH. Install: cargo install cargo-audit "
+            "(or see CONTRIBUTING.md / AGENTS.md)."
+        )
+    run(["cargo", "audit"])
+    if (PYTHON_DIR / "Cargo.toml").exists():
+        run(["cargo", "audit"], cwd=PYTHON_DIR)
+
+
+def pip_audit() -> None:
+    _require_tool("uv")
+    venv = _uv_venv(reuse=True)
+    py = venv_python(venv)
+    run(
+        ["uv", "pip", "install", "-r", "requirements-ci.txt", "--python", str(py)],
+        cwd=PYTHON_DIR,
+    )
+    run([str(py), "-m", "pip_audit"], cwd=PYTHON_DIR)
+
+
+def audit() -> None:
+    """Security audit mirror of .github/workflows/audit.yml."""
+    cargo_audit()
+    pip_audit()
+
+
+def repo_metadata_dry_run() -> None:
+    run([sys.executable, "scripts/sync_github_repo_metadata.py", "--dry-run"])
+
+
+def repo_metadata_verify() -> None:
+    token = os.environ.get("REPO_ADMIN_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        print(
+            "skip: REPO_ADMIN_TOKEN not set (set locally to catch expired tokens before push)",
+            flush=True,
+        )
+        return
+    run([sys.executable, "scripts/sync_github_repo_metadata.py", "--verify-token"])
+
+
+def repo_metadata() -> None:
+    """Validate Cargo.toml-derived metadata; verify token when available."""
+    repo_metadata_dry_run()
+    repo_metadata_verify()
+
+
+def preflight() -> None:
+    """Pre-push gate: static checks + compile graph + security audit."""
+    lint()
+    cargo_check()
+    cargo_audit()
+    repo_metadata_dry_run()
+    repo_metadata_verify()
+    print(
+        "lme_ci.py preflight: OK (lint + check + cargo audit + repo metadata). "
+        "Run `task ci` before large changes; macOS aarch64 BLAS is CI-only.",
+        flush=True,
+    )
+
+
 def rust_lint() -> None:
     cargo_fmt(apply=False)
     cargo_clippy()
@@ -280,6 +343,17 @@ def main(argv: list[str] | None = None) -> int:
         fn=lambda _: ruff_lint()
     )
     sub.add_parser("lint", help="Rust + Python static checks").set_defaults(fn=lambda _: lint())
+    sub.add_parser("audit", help="cargo audit (root + python/) + pip-audit").set_defaults(
+        fn=lambda _: audit()
+    )
+    sub.add_parser(
+        "preflight",
+        help="Pre-push gate: lint + cargo check --all-targets + cargo audit",
+    ).set_defaults(fn=lambda _: preflight())
+    sub.add_parser(
+        "repo-metadata",
+        help="Dry-run Cargo.toml metadata sync; verify REPO_ADMIN_TOKEN if set",
+    ).set_defaults(fn=lambda _: repo_metadata())
     sub.add_parser("rust-all", help="Rust slice without Python").set_defaults(fn=lambda _: rust_all())
 
     p_py = sub.add_parser("python", help="Python bindings CI flow")

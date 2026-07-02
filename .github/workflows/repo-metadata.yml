@@ -24,9 +24,19 @@ jobs:
         run: |
           if [ -z "$REPO_ADMIN_TOKEN" ]; then
             echo "REPO_ADMIN_TOKEN is not set."
-            echo "Create a fine-grained PAT or GitHub App token with repository Administration: write."
+            echo "Create a fine-grained PAT with repository Administration: Read and write."
+            echo "Add it under Settings → Secrets and variables → Actions → REPO_ADMIN_TOKEN."
             exit 1
           fi
+
+      - name: Dry-run metadata payload
+        run: python scripts/sync_github_repo_metadata.py --dry-run
+
+      - name: Verify admin token is valid
+        env:
+          REPO_ADMIN_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/sync_github_repo_metadata.py --verify-token
 
       - name: Sync repository metadata
         env:

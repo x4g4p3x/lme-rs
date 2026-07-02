@@ -21,9 +21,24 @@ tasks:
       - '{{.RUN}} ci --reuse-venv --skip-wheel-reinstall'
 
   lint:
-    desc: Pre-push lint (rustfmt + clippy + Ruff on python/tests and examples)
+    desc: Rust fmt/clippy + Ruff on python/tests and examples
     cmds:
       - '{{.RUN}} lint'
+
+  preflight:
+    desc: Pre-push gate (lint + cargo check --all-targets + cargo audit)
+    cmds:
+      - '{{.RUN}} preflight'
+
+  audit:
+    desc: cargo audit (root + python/) and pip-audit
+    cmds:
+      - '{{.RUN}} audit'
+
+  repo-metadata:
+    desc: Dry-run GitHub metadata sync; verify REPO_ADMIN_TOKEN if set
+    cmds:
+      - '{{.RUN}} repo-metadata'
 
   lint:rust:
     desc: Rust-only lint (fmt check + clippy)
