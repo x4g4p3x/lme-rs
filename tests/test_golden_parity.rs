@@ -1,6 +1,7 @@
 use lme_rs::anova::DdfMethod;
-use lme_rs::family::Family;
-use lme_rs::{glmer, lmer, LmeFit};
+use lme_rs::family::{Family, Link};
+use lme_rs::{glmer_weighted_with_link, lmer, nlmer, LmeFit};
+use ndarray::Array1;
 use polars::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
@@ -36,6 +37,14 @@ struct GoldenCase {
     reml: Option<bool>,
     #[serde(default)]
     family: Option<String>,
+    #[serde(default)]
+    link: Option<String>,
+    #[serde(default)]
+    weights_column: Option<String>,
+    #[serde(default)]
+    nlmm_start: Option<HashMap<String, f64>>,
+    #[serde(default)]
+    nlmm_reml: Option<bool>,
     #[serde(default)]
     n_agq: Option<usize>,
     reference: ReferenceSpec,
@@ -151,6 +160,26 @@ fn assert_close(case_id: &str, check: &ScalarCheck, actual: f64) {
     );
 }
 
+fn assert_coefficients_close(case_id: &str, fit: &LmeFit, expected: &[ScalarCheck]) {
+    let names = fit
+        .fixed_names
+        .as_ref()
+        .unwrap_or_else(|| panic!("{}: fit.fixed_names is None", case_id));
+    let coef = fit.coefficients.as_slice().unwrap();
+    for check in expected {
+        let idx = names
+            .iter()
+            .position(|n| n == &check.name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}: coefficient '{}' not in fixed_names {:?}",
+                    case_id, check.name, names
+                )
+            });
+        assert_close(case_id, check, coef[idx]);
+    }
+}
+
 fn assert_series_close(case_id: &str, label: &str, expected: &[ScalarCheck], actual: &[f64]) {
     assert_eq!(
         actual.len(),
@@ -258,6 +287,23 @@ fn family_from_name(name: &str) -> Family {
     }
 }
 
+fn link_from_name(name: &str) -> Link {
+    Link::parse(name).unwrap_or_else(|err| panic!("invalid golden parity link: {err}"))
+}
+
+fn weights_from_column(data: &DataFrame, col: &str) -> Array1<f64> {
+    let s = data
+        .column(col)
+        .unwrap_or_else(|_| panic!("weights column '{col}' missing from data"));
+    if let Ok(ca) = s.f64() {
+        return Array1::from_iter(ca.into_iter().map(|v| v.unwrap_or(f64::NAN)));
+    }
+    if let Ok(ca) = s.i64() {
+        return Array1::from_iter(ca.into_iter().map(|v| v.unwrap_or(0) as f64));
+    }
+    panic!("weights column '{col}' must be numeric");
+}
+
 fn fit_case(case: &GoldenCase, data: &DataFrame) -> LmeFit {
     match case.kind.as_str() {
         "lmm" => lmer(&case.formula, data, case.reml.unwrap_or(true))
@@ -268,8 +314,28 @@ fn fit_case(case: &GoldenCase, data: &DataFrame) -> LmeFit {
                     .as_deref()
                     .expect("GLMM golden case must specify family"),
             );
-            glmer(&case.formula, data, family, case.n_agq.unwrap_or(1))
+            let n_agq = case.n_agq.unwrap_or(1);
+            let link = case
+                .link
+                .as_deref()
+                .map(link_from_name)
+                .unwrap_or_else(|| Link::default_for(family));
+            let weights = case
+                .weights_column
+                .as_deref()
+                .map(|col| weights_from_column(data, col));
+            glmer_weighted_with_link(&case.formula, data, family, link, n_agq, weights)
                 .unwrap_or_else(|err| panic!("{}: glmer failed: {}", case.id, err))
+        }
+        "nlmm" => {
+            let mut start = lme_rs::NlmmStart::new();
+            if let Some(map) = &case.nlmm_start {
+                for (k, v) in map {
+                    start.insert(k.clone(), *v);
+                }
+            }
+            nlmer(&case.formula, data, start, case.nlmm_reml.unwrap_or(false))
+                .unwrap_or_else(|err| panic!("{}: nlmer failed: {}", case.id, err))
         }
         other => panic!("{}: unsupported golden case kind: {}", case.id, other),
     }
@@ -407,12 +473,7 @@ fn assert_golden_case(case: &GoldenCase) {
     }
 
     let expected = &case.expected;
-    assert_series_close(
-        &case.id,
-        "coefficients",
-        &expected.coefficients,
-        fit.coefficients.as_slice().unwrap(),
-    );
+    assert_coefficients_close(&case.id, &fit, &expected.coefficients);
 
     if !expected.theta.is_empty() {
         assert_theta_close(&case.id, &fit, &expected.theta);

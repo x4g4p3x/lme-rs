@@ -89,6 +89,10 @@ path = "comparisons/lmer_weighted.rs"
 name = "glmm_gaussian"
 path = "comparisons/glmm_gaussian.rs"
 
+[[example]]
+name = "parity_export"
+path = "comparisons/parity_export.rs"
+
 # x86_64 (Linux, Windows, macOS x86_64 wheels via cross-compile): static Intel MKL.
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }

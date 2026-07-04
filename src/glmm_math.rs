@@ -472,10 +472,17 @@ impl GlmmData {
                 }
             };
 
-            // Compute weighted Zt * (z - X*beta_old) for the u-update
-            // But we solve for both u and beta simultaneously
-            // RHS_u = Λ'Z'W(z)
-            let wz = &w * &z; // element-wise w*z
+            // Working response z includes the offset via η; for the penalized WLS
+            // solve we regress z − offset on X and Z so β and b do not absorb o.
+            let z_for_fit: Array1<f64> = if let Some(off) = offset {
+                &z - off
+            } else {
+                z.clone()
+            };
+
+            // Compute weighted Zt * z_for_fit for the u-update
+            // RHS_u = Λ'Z'W(z − offset)
+            let wz = &w * &z_for_fit;
             let mut zt_wz = Array1::<f64>::zeros(q);
             for (val, (row, col)) in self.zt.iter() {
                 zt_wz[row] += val * wz[col];
@@ -496,7 +503,7 @@ impl GlmmData {
                 }
             }
             let xt_w_x = w_diag_x.t().dot(&self.x);
-            let xt_wz_vec = w_diag_x.t().dot(&z);
+            let xt_wz_vec = w_diag_x.t().dot(&z_for_fit);
 
             // Compute RZX = L⁻¹ Λ'Z'WX per column (same approach as LMM in math.rs)
             let mut w_cols = Vec::with_capacity(p);

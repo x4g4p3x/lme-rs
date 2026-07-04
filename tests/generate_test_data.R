@@ -255,6 +255,83 @@ grouseticks$YEAR97 <- ifelse(grouseticks$YEAR == 97, 1, 0)
 fm_pois <- glmer(TICKS ~ YEAR96 + YEAR97 + (1 | BROOD), data = grouseticks, family = poisson)
 out_pois <- get_glmm_data("TICKS ~ YEAR96 + YEAR97 + (1 | BROOD) [Poisson]", fm_pois)
 
+# LMM with offset (sleepstudy): offset column must exist in CSV.
+sleepstudy$OffsetDays10 <- sleepstudy$Days * 10
+fm_offset <- lmer(
+  Reaction ~ Days + offset(OffsetDays10) + (Days | Subject),
+  data = sleepstudy,
+  REML = TRUE
+)
+out_offset <- get_model_data(
+  "Reaction ~ Days + offset(OffsetDays10) + (Days | Subject)",
+  fm_offset
+)
+
+# GLMM with non-canonical link (probit CBPP).
+fm_binom_probit <- glmer(
+  y ~ period2 + period3 + period4 + (1 | herd),
+  data = cbpp_binary,
+  family = binomial(link = "probit")
+)
+out_binom_probit <- get_glmm_data(
+  "y ~ period2 + period3 + period4 + (1 | herd) [Binomial probit]",
+  fm_binom_probit
+)
+
+# GLMM with prior observation weights (reproducible).
+set.seed(42)
+cbpp_binary$prior_w <- runif(nrow(cbpp_binary), 0.5, 1.5)
+fm_binom_wt <- glmer(
+  y ~ period2 + period3 + period4 + (1 | herd),
+  data = cbpp_binary,
+  family = binomial,
+  weights = prior_w
+)
+out_binom_wt <- get_glmm_data(
+  "y ~ period2 + period3 + period4 + (1 | herd) [Binomial weighted]",
+  fm_binom_wt
+)
+
+# Poisson GLMM with offset on log(HEIGHT).
+grouseticks$log_height <- log(grouseticks$HEIGHT)
+fm_pois_off <- glmer(
+  TICKS ~ YEAR96 + YEAR97 + offset(log_height) + (1 | BROOD),
+  data = grouseticks,
+  family = poisson
+)
+out_pois_off <- get_glmm_data(
+  "TICKS ~ YEAR96 + YEAR97 + offset(log_height) + (1 | BROOD) [Poisson]",
+  fm_pois_off
+)
+
+# Nonlinear mixed model (Orange / SSlogis).
+data("Orange", package = "datasets")
+Orange$Tree <- as.factor(Orange$Tree)
+fm_orange <- nlmer(
+  circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym | Tree,
+  data = Orange,
+  start = c(Asym = 200, xmid = 725, scal = 350)
+)
+orange_fix <- fixef(fm_orange)
+orange_vc_sd <- as.numeric(attr(VarCorr(fm_orange)$Tree, "stddev")["Asym"])
+orange_pop_ages <- c(118, 484, 664)
+orange_pop_circ <- as.numeric(
+  SSlogis(orange_pop_ages, orange_fix["Asym"], orange_fix["xmid"], orange_fix["scal"])
+)
+orange_cond_pred <- fitted(fm_orange)[Orange$Tree == "1"][1:3]
+out_orange <- list(
+  model = jsonlite::unbox("circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree"),
+  outputs = list(
+    beta = as.numeric(fixef(fm_orange)),
+    theta = as.numeric(getME(fm_orange, "theta")),
+    re_sd = jsonlite::unbox(orange_vc_sd),
+    sigma2 = jsonlite::unbox(as.numeric(sigma(fm_orange))^2),
+    logLik = jsonlite::unbox(as.numeric(logLik(fm_orange))),
+    pop_pred = orange_pop_circ,
+    cond_pred = as.numeric(orange_cond_pred)
+  )
+)
+
 sleepstudy_pop_newdata <- data.frame(Days = c(0, 1, 5, 10), Subject = factor(rep("308", 4), levels = levels(sleepstudy$Subject)))
 sleepstudy_cond_newdata <- data.frame(Days = c(0, 1, 5), Subject = factor(rep("308", 3), levels = levels(sleepstudy$Subject)))
 
@@ -406,7 +483,8 @@ build_golden_manifest <- function() {
               out_pastes_cask$outputs$sat_anova_f[1],
               out_pastes_cask$outputs$sat_anova_p[1],
               out_pastes_cask$outputs$sat_anova_ndf[1],
-              out_pastes_cask$outputs$sat_anova_ddf[1]
+              out_pastes_cask$outputs$sat_anova_ddf[1],
+              p_tol = 0.0001
             )
           )
         )
@@ -484,6 +562,154 @@ build_golden_manifest <- function() {
           ),
           finite_deviance = jsonlite::unbox(TRUE)
         )
+      ),
+      list(
+        id = jsonlite::unbox("sleepstudy_offset_reml"),
+        description = jsonlite::unbox("Sleepstudy LMM with Days + offset(OffsetDays10) random slopes."),
+        kind = jsonlite::unbox("lmm"),
+        data_path = jsonlite::unbox("tests/data/sleepstudy.csv"),
+        formula = jsonlite::unbox("Reaction ~ Days + offset(OffsetDays10) + (Days | Subject)"),
+        reml = jsonlite::unbox(TRUE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::lmer"),
+          call = jsonlite::unbox("lmer(Reaction ~ Days + offset(OffsetDays10) + (Days | Subject), sleepstudy, REML = TRUE)"),
+          source_fixture = jsonlite::unbox("tests/data/sleepstudy_offset_reml.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("(Intercept)", out_offset$outputs$beta[1], 0.05),
+            scalar_check("Days", out_offset$outputs$beta[2], 0.05)
+          ),
+          theta = list(
+            scalar_check("Subject.(Intercept)", out_offset$outputs$theta[1], 0.02),
+            scalar_check("Subject.Days.(Intercept)", out_offset$outputs$theta[2], 0.02),
+            scalar_check("Subject.Days", out_offset$outputs$theta[3], 0.02)
+          ),
+          sigma2 = scalar_check("sigma2", out_offset$outputs$sigma2, 0.1)
+        )
+      ),
+      list(
+        id = jsonlite::unbox("cbpp_binomial_probit"),
+        description = jsonlite::unbox("Binomial GLMM on CBPP with probit link."),
+        kind = jsonlite::unbox("glmm"),
+        data_path = jsonlite::unbox("tests/data/cbpp_binary.csv"),
+        formula = jsonlite::unbox("y ~ period2 + period3 + period4 + (1 | herd)"),
+        family = jsonlite::unbox("binomial"),
+        link = jsonlite::unbox("probit"),
+        n_agq = jsonlite::unbox(1),
+        reference = list(
+          engine = jsonlite::unbox("lme4::glmer"),
+          call = jsonlite::unbox("glmer(..., family = binomial(link = 'probit'))"),
+          source_fixture = jsonlite::unbox("tests/data/glmm_binomial_probit.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("(Intercept)", out_binom_probit$outputs$beta[1], 0.08),
+            scalar_check("period2", out_binom_probit$outputs$beta[2], 0.08),
+            scalar_check("period3", out_binom_probit$outputs$beta[3], 0.08),
+            scalar_check("period4", out_binom_probit$outputs$beta[4], 0.08)
+          ),
+          theta = list(
+            scalar_check("herd.(Intercept)", out_binom_probit$outputs$theta[1], 0.08)
+          ),
+          finite_deviance = jsonlite::unbox(TRUE)
+        )
+      ),
+      list(
+        id = jsonlite::unbox("cbpp_binomial_weighted"),
+        description = jsonlite::unbox("Binomial GLMM on CBPP with prior observation weights."),
+        kind = jsonlite::unbox("glmm"),
+        data_path = jsonlite::unbox("tests/data/cbpp_binary_weighted.csv"),
+        formula = jsonlite::unbox("y ~ period2 + period3 + period4 + (1 | herd)"),
+        family = jsonlite::unbox("binomial"),
+        weights_column = jsonlite::unbox("prior_w"),
+        n_agq = jsonlite::unbox(1),
+        reference = list(
+          engine = jsonlite::unbox("lme4::glmer"),
+          call = jsonlite::unbox("glmer(..., weights = prior_w)"),
+          source_fixture = jsonlite::unbox("tests/data/glmm_binomial_weighted.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("(Intercept)", out_binom_wt$outputs$beta[1], 0.08),
+            scalar_check("period2", out_binom_wt$outputs$beta[2], 0.08),
+            scalar_check("period3", out_binom_wt$outputs$beta[3], 0.08),
+            scalar_check("period4", out_binom_wt$outputs$beta[4], 0.08)
+          ),
+          theta = list(
+            scalar_check("herd.(Intercept)", out_binom_wt$outputs$theta[1], 0.08)
+          ),
+          finite_deviance = jsonlite::unbox(TRUE)
+        )
+      ),
+      list(
+        id = jsonlite::unbox("grouseticks_poisson_offset"),
+        description = jsonlite::unbox("Poisson GLMM on grouseticks with offset(log_height)."),
+        kind = jsonlite::unbox("glmm"),
+        data_path = jsonlite::unbox("tests/data/grouseticks.csv"),
+        formula = jsonlite::unbox("TICKS ~ YEAR96 + YEAR97 + offset(log_height) + (1 | BROOD)"),
+        family = jsonlite::unbox("poisson"),
+        n_agq = jsonlite::unbox(1),
+        reference = list(
+          engine = jsonlite::unbox("lme4::glmer"),
+          call = jsonlite::unbox("glmer(TICKS ~ YEAR96 + YEAR97 + offset(log_height) + (1 | BROOD), ...)"),
+          source_fixture = jsonlite::unbox("tests/data/glmm_poisson_offset.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("(Intercept)", out_pois_off$outputs$beta[1], 0.15),
+            scalar_check("YEAR96", out_pois_off$outputs$beta[2], 0.15),
+            scalar_check("YEAR97", out_pois_off$outputs$beta[3], 0.15)
+          ),
+          theta = list(
+            scalar_check("BROOD.(Intercept)", out_pois_off$outputs$theta[1], 0.02)
+          ),
+          finite_deviance = jsonlite::unbox(TRUE)
+        )
+      ),
+      list(
+        id = jsonlite::unbox("orange_nlmer_sslogis"),
+        description = jsonlite::unbox("Orange-tree nlmer with SSlogis mean and RE on Asym."),
+        kind = jsonlite::unbox("nlmm"),
+        data_path = jsonlite::unbox("tests/data/orange.csv"),
+        formula = jsonlite::unbox("circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree"),
+        nlmm_start = list(
+          Asym = jsonlite::unbox(200),
+          xmid = jsonlite::unbox(725),
+          scal = jsonlite::unbox(350)
+        ),
+        nlmm_reml = jsonlite::unbox(FALSE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::nlmer"),
+          call = jsonlite::unbox("nlmer(circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree, Orange, start=c(Asym=200,xmid=725,scal=350))"),
+          source_fixture = jsonlite::unbox("tests/data/orange_nlmer.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("Asym", out_orange$outputs$beta[1], 2.0),
+            scalar_check("xmid", out_orange$outputs$beta[2], 2.0),
+            scalar_check("scal", out_orange$outputs$beta[3], 2.0)
+          ),
+          theta = list(
+            scalar_check("Tree.Asym", orange_vc_sd, 2.0)
+          ),
+          population_predictions = list(
+            prediction_check(
+              "population SSlogis circumference for Tree 1 ages 118,484,664",
+              list(age = orange_pop_ages, Tree = c("1", "1", "1")),
+              orange_pop_circ,
+              1.0
+            )
+          ),
+          conditional_predictions = list(
+            prediction_check(
+              "fitted values for Tree 1 (first 3 rows)",
+              list(age = c(118, 484, 664), Tree = c("1", "1", "1")),
+              orange_cond_pred,
+              1.0
+            )
+          )
+        )
       )
     )
   )
@@ -497,10 +723,16 @@ write_json(out3, "tests/data/penicillin.json", pretty = TRUE, auto_unbox = FALSE
 write_json(out_pastes_cask, "tests/data/pastes_cask_reml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out4, "tests/data/mock_ml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_binom, "tests/data/glmm_binomial.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_binom_probit, "tests/data/glmm_binomial_probit.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_binom_wt, "tests/data/glmm_binomial_weighted.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_pois, "tests/data/glmm_poisson.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_pois_off, "tests/data/glmm_poisson_offset.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_offset, "tests/data/sleepstudy_offset_reml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_orange, "tests/data/orange_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(build_golden_manifest(), "tests/data/golden_parity_manifest.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
 write.csv(Penicillin, "tests/data/penicillin.csv", row.names = FALSE)
 write.csv(cbpp_binary, "tests/data/cbpp_binary.csv", row.names = FALSE)
+write.csv(cbpp_binary[, c("herd", "period2", "period3", "period4", "y", "prior_w")], "tests/data/cbpp_binary_weighted.csv", row.names = FALSE)
 write.csv(grouseticks, "tests/data/grouseticks.csv", row.names = FALSE)
 cat("Successfully generated test data and golden parity manifest.\n")

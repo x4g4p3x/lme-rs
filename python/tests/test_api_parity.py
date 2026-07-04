@@ -32,6 +32,17 @@ def test_glmer_metadata_getters():
     assert fit.family == "Binomial"
 
 
+def test_glmer_explicit_link():
+    df = pl.read_csv("../tests/data/cbpp_binary.csv")
+    formula = "y ~ period2 + period3 + period4 + (1 | herd)"
+    logit = lme_python.glmer(formula, data=df, family_name="binomial")
+    probit = lme_python.glmer(formula, data=df, family_name="binomial", link_name="probit")
+    assert logit.link_name == "logit"
+    assert probit.link_name == "probit"
+    diff = sum(abs(a - b) for a, b in zip(logit.coefficients, probit.coefficients))
+    assert diff > 1e-4
+
+
 def test_contrast_matrix_from_names():
     names = ["(Intercept)", "Days"]
     l_mat = lme_python.contrast_matrix_from_names(
@@ -75,6 +86,14 @@ def test_nlmer_orange():
     assert len(fit.coefficients) == 3
     assert fit.theta is not None
     assert all(math.isfinite(x) for x in fit.coefficients)
+
+    pop = fit.predict(df)
+    cond = fit.predict_conditional(df, allow_new_levels=False)
+    assert len(pop) == df.height
+    assert len(cond) == df.height
+    assert sum(abs(p - c) for p, c in zip(pop, cond)) > 1.0
+    for c, f in zip(cond, fit.fitted):
+        assert abs(c - f) < 1e-3
 
 
 def test_lmer_weighted_python():

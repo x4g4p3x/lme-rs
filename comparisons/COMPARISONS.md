@@ -23,6 +23,8 @@ These tests re-fit models inside Rust and compare to **stored reference values**
 | LMM, sleepstudy REML | [`tests/test_numerical_parity.rs`](../tests/test_numerical_parity.rs) vs [`tests/data/sleepstudy.csv`](../tests/data/sleepstudy.csv) | Fixed effects within ~`0.05` of documented `lme4` scalars; SEs, variance components, and REML deviance checked with tolerances documented in that file. |
 | GLMM, CBPP binomial | [`tests/test_glmm.rs`](../tests/test_glmm.rs) vs [`tests/data/glmm_binomial.json`](../tests/data/glmm_binomial.json) | Coefficients and θ compared to values taken from R’s `glmer` fit (same formula as below); typically `\|Δβ\|, \|Δθ\| < 0.05`. |
 | GLMM, Poisson grouseticks | Same `test_glmm.rs` vs [`tests/data/glmm_poisson.json`](../tests/data/glmm_poisson.json) | Looser tolerance on β (`0.15`) because optimizers differ (`Nelder–Mead` in `lme-rs` vs **BOBYQA** in `lme4`). |
+| Golden manifest (multi-model) | [`tests/test_golden_parity.rs`](../tests/test_golden_parity.rs) vs [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) | Offset LMM/GLMM, probit/weighted GLMM, Orange `nlmer` predictions; Python mirror in [`python/tests/test_golden_parity.py`](../python/tests/test_golden_parity.py). |
+| Cross-language coefficients | [`scripts/verify_cross_language_parity.py`](../scripts/verify_cross_language_parity.py) | R / Julia / Rust / Python exporters under [`comparisons/parity/`](../comparisons/parity/) checked against the same golden manifest tolerances. |
 | Other fixtures | e.g. [`tests/data/random_slopes.json`](../tests/data/random_slopes.json), [`tests/data/penicillin.json`](../tests/data/penicillin.json) | Additional REML / design-matrix checks in the test suite. |
 
 AGQ-specific checks (scalar quadrature, `n_agq > 1`) live in the same GLMM tests and in unit tests in [`src/glmm_math.rs`](../src/glmm_math.rs): they assert finite deviances and, for CBPP at a fixed θ, Laplace vs AGQ marginal deviance within **5%** relative scale.
@@ -38,6 +40,7 @@ AGQ-specific checks (scalar quadrature, `n_agq > 1`) live in the same GLMM tests
 
 - **This file** — copy/pasteable commands and pasted console output for human review.
 - **[`scripts/run_cross_language_benchmarks.py`](../scripts/run_cross_language_benchmarks.py)** — runs the `comparisons/*` examples (including `sleepstudy`, `pastes`, `cbpp`, `grouseticks`, `categorical`, `weighted`, `gaussian_glmm`) and writes **JSON timing** results; it does **not** assert numerical equality of estimates.
+- **[`scripts/verify_cross_language_parity.py`](../scripts/verify_cross_language_parity.py)** — runs [`comparisons/parity/`](parity/) exporters (R, Julia, Rust `parity_export`, optional Python `lme_python`) and compares fixed effects to [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) for probit/weighted/offset GLMM and offset LMM cases.
 - **[`BENCHMARKS.md`](../BENCHMARKS.md)** — Criterion micro-benchmarks for the Rust crate (including GLMM / AGQ workloads), not cross-language statistical parity.
 
 To re-run the automated parity tests locally: from the repository root, `cargo test` (optionally filter, e.g. `cargo test numerical_parity` or `cargo test test_glmm`).

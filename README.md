@@ -11,7 +11,7 @@
 
 - `lm()` for fixed-effects-only linear models
 - `lmer()` and `lmer_weighted()` for linear mixed models
-- `nlmer()` for nonlinear mixed models (`SSlogis` mean; random effect on one nonlinear parameter, e.g. Orange-tree growth)
+- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` means; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
@@ -68,7 +68,7 @@ For a subjective, area-by-area view of what is implemented versus still open (in
 - Fixed-effects ANOVA supports **Type II** and **Type III** (`anova_typed` / `AnovaType`). Continuous fixed effects use 1-DoF tests where applicable; categorical predictors encoded as multiple dummies use **joint multi-DoF Wald F-tests**, with multi-DoF Satterthwaite denominator df following **`lmerTest::contestMD()`** (see [GUIDE.md](GUIDE.md) and [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) §4). Arbitrary user-defined **q × p** contrast matrices are supported via `test_contrast()` (Rust) / `fit.test_contrast()` (Python).
 - `with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` to within the precision of numerical differentiation on the covered LMM models.
 - The Python bindings mirror the Rust API (`lm`, `lm_matrix`, `lmer`, `glmer`, `nlmer`, contrasts, ANOVA, prediction, simulation) with structured result types and [`lme_python.pyi`](python/lme_python.pyi) stubs.
-- Built-in GLMM families currently use their default links through the public `glmer()` API.
+- Built-in GLMM families cover binomial, Poisson, Gaussian, and gamma with canonical links; non-canonical links are selectable via `glmer_with_link` / `link_name=` ([`GUIDE.md`](GUIDE.md)).
 
 ## Documentation map
 

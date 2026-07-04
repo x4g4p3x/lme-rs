@@ -212,6 +212,16 @@ fn parse_family(family_name: &str) -> PyResult<Family> {
     }
 }
 
+fn parse_link(link_name: Option<&str>, family: Family) -> PyResult<lme_rs::family::Link> {
+    use lme_rs::family::Link;
+    match link_name {
+        None => Ok(Link::default_for(family)),
+        Some(name) => Link::parse(name).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid link: {e}"))
+        }),
+    }
+}
+
 fn parse_anova_type(anova_type: &str) -> PyResult<AnovaType> {
     match anova_type.to_uppercase().as_str() {
         "III" | "3" | "TYPE3" | "TYPE III" => Ok(AnovaType::Type3),
@@ -1045,13 +1055,20 @@ pub fn lm_matrix(y: Vec<f64>, x: Vec<Vec<f64>>) -> PyResult<PyLmeFit> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (formula, data, family_name, n_agq=1))]
-pub fn glmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, family_name: &str, n_agq: usize) -> PyResult<PyLmeFit> {
-    glmer_weighted(py, formula, data, family_name, n_agq, None)
+#[pyo3(signature = (formula, data, family_name, n_agq=1, link_name=None))]
+pub fn glmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    family_name: &str,
+    n_agq: usize,
+    link_name: Option<&str>,
+) -> PyResult<PyLmeFit> {
+    glmer_weighted(py, formula, data, family_name, n_agq, None, link_name)
 }
 
 #[pyfunction]
-#[pyo3(signature = (formula, data, family_name, n_agq=1, weights=None))]
+#[pyo3(signature = (formula, data, family_name, n_agq=1, weights=None, link_name=None))]
 pub fn glmer_weighted<'py>(
     py: Python<'py>,
     formula: &str,
@@ -1059,13 +1076,15 @@ pub fn glmer_weighted<'py>(
     family_name: &str,
     n_agq: usize,
     weights: Option<Vec<f64>>,
+    link_name: Option<&str>,
 ) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     let family = parse_family(family_name)?;
+    let link = parse_link(link_name, family)?;
     let weights_arr = weights.map(ndarray::Array1::from_vec);
 
-    match lme_rs::glmer_weighted(formula, &df, family, n_agq, weights_arr) {
+    match lme_rs::glmer_weighted_with_link(formula, &df, family, link, n_agq, weights_arr) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Model fit failed: {}",

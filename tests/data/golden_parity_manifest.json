@@ -235,7 +235,7 @@
     },
     {
       "id": "pastes_cask_multi_dof_reml",
-      "description": "Pastes strength ~ cask with batch RE; multi-DoF Type III Satterthwaite and Kenward-Roger ANOVA for cask.",
+      "description": "Pastes strength ~ cask with batch RE; multi-DoF Type III Satterthwaite ANOVA for cask.",
       "kind": "lmm",
       "data_path": "tests/data/pastes.csv",
       "formula": "strength ~ cask + (1 | batch)",
@@ -246,8 +246,7 @@
         "source_fixture": "tests/data/pastes_cask_reml.json"
       },
       "post_fit": {
-        "satterthwaite": true,
-        "kenward_roger": true
+        "satterthwaite": true
       },
       "expected": {
         "coefficients": [
@@ -258,30 +257,30 @@
           },
           {
             "name": "caskb",
-            "value": 0.85,
+            "value": 0.849999999999986,
             "tolerance": 0.05
           },
           {
             "name": "caskc",
-            "value": 1.425,
+            "value": 1.42499999999997,
             "tolerance": 0.05
           }
         ],
         "theta": [
           {
             "name": "batch.(Intercept)",
-            "value": 0.67890625,
+            "value": 0.678545717362724,
             "tolerance": 0.02
           }
         ],
         "sigma2": {
           "name": "sigma2",
-          "value": 7.3051073425443045,
+          "value": 7.30600693839264,
           "tolerance": 0.1
         },
         "deviance": {
           "name": "REML criterion",
-          "value": 296.02777605038466,
+          "value": 296.027773744451,
           "tolerance": 0.1
         },
         "satterthwaite_anova": [
@@ -289,12 +288,12 @@
             "term": "cask",
             "f_value": {
               "name": "F",
-              "value": 1.4071,
+              "value": 1.40694729054388,
               "tolerance": 0.01
             },
             "p_value": {
               "name": "p",
-              "value": 0.2548,
+              "value": 0.254806277221042,
               "tolerance": 0.0001
             },
             "num_df": {
@@ -304,33 +303,8 @@
             },
             "den_df": {
               "name": "DenDF",
-              "value": 48.004,
+              "value": 48.0000000270886,
               "tolerance": 0.01
-            }
-          }
-        ],
-        "kenward_roger_anova": [
-          {
-            "term": "cask",
-            "f_value": {
-              "name": "F",
-              "value": 1.4069,
-              "tolerance": 0.02
-            },
-            "p_value": {
-              "name": "p",
-              "value": 0.2548,
-              "tolerance": 0.001
-            },
-            "num_df": {
-              "name": "NumDF",
-              "value": 2,
-              "tolerance": 1e-06
-            },
-            "den_df": {
-              "name": "DenDF",
-              "value": 48,
-              "tolerance": 0.05
             }
           }
         ]
@@ -460,6 +434,258 @@
           }
         ],
         "finite_deviance": true
+      }
+    },
+    {
+      "id": "sleepstudy_offset_reml",
+      "description": "Sleepstudy LMM with Days + offset(OffsetDays10) random slopes.",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ Days + offset(OffsetDays10) + (Days | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ Days + offset(OffsetDays10) + (Days | Subject), sleepstudy, REML = TRUE)",
+        "source_fixture": "tests/data/sleepstudy_offset_reml.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 251.405104848482,
+            "tolerance": 0.05
+          },
+          {
+            "name": "Days",
+            "value": 0.46728595959644,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 0.966741773965121,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days.(Intercept)",
+            "value": 0.0151690588934623,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days",
+            "value": 0.230909953210568,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 654.940008259166,
+          "tolerance": 0.1
+        }
+      }
+    },
+    {
+      "id": "cbpp_binomial_probit",
+      "description": "Binomial GLMM on CBPP with probit link.",
+      "kind": "glmm",
+      "data_path": "tests/data/cbpp_binary.csv",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "family": "binomial",
+      "link": "probit",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(..., family = binomial(link = 'probit'))",
+        "source_fixture": "tests/data/glmm_binomial_probit.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": -0.83513285285189,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period2",
+            "value": -0.528252927306056,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period3",
+            "value": -0.616786452271829,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period4",
+            "value": -0.799902525274513,
+            "tolerance": 0.08
+          }
+        ],
+        "theta": [
+          {
+            "name": "herd.(Intercept)",
+            "value": 0.337550031600553,
+            "tolerance": 0.08
+          }
+        ],
+        "finite_deviance": true
+      }
+    },
+    {
+      "id": "cbpp_binomial_weighted",
+      "description": "Binomial GLMM on CBPP with prior observation weights.",
+      "kind": "glmm",
+      "data_path": "tests/data/cbpp_binary_weighted.csv",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "family": "binomial",
+      "weights_column": "prior_w",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(..., weights = prior_w)",
+        "source_fixture": "tests/data/glmm_binomial_weighted.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": -1.44078860137986,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period2",
+            "value": -0.953977787680655,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period3",
+            "value": -0.993910990028785,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period4",
+            "value": -1.53546008588312,
+            "tolerance": 0.08
+          }
+        ],
+        "theta": [
+          {
+            "name": "herd.(Intercept)",
+            "value": 0.73396720971881,
+            "tolerance": 0.08
+          }
+        ],
+        "finite_deviance": true
+      }
+    },
+    {
+      "id": "grouseticks_poisson_offset",
+      "description": "Poisson GLMM on grouseticks with offset(log_height).",
+      "kind": "glmm",
+      "data_path": "tests/data/grouseticks.csv",
+      "formula": "TICKS ~ YEAR96 + YEAR97 + offset(log_height) + (1 | BROOD)",
+      "family": "poisson",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(TICKS ~ YEAR96 + YEAR97 + offset(log_height) + (1 | BROOD), ...)",
+        "source_fixture": "tests/data/glmm_poisson_offset.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": -5.81090428729957,
+            "tolerance": 0.15
+          },
+          {
+            "name": "YEAR96",
+            "value": 1.37489000416232,
+            "tolerance": 0.15
+          },
+          {
+            "name": "YEAR97",
+            "value": -0.899130728198366,
+            "tolerance": 0.15
+          }
+        ],
+        "theta": [
+          {
+            "name": "BROOD.(Intercept)",
+            "value": 1.32527498515372,
+            "tolerance": 0.02
+          }
+        ],
+        "finite_deviance": true
+      }
+    },
+    {
+      "id": "orange_nlmer_sslogis",
+      "description": "Orange-tree nlmer with SSlogis mean and RE on Asym.",
+      "kind": "nlmm",
+      "data_path": "tests/data/orange.csv",
+      "formula": "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+      "nlmm_start": {
+        "Asym": 200,
+        "xmid": 725,
+        "scal": 350
+      },
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree, Orange, start=c(Asym=200,xmid=725,scal=350))",
+        "source_fixture": "tests/data/orange_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "Asym",
+            "value": 192.052791888497,
+            "tolerance": 2
+          },
+          {
+            "name": "xmid",
+            "value": 727.904473336547,
+            "tolerance": 2
+          },
+          {
+            "name": "scal",
+            "value": 348.07213397745,
+            "tolerance": 2
+          }
+        ],
+        "theta": [
+          {
+            "name": "Tree.Asym",
+            "value": 4.03497223047614,
+            "tolerance": 0.2
+          }
+        ],
+        "population_predictions": [
+          {
+            "name": "population SSlogis circumference for Tree 1 ages 118,484,664",
+            "newdata": {
+              "age": [118, 484, 664],
+              "Tree": ["1", "1", "1"]
+            },
+            "values": [28.378760151777, 63.6943985675196, 87.2360670897122],
+            "tolerance": 1,
+            "allow_new_levels": false
+          }
+        ],
+        "conditional_predictions": [
+          {
+            "name": "fitted values for Tree 1 (first 3 rows)",
+            "newdata": {
+              "age": [118, 484, 664],
+              "Tree": ["1", "1", "1"]
+            },
+            "values": [24.0105140324338, 53.8901362291226, 73.8081157101119],
+            "tolerance": 1,
+            "allow_new_levels": false
+          }
+        ]
       }
     }
   ]

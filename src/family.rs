@@ -250,18 +250,139 @@ impl GlmLink for SqrtLink {
     }
 }
 
+// ─── Public link selector ─────────────────────────────────────────────────────
+
+/// User-facing link selector for [`Family::build_with_link`](Family::build_with_link) and
+/// [`glmer_with_link`](crate::glmer_with_link).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Link {
+    /// Logit: η = log(μ / (1 − μ)). Default for binomial.
+    Logit,
+    /// Probit: η = Φ⁻¹(μ). Binomial alternative.
+    Probit,
+    /// Complementary log-log. Binomial alternative.
+    Cloglog,
+    /// Log: η = log(μ). Default for Poisson; valid for Gaussian and Gamma.
+    Log,
+    /// Identity: η = μ. Default for Gaussian.
+    Identity,
+    /// Inverse: η = 1/μ. Default for Gamma.
+    Inverse,
+    /// Square root: η = √μ. Poisson alternative.
+    Sqrt,
+}
+
+impl Link {
+    /// Parse a link name (case-insensitive), matching R `family(link = ...)` strings.
+    pub fn parse(s: &str) -> crate::Result<Self> {
+        match s.trim().to_lowercase().as_str() {
+            "logit" => Ok(Link::Logit),
+            "probit" => Ok(Link::Probit),
+            "cloglog" => Ok(Link::Cloglog),
+            "log" => Ok(Link::Log),
+            "identity" => Ok(Link::Identity),
+            "inverse" => Ok(Link::Inverse),
+            "sqrt" => Ok(Link::Sqrt),
+            other => Err(crate::LmeError::NotImplemented {
+                feature: format!("unknown link '{other}'"),
+            }),
+        }
+    }
+
+    /// Canonical link for a [`Family`].
+    pub fn default_for(family: Family) -> Self {
+        match family {
+            Family::Binomial => Link::Logit,
+            Family::Poisson => Link::Log,
+            Family::Gaussian => Link::Identity,
+            Family::Gamma => Link::Inverse,
+        }
+    }
+
+    /// Whether this link is valid for the given family (R `family()` compatibility).
+    pub fn valid_for(self, family: Family) -> bool {
+        matches!(
+            (family, self),
+            (Family::Binomial, Link::Logit | Link::Probit | Link::Cloglog)
+                | (Family::Poisson, Link::Log | Link::Identity | Link::Sqrt)
+                | (Family::Gaussian, Link::Identity | Link::Log | Link::Inverse)
+                | (Family::Gamma, Link::Inverse | Link::Identity | Link::Log)
+        )
+    }
+
+    /// Short name for display and serialization (e.g. `"logit"`).
+    pub fn name(self) -> &'static str {
+        match self {
+            Link::Logit => "logit",
+            Link::Probit => "probit",
+            Link::Cloglog => "cloglog",
+            Link::Log => "log",
+            Link::Identity => "identity",
+            Link::Inverse => "inverse",
+            Link::Sqrt => "sqrt",
+        }
+    }
+}
+
+impl GlmLink for Link {
+    fn link_fun(&self, mu: &Array1<f64>) -> Array1<f64> {
+        match self {
+            Link::Logit => LogitLink.link_fun(mu),
+            Link::Probit => ProbitLink.link_fun(mu),
+            Link::Cloglog => CloglogLink.link_fun(mu),
+            Link::Log => LogLink.link_fun(mu),
+            Link::Identity => IdentityLink.link_fun(mu),
+            Link::Inverse => InverseLink.link_fun(mu),
+            Link::Sqrt => SqrtLink.link_fun(mu),
+        }
+    }
+
+    fn link_inv(&self, eta: &Array1<f64>) -> Array1<f64> {
+        match self {
+            Link::Logit => LogitLink.link_inv(eta),
+            Link::Probit => ProbitLink.link_inv(eta),
+            Link::Cloglog => CloglogLink.link_inv(eta),
+            Link::Log => LogLink.link_inv(eta),
+            Link::Identity => IdentityLink.link_inv(eta),
+            Link::Inverse => InverseLink.link_inv(eta),
+            Link::Sqrt => SqrtLink.link_inv(eta),
+        }
+    }
+
+    fn mu_eta(&self, eta: &Array1<f64>) -> Array1<f64> {
+        match self {
+            Link::Logit => LogitLink.mu_eta(eta),
+            Link::Probit => ProbitLink.mu_eta(eta),
+            Link::Cloglog => CloglogLink.mu_eta(eta),
+            Link::Log => LogLink.mu_eta(eta),
+            Link::Identity => IdentityLink.mu_eta(eta),
+            Link::Inverse => InverseLink.mu_eta(eta),
+            Link::Sqrt => SqrtLink.mu_eta(eta),
+        }
+    }
+
+    fn name(&self) -> &str {
+        Link::name(*self)
+    }
+}
+
 // ─── Family Implementations ───────────────────────────────────────────────────
 
-/// Binomial family with logit link (default).
-#[derive(Debug)]
+/// Binomial family (default link: logit).
+#[derive(Debug, Clone, Copy)]
 pub struct BinomialFamily {
-    link: LogitLink,
+    link: Link,
 }
 
 impl BinomialFamily {
-    /// Create a new Binomial family with a Logit link.
+    /// Create a binomial family with the given link.
+    pub fn with_link(link: Link) -> Self {
+        BinomialFamily { link }
+    }
+
+    /// Create a new Binomial family with a logit link.
     pub fn new() -> Self {
-        BinomialFamily { link: LogitLink }
+        Self::with_link(Link::Logit)
     }
 }
 
@@ -320,20 +441,25 @@ impl GlmFamily for BinomialFamily {
     }
 
     fn build_clone(&self) -> Box<dyn GlmFamily> {
-        Box::new(BinomialFamily::new())
+        Box::new(BinomialFamily::with_link(self.link))
     }
 }
 
-/// Poisson family with log link (default).
-#[derive(Debug)]
+/// Poisson family (default link: log).
+#[derive(Debug, Clone, Copy)]
 pub struct PoissonFamily {
-    link: LogLink,
+    link: Link,
 }
 
 impl PoissonFamily {
-    /// Create a new Poisson family with a Log link.
+    /// Create a Poisson family with the given link.
+    pub fn with_link(link: Link) -> Self {
+        PoissonFamily { link }
+    }
+
+    /// Create a new Poisson family with a log link.
     pub fn new() -> Self {
-        PoissonFamily { link: LogLink }
+        Self::with_link(Link::Log)
     }
 }
 
@@ -386,20 +512,25 @@ impl GlmFamily for PoissonFamily {
     }
 
     fn build_clone(&self) -> Box<dyn GlmFamily> {
-        Box::new(PoissonFamily::new())
+        Box::new(PoissonFamily::with_link(self.link))
     }
 }
 
-/// Gaussian family with identity link (default).
-#[derive(Debug)]
+/// Gaussian family (default link: identity).
+#[derive(Debug, Clone, Copy)]
 pub struct GaussianFamily {
-    link: IdentityLink,
+    link: Link,
 }
 
 impl GaussianFamily {
-    /// Create a new Gaussian family with an Identity link.
+    /// Create a Gaussian family with the given link.
+    pub fn with_link(link: Link) -> Self {
+        GaussianFamily { link }
+    }
+
+    /// Create a new Gaussian family with an identity link.
     pub fn new() -> Self {
-        GaussianFamily { link: IdentityLink }
+        Self::with_link(Link::Identity)
     }
 }
 
@@ -435,23 +566,25 @@ impl GlmFamily for GaussianFamily {
     }
 
     fn build_clone(&self) -> Box<dyn GlmFamily> {
-        Box::new(GaussianFamily::new())
+        Box::new(GaussianFamily::with_link(self.link))
     }
 }
 
-/// Gamma family with inverse link (default).
-///
-/// Used for positive continuous data where variance increases with the mean.
-/// V(μ) = μ², canonical link = 1/μ.
-#[derive(Debug)]
+/// Gamma family (default link: inverse).
+#[derive(Debug, Clone, Copy)]
 pub struct GammaFamily {
-    link: InverseLink,
+    link: Link,
 }
 
 impl GammaFamily {
-    /// Create a new Gamma family with an Inverse link.
+    /// Create a Gamma family with the given link.
+    pub fn with_link(link: Link) -> Self {
+        GammaFamily { link }
+    }
+
+    /// Create a new Gamma family with an inverse link.
     pub fn new() -> Self {
-        GammaFamily { link: InverseLink }
+        Self::with_link(Link::Inverse)
     }
 }
 
@@ -504,7 +637,7 @@ impl GlmFamily for GammaFamily {
     }
 
     fn build_clone(&self) -> Box<dyn GlmFamily> {
-        Box::new(GammaFamily::new())
+        Box::new(GammaFamily::with_link(self.link))
     }
 }
 
@@ -524,14 +657,25 @@ pub enum Family {
 }
 
 impl Family {
-    /// Create the concrete family implementation.
+    /// Create the concrete family implementation with its canonical link.
     pub fn build(&self) -> Box<dyn GlmFamily> {
-        match self {
-            Family::Binomial => Box::new(BinomialFamily::new()),
-            Family::Poisson => Box::new(PoissonFamily::new()),
-            Family::Gaussian => Box::new(GaussianFamily::new()),
-            Family::Gamma => Box::new(GammaFamily::new()),
+        self.build_with_link(Link::default_for(*self))
+            .expect("canonical link is always valid")
+    }
+
+    /// Create the family with an explicit link function.
+    pub fn build_with_link(&self, link: Link) -> crate::Result<Box<dyn GlmFamily>> {
+        if !link.valid_for(*self) {
+            return Err(crate::LmeError::NotImplemented {
+                feature: format!("link '{}' is not valid for family '{}'", link.name(), self),
+            });
         }
+        Ok(match self {
+            Family::Binomial => Box::new(BinomialFamily::with_link(link)),
+            Family::Poisson => Box::new(PoissonFamily::with_link(link)),
+            Family::Gaussian => Box::new(GaussianFamily::with_link(link)),
+            Family::Gamma => Box::new(GammaFamily::with_link(link)),
+        })
     }
 }
 
@@ -695,6 +839,23 @@ mod tests {
             (d[0] - 4.0).abs() < 1e-10,
             "gaussian dev_resid(y=3,mu=1) should be 4"
         );
+    }
+
+    #[test]
+    fn link_parse_and_validation() {
+        assert_eq!(Link::parse("logit").unwrap(), Link::Logit);
+        assert_eq!(Link::parse("PROBIT").unwrap(), Link::Probit);
+        assert!(Link::Probit.valid_for(Family::Binomial));
+        assert!(!Link::Logit.valid_for(Family::Gamma));
+        assert!(
+            Family::Binomial
+                .build_with_link(Link::Cloglog)
+                .unwrap()
+                .link()
+                .name()
+                == "cloglog"
+        );
+        assert!(Family::Binomial.build_with_link(Link::Sqrt).is_err());
     }
 
     #[test]

@@ -129,6 +129,7 @@ def glmer(
     data: pl.DataFrame,
     family_name: str,
     n_agq: int = 1,
+    link_name: Optional[str] = None,
 ) -> PyLmeFit: ...
 def glmer_weighted(
     formula: str,
@@ -136,6 +137,7 @@ def glmer_weighted(
     family_name: str,
     n_agq: int = 1,
     weights: Optional[list[float]] = None,
+    link_name: Optional[str] = None,
 ) -> PyLmeFit: ...
 def nlmer(
     formula: str,

@@ -140,6 +140,8 @@ let fit = lmer_weighted("y ~ x + (1 | group)", &df, true, Some(weights))?;
 
 ```text
 circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree
+circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym + xmid | Tree
+y ~ SSasymp(x, Asym, R0, lrc) ~ Asym|id
 ```
 
 ```rust
@@ -162,9 +164,9 @@ let fit = nlmer(
 
 Current limitations:
 
-- Only `SSlogis` is implemented as the mean function.
-- Only one random effect, on a single nonlinear parameter (the canonical Orange-tree example).
-- `predict()` is not wired for NLMM fits yet; use `fitted` / `residuals` on the training data.
+- Mean functions: `SSlogis`, `SSasymp` (no user-defined R `function()` means yet).
+- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp`, are covered by lme4 parity tests.
+- `predict()` evaluates the mean at fixed parameters only (`re.form = NA`); `predict_conditional()` adds stored random effects (`re.form = NULL`).
 - Log-likelihood and residual variance can differ slightly from `lme4` because this release uses a Laplace / penalized Gauss–Newton path (`nAGQ = 0` style), not full adaptive quadrature.
 
 ### `glmer()` for generalized linear mixed models
@@ -200,7 +202,27 @@ Built-in family support through the public enum:
 | `Family::Gaussian` | identity | continuous Gaussian responses |
 | `Family::Gamma` | inverse | positive continuous responses |
 
-At the public API level, `glmer()` currently dispatches through these built-in families and their default links.
+`glmer()` uses each family's canonical (default) link. Non-canonical links are available via
+[`glmer_with_link`](src/lib.rs) and [`family::Link`](src/family.rs):
+
+| Family | Default link | Also supported |
+| :----- | :----------- | :------------- |
+| `Family::Binomial` | logit | probit, cloglog |
+| `Family::Poisson` | log | identity, sqrt |
+| `Family::Gaussian` | identity | log, inverse |
+| `Family::Gamma` | inverse | identity, log |
+
+```rust
+use lme_rs::{glmer_with_link, family::{Family, Link}};
+
+let probit_fit = glmer_with_link(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    &df,
+    Family::Binomial,
+    Link::Probit,
+    1,
+)?;
+```
 
 ### `glmer_weighted()` for prior observation weights
 
@@ -433,8 +455,9 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
-| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, one RE parameter) |
-| `glmer(formula, data, family)` | generalized linear mixed model |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`; multivariate RE) |
+| `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |
+| `glmer_with_link(formula, data, family, link)` | GLMM with explicit link |
 | `glmer_weighted(formula, data, family, n_agq, weights)` | GLMM with prior observation weights |
 | `anova(fit_a, fit_b)` | likelihood ratio test between nested models |
 

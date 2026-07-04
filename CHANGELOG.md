@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Golden parity expansion: offset LMM/GLMM, probit/weighted binomial GLMM, and Orange `nlmer` predictions in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (regenerated via [`tests/generate_test_data.R`](tests/generate_test_data.R)). Rust checks in [`tests/test_golden_parity.rs`](tests/test_golden_parity.rs), [`tests/test_glmm_offset_grouseticks.rs`](tests/test_glmm_offset_grouseticks.rs); Python in [`python/tests/test_golden_parity.py`](python/tests/test_golden_parity.py).
+- Cross-language coefficient parity exporters under [`comparisons/parity/`](comparisons/parity/) (R, Julia) plus Rust [`parity_export`](comparisons/parity_export.rs) example; orchestration via [`scripts/verify_cross_language_parity.py`](scripts/verify_cross_language_parity.py).
+- Explicit GLMM link selection: [`family::Link`](src/family.rs), [`glmer_with_link`](src/lib.rs) / [`glmer_weighted_with_link`](src/lib.rs). Python: `glmer(..., link_name="probit")`. Response-scale prediction respects the fitted link. Tests in [`tests/test_glmm_links.rs`](tests/test_glmm_links.rs).
+- `nlmer` population and conditional prediction: `LmeFit::predict()` / `predict_conditional()` evaluate `SSlogis` at fixed parameters (`re.form = NA`) or with stored random effects on `Asym` (`re.form = NULL`). Python `fit.predict()` / `fit.predict_conditional()` work unchanged. Tests in [`tests/test_nlmm_orange.rs`](tests/test_nlmm_orange.rs).
+
+### Fixed
+
+- GLMM PIRLS with `offset(...)`: penalized WLS now regresses `z − offset` on fixed and random effects so coefficients match `lme4::glmer` (e.g. grouseticks Poisson offset case).
+- **`nlmer` expansion:** `SSasymp` mean with R parity on synthetic data ([`tests/test_nlmm_ssasymp.rs`](tests/test_nlmm_ssasymp.rs)); multivariate RE parsing (`Asym + xmid | Tree`) with relative-θ Cholesky covariance, correlated Orange parity, and conditional prediction ([`tests/test_nlmm_orange_multi_re.rs`](tests/test_nlmm_orange_multi_re.rs)).
+
 ## [0.1.8] - 2026-07-01
 
 ### Added

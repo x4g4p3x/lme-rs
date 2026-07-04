@@ -2,7 +2,14 @@
 
 mod fit;
 mod formula;
+mod mean;
+pub(crate) mod predict;
+pub(crate) mod re_cov;
+mod ssasymp;
 mod sslogis;
+pub use re_cov::sigma_from_theta;
+pub use ssasymp::ssasymp_eval;
+pub use sslogis::sslogis_eval;
 
 pub use fit::{fit_nlmer, NlmerOptions, NlmmStart};
 pub use formula::{parse_nlmer_formula, NlmerFormula, NlmmMeanKind};
@@ -17,10 +24,12 @@ use crate::LmeFit;
 ///
 /// ```text
 /// response ~ SSlogis(covariate, Asym, xmid, scal) ~ Asym|group
+/// response ~ SSlogis(covariate, Asym, xmid, scal) ~ Asym + xmid | group
+/// response ~ SSasymp(covariate, Asym, R0, lrc) ~ Asym|group
 /// ```
 ///
-/// Only random effects on `Asym` are supported in this release, matching the
-/// canonical `nlmer(Orange)` example.
+/// Supported means: `SSlogis`, `SSasymp`. Random effects are additive on the
+/// named nonlinear parameters (one or more per grouping factor).
 pub fn nlmer(
     formula: &str,
     data: &DataFrame,

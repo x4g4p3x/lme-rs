@@ -166,12 +166,23 @@ pub struct LmeFit {
 }
 
 impl LmeFit {
+    fn is_nlmm(&self) -> bool {
+        self.family_name.as_deref() == Some("nlmm")
+    }
+
     /// Predict population-level expectations given novel data.
     /// This resolves the Fixed Effects matrix ($X_{new} \hat{\beta}$) ignoring Random Effects groupings (`re.form=NA`).
+    ///
+    /// For nonlinear mixed models (`nlmer`), returns the mean function evaluated at the fixed
+    /// nonlinear parameters only (random effects set to zero).
     pub fn predict(
         &self,
         newdata: &polars::prelude::DataFrame,
     ) -> anyhow::Result<ndarray::Array1<f64>> {
+        if self.is_nlmm() {
+            return crate::nlmm::predict::predict_population(self, newdata);
+        }
+
         // Parse formula to understand structure
         let ast = crate::formula::parse(&self.formula.clone().unwrap_or_default())
             .map_err(|e| anyhow::anyhow!("Failed to parse formula: {}", e))?;
@@ -244,10 +255,19 @@ impl LmeFit {
         eta: ndarray::Array1<f64>,
     ) -> anyhow::Result<ndarray::Array1<f64>> {
         match &self.family {
-            Some(fam) => {
-                let fam_impl = fam.build();
-                let link = fam_impl.link();
-                Ok(link.link_inv(&eta))
+            Some(fam_enum) => {
+                let link = self
+                    .link_name
+                    .as_deref()
+                    .map(family::Link::parse)
+                    .transpose()
+                    .map_err(|e| anyhow::anyhow!("{e}"))?
+                    .unwrap_or_else(|| family::Link::default_for(*fam_enum));
+                let fam_impl = fam_enum
+                    .build_with_link(link)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                let link_fn = fam_impl.link();
+                Ok(link_fn.link_inv(&eta))
             }
             None => Ok(eta), // LMM: identity, return as-is
         }
@@ -256,6 +276,9 @@ impl LmeFit {
     /// Predict conditional expectations given novel data, including Random Effects (`re.form=NULL`).
     /// Computes $\hat{y} = X_{new} \hat{\beta} + Z_{new} \hat{b}$ using stored random effects.
     ///
+    /// For nonlinear mixed models (`nlmer`), adds stored random effects on the nonlinear parameter
+    /// (e.g. `Asym + b_group`) before evaluating the mean function.
+    ///
     /// Groups present in `newdata` but absent from the training data receive zero random-effect
     /// contributions (population-level predictions), consistent with R's `predict.merMod`.
     pub fn predict_conditional(
@@ -263,6 +286,10 @@ impl LmeFit {
         newdata: &polars::prelude::DataFrame,
         allow_new_levels: bool,
     ) -> anyhow::Result<ndarray::Array1<f64>> {
+        if self.is_nlmm() {
+            return crate::nlmm::predict::predict_conditional(self, newdata, allow_new_levels);
+        }
+
         let y_pop = self.predict(newdata)?;
 
         let b = self.b.as_ref().ok_or_else(|| {
@@ -1216,6 +1243,20 @@ pub fn glmer(
     glmer_weighted(formula_str, data, family_enum, n_agq, None)
 }
 
+/// Fit a GLMM with an explicit link function (non-canonical links supported per family).
+///
+/// See [`family::Link`] for valid family/link combinations. [`glmer`] uses each family's
+/// canonical link.
+pub fn glmer_with_link(
+    formula_str: &str,
+    data: &DataFrame,
+    family_enum: family::Family,
+    link: family::Link,
+    n_agq: usize,
+) -> Result<LmeFit> {
+    glmer_weighted_with_link(formula_str, data, family_enum, link, n_agq, None)
+}
+
 /// Fit a GLMM with optional prior observation weights.
 ///
 /// Weights multiply each observation's contribution to the Laplace / AGQ deviance and enter
@@ -1227,16 +1268,44 @@ pub fn glmer_weighted(
     n_agq: usize,
     weights: Option<Array1<f64>>,
 ) -> Result<LmeFit> {
+    glmer_weighted_with_link(
+        formula_str,
+        data,
+        family_enum,
+        family::Link::default_for(family_enum),
+        n_agq,
+        weights,
+    )
+}
+
+/// [`glmer_weighted`] with an explicit link function.
+pub fn glmer_weighted_with_link(
+    formula_str: &str,
+    data: &DataFrame,
+    family_enum: family::Family,
+    link: family::Link,
+    n_agq: usize,
+    weights: Option<Array1<f64>>,
+) -> Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
+    }
+    if !link.valid_for(family_enum) {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "link '{}' is not valid for family '{}'",
+                link.name(),
+                family_enum
+            ),
+        });
     }
 
     // Gaussian + identity: same likelihood as LMM with ML. The GLMM Laplace objective for θ
     // is not on the LMM scale, so optimizing it mis-reports Var(b) = σ² ΛΛ′ vs lmer / MixedLM.
-    if family_enum == family::Family::Gaussian {
-        let fam = family_enum.build();
+    if family_enum == family::Family::Gaussian && link == family::Link::Identity {
+        let fam = family_enum.build_with_link(link)?;
         let fam_name = fam.name().to_string();
-        let link_name = fam.link().name().to_string();
+        let link_name = link.name().to_string();
         let mut fit = lmer_weighted(formula_str, data, false, weights)?;
         fit.family_name = Some(fam_name);
         fit.link_name = Some(link_name);
@@ -1244,9 +1313,9 @@ pub fn glmer_weighted(
         return Ok(fit);
     }
 
-    let fam = family_enum.build();
+    let fam = family_enum.build_with_link(link)?;
     let fam_name = fam.name().to_string();
-    let link_name = fam.link().name().to_string();
+    let link_name = link.name().to_string();
 
     // 1. Parse Wilkinson formula into AST
     let ast = formula::parse(formula_str)?;
@@ -1270,7 +1339,7 @@ pub fn glmer_weighted(
     );
 
     // 4. Optimize theta using Nelder-Mead on Laplace deviance (AGQ applies in final PIRLS when n_agq > 1)
-    let fam_for_opt = family_enum.build();
+    let fam_for_opt = family_enum.build_with_link(link)?;
     let opt_result = optimizer::optimize_theta_glmm(
         matrices.x.clone(),
         matrices.zt.clone(),
@@ -1288,7 +1357,7 @@ pub fn glmer_weighted(
     let best_theta = &opt_result.theta;
 
     // 5. Re-evaluate PIRLS at optimal theta to get coefficients
-    let fam_for_eval = family_enum.build();
+    let fam_for_eval = family_enum.build_with_link(link)?;
     let mut glmm = glmm_math::GlmmData::new_weighted(
         matrices.x.clone(),
         matrices.zt.clone(),

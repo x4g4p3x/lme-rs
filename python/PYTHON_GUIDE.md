@@ -176,7 +176,17 @@ model = lme_python.glmer(
     data=df,
     family_name="poisson",
 )
+
+# Optional non-canonical link (logit, probit, cloglog, log, identity, inverse, sqrt)
+probit_fit = lme_python.glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    data=pl.read_csv("tests/data/cbpp_binary.csv"),
+    family_name="binomial",
+    link_name="probit",
+)
 ```
+
+Supported links per family match Rust [`family::Link`](../../src/family.rs): binomial — logit (default), probit, cloglog; poisson — log, identity, sqrt; gaussian — identity, log, inverse; gamma — inverse, identity, log.
 
 Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer_weighted`).
 
@@ -192,7 +202,7 @@ fit = lme_python.nlmer(
 )
 ```
 
-`predict()` is not yet supported for NLMM fits; use `fitted` and `residuals` on the training data.
+`predict()` and `predict_conditional()` work on NLMM fits: population predictions use fixed nonlinear parameters only; conditional predictions add stored random effects, including multivariate nonlinear-parameter effects such as `Asym + xmid | Tree`.
 
 ## Predictions
 
