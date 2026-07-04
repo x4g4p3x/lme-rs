@@ -1,24 +1,10 @@
 name: Security audit
 
 on:
-  schedule:
-    # Weekly: Mondays 12:00 UTC
-    - cron: "0 12 * * 1"
   workflow_dispatch:
   push:
-    branches: [master]
-    paths:
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
-      - "python/pyproject.toml"
-      - "python/requirements-ci.txt"
-  pull_request:
-    branches: [master]
-    paths:
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
-      - "python/pyproject.toml"
-      - "python/requirements-ci.txt"
+    tags:
+      - "v*"
 
 permissions:
   contents: read

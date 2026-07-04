@@ -1,16 +1,10 @@
 name: Build and Publish Python Wheels
 
-# Trigger on pushes to the master branch or when a release tag (v*) is pushed
+# Trigger automatically only for release tags; use workflow_dispatch for manual builds.
 on:
   push:
-    branches:
-      - master
     tags:
-      - 'v*'
-  pull_request:
-    paths:
-      - 'python/**'
-      - 'src/**'
+      - "v*"
   workflow_dispatch:
 
 permissions:

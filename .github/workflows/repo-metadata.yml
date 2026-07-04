@@ -2,11 +2,8 @@ name: Sync Repository Metadata
 
 on:
   push:
-    branches: [master]
-    paths:
-      - Cargo.toml
-      - scripts/sync_github_repo_metadata.py
-      - .github/workflows/repo-metadata.yml
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:

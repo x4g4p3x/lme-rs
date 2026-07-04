@@ -97,9 +97,9 @@ If GHA reports `401 Bad credentials` on **Sync Repository Metadata**, rotate the
 
 Bypass: `git push --no-verify`.
 
-**macOS Apple Silicon BLAS** (`openblas-static` vs MKL) is only exercised on `macos-latest` in GHA — Windows/Linux preflights cannot catch that matrix cell. After changing `Cargo.toml` BLAS target tables or release workflows, run `task ci` or wait for the macOS CI job.
+**macOS Apple Silicon BLAS** (`openblas-static` vs MKL) is only exercised on `macos-latest` in GHA — Windows/Linux preflights cannot catch that matrix cell. GHA now runs automatically only for `v*` tags (plus manual dispatch), so after changing `Cargo.toml` BLAS target tables or release workflows, run `task ci` locally or manually dispatch the CI workflow before tagging.
 
-**Cross-language benchmarks** (R + Julia, tag-only [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml)): pre-commit runs `benchmarks-smoke` when `comparisons/**` changes (Rust `sleepstudy` example only). Full matrix needs R (`lme4`, `lmerTest`, `car`, `rlang`) and Julia — CI-only unless you run `task benchmarks:preflight` with R installed.
+**Cross-language benchmarks** (R + Julia, tag-only [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml)): pre-commit runs `benchmarks-smoke` when `comparisons/**` changes (Rust `sleepstudy` example only). Full matrix needs R (`lme4`, `lmerTest`, `car`, `rlang`) and Julia — run it through the tag/manual GHA workflow or `task benchmarks:preflight` with R installed.
 
 ## 3. Before finishing work (manual)
 
@@ -153,7 +153,7 @@ python scripts/ci/lme_ci.py ci
 python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 ```
 
-**CI-only:** multi-OS matrix, Python 3.10/3.12/3.13, production-load gates, `cargo audit` / `pip-audit`.
+**GHA-only:** multi-OS matrix, Python 3.10/3.12/3.13, production-load gates, and `pip-audit`. These workflows are release-oriented: automatic runs are limited to `v*` tags, with manual dispatch available for pre-release checks.
 
 ## `lme_ci.py` commands
 

@@ -24,11 +24,11 @@ task setup    # installs pinned tools + lefthook git hooks
 
 See [AGENTS.md](AGENTS.md) for the four-tier pre-flight model (Lefthook commit/push hooks → `task lint` / `task preflight` → `task ci`).
 
-Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (GHA pins 0.22.1).
+Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (GitHub Actions pins 0.22.1).
 
 ### CI runner
 
-All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic.
+All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions run automatically only for `v*` release tags; use local Task/Lefthook checks for ordinary pushes and PR preparation, or `workflow_dispatch` for an ad hoc remote run.
 
 ```bash
 python3 scripts/ci/lme_ci.py ci
@@ -62,7 +62,7 @@ task             # full core CI mirror
 task ci:fast     # reuse python/.venv, skip wheel-reinstall pytest
 ```
 
-To run the same **core** checks as [GitHub Actions CI](.github/workflows/ci.yml) locally:
+To run the same **core** checks as the tag-triggered [GitHub Actions CI](.github/workflows/ci.yml) locally:
 
 ```bash
 task ci
@@ -109,9 +109,9 @@ cd python
 pip-compile pyproject.toml --extra dev -o requirements-ci.txt --allow-unsafe --strip-extras
 ```
 
-Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
+Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as the tag-triggered [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
 
-The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers use **uv** to create `python/.venv` with Python **3.11** explicitly, then `pip install -r requirements-ci.txt`, `maturin develop`, and `pytest tests/`. CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
+The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers use **uv** to create `python/.venv` with Python **3.11** explicitly, then `pip install -r requirements-ci.txt`, `maturin develop`, and `pytest tests/`. The tag-triggered CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 ## Working on numerical changes
 
@@ -142,10 +142,12 @@ Do not describe a feature as supported unless it is exposed by the public API an
 
 ## Other GitHub Actions workflows
 
-- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` Rust crates, plus `pip-audit` against [`python/requirements-ci.txt`](python/requirements-ci.txt) (scheduled weekly + on Rust/Python lock changes).
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — release CI on `v*` tags and manual dispatch.
+- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` Rust crates, plus `pip-audit` against [`python/requirements-ci.txt`](python/requirements-ci.txt), on `v*` tags and manual dispatch.
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — `cargo publish --dry-run --locked` on `v*` tags and manual dispatch.
+- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — Python wheel builds and PyPI publish on `v*` tags; manual dispatch builds artifacts without publishing.
 
-Pushes and PRs that **only** change `**/*.md` or `LICENSE` do not run the main [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (see `paths-ignore` there).
+No GitHub Actions workflow runs automatically for ordinary branch pushes or pull requests. Use Lefthook and Task locally before pushing; use manual dispatch when a remote check is useful before tagging.
 
 ## Repository metadata sync
 
@@ -154,7 +156,7 @@ The GitHub About box is synced from `Cargo.toml` using:
 - `.github/workflows/repo-metadata.yml`
 - `scripts/sync_github_repo_metadata.py`
 
-If you change `package.description`, `homepage`, `keywords`, or `categories`, the metadata workflow will update the GitHub repository metadata on the next run.
+If you change `package.description`, `homepage`, `keywords`, or `categories`, the metadata workflow will update the GitHub repository metadata on the next `v*` tag run or manual dispatch.
 
 Preflight locally:
 

@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/lme-rs.svg)](https://crates.io/crates/lme-rs)
 [![docs.rs](https://docs.rs/lme-rs/badge.svg)](https://docs.rs/lme-rs/latest/lme_rs/)
-[![CI](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml)
+[![Release CI](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml)
 [![license](https://img.shields.io/crates/l/lme-rs.svg)](LICENSE)
 
 `lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
@@ -98,6 +98,6 @@ Each example is mirrored across Rust, R, Python, and Julia where that comparison
 
 ## Development notes
 
-Repository metadata on GitHub is synced from `Cargo.toml` by [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml). Preflight with `task repo-metadata`; the workflow needs a valid **`REPO_ADMIN_TOKEN`** secret (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Repository metadata on GitHub is synced from `Cargo.toml` by [.github/workflows/repo-metadata.yml](.github/workflows/repo-metadata.yml) on `v*` release tags or manual dispatch. Preflight with `task repo-metadata`; the workflow needs a valid **`REPO_ADMIN_TOKEN`** secret (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-Local checks mirror CI in layers: **`task preflight`** before push (lint, compile graph, `cargo audit`, metadata dry-run), **`task ci`** before a PR ([AGENTS.md](AGENTS.md) for hook details). Install `cargo-audit` once: `cargo install cargo-audit`.
+GitHub Actions are release-oriented: automatic runs are limited to `v*` tag pushes, with `workflow_dispatch` available for manual runs. Local checks carry the day-to-day gate in layers: **`task preflight`** before push (lint, compile graph, `cargo audit`, metadata dry-run), **`task ci`** before large PRs or release tags ([AGENTS.md](AGENTS.md) for hook details). Install `cargo-audit` once: `cargo install cargo-audit`.
