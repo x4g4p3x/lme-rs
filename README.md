@@ -11,7 +11,7 @@
 
 - `lm()` for fixed-effects-only linear models
 - `lmer()` and `lmer_weighted()` for linear mixed models
-- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` means; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
+- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` means; optional scalar AGQ; Rust `nlmer_with_mean` for custom μ; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs

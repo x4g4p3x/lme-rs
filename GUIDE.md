@@ -143,6 +143,8 @@ circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree
 circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym + xmid | Tree
 y ~ SSasymp(x, Asym, R0, lrc) ~ Asym|id
 y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id
+y ~ SSmicmen(x, Vmax, K) ~ Vmax|id
+y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id
 ```
 
 ```rust
@@ -163,13 +165,17 @@ let fit = nlmer(
 )?;
 ```
 
+For scalar adaptive quadrature on a single random effect (`k = 1`), use [`nlmer_with_options`](src/nlmm/mod.rs) and set [`NlmerOptions::n_agq`](src/nlmm/fit.rs) to a value `≥ 2` (default `1` is Laplace only). Python: `nlmer(..., n_agq=7)`.
+
+Custom mean functions (Rust only) implement [`NlmmMeanEval`](src/nlmm/mean_fn.rs) or wrap a closure with [`CustomNlmmMean`](src/nlmm/mean_fn.rs), then call [`nlmer_with_mean`](src/nlmm/mod.rs).
+
 Current limitations:
 
-- Mean functions: `SSlogis`, `SSasymp`, `SSfol` (no user-defined R `function()` means yet).
+- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz` (not the full R `stats::SS*` catalog). User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust only (no Python callback yet).
 - Starting values: pass an empty `NlmmStart` / `start=None` in Python to use R-style `selfStart` heuristics (`stats::getInitial`); the fitter also tries static defaults and keeps the lowest-deviance result.
-- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol`, are covered by lme4 parity tests.
+- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz`, are covered by lme4 parity tests.
 - `predict()` evaluates the mean at fixed parameters only (`re.form = NA`); `predict_conditional()` adds stored random effects (`re.form = NULL`).
-- Log-likelihood and residual variance can differ slightly from `lme4` because this release uses a Laplace / penalized Gauss–Newton path (`nAGQ = 0` style), not full adaptive quadrature.
+- Scalar AGQ (`n_agq ≥ 2`, `k = 1` RE) is applied in the final profile evaluation at the optimized θ, not inside the θ search (same pattern as `glmer`). Default `n_agq = 1` is Laplace / penalized Gauss–Newton (`nAGQ = 0` style).
 
 ### `glmer()` for generalized linear mixed models
 
@@ -460,7 +466,9 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
-| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`; multivariate RE; empty `start` → `selfStart`) |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`; multivariate RE; empty `start` → `selfStart`) |
+| `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
+| `nlmer_with_mean(parsed, mean, data, formula_label, opts)` | `nlmer` with a custom [`NlmmMeanEval`](src/nlmm/mean_fn.rs) |
 | `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |
 | `glmer_with_link(formula, data, family, link)` | GLMM with explicit link |
 | `glmer_weighted(formula, data, family, n_agq, weights)` | GLMM with prior observation weights |
