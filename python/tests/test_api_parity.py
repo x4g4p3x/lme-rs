@@ -96,6 +96,27 @@ def test_nlmer_orange():
         assert abs(c - f) < 1e-3
 
 
+def test_nlmer_n_agq_orange():
+    df = pl.read_csv("../tests/data/orange.csv")
+    start = {"Asym": 200.0, "xmid": 725.0, "scal": 350.0}
+    laplace = lme_python.nlmer(
+        "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+        data=df,
+        start=start,
+        reml=False,
+        n_agq=1,
+    )
+    agq = lme_python.nlmer(
+        "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+        data=df,
+        start=start,
+        reml=False,
+        n_agq=5,
+    )
+    assert laplace.deviance is not None and math.isfinite(laplace.deviance)
+    assert agq.deviance is not None and math.isfinite(agq.deviance)
+
+
 def test_lmer_weighted_python():
     df = pl.read_csv("../tests/data/sleepstudy.csv")
     n = df.height

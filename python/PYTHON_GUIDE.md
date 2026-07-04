@@ -52,7 +52,7 @@ Top-level functions:
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
-- `lme_python.nlmer(formula, data, start=None, reml=False)` — `SSlogis` NLMM (Orange-tree workflow)
+- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`)
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
@@ -192,6 +192,10 @@ Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer
 
 ### Nonlinear mixed models
 
+Built-in means match R `stats::SS*` functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`.
+
+When `start=None` (or an empty dict), the fitter uses R-style **`selfStart`** heuristics on `(covariate, response)` with multistart fallback to static defaults — the same path as omitting `start` in R `nlmer()`.
+
 ```python
 df = pl.read_csv("tests/data/orange.csv")
 fit = lme_python.nlmer(
@@ -200,7 +204,18 @@ fit = lme_python.nlmer(
     start={"Asym": 200.0, "xmid": 725.0, "scal": 350.0},
     reml=False,
 )
+
+# selfStart when starts are unknown:
+fit_auto = lme_python.nlmer(
+    "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+    data=df,
+    start=None,
+)
 ```
+
+Explicit `start` overrides `selfStart`; partial dicts merge with defaults for missing parameter names.
+
+Set `n_agq` to a value `≥ 2` for adaptive Gauss–Hermite quadrature on scalar random effects (`k = 1`); default `1` is Laplace only (same convention as `glmer`).
 
 `predict()` and `predict_conditional()` work on NLMM fits: population predictions use fixed nonlinear parameters only; conditional predictions add stored random effects, including multivariate nonlinear-parameter effects such as `Asym + xmid | Tree`.
 

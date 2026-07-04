@@ -47,6 +47,8 @@ fn make_display_fit(
         v_beta_unscaled: None,
         robust: None,
         categorical_levels: None,
+        nlmm_mean: None,
+        nlmm_formula: None,
     }
 }
 

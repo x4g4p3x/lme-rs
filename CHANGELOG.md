@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `nlmer` built-in means **`SSmicmen`** and **`SSgompertz`** (`stats::SSmicmen`; `stats::SSgompertz` as `Asym * exp(-b2 * b3^x)`).
+- Custom nonlinear means via [`NlmmMeanEval`](src/nlmm/mean_fn.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) and [`nlmer_with_mean`](src/nlmm/mod.rs).
+- Scalar **AGQ** for `nlmer` (`NlmerOptions::n_agq`, `k = 1` random effects); tests in [`tests/test_nlmm_agq.rs`](tests/test_nlmm_agq.rs).
+- Python docs for `nlmer(..., start=None)` / `selfStart` in [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md).
+- Python `nlmer(..., n_agq=1)` binding (scalar AGQ for `k = 1` RE).
+- Golden parity cases `ssmicmen_synthetic_self_start` and `ssgompertz_synthetic_self_start`.
+- Shared Gauss–Hermite quadrature in [`src/quadrature.rs`](src/quadrature.rs) (deduped from `glmm_math`).
 - Type **I** fixed-effects ANOVA via `AnovaType::Type1` / `anova_type="I"` (sequential contrasts in formula term order).
 - `car::linearHypothesis`-style wrappers: `LmeFit::linear_hypothesis` / `linear_hypothesis_terms` (Rust) and `fit.linear_hypothesis()` / `fit.linear_hypothesis_terms()` (Python).
 - Python golden parity: `orange_nlmer_sslogis` in [`python/tests/test_golden_parity.py`](python/tests/test_golden_parity.py).

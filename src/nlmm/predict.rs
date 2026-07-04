@@ -1,11 +1,14 @@
 //! Population and conditional prediction for nonlinear mixed models.
 
 use crate::nlmm::fit::{column_f64, column_str};
-use crate::nlmm::formula::{parse_nlmer_formula, re_param_indices, NlmmMeanKind};
-use crate::nlmm::mean::eval_mean;
+use crate::nlmm::formula::{re_param_indices, NlmerFormula};
+use crate::nlmm::mean_fn::{eval_mean_with_re, NlmmMeanEval};
 use crate::LmeFit;
 use ndarray::Array1;
 use polars::prelude::DataFrame;
+use std::sync::Arc;
+
+type NlmmPredictState = (NlmerFormula, Arc<dyn NlmmMeanEval>, Vec<f64>, Vec<usize>);
 
 /// Population-level predictions (`re.form = NA`): nonlinear mean with fixed effects only.
 pub fn predict_population(fit: &LmeFit, newdata: &DataFrame) -> anyhow::Result<Array1<f64>> {
@@ -15,7 +18,7 @@ pub fn predict_population(fit: &LmeFit, newdata: &DataFrame) -> anyhow::Result<A
     let zeros = vec![0.0; re_indices.len()];
     let mut mu = Array1::<f64>::zeros(n);
     for i in 0..n {
-        mu[i] = eval_mean(mean, cov[i], &params, &re_indices, &zeros).0;
+        mu[i] = eval_mean_with_re(mean.as_ref(), cov[i], &params, &re_indices, &zeros).0;
     }
     Ok(mu)
 }
@@ -66,24 +69,20 @@ pub fn predict_conditional(
                 vec![0.0; k_re]
             }
         };
-        mu[i] = eval_mean(mean, cov[i], &params, &re_indices, &re_off).0;
+        mu[i] = eval_mean_with_re(mean.as_ref(), cov[i], &params, &re_indices, &re_off).0;
     }
     Ok(mu)
 }
 
-fn nlmm_state(
-    fit: &LmeFit,
-) -> anyhow::Result<(
-    crate::nlmm::formula::NlmerFormula,
-    NlmmMeanKind,
-    Vec<f64>,
-    Vec<usize>,
-)> {
-    let formula = fit
-        .formula
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("No formula stored on nlmm fit"))?;
-    let (parsed, mean) = parse_nlmer_formula(formula).map_err(|e| anyhow::anyhow!("{e}"))?;
+fn nlmm_state(fit: &LmeFit) -> anyhow::Result<NlmmPredictState> {
+    let mean = fit
+        .nlmm_mean
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("No nonlinear mean stored on nlmm fit"))?;
+    let parsed = fit
+        .nlmm_formula
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("No nlmm formula metadata stored on fit"))?;
     let names = fit
         .fixed_names
         .as_ref()

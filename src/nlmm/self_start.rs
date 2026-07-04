@@ -6,7 +6,7 @@ use ndarray::Array1;
 
 /// Compute starting values from `(x, y)` when the user omits `start`.
 ///
-/// Mirrors R `stats::selfStart` for `SSlogis`, `SSasymp`, and `SSfol`.
+/// Mirrors R `stats::selfStart` for built-in means.
 pub(crate) fn self_start(
     kind: NlmmMeanKind,
     x: &Array1<f64>,
@@ -14,13 +14,15 @@ pub(crate) fn self_start(
     param_names: &[String],
 ) -> NlmmStart {
     let xy = sorted_xy_data(x, y);
-    let values: [f64; 3] = match kind {
-        NlmmMeanKind::Sslogis => self_start_sslogis(&xy),
-        NlmmMeanKind::Ssasymp | NlmmMeanKind::Ssfol => self_start_ssasymp(&xy),
+    let values: Vec<f64> = match kind {
+        NlmmMeanKind::Sslogis => self_start_sslogis(&xy).to_vec(),
+        NlmmMeanKind::Ssasymp | NlmmMeanKind::Ssfol => self_start_ssasymp(&xy).to_vec(),
+        NlmmMeanKind::Ssmicmen => self_start_ssmicmen(&xy),
+        NlmmMeanKind::Ssgompertz => self_start_ssgompertz(&xy),
     };
     let mut start = NlmmStart::new();
-    for (name, &value) in param_names.iter().zip(values.iter()) {
-        start.insert(name.clone(), value);
+    for (name, value) in param_names.iter().zip(values.iter()) {
+        start.insert(name.clone(), *value);
     }
     start
 }
@@ -120,6 +122,36 @@ fn self_start_ssasymp(xy: &[(f64, f64)]) -> [f64; 3] {
         lrc = 0.0;
     }
     [asym, r0, lrc]
+}
+
+fn self_start_ssmicmen(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.is_empty() {
+        return vec![10.0, 1.0];
+    }
+    let vmax = xy.iter().map(|(_, y)| *y).fold(f64::NEG_INFINITY, f64::max);
+    let half = vmax / 2.0;
+    let k = approx_x_from_y(xy, half).unwrap_or(xy[0].0).max(1e-6);
+    vec![vmax.max(1.0), k]
+}
+
+fn self_start_ssgompertz(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.len() < 4 {
+        return vec![50.0, 1.0, 0.3];
+    }
+    let asym = xy
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .max(1.0);
+    let x0 = xy.first().map(|(x, _)| *x).unwrap_or(0.0);
+    let y0 = xy.first().map(|(_, y)| *y).unwrap_or(1.0).max(1e-6);
+    let b3 = if x0 == 0.0 {
+        0.3
+    } else {
+        (y0 / asym).ln().abs().max(0.1)
+    };
+    let b2 = 1.0;
+    vec![asym, b2, b3]
 }
 
 #[cfg(test)]

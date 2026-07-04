@@ -344,7 +344,7 @@ df_ssfol$id <- as.factor(df_ssfol$id)
 fm_ssfol <- nlmer(
   y ~ SSfol(x, Asym, R0, lrc) ~ Asym | id,
   data = df_ssfol,
-  start = getInitial(y ~ SSfol(x, Asym, R0, lrc) ~ Asym | id, data = df_ssfol)
+  start = getInitial(y ~ SSfol(x, Asym, R0, lrc), data = df_ssfol)
 )
 ssfol_vc_sd <- as.numeric(attr(VarCorr(fm_ssfol)$id, "stddev")["Asym"])
 out_ssfol <- list(
@@ -355,6 +355,66 @@ out_ssfol <- list(
     re_sd = jsonlite::unbox(ssfol_vc_sd),
     sigma2 = jsonlite::unbox(as.numeric(sigma(fm_ssfol))^2),
     logLik = jsonlite::unbox(as.numeric(logLik(fm_ssfol)))
+  )
+)
+
+# SSmicmen synthetic grouped data.
+set.seed(2025)
+m_mic <- 5
+n_mic <- 12
+id_mic <- factor(rep(1:m_mic, each = n_mic))
+x_mic <- rep(seq(0.5, 6, length.out = n_mic), m_mic)
+Vmax_true <- 12
+K_true <- 2
+b_mic <- rnorm(m_mic, 0, 0.5)
+y_mic <- Vmax_true * x_mic / (K_true + x_mic) + b_mic[as.integer(id_mic)] + rnorm(length(x_mic), 0, 0.3)
+df_micmen <- data.frame(y = y_mic, x = x_mic, id = id_mic)
+write.csv(df_micmen, "tests/data/ssmicmen_synthetic.csv", row.names = FALSE)
+fm_micmen <- nlmer(
+  y ~ SSmicmen(x, Vmax, K) ~ Vmax | id,
+  data = df_micmen,
+  start = getInitial(y ~ SSmicmen(x, Vmax, K), data = df_micmen)
+)
+micmen_vc_sd <- as.numeric(attr(VarCorr(fm_micmen)$id, "stddev")["Vmax"])
+out_micmen <- list(
+  model = jsonlite::unbox("y ~ SSmicmen(x, Vmax, K) ~ Vmax|id"),
+  outputs = list(
+    beta = as.numeric(fixef(fm_micmen)),
+    theta = as.numeric(getME(fm_micmen, "theta")),
+    re_sd = jsonlite::unbox(micmen_vc_sd),
+    sigma2 = jsonlite::unbox(as.numeric(sigma(fm_micmen))^2),
+    logLik = jsonlite::unbox(as.numeric(logLik(fm_micmen)))
+  )
+)
+
+# SSgompertz synthetic grouped data.
+set.seed(2026)
+m_gom <- 5
+n_gom <- 12
+id_gom <- factor(rep(1:m_gom, each = n_gom))
+x_gom <- rep(seq(0, 4, length.out = n_gom), m_gom)
+Asym_g <- 50
+b2_g <- 2.0
+b3_g <- 0.3
+b_gom <- rnorm(m_gom, 0, 2)
+y_gom <- Asym_g * exp(-b2_g * b3_g^x_gom) +
+  b_gom[as.integer(id_gom)] + rnorm(length(x_gom), 0, 0.8)
+df_gompertz <- data.frame(y = y_gom, x = x_gom, id = id_gom)
+write.csv(df_gompertz, "tests/data/ssgompertz_synthetic.csv", row.names = FALSE)
+fm_gompertz <- nlmer(
+  y ~ SSgompertz(x, Asym, b2, b3) ~ Asym | id,
+  data = df_gompertz,
+  start = getInitial(y ~ SSgompertz(x, Asym, b2, b3), data = df_gompertz)
+)
+gompertz_vc_sd <- as.numeric(attr(VarCorr(fm_gompertz)$id, "stddev")["Asym"])
+out_gompertz <- list(
+  model = jsonlite::unbox("y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id"),
+  outputs = list(
+    beta = as.numeric(fixef(fm_gompertz)),
+    theta = as.numeric(getME(fm_gompertz, "theta")),
+    re_sd = jsonlite::unbox(gompertz_vc_sd),
+    sigma2 = jsonlite::unbox(as.numeric(sigma(fm_gompertz))^2),
+    logLik = jsonlite::unbox(as.numeric(logLik(fm_gompertz)))
   )
 )
 
@@ -759,6 +819,51 @@ build_golden_manifest <- function() {
             scalar_check("id.Asym", ssfol_vc_sd, 1.5)
           )
         )
+      ),
+      list(
+        id = jsonlite::unbox("ssmicmen_synthetic_self_start"),
+        description = jsonlite::unbox("Synthetic grouped nlmer with SSmicmen mean; selfStart (no explicit start)."),
+        kind = jsonlite::unbox("nlmm"),
+        data_path = jsonlite::unbox("tests/data/ssmicmen_synthetic.csv"),
+        formula = jsonlite::unbox("y ~ SSmicmen(x, Vmax, K) ~ Vmax|id"),
+        nlmm_reml = jsonlite::unbox(FALSE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::nlmer"),
+          call = jsonlite::unbox("nlmer(y ~ SSmicmen(x, Vmax, K) ~ Vmax|id, data, start=getInitial(...))"),
+          source_fixture = jsonlite::unbox("tests/data/ssmicmen_nlmer.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("Vmax", out_micmen$outputs$beta[1], 1.5),
+            scalar_check("K", out_micmen$outputs$beta[2], 1.0)
+          ),
+          theta = list(
+            scalar_check("id.Vmax", micmen_vc_sd, 1.0)
+          )
+        )
+      ),
+      list(
+        id = jsonlite::unbox("ssgompertz_synthetic_self_start"),
+        description = jsonlite::unbox("Synthetic grouped nlmer with SSgompertz mean; selfStart (no explicit start)."),
+        kind = jsonlite::unbox("nlmm"),
+        data_path = jsonlite::unbox("tests/data/ssgompertz_synthetic.csv"),
+        formula = jsonlite::unbox("y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id"),
+        nlmm_reml = jsonlite::unbox(FALSE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::nlmer"),
+          call = jsonlite::unbox("nlmer(y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id, data, start=getInitial(...))"),
+          source_fixture = jsonlite::unbox("tests/data/ssgompertz_nlmer.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("Asym", out_gompertz$outputs$beta[1], 3.0),
+            scalar_check("b2", out_gompertz$outputs$beta[2], 0.5),
+            scalar_check("b3", out_gompertz$outputs$beta[3], 0.3)
+          ),
+          theta = list(
+            scalar_check("id.Asym", gompertz_vc_sd, 2.0)
+          )
+        )
       )
     )
   )
@@ -779,6 +884,8 @@ write_json(out_pois_off, "tests/data/glmm_poisson_offset.json", pretty = TRUE, a
 write_json(out_offset, "tests/data/sleepstudy_offset_reml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_orange, "tests/data/orange_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_ssfol, "tests/data/ssfol_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_micmen, "tests/data/ssmicmen_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_gompertz, "tests/data/ssgompertz_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(build_golden_manifest(), "tests/data/golden_parity_manifest.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
 write.csv(Penicillin, "tests/data/penicillin.csv", row.names = FALSE)

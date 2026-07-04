@@ -18,6 +18,22 @@ y <- Asym - (Asym - R0) * exp(-exp(lrc) * x) + b_id[as.integer(id)] + rnorm(leng
 df <- data.frame(y = y, x = x, id = id)
 write.csv(df, "tests/data/ssasymp_synthetic.csv", row.names = FALSE)
 
+# SSmicmen / SSgompertz synthetic CSVs (also written by generate_test_data.R when regenerated).
+set.seed(2025)
+m <- 5
+n_per <- 12
+id <- factor(rep(1:m, each = n_per))
+x_mic <- rep(seq(0.5, 6, length.out = n_per), m)
+b_mic <- rnorm(m, 0, 0.5)
+y_mic <- 12 * x_mic / (2 + x_mic) + b_mic[as.integer(id)] + rnorm(length(x_mic), 0, 0.3)
+write.csv(data.frame(y = y_mic, x = x_mic, id = id), "tests/data/ssmicmen_synthetic.csv", row.names = FALSE)
+
+set.seed(2026)
+x_gom <- rep(seq(0, 4, length.out = n_per), m)
+b_gom <- rnorm(m, 0, 2)
+y_gom <- 50 * exp(-2.0 * 0.3^x_gom) + b_gom[as.integer(id)] + rnorm(length(x_gom), 0, 0.8)
+write.csv(data.frame(y = y_gom, x = x_gom, id = id), "tests/data/ssgompertz_synthetic.csv", row.names = FALSE)
+
 fm <- nlmer(
   y ~ SSasymp(x, Asym, R0, lrc) ~ Asym | id,
   data = df,

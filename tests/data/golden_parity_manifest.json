@@ -726,6 +726,79 @@
           }
         ]
       }
+    },
+    {
+      "id": "ssmicmen_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSmicmen mean; selfStart (no explicit start).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssmicmen_synthetic.csv",
+      "formula": "y ~ SSmicmen(x, Vmax, K) ~ Vmax|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSmicmen(x, Vmax, K) ~ Vmax|id, data, start=getInitial(y ~ SSmicmen(x, Vmax, K), data))",
+        "source_fixture": "tests/data/ssmicmen_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "Vmax",
+            "value": 11.9806429810267,
+            "tolerance": 1.5
+          },
+          {
+            "name": "K",
+            "value": 1.74993108796015,
+            "tolerance": 1.0
+          }
+        ],
+        "theta": [
+          {
+            "name": "id.Vmax",
+            "value": 0.245087698294123,
+            "tolerance": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "id": "ssgompertz_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSgompertz mean; selfStart (no explicit start).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssgompertz_synthetic.csv",
+      "formula": "y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id, data, start=getInitial(y ~ SSgompertz(x, Asym, b2, b3), data))",
+        "source_fixture": "tests/data/ssgompertz_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "Asym",
+            "value": 49.3547501741515,
+            "tolerance": 3.0
+          },
+          {
+            "name": "b2",
+            "value": 2.08719719815323,
+            "tolerance": 0.5
+          },
+          {
+            "name": "b3",
+            "value": 0.29233270430475,
+            "tolerance": 0.3
+          }
+        ],
+        "theta": [
+          {
+            "name": "id.Asym",
+            "value": 1.21624879369048,
+            "tolerance": 2.0
+          }
+        ]
+      }
     }
   ]
 }

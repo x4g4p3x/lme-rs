@@ -34,6 +34,7 @@ pub mod model_matrix;
 pub mod nlmm;
 /// Optimization routines (Nelder-Mead) for theta estimation.
 pub mod optimizer;
+pub(crate) mod quadrature;
 /// Robust Standard Errors (Sandwich Estimators).
 pub mod robust;
 /// Satterthwaite denominator degrees of freedom approximation.
@@ -46,7 +47,7 @@ pub use contrast::{
 };
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
-pub use nlmm::{nlmer, NlmerOptions, NlmmStart};
+pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmStart};
 use polars::prelude::*;
 pub use robust::RobustResult;
 use std::fmt;
@@ -163,6 +164,10 @@ pub struct LmeFit {
     pub robust: Option<RobustResult>,
     /// Stored levels for categorical dummy encoding
     pub categorical_levels: Option<std::collections::HashMap<String, Vec<String>>>,
+    /// Nonlinear mean evaluator for `nlmer` fits (built-in or custom).
+    pub nlmm_mean: Option<std::sync::Arc<dyn nlmm::NlmmMeanEval>>,
+    /// Parsed `nlmer` formula metadata (covariate, RE structure, parameter names).
+    pub nlmm_formula: Option<nlmm::NlmerFormula>,
 }
 
 impl LmeFit {
@@ -950,6 +955,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         v_beta_unscaled: None,
         robust: None,
         categorical_levels: None,
+        nlmm_mean: None,
+        nlmm_formula: None,
     })
 }
 
@@ -1117,6 +1124,8 @@ pub fn lmer_weighted(
         v_beta_unscaled: Some(coefs.v_beta_unscaled),
         robust: None,
         categorical_levels: Some(matrices.categorical_levels),
+        nlmm_mean: None,
+        nlmm_formula: None,
     })
 }
 
@@ -1445,6 +1454,8 @@ pub fn glmer_weighted_with_link(
         v_beta_unscaled: Some(coefs.v_beta_unscaled),
         robust: None,
         categorical_levels: Some(matrices.categorical_levels),
+        nlmm_mean: None,
+        nlmm_formula: None,
     })
 }
 

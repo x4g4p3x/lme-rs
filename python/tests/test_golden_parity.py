@@ -86,6 +86,24 @@ def _assert_coefs(case_id: str, fit, checks: list[dict]) -> None:
                 reml=False,
             ),
         ),
+        (
+            "ssmicmen_synthetic_self_start",
+            lambda: lme_python.nlmer(
+                "y ~ SSmicmen(x, Vmax, K) ~ Vmax|id",
+                data=pl.read_csv(REPO_ROOT / "tests/data/ssmicmen_synthetic.csv"),
+                start=None,
+                reml=False,
+            ),
+        ),
+        (
+            "ssgompertz_synthetic_self_start",
+            lambda: lme_python.nlmer(
+                "y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id",
+                data=pl.read_csv(REPO_ROOT / "tests/data/ssgompertz_synthetic.csv"),
+                start=None,
+                reml=False,
+            ),
+        ),
     ],
 )
 def test_golden_coefficient_parity(case_id: str, fitter) -> None:

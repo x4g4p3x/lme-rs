@@ -1,6 +1,6 @@
 use lme_rs::anova::DdfMethod;
 use lme_rs::family::{Family, Link};
-use lme_rs::{glmer_weighted_with_link, lmer, nlmer, LmeFit};
+use lme_rs::{glmer_weighted_with_link, lmer, LmeFit};
 use ndarray::Array1;
 use polars::prelude::*;
 use serde::Deserialize;
@@ -334,7 +334,13 @@ fn fit_case(case: &GoldenCase, data: &DataFrame) -> LmeFit {
                     start.insert(k.clone(), *v);
                 }
             }
-            nlmer(&case.formula, data, start, case.nlmm_reml.unwrap_or(false))
+            let opts = lme_rs::NlmerOptions {
+                reml: case.nlmm_reml.unwrap_or(false),
+                start,
+                n_agq: case.n_agq.unwrap_or(1),
+                ..lme_rs::NlmerOptions::default()
+            };
+            lme_rs::nlmer_with_options(&case.formula, data, &opts)
                 .unwrap_or_else(|err| panic!("{}: nlmer failed: {}", case.id, err))
         }
         other => panic!("{}: unsupported golden case kind: {}", case.id, other),

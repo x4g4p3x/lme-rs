@@ -1192,18 +1192,25 @@ pub fn contrast_matrix_py(p: usize, rows: Vec<Vec<(usize, f64)>>) -> PyResult<Ve
 
 /// Fit a nonlinear mixed-effects model (`SSlogis` mean; random effect on one NL parameter).
 #[pyfunction]
-#[pyo3(signature = (formula, data, start=None, reml=false))]
+#[pyo3(signature = (formula, data, start=None, reml=false, n_agq=1))]
 pub fn nlmer<'py>(
     py: Python<'py>,
     formula: &str,
     data: &Bound<'py, PyAny>,
     start: Option<&Bound<'py, PyDict>>,
     reml: bool,
+    n_agq: usize,
 ) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     let start_map = parse_nlmm_start(start)?;
-    match lme_rs::nlmer(formula, &df, start_map, reml) {
+    let opts = lme_rs::NlmerOptions {
+        reml,
+        start: start_map,
+        n_agq,
+        ..lme_rs::NlmerOptions::default()
+    };
+    match lme_rs::nlmer_with_options(formula, &df, &opts) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Model fit failed: {e}"

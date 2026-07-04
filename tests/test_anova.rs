@@ -38,6 +38,8 @@ fn test_anova_methods_produce_valid_f_tests() {
         v_beta_unscaled: Some(Array2::eye(2)),
         robust: None,
         categorical_levels: None,
+        nlmm_mean: None,
+        nlmm_formula: None,
     };
 
     // Test rejection without having evaluated tracking matrices

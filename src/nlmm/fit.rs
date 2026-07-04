@@ -1,13 +1,15 @@
-//! Nonlinear mixed-model fitting (Laplace / penalized Gauss–Newton, `nAGQ = 0` style).
+//! Nonlinear mixed-model fitting (Laplace / penalized Gauss–Newton, optional scalar AGQ).
+
+use std::sync::Arc;
 
 use crate::model_matrix::ReBlock;
-use crate::nlmm::formula::{re_param_indices, NlmerFormula, NlmmMeanKind};
-use crate::nlmm::mean::{default_start, eval_mean};
+use crate::nlmm::formula::{re_param_indices, NlmerFormula};
+use crate::nlmm::mean_fn::{eval_mean_with_re, NlmmMeanEval};
 use crate::nlmm::re_cov::{
     log_det_sigma, re_penalty, sigma_from_theta, sigma_inv_from_theta, theta_len,
 };
-use crate::nlmm::self_start::self_start;
 use crate::optimizer::{compute_theta_lower_bounds, nelder_mead_optimize};
+use crate::quadrature::{gh_rule, log_sum_exp, resolve_gh_order};
 use crate::{LmeError, LmeFit};
 use argmin::core::CostFunction;
 use ndarray::{Array1, Array2};
@@ -27,6 +29,9 @@ pub struct NlmerOptions {
     pub max_inner: usize,
     /// Reserved for future multi-θ optimizers.
     pub max_outer_iters: u64,
+    /// Adaptive Gauss–Hermite quadrature order for scalar random effects (`k = 1`).
+    /// `1` (default) uses Laplace only; values `≥ 2` enable AGQ (mirrors `nAGQ` in `lme4`).
+    pub n_agq: usize,
 }
 
 impl Default for NlmerOptions {
@@ -36,6 +41,7 @@ impl Default for NlmerOptions {
             start: NlmmStart::new(),
             max_inner: 120,
             max_outer_iters: 500,
+            n_agq: 1,
         }
     }
 }
@@ -45,7 +51,7 @@ struct NlmmProblem {
     x: Array1<f64>,
     group: Vec<usize>,
     m: usize,
-    mean: NlmmMeanKind,
+    mean: Arc<dyn NlmmMeanEval>,
     param_names: Vec<String>,
     re_indices: Vec<usize>,
     k_re: usize,
@@ -67,7 +73,14 @@ impl NlmmProblem {
         for i in 0..n {
             let g = self.group[i];
             let re_off = self.re_offsets_for_group(b, g);
-            mu[i] = eval_mean(self.mean, self.x[i], params, &self.re_indices, &re_off).0;
+            mu[i] = eval_mean_with_re(
+                self.mean.as_ref(),
+                self.x[i],
+                params,
+                &self.re_indices,
+                &re_off,
+            )
+            .0;
         }
         mu
     }
@@ -95,7 +108,13 @@ impl NlmmProblem {
         for i in 0..n {
             let g = self.group[i];
             let re_off = self.re_offsets_for_group(b, g);
-            let (_, grad) = eval_mean(self.mean, self.x[i], params, &self.re_indices, &re_off);
+            let (_, grad) = eval_mean_with_re(
+                self.mean.as_ref(),
+                self.x[i],
+                params,
+                &self.re_indices,
+                &re_off,
+            );
             for r_slot in 0..self.k_re {
                 let param_idx = self.re_indices[r_slot];
                 j[[i, self.b_index(g, r_slot)]] = grad[param_idx];
@@ -156,13 +175,13 @@ impl NlmmProblem {
         start: &NlmmStart,
         max_iter: usize,
     ) -> (Vec<f64>, Array1<f64>, f64) {
-        let mut params: Vec<f64> = default_start(self.mean, &self.param_names);
+        let mut params: Vec<f64> = self.mean.default_start_values(&self.param_names);
         for (name, value) in start {
             if let Some(idx) = self.param_names.iter().position(|n| n == name) {
                 params[idx] = *value;
             }
         }
-        if self.mean == NlmmMeanKind::Sslogis {
+        if self.mean.needs_positive_scal() {
             let scal_idx = self
                 .param_names
                 .iter()
@@ -189,8 +208,13 @@ impl NlmmProblem {
             for i in 0..n {
                 let g = self.group[i];
                 let re_off = self.re_offsets_for_group(&b, g);
-                let (mui, grad) =
-                    eval_mean(self.mean, self.x[i], &params, &self.re_indices, &re_off);
+                let (mui, grad) = eval_mean_with_re(
+                    self.mean.as_ref(),
+                    self.x[i],
+                    &params,
+                    &self.re_indices,
+                    &re_off,
+                );
                 r[i] = self.y[i] - mui;
                 for j_fix in 0..p_fix {
                     j[[i, j_fix]] = grad[j_fix];
@@ -224,7 +248,7 @@ impl NlmmProblem {
                     for j_fix in 0..p_fix {
                         new_params[j_fix] += alpha * delta[j_fix];
                     }
-                    if self.mean == NlmmMeanKind::Sslogis {
+                    if self.mean.needs_positive_scal() {
                         if let Some(scal_idx) = self.param_names.iter().position(|n| n == "scal") {
                             if new_params[scal_idx] < 1e-6 {
                                 new_params[scal_idx] = 1e-6;
@@ -278,6 +302,7 @@ impl NlmmProblem {
         start: &NlmmStart,
         reml: bool,
         max_inner: usize,
+        n_agq: usize,
     ) -> (f64, Vec<f64>, f64, Array1<f64>) {
         let (params, b, rss) = self.inner_gauss_newton(theta, start, max_inner);
         let n = self.y.len() as f64;
@@ -300,7 +325,7 @@ impl NlmmProblem {
         } else {
             self.m as f64 * log_det_sigma(self.k_re, theta)
         };
-        let crit = if scalar_ssasymp {
+        let mut crit = if scalar_ssasymp {
             let twopi = std::f64::consts::PI * 2.0;
             let mut crit = df * (twopi * sigma2).ln() + rss / sigma2 + b_pen + re_logdet;
             if reml {
@@ -316,7 +341,91 @@ impl NlmmProblem {
         } else {
             n * pwrss.ln() + re_logdet
         };
+        if let Some(agq_q) = self.agq_correction(n_agq, &params, &b, theta, sigma2) {
+            crit += agq_q;
+        }
         (crit, params, sigma2, b)
+    }
+
+    /// Scalar AGQ correction to the deviance (`k = 1` random effects only).
+    fn agq_correction(
+        &self,
+        n_agq: usize,
+        params: &[f64],
+        b: &Array1<f64>,
+        theta: &[f64],
+        sigma2: f64,
+    ) -> Option<f64> {
+        if n_agq < 2 || self.k_re != 1 {
+            return None;
+        }
+        let order = resolve_gh_order(n_agq)?;
+        let (z, w) = gh_rule(order)?;
+        let inv_sigma = sigma_inv_from_theta(1, theta)[[0, 0]];
+
+        let mut group_obs: Vec<Vec<usize>> = vec![vec![]; self.m];
+        for (i, &g) in self.group.iter().enumerate() {
+            group_obs[g].push(i);
+        }
+
+        let mut total_q = 0.0;
+        for g in 0..self.m {
+            let b_hat_g = b[g];
+            let obs_idx = &group_obs[g];
+            if obs_idx.is_empty() {
+                continue;
+            }
+
+            let mut a_gg = inv_sigma;
+            for &i in obs_idx {
+                let re_off = self.re_offsets_for_group(b, g);
+                let (_, grad) = eval_mean_with_re(
+                    self.mean.as_ref(),
+                    self.x[i],
+                    params,
+                    &self.re_indices,
+                    &re_off,
+                );
+                let dmu_db = grad[self.re_indices[0]];
+                a_gg += dmu_db * dmu_db / sigma2;
+            }
+            if a_gg <= f64::EPSILON || !a_gg.is_finite() {
+                return None;
+            }
+            let scale = a_gg.sqrt().recip();
+
+            let mu_hat = self.predict(params, b);
+            let mut rss_g_hat = 0.0;
+            for &i in obs_idx {
+                let r = self.y[i] - mu_hat[i];
+                rss_g_hat += r * r;
+            }
+
+            let mut log_terms = Vec::with_capacity(z.len());
+            let mut b_trial = b.clone();
+            for (ki, &z_k) in z.iter().enumerate() {
+                let b_quad = b_hat_g + scale * z_k;
+                b_trial[g] = b_quad;
+                let mu_quad = self.predict(params, &b_trial);
+                let mut rss_g_quad = 0.0;
+                for &i in obs_idx {
+                    let r = self.y[i] - mu_quad[i];
+                    rss_g_quad += r * r;
+                }
+                let rss_diff = (rss_g_quad - rss_g_hat) / sigma2;
+                let pen_quad = re_penalty(1, theta, &[b_quad]);
+                let pen_hat = re_penalty(1, theta, &[b_hat_g]);
+                let pen_diff = pen_quad - pen_hat;
+                let delta = -0.5 * rss_diff - 0.5 * pen_diff;
+                log_terms.push(w[ki].ln() + delta);
+            }
+            let log_inner = log_sum_exp(&log_terms);
+            if !log_inner.is_finite() {
+                return None;
+            }
+            total_q += -2.0 * log_inner;
+        }
+        Some(total_q)
     }
 }
 
@@ -326,6 +435,7 @@ fn optimize_theta_golden(
     start: &NlmmStart,
     reml: bool,
     max_inner: usize,
+    n_agq: usize,
     lo: f64,
     hi: f64,
 ) -> (f64, f64, u64) {
@@ -334,8 +444,8 @@ fn optimize_theta_golden(
     let mut b = hi;
     let mut c = b - (b - a) / phi;
     let mut d = a + (b - a) / phi;
-    let mut fc = problem.profile_objective(&[c], start, reml, max_inner);
-    let mut fd = problem.profile_objective(&[d], start, reml, max_inner);
+    let mut fc = problem.profile_objective(&[c], start, reml, max_inner, n_agq);
+    let mut fd = problem.profile_objective(&[d], start, reml, max_inner, n_agq);
     let mut fc_cost = fc.0;
     let mut fd_cost = fd.0;
     let mut iters = 0u64;
@@ -347,7 +457,7 @@ fn optimize_theta_golden(
             fd = fc;
             fd_cost = fc_cost;
             c = b - (b - a) / phi;
-            fc = problem.profile_objective(&[c], start, reml, max_inner);
+            fc = problem.profile_objective(&[c], start, reml, max_inner, n_agq);
             fc_cost = fc.0;
         } else {
             a = c;
@@ -355,13 +465,13 @@ fn optimize_theta_golden(
             fc = fd;
             fc_cost = fd_cost;
             d = a + (b - a) / phi;
-            fd = problem.profile_objective(&[d], start, reml, max_inner);
+            fd = problem.profile_objective(&[d], start, reml, max_inner, n_agq);
             fd_cost = fd.0;
         }
     }
     let theta0 = (a + b) / 2.0;
     let final_cost = problem
-        .profile_objective(&[theta0], start, reml, max_inner)
+        .profile_objective(&[theta0], start, reml, max_inner, n_agq)
         .0;
     (theta0, final_cost, iters)
 }
@@ -371,6 +481,7 @@ struct ThetaObjective<'a> {
     start: &'a NlmmStart,
     reml: bool,
     max_inner: usize,
+    n_agq: usize,
 }
 
 fn clamp_nlmm_theta(theta: &mut [f64], k: usize) {
@@ -398,7 +509,7 @@ impl CostFunction for ThetaObjective<'_> {
         clamp_nlmm_theta(&mut th, self.problem.k_re);
         let cost = self
             .problem
-            .profile_objective(&th, self.start, self.reml, self.max_inner)
+            .profile_objective(&th, self.start, self.reml, self.max_inner, self.n_agq)
             .0;
         if cost.is_finite() {
             Ok(cost)
@@ -431,6 +542,7 @@ fn optimize_theta_nelder_mead(
     start: &NlmmStart,
     reml: bool,
     max_inner: usize,
+    n_agq: usize,
     init: Array1<f64>,
     max_outer_iters: u64,
 ) -> (Array1<f64>, u64) {
@@ -440,6 +552,7 @@ fn optimize_theta_nelder_mead(
         start,
         reml,
         max_inner,
+        n_agq,
     };
     let result = nelder_mead_optimize(init.clone(), &lower_bounds, max_outer_iters, cost)
         .unwrap_or_else(|_| crate::optimizer::OptimizeResult {
@@ -464,8 +577,8 @@ fn default_theta_init(k_re: usize) -> Array1<f64> {
     }
 }
 
-fn default_start_map(mean: NlmmMeanKind, param_names: &[String]) -> NlmmStart {
-    let values = default_start(mean, param_names);
+fn default_start_map(mean: &dyn NlmmMeanEval, param_names: &[String]) -> NlmmStart {
+    let values = mean.default_start_values(param_names);
     param_names
         .iter()
         .zip(values.iter())
@@ -475,7 +588,7 @@ fn default_start_map(mean: NlmmMeanKind, param_names: &[String]) -> NlmmStart {
 
 fn start_candidates(
     opts: &NlmerOptions,
-    mean: NlmmMeanKind,
+    mean: &dyn NlmmMeanEval,
     y: &Array1<f64>,
     x: &Array1<f64>,
     param_names: &[String],
@@ -483,10 +596,8 @@ fn start_candidates(
     if !opts.start.is_empty() {
         return vec![opts.start.clone()];
     }
-    vec![
-        self_start(mean, y, x, param_names),
-        default_start_map(mean, param_names),
-    ]
+    let kind_start = mean.self_start_values(y, x, param_names);
+    vec![kind_start, default_start_map(mean, param_names)]
 }
 
 struct NlmmOptimized {
@@ -504,8 +615,15 @@ fn optimize_nlmm_at_start(
     opts: &NlmerOptions,
 ) -> NlmmOptimized {
     let (thetas, outer_iters) = if k_re == 1 {
-        let (theta0, _cost, iters) =
-            optimize_theta_golden(problem, start, opts.reml, opts.max_inner, 0.2, 20.0);
+        let (theta0, _cost, iters) = optimize_theta_golden(
+            problem,
+            start,
+            opts.reml,
+            opts.max_inner,
+            opts.n_agq,
+            0.2,
+            20.0,
+        );
         (Array1::from_vec(vec![theta0]), iters)
     } else {
         let inits = vec![
@@ -528,11 +646,18 @@ fn optimize_nlmm_at_start(
                 start,
                 opts.reml,
                 opts.max_inner,
+                opts.n_agq,
                 init,
                 opts.max_outer_iters.max(600),
             );
             let cost = problem
-                .profile_objective(theta.as_slice().unwrap(), start, opts.reml, opts.max_inner)
+                .profile_objective(
+                    theta.as_slice().unwrap(),
+                    start,
+                    opts.reml,
+                    opts.max_inner,
+                    opts.n_agq,
+                )
                 .0;
             if cost < best_cost {
                 best_cost = cost;
@@ -545,7 +670,7 @@ fn optimize_nlmm_at_start(
 
     let theta_slice = thetas.as_slice().unwrap();
     let (deviance, params, _sigma2_inner, b) =
-        problem.profile_objective(theta_slice, start, opts.reml, opts.max_inner);
+        problem.profile_objective(theta_slice, start, opts.reml, opts.max_inner, opts.n_agq);
 
     NlmmOptimized {
         thetas,
@@ -559,7 +684,7 @@ fn optimize_nlmm_at_start(
 /// Fit a nonlinear mixed model from a parsed formula and data frame.
 pub fn fit_nlmer(
     parsed: &NlmerFormula,
-    mean: NlmmMeanKind,
+    mean: Arc<dyn NlmmMeanEval>,
     data: &polars::prelude::DataFrame,
     formula_str: &str,
     opts: &NlmerOptions,
@@ -570,7 +695,7 @@ pub fn fit_nlmer(
     if parsed.fixed_param_names.len() != n_fix {
         return Err(LmeError::NotImplemented {
             feature: format!(
-                "{mean:?} requires {n_fix} fixed parameters, got {}",
+                "Nonlinear mean requires {n_fix} fixed parameters, got {}",
                 parsed.fixed_param_names.len()
             ),
         });
@@ -593,14 +718,14 @@ pub fn fit_nlmer(
         });
     }
 
-    let candidates = start_candidates(opts, mean, &y, &x, &parsed.fixed_param_names);
+    let candidates = start_candidates(opts, mean.as_ref(), &y, &x, &parsed.fixed_param_names);
 
     let problem = NlmmProblem {
         y,
         x,
         group,
         m,
-        mean,
+        mean: mean.clone(),
         param_names: parsed.fixed_param_names.clone(),
         re_indices,
         k_re,
@@ -724,6 +849,8 @@ pub fn fit_nlmer(
         v_beta_unscaled: None,
         robust: None,
         categorical_levels: None,
+        nlmm_mean: Some(mean),
+        nlmm_formula: Some(parsed.clone()),
     })
 }
 
@@ -812,6 +939,7 @@ fn build_ranef_df(rows: &[(String, String, String, f64)]) -> polars::prelude::Da
 mod orange_inner {
     use super::*;
     use crate::nlmm::formula::{parse_nlmer_formula, NlmmMeanKind};
+    use crate::nlmm::mean_fn::builtin_mean;
     use polars::prelude::SerReader;
     use std::fs::File;
 
@@ -846,7 +974,7 @@ mod orange_inner {
             x,
             group,
             m: 5,
-            mean,
+            mean: builtin_mean(mean),
             param_names: parsed.fixed_param_names.clone(),
             re_indices,
             k_re: 1,
@@ -897,7 +1025,7 @@ mod orange_inner {
             x,
             group,
             m: 5,
-            mean,
+            mean: builtin_mean(mean),
             param_names: parsed.fixed_param_names.clone(),
             re_indices,
             k_re: 2,

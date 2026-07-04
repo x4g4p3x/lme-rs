@@ -26,13 +26,25 @@ pub enum NlmmMeanKind {
     Sslogis,
     /// `SSasymp(covariate, Asym, R0, lrc)`
     Ssasymp,
-    /// `SSfol(covariate, Asym, R0, lrc)` — foliar growth (`stats::SSfol`, same mean as `SSasymp`)
+    /// `SSfol(covariate, Asym, R0, lrc)` — same mean as `SSasymp`
     Ssfol,
+    /// `SSmicmen(covariate, Vmax, K)`
+    Ssmicmen,
+    /// `SSgompertz(covariate, Asym, b2, b3)` — `Asym * exp(-b2 * b3^x)`
+    Ssgompertz,
 }
 
 impl NlmmMeanKind {
     pub(crate) fn n_params(self) -> usize {
-        3
+        match self {
+            Self::Ssmicmen => 2,
+            Self::Sslogis | Self::Ssasymp | Self::Ssfol => 3,
+            Self::Ssgompertz => 3,
+        }
+    }
+
+    pub(crate) fn expected_arg_count(self) -> usize {
+        1 + self.n_params()
     }
 
     /// Asymptotic means (`SSasymp` / `SSfol`) use RSS-based σ² profiling in scalar-RE fits.
@@ -81,34 +93,34 @@ fn parse_nonlinear_part(s: &str) -> crate::Result<(NlmmMeanKind, String, Vec<Str
     })?;
     let inner = &s[open + 1..close];
     let args: Vec<&str> = inner.split(',').map(str::trim).collect();
-    if args.len() != 4 {
-        return Err(LmeError::NotImplemented {
-            feature: format!(
-                "Nonlinear mean '{fname}' requires four arguments (covariate + 3 parameters), got {}",
-                args.len()
-            ),
-        });
-    }
     let mean = match fname {
         "SSlogis" => NlmmMeanKind::Sslogis,
         "SSasymp" => NlmmMeanKind::Ssasymp,
         "SSfol" => NlmmMeanKind::Ssfol,
+        "SSmicmen" => NlmmMeanKind::Ssmicmen,
+        "SSgompertz" => NlmmMeanKind::Ssgompertz,
         other => {
             return Err(LmeError::NotImplemented {
                 feature: format!(
-                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol)"
+                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz)"
                 ),
             });
         }
     };
+    if args.len() != mean.expected_arg_count() {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "Nonlinear mean '{fname}' requires {} arguments (covariate + {} parameters), got {}",
+                mean.expected_arg_count(),
+                mean.n_params(),
+                args.len()
+            ),
+        });
+    }
     Ok((
         mean,
         args[0].to_string(),
-        vec![
-            args[1].to_string(),
-            args[2].to_string(),
-            args[3].to_string(),
-        ],
+        args[1..].iter().map(|s| s.to_string()).collect(),
     ))
 }
 
@@ -196,5 +208,19 @@ mod tests {
         let (f, kind) = parse_nlmer_formula("y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id").unwrap();
         assert_eq!(kind, NlmmMeanKind::Ssfol);
         assert_eq!(f.fixed_param_names, vec!["Asym", "R0", "lrc"]);
+    }
+
+    #[test]
+    fn parses_ssmicmen_formula() {
+        let (f, kind) = parse_nlmer_formula("y ~ SSmicmen(x, Vmax, K) ~ Vmax|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Ssmicmen);
+        assert_eq!(f.fixed_param_names, vec!["Vmax", "K"]);
+    }
+
+    #[test]
+    fn parses_ssgompertz_formula() {
+        let (f, kind) = parse_nlmer_formula("y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Ssgompertz);
+        assert_eq!(f.fixed_param_names, vec!["Asym", "b2", "b3"]);
     }
 }
