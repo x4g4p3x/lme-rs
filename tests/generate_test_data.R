@@ -338,6 +338,26 @@ out_orange <- list(
   )
 )
 
+# Nonlinear mixed model (SSfol on synthetic asymptotic data; same DGP as ssasymp_synthetic.csv).
+df_ssfol <- read.csv("tests/data/ssasymp_synthetic.csv")
+df_ssfol$id <- as.factor(df_ssfol$id)
+fm_ssfol <- nlmer(
+  y ~ SSfol(x, Asym, R0, lrc) ~ Asym | id,
+  data = df_ssfol,
+  start = getInitial(y ~ SSfol(x, Asym, R0, lrc) ~ Asym | id, data = df_ssfol)
+)
+ssfol_vc_sd <- as.numeric(attr(VarCorr(fm_ssfol)$id, "stddev")["Asym"])
+out_ssfol <- list(
+  model = jsonlite::unbox("y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id"),
+  outputs = list(
+    beta = as.numeric(fixef(fm_ssfol)),
+    theta = as.numeric(getME(fm_ssfol, "theta")),
+    re_sd = jsonlite::unbox(ssfol_vc_sd),
+    sigma2 = jsonlite::unbox(as.numeric(sigma(fm_ssfol))^2),
+    logLik = jsonlite::unbox(as.numeric(logLik(fm_ssfol)))
+  )
+)
+
 sleepstudy_pop_newdata <- data.frame(Days = c(0, 1, 5, 10), Subject = factor(rep("308", 4), levels = levels(sleepstudy$Subject)))
 sleepstudy_cond_newdata <- data.frame(Days = c(0, 1, 5), Subject = factor(rep("308", 3), levels = levels(sleepstudy$Subject)))
 
@@ -716,6 +736,29 @@ build_golden_manifest <- function() {
             )
           )
         )
+      ),
+      list(
+        id = jsonlite::unbox("ssfol_synthetic_self_start"),
+        description = jsonlite::unbox("Synthetic grouped nlmer with SSfol mean; selfStart (no explicit start)."),
+        kind = jsonlite::unbox("nlmm"),
+        data_path = jsonlite::unbox("tests/data/ssasymp_synthetic.csv"),
+        formula = jsonlite::unbox("y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id"),
+        nlmm_reml = jsonlite::unbox(FALSE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::nlmer"),
+          call = jsonlite::unbox("nlmer(y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id, data, start=getInitial(...))"),
+          source_fixture = jsonlite::unbox("tests/data/ssfol_nlmer.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("Asym", out_ssfol$outputs$beta[1], 2.0),
+            scalar_check("R0", out_ssfol$outputs$beta[2], 2.0),
+            scalar_check("lrc", out_ssfol$outputs$beta[3], 2.0)
+          ),
+          theta = list(
+            scalar_check("id.Asym", ssfol_vc_sd, 1.5)
+          )
+        )
       )
     )
   )
@@ -735,6 +778,7 @@ write_json(out_pois, "tests/data/glmm_poisson.json", pretty = TRUE, auto_unbox =
 write_json(out_pois_off, "tests/data/glmm_poisson_offset.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_offset, "tests/data/sleepstudy_offset_reml.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_orange, "tests/data/orange_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_ssfol, "tests/data/ssfol_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(build_golden_manifest(), "tests/data/golden_parity_manifest.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
 write.csv(Penicillin, "tests/data/penicillin.csv", row.names = FALSE)

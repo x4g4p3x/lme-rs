@@ -687,6 +687,45 @@
           }
         ]
       }
+    },
+    {
+      "id": "ssfol_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSfol mean; selfStart (no explicit start).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssasymp_synthetic.csv",
+      "formula": "y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id, data, start=getInitial(...))",
+        "source_fixture": "tests/data/ssfol_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "Asym",
+            "value": 99.9553874,
+            "tolerance": 2
+          },
+          {
+            "name": "R0",
+            "value": 16.6873691,
+            "tolerance": 2
+          },
+          {
+            "name": "lrc",
+            "value": -0.6380392,
+            "tolerance": 2
+          }
+        ],
+        "theta": [
+          {
+            "name": "id.Asym",
+            "value": 4.571058,
+            "tolerance": 1.5
+          }
+        ]
+      }
     }
   ]
 }

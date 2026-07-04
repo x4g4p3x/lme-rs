@@ -5,10 +5,13 @@ mod formula;
 mod mean;
 pub(crate) mod predict;
 pub(crate) mod re_cov;
+mod self_start;
 mod ssasymp;
 mod sslogis;
 pub use re_cov::sigma_from_theta;
 pub use ssasymp::ssasymp_eval;
+/// Alias for [`ssasymp_eval`] (`stats::SSfol` uses the same mean function).
+pub use ssasymp::ssasymp_eval as ssfol_eval;
 pub use sslogis::sslogis_eval;
 
 pub use fit::{fit_nlmer, NlmerOptions, NlmmStart};
@@ -26,10 +29,13 @@ use crate::LmeFit;
 /// response ~ SSlogis(covariate, Asym, xmid, scal) ~ Asym|group
 /// response ~ SSlogis(covariate, Asym, xmid, scal) ~ Asym + xmid | group
 /// response ~ SSasymp(covariate, Asym, R0, lrc) ~ Asym|group
+/// response ~ SSfol(covariate, Asym, R0, lrc) ~ Asym|group
 /// ```
 ///
-/// Supported means: `SSlogis`, `SSasymp`. Random effects are additive on the
-/// named nonlinear parameters (one or more per grouping factor).
+/// Supported means: `SSlogis`, `SSasymp`, `SSfol`. When `start` is empty,
+/// data-driven `selfStart` heuristics (R `stats::getInitial`) are used.
+/// Random effects are additive on the named nonlinear parameters (one or more
+/// per grouping factor).
 pub fn nlmer(
     formula: &str,
     data: &DataFrame,

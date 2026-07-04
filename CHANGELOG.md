@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `nlmer` **`SSfol`** mean (`stats::SSfol`, same formula as `SSasymp`) with parity on synthetic grouped data ([`tests/test_nlmm_ssfol.rs`](tests/test_nlmm_ssfol.rs)).
+- R-style **`selfStart`** automatic starting values when `start` is empty: [`src/nlmm/self_start.rs`](src/nlmm/self_start.rs) (`stats::getInitial` heuristics for `SSlogis` / `SSasymp` / `SSfol`), with multistart fallback to static defaults in [`fit_nlmer`](src/nlmm/fit.rs). Tests: [`tests/test_nlmm_self_start.rs`](tests/test_nlmm_self_start.rs).
+- Golden parity case **`ssfol_synthetic_self_start`** (no explicit `nlmm_start`) in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json); fixture [`tests/data/ssfol_nlmer.json`](tests/data/ssfol_nlmer.json); R regeneration in [`tests/generate_test_data.R`](tests/generate_test_data.R).
+
 - Golden parity expansion: offset LMM/GLMM, probit/weighted binomial GLMM, and Orange `nlmer` predictions in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (regenerated via [`tests/generate_test_data.R`](tests/generate_test_data.R)). Rust checks in [`tests/test_golden_parity.rs`](tests/test_golden_parity.rs), [`tests/test_glmm_offset_grouseticks.rs`](tests/test_glmm_offset_grouseticks.rs); Python in [`python/tests/test_golden_parity.py`](python/tests/test_golden_parity.py).
 - Cross-language coefficient parity exporters under [`comparisons/parity/`](comparisons/parity/) (R, Julia) plus Rust [`parity_export`](comparisons/parity_export.rs) example; orchestration via [`scripts/verify_cross_language_parity.py`](scripts/verify_cross_language_parity.py).
 - Explicit GLMM link selection: [`family::Link`](src/family.rs), [`glmer_with_link`](src/lib.rs) / [`glmer_weighted_with_link`](src/lib.rs). Python: `glmer(..., link_name="probit")`. Response-scale prediction respects the fitted link. Tests in [`tests/test_glmm_links.rs`](tests/test_glmm_links.rs).

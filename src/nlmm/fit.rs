@@ -6,6 +6,7 @@ use crate::nlmm::mean::{default_start, eval_mean};
 use crate::nlmm::re_cov::{
     log_det_sigma, re_penalty, sigma_from_theta, sigma_inv_from_theta, theta_len,
 };
+use crate::nlmm::self_start::self_start;
 use crate::optimizer::{compute_theta_lower_bounds, nelder_mead_optimize};
 use crate::{LmeError, LmeFit};
 use argmin::core::CostFunction;
@@ -176,7 +177,7 @@ impl NlmmProblem {
         let n = self.y.len();
         let p_fix = self.n_fix;
         let p = p_fix + self.m * self.k_re;
-        let mut lambda_lm = if self.k_re == 1 && self.mean == NlmmMeanKind::Ssasymp {
+        let mut lambda_lm = if self.k_re == 1 && self.mean.uses_scalar_rss_sigma() {
             1e-2
         } else {
             1e-4
@@ -288,7 +289,7 @@ impl NlmmProblem {
         }
         let pwrss = rss + b_pen;
         let df = if reml { (n - p).max(1.0) } else { n };
-        let scalar_ssasymp = self.k_re == 1 && self.mean == NlmmMeanKind::Ssasymp;
+        let scalar_ssasymp = self.k_re == 1 && self.mean.uses_scalar_rss_sigma();
         let sigma2 = if scalar_ssasymp {
             (rss / df).max(1e-12)
         } else {
@@ -463,6 +464,98 @@ fn default_theta_init(k_re: usize) -> Array1<f64> {
     }
 }
 
+fn default_start_map(mean: NlmmMeanKind, param_names: &[String]) -> NlmmStart {
+    let values = default_start(mean, param_names);
+    param_names
+        .iter()
+        .zip(values.iter())
+        .map(|(name, value)| (name.clone(), *value))
+        .collect()
+}
+
+fn start_candidates(
+    opts: &NlmerOptions,
+    mean: NlmmMeanKind,
+    y: &Array1<f64>,
+    x: &Array1<f64>,
+    param_names: &[String],
+) -> Vec<NlmmStart> {
+    if !opts.start.is_empty() {
+        return vec![opts.start.clone()];
+    }
+    vec![
+        self_start(mean, y, x, param_names),
+        default_start_map(mean, param_names),
+    ]
+}
+
+struct NlmmOptimized {
+    thetas: Array1<f64>,
+    params: Vec<f64>,
+    b: Array1<f64>,
+    deviance: f64,
+    outer_iters: u64,
+}
+
+fn optimize_nlmm_at_start(
+    problem: &NlmmProblem,
+    start: &NlmmStart,
+    k_re: usize,
+    opts: &NlmerOptions,
+) -> NlmmOptimized {
+    let (thetas, outer_iters) = if k_re == 1 {
+        let (theta0, _cost, iters) =
+            optimize_theta_golden(problem, start, opts.reml, opts.max_inner, 0.2, 20.0);
+        (Array1::from_vec(vec![theta0]), iters)
+    } else {
+        let inits = vec![
+            default_theta_init(k_re),
+            Array1::from_vec(match k_re {
+                2 => vec![3.5, 2.5, 2.0],
+                _ => vec![2.0; theta_len(k_re)],
+            }),
+            Array1::from_vec(match k_re {
+                2 => vec![5.5, 0.0, 4.0],
+                _ => vec![6.0; theta_len(k_re)],
+            }),
+        ];
+        let mut best_theta = inits[0].clone();
+        let mut best_cost = f64::MAX;
+        let mut total_iters = 0u64;
+        for init in inits {
+            let (theta, iters) = optimize_theta_nelder_mead(
+                problem,
+                start,
+                opts.reml,
+                opts.max_inner,
+                init,
+                opts.max_outer_iters.max(600),
+            );
+            let cost = problem
+                .profile_objective(theta.as_slice().unwrap(), start, opts.reml, opts.max_inner)
+                .0;
+            if cost < best_cost {
+                best_cost = cost;
+                best_theta = theta;
+            }
+            total_iters += iters;
+        }
+        (best_theta, total_iters)
+    };
+
+    let theta_slice = thetas.as_slice().unwrap();
+    let (deviance, params, _sigma2_inner, b) =
+        problem.profile_objective(theta_slice, start, opts.reml, opts.max_inner);
+
+    NlmmOptimized {
+        thetas,
+        params,
+        b,
+        deviance,
+        outer_iters,
+    }
+}
+
 /// Fit a nonlinear mixed model from a parsed formula and data frame.
 pub fn fit_nlmer(
     parsed: &NlmerFormula,
@@ -500,8 +593,10 @@ pub fn fit_nlmer(
         });
     }
 
+    let candidates = start_candidates(opts, mean, &y, &x, &parsed.fixed_param_names);
+
     let problem = NlmmProblem {
-        y: y.clone(),
+        y,
         x,
         group,
         m,
@@ -522,58 +617,30 @@ pub fn fit_nlmer(
         group_map: level_map.clone(),
     }]);
 
-    let (thetas, outer_iters) = if k_re == 1 {
-        let (theta0, _cost, iters) =
-            optimize_theta_golden(&problem, &opts.start, opts.reml, opts.max_inner, 0.2, 20.0);
-        (Array1::from_vec(vec![theta0]), iters)
-    } else {
-        let inits = vec![
-            default_theta_init(k_re),
-            Array1::from_vec(match k_re {
-                2 => vec![3.5, 2.5, 2.0],
-                _ => vec![2.0; theta_len(k_re)],
-            }),
-            Array1::from_vec(match k_re {
-                2 => vec![5.5, 0.0, 4.0],
-                _ => vec![6.0; theta_len(k_re)],
-            }),
-        ];
-        let mut best_theta = inits[0].clone();
-        let mut best_cost = f64::MAX;
-        let mut total_iters = 0u64;
-        for init in inits {
-            let (theta, iters) = optimize_theta_nelder_mead(
-                &problem,
-                &opts.start,
-                opts.reml,
-                opts.max_inner,
-                init,
-                opts.max_outer_iters.max(600),
-            );
-            let cost = problem
-                .profile_objective(
-                    theta.as_slice().unwrap(),
-                    &opts.start,
-                    opts.reml,
-                    opts.max_inner,
-                )
-                .0;
-            if cost < best_cost {
-                best_cost = cost;
-                best_theta = theta;
-            }
-            total_iters += iters;
+    let mut best: Option<(NlmmStart, NlmmOptimized)> = None;
+    for start in candidates {
+        let optimized = optimize_nlmm_at_start(&problem, &start, k_re, opts);
+        let replace = best
+            .as_ref()
+            .is_none_or(|(_, prev)| optimized.deviance < prev.deviance);
+        if replace {
+            best = Some((start, optimized));
         }
-        (best_theta, total_iters)
-    };
+    }
+    let (_resolved_start, optimized) = best.expect("at least one start candidate");
+    let NlmmOptimized {
+        thetas,
+        params,
+        b,
+        deviance,
+        outer_iters,
+    } = optimized;
 
     let theta_slice = thetas.as_slice().unwrap();
-    let (_crit, params, _sigma2_inner, b) =
-        problem.profile_objective(theta_slice, &opts.start, opts.reml, opts.max_inner);
 
     let fitted = problem.predict(&params, &b);
-    let residuals = &y - &fitted;
-    let n = y.len();
+    let residuals = &problem.y - &fitted;
+    let n = problem.y.len();
     let rss_nl: f64 = residuals.iter().map(|r| r * r).sum();
     let mut b_pen = 0.0;
     for g in 0..m {
@@ -584,15 +651,12 @@ pub fn fit_nlmer(
     let p = n_fix as f64;
     let df = if opts.reml { (n_f - p).max(1.0) } else { n_f };
     let pwrss = rss_nl + b_pen;
-    let scalar_ssasymp = k_re == 1 && mean == NlmmMeanKind::Ssasymp;
+    let scalar_ssasymp = k_re == 1 && mean.uses_scalar_rss_sigma();
     let sigma2 = if scalar_ssasymp {
         (rss_nl / df).max(1e-12)
     } else {
         (pwrss / df).max(1e-12)
     };
-    let deviance = problem
-        .profile_objective(theta_slice, &opts.start, opts.reml, opts.max_inner)
-        .0;
     let loglik = -deviance / 2.0;
 
     let coefficients = Array1::from_vec(params);

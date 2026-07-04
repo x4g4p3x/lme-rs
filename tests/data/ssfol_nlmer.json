@@ -1,0 +1,10 @@
+{
+  "model": "y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id",
+  "outputs": {
+    "beta": [99.9553874, 16.6873691, -0.6380392],
+    "theta": [4.571058],
+    "re_sd": 4.571058,
+    "sigma2": 2.25,
+    "logLik": -95.0
+  }
+}

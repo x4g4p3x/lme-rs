@@ -142,6 +142,7 @@ let fit = lmer_weighted("y ~ x + (1 | group)", &df, true, Some(weights))?;
 circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree
 circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym + xmid | Tree
 y ~ SSasymp(x, Asym, R0, lrc) ~ Asym|id
+y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id
 ```
 
 ```rust
@@ -164,8 +165,9 @@ let fit = nlmer(
 
 Current limitations:
 
-- Mean functions: `SSlogis`, `SSasymp` (no user-defined R `function()` means yet).
-- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp`, are covered by lme4 parity tests.
+- Mean functions: `SSlogis`, `SSasymp`, `SSfol` (no user-defined R `function()` means yet).
+- Starting values: pass an empty `NlmmStart` / `start=None` in Python to use R-style `selfStart` heuristics (`stats::getInitial`); the fitter also tries static defaults and keeps the lowest-deviance result.
+- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol`, are covered by lme4 parity tests.
 - `predict()` evaluates the mean at fixed parameters only (`re.form = NA`); `predict_conditional()` adds stored random effects (`re.form = NULL`).
 - Log-likelihood and residual variance can differ slightly from `lme4` because this release uses a Laplace / penalized Gauss–Newton path (`nAGQ = 0` style), not full adaptive quadrature.
 
@@ -455,7 +457,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
-| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`; multivariate RE) |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`; multivariate RE; empty `start` → `selfStart`) |
 | `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |
 | `glmer_with_link(formula, data, family, link)` | GLMM with explicit link |
 | `glmer_weighted(formula, data, family, n_agq, weights)` | GLMM with prior observation weights |

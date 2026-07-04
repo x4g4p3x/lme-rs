@@ -26,11 +26,18 @@ pub enum NlmmMeanKind {
     Sslogis,
     /// `SSasymp(covariate, Asym, R0, lrc)`
     Ssasymp,
+    /// `SSfol(covariate, Asym, R0, lrc)` — foliar growth (`stats::SSfol`, same mean as `SSasymp`)
+    Ssfol,
 }
 
 impl NlmmMeanKind {
     pub(crate) fn n_params(self) -> usize {
         3
+    }
+
+    /// Asymptotic means (`SSasymp` / `SSfol`) use RSS-based σ² profiling in scalar-RE fits.
+    pub(crate) fn uses_scalar_rss_sigma(self) -> bool {
+        matches!(self, Self::Ssasymp | Self::Ssfol)
     }
 }
 
@@ -85,10 +92,11 @@ fn parse_nonlinear_part(s: &str) -> crate::Result<(NlmmMeanKind, String, Vec<Str
     let mean = match fname {
         "SSlogis" => NlmmMeanKind::Sslogis,
         "SSasymp" => NlmmMeanKind::Ssasymp,
+        "SSfol" => NlmmMeanKind::Ssfol,
         other => {
             return Err(LmeError::NotImplemented {
                 feature: format!(
-                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp)"
+                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol)"
                 ),
             });
         }
@@ -180,6 +188,13 @@ mod tests {
     fn parses_ssasymp_formula() {
         let (f, kind) = parse_nlmer_formula("y ~ SSasymp(x, Asym, R0, lrc) ~ Asym|id").unwrap();
         assert_eq!(kind, NlmmMeanKind::Ssasymp);
+        assert_eq!(f.fixed_param_names, vec!["Asym", "R0", "lrc"]);
+    }
+
+    #[test]
+    fn parses_ssfol_formula() {
+        let (f, kind) = parse_nlmer_formula("y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Ssfol);
         assert_eq!(f.fixed_param_names, vec!["Asym", "R0", "lrc"]);
     }
 }

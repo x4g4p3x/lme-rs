@@ -2,7 +2,7 @@
 
 This file gives **approximate completion percentages** for major parts of the `lme-rs` repository. The numbers are **judgment calls** for planning and transparency, not precise metrics (they are not derived from line coverage or a formal roadmap).
 
-**Last assessed:** 2026-07-01.
+**Last assessed:** 2026-07-04.
 
 **Versions checked:** `lme-rs` **0.1.8** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.1.8** ([`python/Cargo.toml`](python/Cargo.toml)).
 
@@ -57,7 +57,7 @@ These are **major gaps** relative to a very large reference (full `lme4` + relat
 
 | Topic | Status | Notes |
 |:------|:-------|:------|
-| **Nonlinear mixed models** (`nlmer`-style) | **~65%** | [`nlmer`](src/nlmm/mod.rs) + Python `nlmer()`; `SSlogis` / `SSasymp`; population/conditional [`predict`](src/nlmm/predict.rs); scalar and multivariate RE parameters on one grouping factor. Not yet: custom nonlinear functions, `selfStart`, AGQ, broader nonlinear mean catalog. |
+| **Nonlinear mixed models** (`nlmer`-style) | **~72%** | [`nlmer`](src/nlmm/mod.rs) + Python `nlmer()`; `SSlogis` / `SSasymp` / `SSfol`; `selfStart` when `start` is empty; population/conditional [`predict`](src/nlmm/predict.rs); scalar and multivariate RE parameters on one grouping factor. Not yet: custom nonlinear functions, AGQ, broader nonlinear mean catalog. |
 | **Weighted GLMMs** (`glmer` + observation weights) | **~80%** | [`glmer_weighted`](src/lib.rs) mirrors [`lmer_weighted`](src/lib.rs); prior weights in PIRLS and deviance. Gaussian delegates to LMM. Not yet: frequency weights / offsets combined with weights in docs only. |
 | **Publication-grade cross-language benchmark harness** | **0%** (as a product) | [`BENCHMARKS.md`](BENCHMARKS.md) states the repo does **not** provide a fully normalized, machine-locked harness for public speed claims; example-level timing exists, but not that system. |
 
