@@ -9,15 +9,17 @@ data$herd <- as.factor(data$herd)
 cat("\nFitting model: y ~ period2 + period3 + period4 + (1 | herd)\n")
 # Using the pre-dummied period columns to match what we'll do in Rust/Python/Julia
 fit <- glmer(y ~ period2 + period3 + period4 + (1 | herd),
-             data = data,
-             family = binomial(link = "logit"))
+  data = data,
+  family = binomial(link = "logit")
+)
 
 # Adaptive Gauss–Hermite (nAGQ = 7) — compare with Rust `glmer(..., 7)` and Python `n_agq=7`.
 # Note: lme-rs estimates θ with Laplace then evaluates AGQ in the final PIRLS step; lme4 uses AGQ in the θ objective when nAGQ > 1.
 fit_agq <- glmer(y ~ period2 + period3 + period4 + (1 | herd),
-                 data = data,
-                 family = binomial(link = "logit"),
-                 nAGQ = 7)
+  data = data,
+  family = binomial(link = "logit"),
+  nAGQ = 7
+)
 
 # 3. Print fitted coefficients
 cat("\n=== Fixed Effects (Laplace / nAGQ = 1) ===\n")

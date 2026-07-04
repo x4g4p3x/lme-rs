@@ -14,8 +14,8 @@ function main()
 
     println("\nFitting model: Yield ~ 1 + (1 | Batch)")
     form = @formula(Yield ~ 1 + (1 | Batch))
-    m1 = fit(MixedModel, form, df, REML=true)
-    
+    m1 = fit(MixedModel, form, df, REML = true)
+
     println("\n=== Model Summary ===")
     println(m1)
 end

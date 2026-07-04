@@ -14,18 +14,18 @@ function main()
     end
 
     println("Loading data from $file_path...")
-    
+
     # 1. Load the dataset
     df = CSV.read(file_path, DataFrame)
 
     # 2. Fit the Linear Mixed Model
     println("\nFitting model: strength ~ 1 + (1 | batch) + (1 | batch:cask)")
-    
+
     # MixedModels.jl evaluates nested effectively as batch + batch:cask or uses zerocorr(batch&cask)
     form = @formula(strength ~ 1 + (1 | batch) + (1 | batch&cask))
-    
-    m1 = fit(MixedModel, form, df, REML=true)
-    
+
+    m1 = fit(MixedModel, form, df, REML = true)
+
     # 3. Print the summary
     println("\n=== Model Summary ===")
     println(m1)
@@ -33,14 +33,14 @@ function main()
     # 4. Generate Predictions
     println("\n=== Predictions ===")
     println("Generating predictions for population-level...")
-    
+
     # Predict (Population-level)
     # \mu = X \beta
     beta = coef(m1)
     X = ones(3, 1) # Intercept only for fixed effects
-    
+
     preds = X * beta
-    
+
     println("Predictions (Population-level):")
     println(preds)
 end

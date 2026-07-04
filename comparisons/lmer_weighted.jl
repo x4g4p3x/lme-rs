@@ -27,7 +27,8 @@ function main()
     println(m)
 
     println("\n=== Predictions (population-level, manual fixed part) ===")
-    newdata = DataFrame(Days = [0.0, 1.0, 5.0, 10.0], Subject = ["308", "308", "308", "308"])
+    newdata =
+        DataFrame(Days = [0.0, 1.0, 5.0, 10.0], Subject = ["308", "308", "308", "308"])
     beta = coef(m)
     X = hcat(ones(4), newdata.Days)
     preds = X * beta

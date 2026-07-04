@@ -10,6 +10,7 @@ flamegraph.svg
 artifacts/
 benchmark-results/
 benchmark-site/
+.r-lib/
 site/
 
 # Python bindings

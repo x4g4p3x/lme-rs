@@ -80,52 +80,55 @@ get_model_data <- function(model_str, fit) {
   sat_anova_p <- NULL
 
   if (is(fit, "lmerMod") || is(fit, "lmerModLmerTest")) {
-    tryCatch({
-      # We can use lmerTest's summary or anova to get KR and Satterthwaite.
-      anova_res_kr <- anova(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger", type = 3)
-      anova_res_sat <- anova(as(fit, "lmerModLmerTest"), ddf = "Satterthwaite", type = 3)
-      summary_res <- summary(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger")
+    tryCatch(
+      {
+        # We can use lmerTest's summary or anova to get KR and Satterthwaite.
+        anova_res_kr <- anova(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger", type = 3)
+        anova_res_sat <- anova(as(fit, "lmerModLmerTest"), ddf = "Satterthwaite", type = 3)
+        summary_res <- summary(as(fit, "lmerModLmerTest"), ddf = "Kenward-Roger")
 
-      # Coefficient table has Estimate, Std. Error, df, t value, Pr(>|t|).
-      coef_table <- coef(summary_res)
+        # Coefficient table has Estimate, Std. Error, df, t value, Pr(>|t|).
+        coef_table <- coef(summary_res)
 
-      if ("df" %in% colnames(coef_table)) {
-        kr_dof <- as.numeric(coef_table[, "df"])
-      }
-      if ("Pr(>|t|)" %in% colnames(coef_table)) {
-        kr_p <- as.numeric(coef_table[, "Pr(>|t|)"])
-      }
+        if ("df" %in% colnames(coef_table)) {
+          kr_dof <- as.numeric(coef_table[, "df"])
+        }
+        if ("Pr(>|t|)" %in% colnames(coef_table)) {
+          kr_p <- as.numeric(coef_table[, "Pr(>|t|)"])
+        }
 
-      # Anova table has NumDF, DenDF, F value, Pr(>F).
-      if ("NumDF" %in% colnames(anova_res_kr)) {
-        kr_anova_ndf <- as.numeric(anova_res_kr[, "NumDF"])
-      }
-      if ("DenDF" %in% colnames(anova_res_kr)) {
-        kr_anova_ddf <- as.numeric(anova_res_kr[, "DenDF"])
-      }
-      if ("F value" %in% colnames(anova_res_kr)) {
-        kr_anova_f <- as.numeric(anova_res_kr[, "F value"])
-      }
-      if ("Pr(>F)" %in% colnames(anova_res_kr)) {
-        kr_anova_p <- as.numeric(anova_res_kr[, "Pr(>F)"])
-      }
+        # Anova table has NumDF, DenDF, F value, Pr(>F).
+        if ("NumDF" %in% colnames(anova_res_kr)) {
+          kr_anova_ndf <- as.numeric(anova_res_kr[, "NumDF"])
+        }
+        if ("DenDF" %in% colnames(anova_res_kr)) {
+          kr_anova_ddf <- as.numeric(anova_res_kr[, "DenDF"])
+        }
+        if ("F value" %in% colnames(anova_res_kr)) {
+          kr_anova_f <- as.numeric(anova_res_kr[, "F value"])
+        }
+        if ("Pr(>F)" %in% colnames(anova_res_kr)) {
+          kr_anova_p <- as.numeric(anova_res_kr[, "Pr(>F)"])
+        }
 
-      # Satterthwaite Anova.
-      if ("NumDF" %in% colnames(anova_res_sat)) {
-        sat_anova_ndf <- as.numeric(anova_res_sat[, "NumDF"])
+        # Satterthwaite Anova.
+        if ("NumDF" %in% colnames(anova_res_sat)) {
+          sat_anova_ndf <- as.numeric(anova_res_sat[, "NumDF"])
+        }
+        if ("DenDF" %in% colnames(anova_res_sat)) {
+          sat_anova_ddf <- as.numeric(anova_res_sat[, "DenDF"])
+        }
+        if ("F value" %in% colnames(anova_res_sat)) {
+          sat_anova_f <- as.numeric(anova_res_sat[, "F value"])
+        }
+        if ("Pr(>F)" %in% colnames(anova_res_sat)) {
+          sat_anova_p <- as.numeric(anova_res_sat[, "Pr(>F)"])
+        }
+      },
+      error = function(e) {
+        message("Failed to compute KR/Satterthwaite outputs for model: ", e$message)
       }
-      if ("DenDF" %in% colnames(anova_res_sat)) {
-        sat_anova_ddf <- as.numeric(anova_res_sat[, "DenDF"])
-      }
-      if ("F value" %in% colnames(anova_res_sat)) {
-        sat_anova_f <- as.numeric(anova_res_sat[, "F value"])
-      }
-      if ("Pr(>F)" %in% colnames(anova_res_sat)) {
-        sat_anova_p <- as.numeric(anova_res_sat[, "Pr(>F)"])
-      }
-    }, error = function(e) {
-      message("Failed to compute KR/Satterthwaite outputs for model: ", e$message)
-    })
+    )
   }
 
   outputs <- list(
@@ -156,18 +159,21 @@ get_model_data <- function(model_str, fit) {
   }
 
   # Robust Standard Errors (CR0).
-  tryCatch({
-    vcov_cr0 <- vcovCR(fit, type = "CR0")
-    v_beta_robust <- as.matrix(vcov_cr0)
-    robust_se <- sqrt(diag(v_beta_robust))
-    robust_t <- as.numeric(beta) / robust_se
+  tryCatch(
+    {
+      vcov_cr0 <- vcovCR(fit, type = "CR0")
+      v_beta_robust <- as.matrix(vcov_cr0)
+      robust_se <- sqrt(diag(v_beta_robust))
+      robust_t <- as.numeric(beta) / robust_se
 
-    outputs$robust_v_beta <- as.vector(v_beta_robust)
-    outputs$robust_se <- robust_se
-    outputs$robust_t <- robust_t
-  }, error = function(e) {
-    message("Skipping robust SEs: ", e$message)
-  })
+      outputs$robust_v_beta <- as.vector(v_beta_robust)
+      outputs$robust_se <- robust_se
+      outputs$robust_t <- robust_t
+    },
+    error = function(e) {
+      message("Skipping robust SEs: ", e$message)
+    }
+  )
 
   list(
     model = jsonlite::unbox(model_str),

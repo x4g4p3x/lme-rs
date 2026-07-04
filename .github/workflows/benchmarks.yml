@@ -122,10 +122,13 @@ jobs:
       - name: Install R benchmark dependencies
         run: |
           mkdir -p "$R_LIBS_USER"
-          Rscript -e 'install.packages(c("lme4", "lmerTest", "car", "rlang"), repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
+          Rscript -e 'install.packages(c("lme4", "lmerTest", "car", "rlang", "styler"), repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
 
       - name: Install Julia benchmark dependencies
-        run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "MixedModels"])'
+        run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "MixedModels", "JuliaFormatter"])'
+
+      - name: Check comparison script formatting
+        run: python3 scripts/ci/lme_ci.py comparison-format-check --required
 
       - name: Build Rust examples
         run: cargo build --release --examples

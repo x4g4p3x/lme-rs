@@ -129,6 +129,24 @@ Relevant files and directories:
 - `tests/generate_test_data.R` for R-backed fixture generation
 - `comparisons/` for cross-language parity scripts (R, Python/statsmodels, Julia)
 
+### Comparison script formatting (optional locally)
+
+Cross-language R/Julia scripts under `comparisons/` (plus golden-parity generators in `tests/*.R`) use **format-only** checks — not full linters:
+
+- **R:** [styler](https://cran.r-project.org/package=styler) via `scripts/ci/r_format.R`
+- **Julia:** [JuliaFormatter](https://github.com/domluna/JuliaFormatter.jl) via `scripts/ci/julia_format.jl` (reads [`.JuliaFormatter.toml`](.JuliaFormatter.toml))
+
+These are **optional** on commit when the runtime is missing (same tier as R/Julia benchmarks). When Rscript/styler or julia/JuliaFormatter are installed, Lefthook auto-formats staged `comparisons/**/*.R`, `tests/*.R`, and `comparisons/**/*.jl`.
+
+```powershell
+task lint:comparisons              # skip if R/Julia formatters missing
+task lint:comparisons:required     # fail when tools/packages missing
+python scripts/ci/lme_ci.py r-format-staged --fix
+python scripts/ci/lme_ci.py julia-format-staged --fix
+```
+
+The tag/manual [benchmarks workflow](.github/workflows/benchmarks.yml) runs `comparison-format-check --required` before cross-language timing.
+
 ## Working on documentation
 
 When documentation changes affect user-visible behavior, keep these files aligned:

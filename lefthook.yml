@@ -24,6 +24,16 @@ pre-commit:
       run: bash scripts/ci/run.sh ruff-staged --fix
       stage_fixed: true
 
+    r-format:
+      glob: "{comparisons/**/*.R,tests/*.R}"
+      run: bash scripts/ci/run.sh r-format-staged --fix
+      stage_fixed: true
+
+    julia-format:
+      glob: "comparisons/**/*.jl"
+      run: bash scripts/ci/run.sh julia-format-staged --fix
+      stage_fixed: true
+
     rust-check-manifest:
       priority: 3
       glob: "{Cargo.toml,Cargo.lock,python/Cargo.toml,python/Cargo.lock}"

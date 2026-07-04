@@ -60,6 +60,22 @@ tasks:
     cmds:
       - '{{.RUN}} ruff-lint'
 
+  lint:comparisons:
+    desc: Optional format check for comparisons R/Julia (skip if tools missing)
+    cmds:
+      - '{{.RUN}} comparison-format-check'
+
+  lint:comparisons:required:
+    desc: Format check for comparisons R/Julia (fail if R/Julia formatters missing)
+    cmds:
+      - '{{.RUN}} comparison-format-check --required'
+
+  lint:comparisons:staged:
+    desc: Format staged comparisons R/Julia scripts (pre-commit)
+    cmds:
+      - '{{.RUN}} r-format-staged --fix'
+      - '{{.RUN}} julia-format-staged --fix'
+
   lint:ci:
     desc: lint + cargo check (no tests, no maturin/pytest)
     cmds:

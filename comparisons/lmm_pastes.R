@@ -8,7 +8,7 @@ data$cask <- as.factor(data$cask)
 
 # 2. Fit the model
 cat("\nFitting model: strength ~ 1 + (1 | batch/cask)\n")
-fit <- lmer(strength ~ 1 + (1 | batch/cask), data = data, REML = TRUE)
+fit <- lmer(strength ~ 1 + (1 | batch / cask), data = data, REML = TRUE)
 
 # 3. Print fitted coefficients
 cat("\n=== Fixed Effects ===\n")

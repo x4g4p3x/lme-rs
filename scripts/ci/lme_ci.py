@@ -18,6 +18,8 @@ from typing import Sequence
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON_DIR = ROOT / "python"
 PYTHON_VENV = PYTHON_DIR / ".venv"
+JULIA_FORMAT_SCRIPT = ROOT / "scripts" / "ci" / "julia_format.jl"
+R_FORMAT_SCRIPT = ROOT / "scripts" / "ci" / "r_format.R"
 
 
 class CiError(Exception):
@@ -85,6 +87,14 @@ def staged_files(pattern: str) -> list[str]:
         return [p for p in paths if p.endswith(".rs") and not p.startswith("target/")]
     if pattern == "python":
         return [p for p in paths if p.startswith("python/") and p.endswith(".py")]
+    if pattern == "comparison-r":
+        return [
+            p
+            for p in paths
+            if p.endswith(".R") and (p.startswith("comparisons/") or p.startswith("tests/"))
+        ]
+    if pattern == "comparison-jl":
+        return [p for p in paths if p.endswith(".jl") and p.startswith("comparisons/")]
     return paths
 
 
@@ -290,6 +300,119 @@ def ruff_staged(*, fix: bool) -> None:
         run([*cmd, "format", "--check", "--config", config, *files])
 
 
+def comparison_r_files() -> list[str]:
+    paths = sorted((ROOT / "comparisons").rglob("*.R"))
+    paths.extend(sorted((ROOT / "tests").glob("*.R")))
+    return [str(p.relative_to(ROOT)).replace("\\", "/") for p in paths]
+
+
+def comparison_jl_files() -> list[str]:
+    paths = sorted((ROOT / "comparisons").rglob("*.jl"))
+    return [str(p.relative_to(ROOT)).replace("\\", "/") for p in paths]
+
+
+def _r_styler_ready(*, required: bool) -> bool:
+    if not shutil.which("Rscript"):
+        message = "skip: Rscript not installed (comparison R formatting is optional locally)"
+        if required:
+            raise CiError("Rscript not found on PATH")
+        print(message, flush=True)
+        return False
+    probe = subprocess.run(
+        ["Rscript", "-e", "suppressPackageStartupMessages(library(styler))"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        message = (
+            "skip: R package styler not installed "
+            "(install.packages('styler') for comparison R formatting)"
+        )
+        if required:
+            raise CiError("R package styler is not installed")
+        print(message, flush=True)
+        return False
+    return True
+
+
+def _julia_formatter_ready(*, required: bool) -> bool:
+    if not shutil.which("julia"):
+        message = "skip: julia not installed (comparison Julia formatting is optional locally)"
+        if required:
+            raise CiError("julia not found on PATH")
+        print(message, flush=True)
+        return False
+    probe = subprocess.run(
+        ["julia", "-e", "using JuliaFormatter"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        message = (
+            "skip: Julia package JuliaFormatter not installed "
+            "(Pkg.add(\"JuliaFormatter\") for comparison Julia formatting)"
+        )
+        if required:
+            raise CiError("Julia package JuliaFormatter is not installed")
+        print(message, flush=True)
+        return False
+    return True
+
+
+def _format_r_files(files: list[str], *, check: bool, required: bool = False) -> None:
+    if not files:
+        return
+    if not _r_styler_ready(required=required):
+        return
+    flag = "--check" if check else ""
+    cmd = ["Rscript", str(R_FORMAT_SCRIPT.relative_to(ROOT))]
+    if flag:
+        cmd.append(flag)
+    cmd.extend(files)
+    run(cmd)
+
+
+def _format_julia_files(files: list[str], *, check: bool, required: bool = False) -> None:
+    if not files:
+        return
+    if not _julia_formatter_ready(required=required):
+        return
+    flag = "--check" if check else ""
+    cmd = ["julia", str(JULIA_FORMAT_SCRIPT.relative_to(ROOT))]
+    if flag:
+        cmd.append(flag)
+    cmd.extend(files)
+    run(cmd)
+
+
+def comparison_format_check(*, required: bool = False) -> None:
+    """Format-check comparison / golden-parity R and Julia scripts."""
+    r_files = comparison_r_files()
+    jl_files = comparison_jl_files()
+    _format_r_files(r_files, check=True, required=required)
+    _format_julia_files(jl_files, check=True, required=required)
+
+
+def r_format_staged(*, fix: bool) -> None:
+    files = staged_files("comparison-r")
+    if not files:
+        return
+    _format_r_files(files, check=not fix, required=False)
+    if fix:
+        restage(files)
+
+
+def julia_format_staged(*, fix: bool) -> None:
+    files = staged_files("comparison-jl")
+    if not files:
+        return
+    _format_julia_files(files, check=not fix, required=False)
+    if fix:
+        restage(files)
+
+
 def _venv_python_version(venv: Path) -> tuple[int, int]:
     py = venv_python(venv)
     result = subprocess.run(
@@ -440,6 +563,33 @@ def main(argv: list[str] | None = None) -> int:
     p_ruff = sub.add_parser("ruff-staged", help="Ruff check/format staged python/**/*.py")
     p_ruff.add_argument("--fix", action="store_true")
     p_ruff.set_defaults(fn=lambda a: ruff_staged(fix=a.fix))
+
+    p_r_format = sub.add_parser(
+        "r-format-staged",
+        help="Format staged comparisons/**/*.R and tests/*.R with styler",
+    )
+    p_r_format.add_argument("--fix", action="store_true")
+    p_r_format.set_defaults(fn=lambda a: r_format_staged(fix=a.fix))
+
+    p_jl_format = sub.add_parser(
+        "julia-format-staged",
+        help="Format staged comparisons/**/*.jl with JuliaFormatter",
+    )
+    p_jl_format.add_argument("--fix", action="store_true")
+    p_jl_format.set_defaults(fn=lambda a: julia_format_staged(fix=a.fix))
+
+    p_comparison_format = sub.add_parser(
+        "comparison-format-check",
+        help="Check styler/JuliaFormatter on comparison scripts (skip if tools missing)",
+    )
+    p_comparison_format.add_argument(
+        "--required",
+        action="store_true",
+        help="Fail when Rscript/styler or julia/JuliaFormatter are unavailable",
+    )
+    p_comparison_format.set_defaults(
+        fn=lambda a: comparison_format_check(required=a.required)
+    )
 
     p_ci = sub.add_parser("ci", help="Full core CI mirror")
     p_ci.add_argument("--reuse-venv", action="store_true")

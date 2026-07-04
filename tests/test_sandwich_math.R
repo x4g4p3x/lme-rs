@@ -21,10 +21,10 @@ eps <- resid(fm1) # conditional residuals: Y - X\beta - Zb
 inv_info <- summary(fm1)$vcov / sigma(fm1)^2 # this is (X^T V^{-1} X)^{-1}
 
 subjects <- sleepstudy$Subject
-M <- matrix(0, nrow=2, ncol=2)
+M <- matrix(0, nrow = 2, ncol = 2)
 for (sub in unique(subjects)) {
   idx <- which(subjects == sub)
-  X_j <- X[idx, , drop=FALSE]
+  X_j <- X[idx, , drop = FALSE]
   eps_j <- eps[idx]
   g_j <- t(X_j) %*% eps_j
   M <- M + g_j %*% t(g_j)
@@ -38,7 +38,7 @@ print(V_robust_manual)
 # Compare to clubSandwich
 if (requireNamespace("clubSandwich", quietly = TRUE)) {
   library(clubSandwich)
-  vcov_cr0 <- vcovCR(fm1, type="CR0")
+  vcov_cr0 <- vcovCR(fm1, type = "CR0")
   cat("\nclubSandwich CR0:\n")
   print(vcov_cr0)
 } else {

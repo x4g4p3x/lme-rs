@@ -6,7 +6,7 @@ df = CSV.read("tests/data/sleepstudy.csv", DataFrame)
 form = @formula(Reaction ~ 1 + Days + (1 + Days | Subject))
 
 # REML=false implies Maximum Likelihood
-m1 = fit(MixedModel, form, df, REML=false)
+m1 = fit(MixedModel, form, df, REML = false)
 println("=== Model Summary ===")
 println(m1)
 

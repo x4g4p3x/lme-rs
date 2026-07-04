@@ -65,6 +65,8 @@ task hooks:install
 |---|---|---|
 | `**/*.rs` | `fmt` then `clippy` | `stage_fixed: true` re-stages rustfmt fixes |
 | `python/**/*.py` | `ruff-staged --fix` | Ruff check + format; auto-stages fixes |
+| `comparisons/**/*.R`, `tests/*.R` | `r-format-staged --fix` | **styler** when Rscript + styler are installed; skips otherwise |
+| `comparisons/**/*.jl` | `julia-format-staged --fix` | **JuliaFormatter** when julia + JuliaFormatter are installed; skips otherwise |
 | `Cargo.toml`, `Cargo.lock`, `python/Cargo.toml`, `python/Cargo.lock` | `cargo check --all-targets` | Catches link/BLAS issues on your platform when manifests change |
 | `Cargo.toml`, `scripts/sync_github_repo_metadata.py` | `repo-metadata` dry-run (+ token verify if `REPO_ADMIN_TOKEN` set) | Validates About-box payload before GHA metadata sync |
 | `comparisons/**`, benchmark script/workflow | `benchmarks-smoke` | Rust sleepstudy example timing (release build) |
@@ -99,7 +101,7 @@ Bypass: `git push --no-verify`.
 
 **macOS Apple Silicon BLAS** (`openblas-static` vs MKL) is only exercised on `macos-latest` in GHA — Windows/Linux preflights cannot catch that matrix cell. GHA now runs automatically only for `v*` tags (plus manual dispatch), so after changing `Cargo.toml` BLAS target tables or release workflows, run `task ci` locally or manually dispatch the CI workflow before tagging.
 
-**Cross-language benchmarks** (R + Julia, tag-only [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml)): pre-commit runs `benchmarks-smoke` when `comparisons/**` changes (Rust `sleepstudy` example only). Full matrix needs R (`lme4`, `lmerTest`, `car`, `rlang`) and Julia — run it through the tag/manual GHA workflow or `task benchmarks:preflight` with R installed.
+**Cross-language benchmarks** (R + Julia, tag-only [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml)): pre-commit runs `benchmarks-smoke` when `comparisons/**` changes (Rust `sleepstudy` example only). Full matrix needs R (`lme4`, `lmerTest`, `car`, `rlang`, `styler`) and Julia (`JuliaFormatter`) — run it through the tag/manual GHA workflow or `task benchmarks:preflight` with R installed. Comparison script formatting is checked in that GHA job; locally use `task lint:comparisons` (skips when tools are missing) or `task lint:comparisons:required` when R/Julia formatters are installed.
 
 ## 3. Before finishing work (manual)
 
@@ -168,6 +170,9 @@ python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 | `benchmarks-preflight` | `benchmarks-smoke` + optional `sleepstudy.R` when R/lme4 present |
 | `rust-lint` | `fmt --check` + clippy |
 | `ruff-lint` | Ruff on `python/tests` + `python/examples` |
+| `comparison-format-check` | Optional styler/JuliaFormatter check on `comparisons/` (+ `tests/*.R`); use `--required` in GHA |
+| `r-format-staged --fix` | Staged R comparison/golden-parity scripts |
+| `julia-format-staged --fix` | Staged Julia comparison scripts |
 | `rust-all` | Rust slice without Python bindings tests |
 | `python` | Maturin + pytest (+ wheel pass) |
 | `ruff-staged --fix` | Staged Python lint/format |
