@@ -226,6 +226,7 @@ fn parse_anova_type(anova_type: &str) -> PyResult<AnovaType> {
     match anova_type.to_uppercase().as_str() {
         "III" | "3" | "TYPE3" | "TYPE III" => Ok(AnovaType::Type3),
         "II" | "2" | "TYPE2" | "TYPE II" => Ok(AnovaType::Type2),
+        "I" | "1" | "TYPE1" | "TYPE I" => Ok(AnovaType::Type1),
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Unsupported anova_type '{other}'"
         ))),
@@ -801,7 +802,7 @@ impl PyLmeFit {
     /// - `"satterthwaite"`
     /// - `"kenward_roger"` / `"kenward-roger"`
     ///
-    /// `anova_type` can be `"III"` (default) or `"II"`.
+    /// `anova_type` can be `"III"` (default), `"II"`, or `"I"`.
     #[pyo3(signature = (ddf_method="satterthwaite", anova_type="III"))]
     pub fn anova(
         &self,
@@ -815,6 +816,51 @@ impl PyLmeFit {
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "anova failed: {}",
                 e
+            ))),
+        }
+    }
+
+    /// Wald F-test for one fixed-effect term (`car::linearHypothesis` on a term name).
+    #[pyo3(signature = (term, ddf_method="satterthwaite"))]
+    pub fn linear_hypothesis(
+        &self,
+        term: &str,
+        ddf_method: &str,
+    ) -> PyResult<PyContrastTest> {
+        let method = parse_ddf_method(ddf_method)?;
+        match self.inner.linear_hypothesis(term, method) {
+            Ok(r) => Ok(PyContrastTest {
+                method: format!("{:?}", r.method),
+                num_df: r.num_df,
+                den_df: r.den_df,
+                f_value: r.f_value,
+                p_value: r.p_value,
+            }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "linear_hypothesis failed: {e}"
+            ))),
+        }
+    }
+
+    /// Joint Wald F-test for multiple fixed-effect terms by ANOVA term label.
+    #[pyo3(signature = (terms, ddf_method="satterthwaite"))]
+    pub fn linear_hypothesis_terms(
+        &self,
+        terms: Vec<String>,
+        ddf_method: &str,
+    ) -> PyResult<PyContrastTest> {
+        let method = parse_ddf_method(ddf_method)?;
+        let refs: Vec<&str> = terms.iter().map(String::as_str).collect();
+        match self.inner.linear_hypothesis_terms(&refs, method) {
+            Ok(r) => Ok(PyContrastTest {
+                method: format!("{:?}", r.method),
+                num_df: r.num_df,
+                den_df: r.den_df,
+                f_value: r.f_value,
+                p_value: r.p_value,
+            }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "linear_hypothesis_terms failed: {e}"
             ))),
         }
     }

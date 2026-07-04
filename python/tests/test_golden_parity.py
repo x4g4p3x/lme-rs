@@ -77,6 +77,15 @@ def _assert_coefs(case_id: str, fit, checks: list[dict]) -> None:
                 reml=True,
             ),
         ),
+        (
+            "orange_nlmer_sslogis",
+            lambda: lme_python.nlmer(
+                "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+                data=pl.read_csv(REPO_ROOT / "tests/data/orange.csv"),
+                start={"Asym": 200.0, "xmid": 725.0, "scal": 350.0},
+                reml=False,
+            ),
+        ),
     ],
 )
 def test_golden_coefficient_parity(case_id: str, fitter) -> None:

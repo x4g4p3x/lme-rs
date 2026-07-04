@@ -6,6 +6,8 @@ use std::collections::HashMap;
 /// ANOVA sum-of-squares type for fixed-effect terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AnovaType {
+    /// Type I: sequential contrasts in formula term order (each term after preceding terms).
+    Type1,
     /// Type II: terms not contained elsewhere use marginal contrasts; contained terms use sequential (Doolittle) contrasts.
     Type2,
     /// Type III: marginal contrasts for each term (default).
@@ -165,10 +167,19 @@ pub fn contrast_for_term(
     term: &str,
     col_indices: &[usize],
     containment: &HashMap<String, Vec<String>>,
+    term_order: &[String],
 ) -> Array2<f64> {
     let p = x.ncols();
     match anova_type {
         AnovaType::Type3 => marginal_contrast(p, col_indices),
+        AnovaType::Type1 => {
+            let pos = term_order
+                .iter()
+                .position(|t| t == term)
+                .unwrap_or(term_order.len());
+            let prior = &term_order[..pos];
+            type2_contrast(x, col_terms, term, prior)
+        }
         AnovaType::Type2 => {
             let contained = containment.get(term).map(|v| v.as_slice()).unwrap_or(&[]);
             if contained.is_empty() {
@@ -193,6 +204,28 @@ mod tests {
     }
 
     #[test]
+    fn type1_first_term_matches_marginal_on_additive_model() {
+        let x = Array2::from_shape_vec(
+            (4, 3),
+            vec![1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+        )
+        .unwrap();
+        let col_terms = vec!["(Intercept)".into(), "a".into(), "b".into()];
+        let order = vec!["a".into(), "b".into()];
+        let l1 = contrast_for_term(
+            AnovaType::Type1,
+            &x,
+            &col_terms,
+            "a",
+            &[1],
+            &term_containment(&order),
+            &order,
+        );
+        let l3 = marginal_contrast(3, &[1]);
+        assert!((l1 - l3).iter().all(|v| v.abs() < 1e-10));
+    }
+
+    #[test]
     fn type2_equals_marginal_for_main_effect_in_additive_model() {
         let x = Array2::from_shape_vec(
             (4, 3),
@@ -200,8 +233,9 @@ mod tests {
         )
         .unwrap();
         let col_terms = vec!["(Intercept)".into(), "a".into(), "b".into()];
-        let c = term_containment(&["a".into(), "b".into()]);
-        let l2 = type2_contrast(&x, &col_terms, "a", &c["a"]);
+        let order = vec!["a".into(), "b".into()];
+        let c = term_containment(&order);
+        let l2 = contrast_for_term(AnovaType::Type2, &x, &col_terms, "a", &[1], &c, &order);
         let l3 = marginal_contrast(3, &[1]);
         assert!((l2 - l3).iter().all(|v| v.abs() < 1e-10));
     }

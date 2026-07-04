@@ -54,3 +54,21 @@ fn type2_matches_type3_on_additive_sleepstudy() {
     assert!((t3.f_value[0] - t2.f_value[0]).abs() < 1e-6);
     assert!((t3.den_df[0] - t2.den_df[0]).abs() < 0.05);
 }
+
+#[test]
+fn type1_anova_runs_on_sleepstudy() {
+    let mut file = File::open("tests/data/sleepstudy.csv").unwrap();
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(&mut file)
+        .finish()
+        .unwrap();
+    let mut fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+    fit.with_satterthwaite(&df).unwrap();
+    let t1 = fit
+        .anova_typed(AnovaType::Type1, DdfMethod::Satterthwaite)
+        .unwrap();
+    assert_eq!(t1.terms, vec!["Days"]);
+    assert!(t1.f_value[0].is_finite());
+    assert!(t1.p_value[0].is_finite());
+}

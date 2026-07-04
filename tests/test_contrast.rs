@@ -56,6 +56,10 @@ fn test_pastes_cask_contrast_matches_anova() -> Result<(), Box<dyn std::error::E
     assert_close("anova p", anova.p_value[0], res.p_value, 1e-10);
     assert_close("anova DenDF", anova.den_df[0], res.den_df, 1e-10);
 
+    let lh = fit.linear_hypothesis("cask", DdfMethod::Satterthwaite)?;
+    assert_close("linear_hypothesis F", lh.f_value, res.f_value, 1e-10);
+    assert_close("linear_hypothesis p", lh.p_value, res.p_value, 1e-10);
+
     Ok(())
 }
 

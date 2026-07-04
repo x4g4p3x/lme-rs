@@ -100,6 +100,7 @@ impl LmeFit {
                 &term.name,
                 &term.col_indices,
                 &containment,
+                &term_names,
             );
 
             let res = fixed_effect_contrast_test(self, &l_mat, ddf, None)?;
@@ -118,6 +119,55 @@ impl LmeFit {
             f_value,
             p_value,
         })
+    }
+
+    /// Wald F-test for one fixed-effect term (`car::linearHypothesis` on a single term name).
+    pub fn linear_hypothesis(
+        &self,
+        term: &str,
+        ddf: DdfMethod,
+    ) -> crate::Result<crate::contrast::ContrastTestResult> {
+        self.linear_hypothesis_terms(&[term], ddf)
+    }
+
+    /// Joint Wald F-test for one or more fixed-effect terms by ANOVA term label.
+    pub fn linear_hypothesis_terms(
+        &self,
+        terms: &[&str],
+        ddf: DdfMethod,
+    ) -> crate::Result<crate::contrast::ContrastTestResult> {
+        if terms.is_empty() {
+            return Err(crate::LmeError::NotImplemented {
+                feature: "linear_hypothesis requires at least one term".to_string(),
+            });
+        }
+
+        let fixed_names = self.fixed_names.clone().unwrap_or_default();
+        let has_intercept = fixed_names.first().is_some_and(|n| n == "(Intercept)");
+        let start_idx = if has_intercept { 1 } else { 0 };
+        let anova_terms = self.grouped_anova_terms(&fixed_names, start_idx)?;
+        let p = self.coefficients.len();
+
+        let mut l_mat = ndarray::Array2::<f64>::zeros((0, p));
+        for name in terms {
+            let term = anova_terms
+                .iter()
+                .find(|t| t.name == *name)
+                .ok_or_else(|| crate::LmeError::NotImplemented {
+                    feature: format!("Unknown fixed-effect term '{name}' in linear_hypothesis"),
+                })?;
+            let block = anova_contrasts::marginal_contrast(p, &term.col_indices);
+            let q = l_mat.nrows();
+            let new_q = q + block.nrows();
+            let mut stacked = ndarray::Array2::<f64>::zeros((new_q, p));
+            if q > 0 {
+                stacked.slice_mut(ndarray::s![..q, ..]).assign(&l_mat);
+            }
+            stacked.slice_mut(ndarray::s![q..new_q, ..]).assign(&block);
+            l_mat = stacked;
+        }
+
+        fixed_effect_contrast_test(self, &l_mat, ddf, None)
     }
 
     fn grouped_anova_terms(
@@ -181,6 +231,7 @@ fn legacy_term_label(
 impl fmt::Display for FixedEffectsAnovaResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let type_str = match self.anova_type {
+            AnovaType::Type1 => "I",
             AnovaType::Type2 => "II",
             AnovaType::Type3 => "III",
         };

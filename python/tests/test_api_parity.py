@@ -133,6 +133,17 @@ def test_anova_type_ii():
     assert tab.terms == ["Days"]
 
 
+def test_anova_type_i_and_linear_hypothesis():
+    df = pl.read_csv("../tests/data/pastes.csv")
+    fit = lme_python.lmer("strength ~ cask + (1 | batch)", data=df, reml=True)
+    fit.with_satterthwaite(df)
+    tab_i = fit.anova(ddf_method="satterthwaite", anova_type="I")
+    assert tab_i.terms == ["cask"]
+    lh = fit.linear_hypothesis("cask")
+    tab_iii = fit.anova(ddf_method="satterthwaite", anova_type="III")
+    assert abs(lh.f_value - tab_iii.f_value[0]) < 1e-10
+
+
 def test_lm_matrix():
     y = [1.0, 2.0, 3.0, 4.0]
     x = [[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]

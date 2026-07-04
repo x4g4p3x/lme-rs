@@ -16,7 +16,7 @@
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
 - Wald confidence intervals, parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and Kenward-Roger denominator degrees of freedom
-- Likelihood ratio tests between nested models and Type II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)
+- Likelihood ratio tests between nested models and Type I / II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)
 
 ## Quick start
 
@@ -65,7 +65,7 @@ For a subjective, area-by-area view of what is implemented versus still open (in
 
 - Numerical parity is the goal for the covered LMM and GLMM workflows, but the guarantee is scoped to the models and examples exercised by the repository tests and comparison fixtures.
 - `glmer()` uses a Laplace approximation. Absolute AIC, BIC, and log-likelihood values can differ from R because `lme-rs` optimizes a deviance expression that omits data-dependent constants. Coefficients and variance parameters are the quantities to compare.
-- Fixed-effects ANOVA supports **Type II** and **Type III** (`anova_typed` / `AnovaType`). Continuous fixed effects use 1-DoF tests where applicable; categorical predictors encoded as multiple dummies use **joint multi-DoF Wald F-tests**, with multi-DoF Satterthwaite denominator df following **`lmerTest::contestMD()`** (see [GUIDE.md](GUIDE.md) and [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) §4). Arbitrary user-defined **q × p** contrast matrices are supported via `test_contrast()` (Rust) / `fit.test_contrast()` (Python).
+- Fixed-effects ANOVA supports **Type I**, **II**, and **III** (`anova_typed` / `AnovaType`). Continuous fixed effects use 1-DoF tests where applicable; categorical predictors encoded as multiple dummies use **joint multi-DoF Wald F-tests**, with multi-DoF Satterthwaite denominator df following **`lmerTest::contestMD()`** (see [GUIDE.md](GUIDE.md) and [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) §4). Arbitrary user-defined **q × p** contrast matrices are supported via `test_contrast()` (Rust) / `fit.test_contrast()` (Python); named-term tests via `linear_hypothesis()` / `fit.linear_hypothesis()`.
 - `with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` to within the precision of numerical differentiation on the covered LMM models.
 - The Python bindings mirror the Rust API (`lm`, `lm_matrix`, `lmer`, `glmer`, `nlmer`, contrasts, ANOVA, prediction, simulation) with structured result types and [`lme_python.pyi`](python/lme_python.pyi) stubs.
 - Built-in GLMM families cover binomial, Poisson, Gaussian, and gamma with canonical links; non-canonical links are selectable via `glmer_with_link` / `link_name=` ([`GUIDE.md`](GUIDE.md)).

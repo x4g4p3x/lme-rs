@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Type **I** fixed-effects ANOVA via `AnovaType::Type1` / `anova_type="I"` (sequential contrasts in formula term order).
+- `car::linearHypothesis`-style wrappers: `LmeFit::linear_hypothesis` / `linear_hypothesis_terms` (Rust) and `fit.linear_hypothesis()` / `fit.linear_hypothesis_terms()` (Python).
+- Python golden parity: `orange_nlmer_sslogis` in [`python/tests/test_golden_parity.py`](python/tests/test_golden_parity.py).
+
+### Changed
+
+- Bump `rand` to **0.9.3+** (and transitive **0.8.6** where applicable) for [RUSTSEC-2026-0097](https://rustsec.org/advisories/RUSTSEC-2026-0097).
+
+### Added
+
 - `nlmer` **`SSfol`** mean (`stats::SSfol`, same formula as `SSasymp`) with parity on synthetic grouped data ([`tests/test_nlmm_ssfol.rs`](tests/test_nlmm_ssfol.rs)).
 - R-style **`selfStart`** automatic starting values when `start` is empty: [`src/nlmm/self_start.rs`](src/nlmm/self_start.rs) (`stats::getInitial` heuristics for `SSlogis` / `SSasymp` / `SSfol`), with multistart fallback to static defaults in [`fit_nlmer`](src/nlmm/fit.rs). Tests: [`tests/test_nlmm_self_start.rs`](tests/test_nlmm_self_start.rs).
 - Golden parity case **`ssfol_synthetic_self_start`** (no explicit `nlmm_start`) in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json); fixture [`tests/data/ssfol_nlmer.json`](tests/data/ssfol_nlmer.json); R regeneration in [`tests/generate_test_data.R`](tests/generate_test_data.R).

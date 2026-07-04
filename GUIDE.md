@@ -356,7 +356,7 @@ fit.with_robust_se(&df, Some("Subject"))?;
 
 Use the first form for observation-level HC0 robust errors and the second for clustered robust errors.
 
-### Fixed-effects ANOVA (Type II / III)
+### Fixed-effects ANOVA (Type I / II / III)
 
 ```rust
 use lme_rs::{AnovaType, DdfMethod};
@@ -364,12 +364,15 @@ use lme_rs::{AnovaType, DdfMethod};
 fit.with_satterthwaite(&df)?;
 let table = fit.anova(DdfMethod::Satterthwaite)?; // Type III (default)
 let table_ii = fit.anova_typed(AnovaType::Type2, DdfMethod::Satterthwaite)?;
+let table_i = fit.anova_typed(AnovaType::Type1, DdfMethod::Satterthwaite)?;
+let cask_test = fit.linear_hypothesis("cask", DdfMethod::Satterthwaite)?;
 println!("{}", table);
 ```
 
 Current scope:
 
-- Type **II** and Type **III** tables (`anova_typed` / `AnovaType`)
+- Type **I**, **II**, and **III** tables (`anova_typed` / `AnovaType`)
+- `linear_hypothesis(term)` for single-term Wald tests (`car::linearHypothesis`-style)
 - 1-DoF marginal tests for continuous predictors; joint multi-DoF Wald F-tests for categorical predictors when dummy columns are grouped in the fit
 - Multi-DoF Satterthwaite denominator df follows **`lmerTest::contestMD()`** (orthogonal contrast directions + `get_Fstat_ddf()` pooling); call `with_satterthwaite()` before `anova()` so the vcov Jacobian is available
 - Kenward–Roger multi-DoF rows use `pbkrtest::KRmodcomp` / `.KR_adjust` via [`kr_modcomp`](src/kr_modcomp.rs) and `vcovAdj16` via [`kr_vcov_adj`](src/kr_vcov_adj.rs); when `vcovAdj` ≈ `vcov`, DenDF matches marginal KR pooling (pastes `cask` reference)
@@ -404,7 +407,7 @@ For GLMMs, `lme-rs` computes the optimization target from a Laplace-approximated
 
 ### ANOVA scope
 
-Fixed-effects ANOVA supports Type **II** and Type **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary **q × p** contrast matrices are supported via [`test_contrast`](src/contrast.rs).
+Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary **q × p** contrast matrices are supported via [`test_contrast`](src/contrast.rs); named-term tests via [`linear_hypothesis`](src/anova.rs).
 
 ### Kenward-Roger status
 
