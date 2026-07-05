@@ -1,0 +1,312 @@
+//! Fair Rust vs Julia LMM timing: generate shared CSV fixtures or time `lmer()` only.
+//!
+//! Data generation matches [`benches/bench_math.rs`]. The `time` subcommand loads data once,
+//! runs warmup fits, then records wall-clock samples for the fit call only (no CSV I/O).
+
+use std::fs::File;
+use std::path::PathBuf;
+use std::time::Instant;
+
+use polars::prelude::*;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use rand_distr::{Distribution, Normal};
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
+struct TimingSummary {
+    min_seconds: f64,
+    max_seconds: f64,
+    mean_seconds: f64,
+    median_seconds: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stdev_seconds: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+struct TimingReport {
+    implementation: &'static str,
+    case: String,
+    formula: String,
+    reml: bool,
+    n_obs: usize,
+    warmups: usize,
+    repeats: usize,
+    samples_seconds: Vec<f64>,
+    summary: TimingSummary,
+}
+
+fn generate_large_synthetic_df(n_obs: usize, n_groups: usize) -> DataFrame {
+    let mut rng = StdRng::seed_from_u64(42);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+
+    let mut y = Vec::with_capacity(n_obs);
+    let mut x1 = Vec::with_capacity(n_obs);
+    let mut group = Vec::with_capacity(n_obs);
+
+    for _ in 0..n_obs {
+        let g = rng.random_range(0..n_groups);
+        let current_x = normal.sample(&mut rng);
+        let current_y = 1.0 + 2.0 * current_x + normal.sample(&mut rng);
+
+        y.push(current_y);
+        x1.push(current_x);
+        group.push(format!("G{g}"));
+    }
+
+    df!(
+        "y" => &y,
+        "x" => &x1,
+        "group" => &group
+    )
+    .unwrap()
+}
+
+fn generate_large_crossed_df(n_obs: usize, n_plates: usize, n_samples: usize) -> DataFrame {
+    let mut rng = StdRng::seed_from_u64(1337);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+
+    let plate_effects: Vec<f64> = (0..n_plates).map(|_| normal.sample(&mut rng)).collect();
+    let sample_effects: Vec<f64> = (0..n_samples).map(|_| normal.sample(&mut rng)).collect();
+
+    let mut y = Vec::with_capacity(n_obs);
+    let mut x = Vec::with_capacity(n_obs);
+    let mut plate = Vec::with_capacity(n_obs);
+    let mut sample = Vec::with_capacity(n_obs);
+
+    for _ in 0..n_obs {
+        let plate_idx = rng.random_range(0..n_plates);
+        let sample_idx = rng.random_range(0..n_samples);
+        let x_i = normal.sample(&mut rng);
+        let noise = 0.25 * normal.sample(&mut rng);
+        let y_i = 1.5 + 0.75 * x_i + plate_effects[plate_idx] + sample_effects[sample_idx] + noise;
+
+        y.push(y_i);
+        x.push(x_i);
+        plate.push(format!("P{plate_idx}"));
+        sample.push(format!("S{sample_idx}"));
+    }
+
+    df!(
+        "y" => y,
+        "x" => x,
+        "plate" => plate,
+        "sample" => sample
+    )
+    .unwrap()
+}
+
+fn generate_large_nested_df(
+    n_batches: usize,
+    casks_per_batch: usize,
+    reps_per_cask: usize,
+) -> DataFrame {
+    let mut rng = StdRng::seed_from_u64(2026);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+
+    let batch_effects: Vec<f64> = (0..n_batches).map(|_| normal.sample(&mut rng)).collect();
+    let cask_effects: Vec<Vec<f64>> = (0..n_batches)
+        .map(|_| {
+            (0..casks_per_batch)
+                .map(|_| normal.sample(&mut rng))
+                .collect()
+        })
+        .collect();
+
+    let total = n_batches * casks_per_batch * reps_per_cask;
+    let mut y = Vec::with_capacity(total);
+    let mut x = Vec::with_capacity(total);
+    let mut batch = Vec::with_capacity(total);
+    let mut cask = Vec::with_capacity(total);
+
+    for batch_idx in 0..n_batches {
+        for cask_idx in 0..casks_per_batch {
+            for _ in 0..reps_per_cask {
+                let x_i = normal.sample(&mut rng);
+                let noise = 0.2 * normal.sample(&mut rng);
+                let y_i = 2.0
+                    + 1.25 * x_i
+                    + batch_effects[batch_idx]
+                    + cask_effects[batch_idx][cask_idx]
+                    + noise;
+
+                y.push(y_i);
+                x.push(x_i);
+                batch.push(format!("B{batch_idx}"));
+                cask.push(format!("C{cask_idx}"));
+            }
+        }
+    }
+
+    df!(
+        "y" => y,
+        "x" => x,
+        "batch" => batch,
+        "cask" => cask
+    )
+    .unwrap()
+}
+
+fn write_csv(df: &DataFrame, path: &PathBuf) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut out = df.clone();
+    let mut file = File::create(path)?;
+    CsvWriter::new(&mut file).finish(&mut out)?;
+    Ok(())
+}
+
+fn load_csv(path: &PathBuf) -> anyhow::Result<DataFrame> {
+    let mut file = File::open(path)?;
+    CsvReadOptions::default()
+        .with_has_header(true)
+        .into_reader_with_file_handle(&mut file)
+        .finish()
+        .map_err(Into::into)
+}
+
+fn summarize(samples: &[f64]) -> TimingSummary {
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let n = sorted.len();
+    let median_seconds = if n % 2 == 0 {
+        (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+    } else {
+        sorted[n / 2]
+    };
+    let mean_seconds = sorted.iter().sum::<f64>() / n as f64;
+    let stdev_seconds = if n > 1 {
+        let var = sorted
+            .iter()
+            .map(|v| {
+                let d = v - mean_seconds;
+                d * d
+            })
+            .sum::<f64>()
+            / (n - 1) as f64;
+        Some(var.sqrt())
+    } else {
+        None
+    };
+    TimingSummary {
+        min_seconds: *sorted.first().unwrap_or(&0.0),
+        max_seconds: *sorted.last().unwrap_or(&0.0),
+        mean_seconds,
+        median_seconds,
+        stdev_seconds,
+    }
+}
+
+fn arg_value<'a>(args: &'a [String], flag: &str) -> anyhow::Result<&'a str> {
+    let idx = args
+        .iter()
+        .position(|a| a == flag)
+        .ok_or_else(|| anyhow::anyhow!("missing required flag {flag}"))?;
+    args.get(idx + 1)
+        .map(|s| s.as_str())
+        .ok_or_else(|| anyhow::anyhow!("missing value for {flag}"))
+}
+
+fn arg_flag(args: &[String], flag: &str) -> bool {
+    args.iter().any(|a| a == flag)
+}
+
+fn parse_usize(args: &[String], flag: &str) -> anyhow::Result<usize> {
+    Ok(arg_value(args, flag)?.parse()?)
+}
+
+fn parse_bool(args: &[String], flag: &str) -> anyhow::Result<bool> {
+    match arg_value(args, flag)?.to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" => Ok(true),
+        "false" | "0" | "no" => Ok(false),
+        other => anyhow::bail!("invalid boolean for {flag}: {other}"),
+    }
+}
+
+fn cmd_generate(args: &[String]) -> anyhow::Result<()> {
+    let output = PathBuf::from(arg_value(args, "--output")?);
+    let kind = arg_value(args, "--kind")?;
+    let df = match kind {
+        "random_intercept" => {
+            let n_obs = parse_usize(args, "--n-obs")?;
+            let n_groups = parse_usize(args, "--n-groups")?;
+            generate_large_synthetic_df(n_obs, n_groups)
+        }
+        "crossed" => {
+            let n_obs = parse_usize(args, "--n-obs")?;
+            let n_plates = parse_usize(args, "--n-plates")?;
+            let n_samples = parse_usize(args, "--n-samples")?;
+            generate_large_crossed_df(n_obs, n_plates, n_samples)
+        }
+        "nested" => {
+            let n_batches = parse_usize(args, "--n-batches")?;
+            let casks_per_batch = parse_usize(args, "--casks-per-batch")?;
+            let reps_per_cask = parse_usize(args, "--reps-per-cask")?;
+            generate_large_nested_df(n_batches, casks_per_batch, reps_per_cask)
+        }
+        other => anyhow::bail!("unknown --kind {other}"),
+    };
+    write_csv(&df, &output)?;
+    eprintln!("wrote {} rows to {}", df.height(), output.display());
+    Ok(())
+}
+
+fn cmd_time(args: &[String]) -> anyhow::Result<()> {
+    let data_path = PathBuf::from(arg_value(args, "--data")?);
+    let case = arg_value(args, "--case")?.to_string();
+    let formula = arg_value(args, "--formula")?.to_string();
+    let reml = parse_bool(args, "--reml")?;
+    let warmups = parse_usize(args, "--warmups")?;
+    let repeats = parse_usize(args, "--repeats")?;
+
+    let df = load_csv(&data_path)?;
+    let n_obs = df.height();
+
+    for _ in 0..warmups {
+        let _ = lme_rs::lmer(&formula, &df, reml)?;
+    }
+
+    let mut samples_seconds = Vec::with_capacity(repeats);
+    for _ in 0..repeats {
+        let started = Instant::now();
+        let _ = lme_rs::lmer(&formula, &df, reml)?;
+        samples_seconds.push(started.elapsed().as_secs_f64());
+    }
+
+    let summary = summarize(&samples_seconds);
+    let report = TimingReport {
+        implementation: "rust",
+        case,
+        formula,
+        reml,
+        n_obs,
+        warmups,
+        repeats,
+        samples_seconds,
+        summary,
+    };
+    println!("{}", serde_json::to_string(&report)?);
+    Ok(())
+}
+
+fn usage() -> &'static str {
+    "usage:\n  \
+     bench_fair_rust_julia generate --kind random_intercept --n-obs N --n-groups G --output PATH\n  \
+     bench_fair_rust_julia generate --kind crossed --n-obs N --n-plates P --n-samples S --output PATH\n  \
+     bench_fair_rust_julia generate --kind nested --n-batches B --casks-per-batch C --reps-per-cask R --output PATH\n  \
+     bench_fair_rust_julia time --case NAME --data PATH --formula F --reml true|false --warmups N --repeats N"
+}
+
+fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.is_empty() || arg_flag(&args, "--help") || arg_flag(&args, "-h") {
+        eprintln!("{}", usage());
+        return Ok(());
+    }
+    match args[0].as_str() {
+        "generate" => cmd_generate(&args[1..]),
+        "time" => cmd_time(&args[1..]),
+        other => anyhow::bail!("unknown subcommand {other}\n{}", usage()),
+    }
+}

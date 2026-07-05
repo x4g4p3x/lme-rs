@@ -50,6 +50,11 @@ tasks:
     cmds:
       - '{{.RUN}} benchmarks-preflight'
 
+  benchmarks:fair-rust-julia:
+    desc: Fair fit-only Rust vs Julia LMM timing (skip if Julia/MixedModels missing)
+    cmds:
+      - '{{.RUN}} benchmarks-fair-rust-julia'
+
   lint:rust:
     desc: Rust-only lint (fmt check + clippy)
     cmds:

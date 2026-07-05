@@ -44,9 +44,12 @@ The current benchmark suite is still narrow in a few important ways.
 
 ### Missing comparisons
 
-The repo now includes automated cross-language timing for representative example workloads through [scripts/run_cross_language_benchmarks.py](scripts/run_cross_language_benchmarks.py), including Rust, Python, R, and Julia runs where the required runtimes are installed.
+The repo includes two cross-language timing paths:
 
-What it still does not provide is a fully normalized cross-ecosystem benchmark harness with carefully matched optimizer settings, dataset loading rules, and machine-locked baselines for publication-grade claims.
+1. **Example-script timing** — [scripts/run_cross_language_benchmarks.py](scripts/run_cross_language_benchmarks.py) (Rust, Python, R, Julia whole scripts; small fixtures favor prebuilt Rust binaries).
+2. **Fair fit-only timing** — [scripts/run_fair_rust_julia_benchmark.py](scripts/run_fair_rust_julia_benchmark.py) (`lme-rs::lmer` vs **MixedModels.jl** with shared CSVs, warmup, and fit-only samples). See [Fair Rust vs Julia reference results](#fair-rust-vs-julia-reference-results) below.
+
+What the repo still does not provide is a fully normalized cross-ecosystem harness with matched optimizer iteration counts and publication-grade baselines for every language pair.
 
 ### Missing workload diversity
 
@@ -114,13 +117,69 @@ For automated cross-language timing, run:
 python scripts/run_cross_language_benchmarks.py
 ```
 
-This script writes JSON output with runtime versions, machine metadata, and per-command timing summaries.
+This script writes JSON output with runtime versions, machine metadata, and per-command timing summaries. It times **whole example scripts** (including Julia process startup and JIT), so small fixtures favor prebuilt Rust binaries.
+
+### Fair Rust vs Julia fit timing
+
+For a more apples-to-apples throughput comparison against **MixedModels.jl**, use the dedicated harness:
+
+```bash
+python scripts/run_fair_rust_julia_benchmark.py
+# or
+task benchmarks:fair-rust-julia
+```
+
+[`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) and [`comparisons/bench_fair_rust_julia.rs`](comparisons/bench_fair_rust_julia.rs) / [`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl):
+
+- generate **shared CSV fixtures** from the same RNG recipes as [`benches/bench_math.rs`](benches/bench_math.rs)
+- load each dataset **once** before timing
+- run **warmup fits** (including Julia JIT) before measured samples
+- time **only the model fit** (`lme-rs::lmer` vs `MixedModels.fit`), excluding CSV I/O and process startup
+- default cases: `sleepstudy_reml`, `random_intercept_10k/50k/100k`, `crossed_20k`, `nested_10k`
+- write JSON to `benchmark-results/fair-rust-julia-benchmarks.json` with per-case medians and `rust_over_julia_median` ratios
+
+Julia is resolved from `--julia`, `JULIA_BIN`, `PATH`, or (on Windows) `%LOCALAPPDATA%\Programs\Julia-*\bin\julia.exe`. Requires Julia packages `CSV`, `DataFrames`, `JSON`, and `MixedModels`.
+
+**Caveats:** optimizers and likelihood paths still differ between `lme-rs` and MixedModels.jl; use this harness for **throughput**, not coefficient identity. ML (`reml=false`) is used on synthetic sweeps to match Criterion; `sleepstudy_reml` uses REML.
+
+<a id="fair-rust-vs-julia-reference-results"></a>
+
+### Fair Rust vs Julia reference results
+
+Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json)  
+Full per-sample JSON from the same run can be reproduced locally as `benchmark-results/fair-rust-julia-benchmarks.json`.
+
+**Recorded:** 2026-07-04 on a Windows 10 AMD64 workstation (12 logical CPUs).  
+**Toolchain:** `lme-rs` at git `481bf27`, `rustc 1.96.0`, Julia **1.12.6**, MixedModels.jl **5.7.0**.  
+**Method:** 2 warmup fits + 3 measured fits per case; median wall time of the fit call only.
+
+| Case | Formula | *n* | Rust median | Julia median | Julia faster (median ratio) |
+|:-----|:--------|----:|------------:|-------------:|------------------------------:|
+| `sleepstudy_reml` | `Reaction ~ Days + (Days \| Subject)` | 180 | 3.71 ms | 0.77 ms | **4.8×** |
+| `random_intercept_10k` | `y ~ x + (1 \| group)` | 10 000 | 10.1 ms | 1.14 ms | **8.8×** |
+| `random_intercept_50k` | `y ~ x + (1 \| group)` | 50 000 | 48.3 ms | 6.00 ms | **8.1×** |
+| `random_intercept_100k` | `y ~ x + (1 \| group)` | 100 000 | 79.2 ms | 11.9 ms | **6.7×** |
+| `crossed_20k` | `y ~ x + (1 \| plate) + (1 \| sample)` | 20 000 | 329 ms | 14.3 ms | **23×** |
+| `nested_10k` | `y ~ x + (1 \| batch/cask)` | 10 000 | 195 ms | 6.88 ms | **28×** |
+
+**Takeaway:** on this machine, **MixedModels.jl was faster on every case**, with the largest gaps on crossed and nested structures. Synthetic cases used ML (`reml=false`); sleepstudy used REML.
+
+**How to read this:**
+
+- These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.
+- `lme-rs` uses derivative-free variance-component search; MixedModels.jl uses its own optimizer stack — iteration counts and convergence paths are not matched.
+- A few Julia samples were noisy (e.g. one 271 ms repeat on `crossed_20k` vs 12–14 ms others); **medians** still favored Julia on all cases. Prefer medians over single runs.
+- **Fair timing ≠ lme4 parity.** This benchmark answers “how fast is the fit on shared data?”, not “which matches R?” — the project’s parity evidence remains in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) and golden tests.
+- **Implication for Julia bindings:** wrapping `lme-rs` in Julia would not improve fit throughput versus MixedModels.jl on this baseline; the Rust crate’s value is **native Rust workflows and lme4-aligned numerics**, not beating Julia on speed.
+
+Tag/manual CI (`.github/workflows/benchmarks.yml`) also runs this harness on `ubuntu-latest` and uploads `benchmark-results/fair-rust-julia-<sha>.json` alongside the example-script cross-language JSON.
 
 The repository also includes a dedicated workflow in [.github/workflows/benchmarks.yml](.github/workflows/benchmarks.yml) that:
 
 - runs Criterion benchmarks
 - archives `target/criterion`
-- runs the cross-language benchmark script
+- runs the fair Rust vs Julia fit benchmark
+- runs the cross-language example-script benchmark
 - uploads the resulting artifacts in CI
 - attaches them to GitHub Releases on tag pushes
 
@@ -161,6 +220,8 @@ Use the existing suite primarily for:
 
 Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
 
+The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on a 2026-07-04 Windows workstation showed **MixedModels.jl faster on every fit-only case** (roughly **5×–28×** by median time, widest on crossed/nested models). Treat that as a versioned datapoint, not a universal law — but do **not** claim a raw speed advantage over Julia MixedModels without fresh measurements on your hardware.
+
 ## Recommended next extensions
 
 If performance is going to remain a central public claim, the benchmark suite should be extended. The highest-value additions are:
@@ -177,7 +238,9 @@ The current benchmarking is meaningful, but not comprehensive.
 
 That means:
 
-- yes, keep performance as a selling point
-- no, avoid absolute claims without extending the suite further
+- yes, keep performance as a **completion criterion** for Rust-native workflows, not only regression tracking (Criterion + fair harness)
+- yes, prioritize **LMM fit optimization** (especially crossed/nested RE) until fair-harness medians are within ~2× of MixedModels.jl — see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13
+- no, avoid claims that `lme-rs` already beats **MixedModels.jl** on fit throughput
+- no, Julia bindings to `lme-rs` are not justified by speed — see [fair Rust vs Julia results](BENCHMARKS.md#fair-rust-vs-julia-reference-results)
 - yes, run benchmarks for performance-sensitive changes before release
-- yes, extend the benchmark surface if performance is going to stay front-and-center in the README and release notes
+- yes, extend the benchmark surface (GLMM fit-only, prediction sweeps) as optimization work proceeds

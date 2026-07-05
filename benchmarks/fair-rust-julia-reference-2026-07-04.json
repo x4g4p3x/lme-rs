@@ -1,0 +1,97 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-04",
+  "generated_at": "2026-07-04T23:01:30.748670+00:00",
+  "git_sha": "481bf275e195d402327e72dd2da3b2eaba294e69",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+    "rust_engine": "lme-rs lmer()",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 3,
+    "note": "Different optimizers and likelihood paths; compare throughput, not coefficient identity."
+  },
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "julia": "julia version 1.12.6",
+    "mixedmodels": "MixedModels.jl 5.7.0 (Julia 1.12.6 environment)"
+  },
+  "comparisons": [
+    {
+      "case": "sleepstudy_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "reml": true,
+      "n_obs": 180,
+      "rust_median_seconds": 0.0037101,
+      "julia_median_seconds": 0.0007684,
+      "julia_faster_by_median": 4.83,
+      "faster_implementation": "julia"
+    },
+    {
+      "case": "random_intercept_10k",
+      "formula": "y ~ x + (1 | group)",
+      "reml": false,
+      "n_obs": 10000,
+      "rust_median_seconds": 0.0100746,
+      "julia_median_seconds": 0.0011438,
+      "julia_faster_by_median": 8.81,
+      "faster_implementation": "julia"
+    },
+    {
+      "case": "random_intercept_50k",
+      "formula": "y ~ x + (1 | group)",
+      "reml": false,
+      "n_obs": 50000,
+      "rust_median_seconds": 0.0483224,
+      "julia_median_seconds": 0.0060007,
+      "julia_faster_by_median": 8.05,
+      "faster_implementation": "julia",
+      "notes": "Julia repeat samples included one 42 ms outlier; median still favored Julia."
+    },
+    {
+      "case": "random_intercept_100k",
+      "formula": "y ~ x + (1 | group)",
+      "reml": false,
+      "n_obs": 100000,
+      "rust_median_seconds": 0.0791907,
+      "julia_median_seconds": 0.0119049,
+      "julia_faster_by_median": 6.65,
+      "faster_implementation": "julia"
+    },
+    {
+      "case": "crossed_20k",
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "reml": false,
+      "n_obs": 20000,
+      "rust_median_seconds": 0.3293007,
+      "julia_median_seconds": 0.0142673,
+      "julia_faster_by_median": 23.08,
+      "faster_implementation": "julia",
+      "notes": "Julia repeat samples included one 271 ms outlier; median still favored Julia."
+    },
+    {
+      "case": "nested_10k",
+      "formula": "y ~ x + (1 | batch/cask)",
+      "reml": false,
+      "n_obs": 10000,
+      "rust_median_seconds": 0.1948983,
+      "julia_median_seconds": 0.0068794,
+      "julia_faster_by_median": 28.33,
+      "faster_implementation": "julia"
+    }
+  ],
+  "summary": {
+    "winner_on_all_cases": "julia",
+    "interpretation": "On this workstation, MixedModels.jl was faster on every fair fit-only case. The gap widened on crossed and nested random-effects structures. This does not contradict lme-rs regression or parity goals; it argues against Julia bindings for raw speed."
+  }
+}

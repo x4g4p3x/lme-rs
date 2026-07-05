@@ -168,6 +168,7 @@ python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 | `repo-metadata` | Dry-run GitHub About sync; verify token if `REPO_ADMIN_TOKEN` set |
 | `benchmarks-smoke` | Release examples + one Rust cross-language benchmark |
 | `benchmarks-preflight` | `benchmarks-smoke` + optional `sleepstudy.R` when R/lme4 present |
+| `benchmarks-fair-rust-julia` | Fair fit-only Rust vs MixedModels.jl timing (skip if Julia/packages missing) |
 | `rust-lint` | `fmt --check` + clippy |
 | `ruff-lint` | Ruff on `python/tests` + `python/examples` |
 | `comparison-format-check` | Optional styler/JuliaFormatter check on `comparisons/` (+ `tests/*.R`); use `--required` in GHA |

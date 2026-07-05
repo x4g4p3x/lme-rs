@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fair Rust vs Julia LMM fit benchmark ([`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py), [`comparisons/bench_fair_rust_julia.rs`](comparisons/bench_fair_rust_julia.rs), [`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl)); documented 2026-07-04 Windows reference in [`BENCHMARKS.md`](BENCHMARKS.md) and [`benchmarks/fair-rust-julia-reference-2026-07-04.json`](benchmarks/fair-rust-julia-reference-2026-07-04.json).
 - `nlmer` built-in means **`SSmicmen`** and **`SSgompertz`** (`stats::SSmicmen`; `stats::SSgompertz` as `Asym * exp(-b2 * b3^x)`).
 - Custom nonlinear means via [`NlmmMeanEval`](src/nlmm/mean_fn.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) and [`nlmer_with_mean`](src/nlmm/mod.rs).
 - Scalar **AGQ** for `nlmer` (`NlmerOptions::n_agq`, `k = 1` random effects); tests in [`tests/test_nlmm_agq.rs`](tests/test_nlmm_agq.rs).

@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). The crate is usable today, but some features are intentionally narrower than the R ecosystem wrappers they resemble.
 
-For a subjective, area-by-area view of what is implemented versus still open (including items not started), see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
+For a subjective, area-by-area view of what is implemented versus still open (including fit-throughput optimization vs MixedModels.jl), see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
 
 ## Limitations and compatibility notes
 
@@ -77,7 +77,7 @@ For a subjective, area-by-area view of what is implemented versus still open (in
 - Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
 - Cross-language numerical comparisons: [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md)
 - Approximate completion by repository area: [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
-- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md)
+- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md) (includes fair Rust vs MixedModels.jl fit timing and [2026-07-04 reference results](BENCHMARKS.md#fair-rust-vs-julia-reference-results))
 - Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md) (also lists security audit and crate publish dry-run workflows)

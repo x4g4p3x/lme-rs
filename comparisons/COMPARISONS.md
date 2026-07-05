@@ -12,7 +12,7 @@ This document collects representative side-by-side outputs for `lme-rs` against 
 - **Python (`statsmodels`)** — used in most `comparisons/*.py` scripts as an independent (or approximate) reference implementation. Some scripts use row-replication or simplified random structures where `MixedLM` cannot match `lme4` one-to-one; see each subsection.
 - **Python (`lme_python`, optional)** — PyO3 bindings that call the **same Rust code** as the crate. Install with `maturin develop` under `python/` if you need Python to mirror Rust exactly on a fixture.
 - **R (`lme4`)** — the usual numerical reference for mixed models in this repo: `lmer` / `glmer` with the same formula and data.
-- **Julia (`MixedModels.jl`)** — a separate implementation; generally close on standard LMM/GLMM examples but not guaranteed to match `lme4` or `lme-rs` to machine precision.
+- **Julia (`MixedModels.jl`)** — a separate implementation; generally close on standard LMM/GLMM examples but not guaranteed to match `lme4` or `lme-rs` to machine precision. For **fit throughput** (not parity), see the fair timing harness and [2026-07-04 reference results](../BENCHMARKS.md#fair-rust-vs-julia-reference-results) in [`BENCHMARKS.md`](../BENCHMARKS.md).
 
 ### Automated checks in the repository (CI / `cargo test`)
 

@@ -90,6 +90,10 @@ name = "glmm_gaussian"
 path = "comparisons/glmm_gaussian.rs"
 
 [[example]]
+name = "bench_fair_rust_julia"
+path = "comparisons/bench_fair_rust_julia.rs"
+
+[[example]]
 name = "parity_export"
 path = "comparisons/parity_export.rs"
 

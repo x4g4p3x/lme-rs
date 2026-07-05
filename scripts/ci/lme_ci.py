@@ -225,6 +225,61 @@ def benchmarks_preflight() -> None:
     benchmarks_r_smoke()
 
 
+def _resolve_julia_bin() -> str | None:
+    env = os.environ.get("JULIA_BIN")
+    if env and Path(env).exists():
+        return env
+    found = shutil.which("julia")
+    if found:
+        return found
+    if os.name == "nt":
+        programs = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs"
+        if programs.is_dir():
+            matches = sorted(programs.glob("Julia-*/bin/julia.exe"))
+            if matches:
+                return str(matches[-1])
+    return None
+
+
+def benchmarks_fair_rust_julia() -> None:
+    """Fair fit-only Rust vs Julia timing (optional when Julia + MixedModels are installed)."""
+    julia = _resolve_julia_bin()
+    if not julia:
+        print(
+            "skip: julia not found (set PATH or JULIA_BIN for fair Rust/Julia benchmarks)",
+            flush=True,
+        )
+        return
+    probe = subprocess.run(
+        [julia, "-e", "using CSV, DataFrames, JSON, MixedModels"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        stderr = (probe.stderr or probe.stdout or "").strip()
+        print(
+            "skip: Julia packages CSV/DataFrames/JSON/MixedModels not available "
+            f"({stderr or 'Pkg.add missing packages'})",
+            flush=True,
+        )
+        return
+    run(
+        [
+            sys.executable,
+            "scripts/run_fair_rust_julia_benchmark.py",
+            "--cases",
+            "sleepstudy_reml,random_intercept_10k",
+            "--warmups",
+            "1",
+            "--repeats",
+            "2",
+            "--julia",
+            julia,
+        ]
+    )
+
+
 def print_benchmark_failures(path: str) -> None:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     for failure in payload.get("failures", []):
@@ -542,6 +597,10 @@ def main(argv: list[str] | None = None) -> int:
         "benchmarks-preflight",
         help="benchmarks-smoke + optional R sleepstudy.R when lme4 is installed",
     ).set_defaults(fn=lambda _: benchmarks_preflight())
+    sub.add_parser(
+        "benchmarks-fair-rust-julia",
+        help="Fair fit-only Rust vs Julia timing when Julia + MixedModels are installed",
+    ).set_defaults(fn=lambda _: benchmarks_fair_rust_julia())
     p_bench_fail = sub.add_parser(
         "benchmark-failures",
         help="Print cross-language benchmark failure details from JSON",
