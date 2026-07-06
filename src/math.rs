@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayView1};
 use ndarray_linalg::UPLO;
 use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
@@ -60,6 +60,14 @@ pub struct LmmData {
     pub xt_x: Array2<f64>,
     /// Cross product of the fixed-effects design matrix and the dependent variable ($X^T y$). This is `x_eff^T * y_eff`.
     pub xt_y: Array1<f64>,
+    /// Precomputed $Z^T X$ (q × p), independent of θ.
+    zt_x: Array2<f64>,
+    /// Precomputed $Z^T y$ (length q), independent of θ.
+    zt_y: Array1<f64>,
+    /// Sparse identity matrix (q × q) for the random-effects solve.
+    eye_q: CsMat<f64>,
+    /// True when every RE block is intercept-only (k = 1); enables diagonal-Λ fast path.
+    intercept_only_re: bool,
 }
 
 impl LmmData {
@@ -106,6 +114,10 @@ impl LmmData {
                 let zt_z = &zt_w * &zt_w.transpose_view();
                 let xt_x = x_w.t().dot(&x_w);
                 let xt_y = x_w.t().dot(&y_w);
+                let q = zt_w.rows();
+                let (zt_x, zt_y) = precompute_zt_products(&zt_w, &x_w, &y_w);
+                let eye_q = identity_sparse(q);
+                let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
 
                 LmmData {
                     x,
@@ -119,12 +131,20 @@ impl LmmData {
                     zt_z,
                     xt_x,
                     xt_y,
+                    zt_x,
+                    zt_y,
+                    eye_q,
+                    intercept_only_re,
                 }
             }
             None => {
                 let zt_z = &zt * &zt.transpose_view();
                 let xt_x = x.t().dot(&x);
                 let xt_y = x.t().dot(&y);
+                let q = zt.rows();
+                let (zt_x, zt_y) = precompute_zt_products(&zt, &x, &y);
+                let eye_q = identity_sparse(q);
+                let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
 
                 LmmData {
                     x_eff: x.clone(),
@@ -138,66 +158,147 @@ impl LmmData {
                     zt_z,
                     xt_x,
                     xt_y,
+                    zt_x,
+                    zt_y,
+                    eye_q,
+                    intercept_only_re,
                 }
             }
         }
     }
 
-    /// Evaluate the objective reml (or deviance) for a fixed parameter set of variances `theta`.
+    /// Evaluate the profiled REML/ML deviance for a fixed θ (optimizer hot path).
     pub fn log_reml_deviance(&self, theta: &[f64], reml: bool) -> f64 {
-        self.evaluate(theta, reml).reml_crit
+        self.profile_deviance(theta, reml)
     }
 
     /// Computes the complete profiled analytical output for a specific parameter vector `theta`,
     /// including coefficient values (fixed β, random $u$/$b$), deviance limits and scaling components.
     pub fn evaluate(&self, theta: &[f64], reml: bool) -> ModelCoefficients {
+        let solved = self.solve_profile(theta, reml);
+
+        let p_usize = self.x.ncols();
+        let mut beta_se = Array1::<f64>::zeros(p_usize);
+        let mut beta_t = Array1::<f64>::zeros(p_usize);
+
+        let inv_lx = solved.l_x.inv().expect("Inverse of L_x failed");
+        let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
+
+        for i in 0..p_usize {
+            let var_i = solved.sigma2 * v_beta_unscaled[[i, i]];
+            beta_se[i] = var_i.sqrt();
+            beta_t[i] = solved.beta[i] / beta_se[i];
+        }
+
+        // Fitted Values and Residuals (on original unweighted scale)
+        let x_beta = self.x.dot(&solved.beta);
+        let n_obs = self.y.len();
+        let mut z_b_vec = vec![0.0f64; n_obs];
+        for (j, row_vec) in self.zt.outer_iterator().enumerate() {
+            for (i, &val) in row_vec.iter() {
+                z_b_vec[i] += val * solved.b[j];
+            }
+        }
+        let z_b = Array1::from_vec(z_b_vec);
+        let fitted = &x_beta + &z_b;
+        let residuals = &self.y - &fitted;
+
+        ModelCoefficients {
+            reml_crit: solved.reml_crit,
+            sigma2: solved.sigma2,
+            beta: solved.beta,
+            b: solved.b,
+            u: solved.u,
+            beta_se,
+            beta_t,
+            fitted,
+            residuals,
+            l_x: solved.l_x,
+            v_beta_unscaled,
+        }
+    }
+
+    /// Profiled REML/ML deviance only — skips SEs, fitted values, and matrix inverses.
+    fn profile_deviance(&self, theta: &[f64], reml: bool) -> f64 {
+        self.solve_profile(theta, reml).reml_crit
+    }
+
+    fn solve_profile(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+        if self.intercept_only_re {
+            self.solve_profile_diagonal(theta, reml)
+        } else {
+            self.solve_profile_general(theta, reml)
+        }
+    }
+
+    fn solve_profile_diagonal(&self, theta: &[f64], reml: bool) -> ProfileSolution {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
         let q = self.zt.rows();
+        let p_usize = p as usize;
 
-        // When weights are present, we work with the weighted versions of Z^T
-        // When weights are present, we work with the weighted versions of Z^T
-        // and X which have been precalculated and stored in the struct.
-        let zt_eff = &self.zt_eff;
-        let x_eff = &self.x_eff;
-        let y_eff = &self.y_eff;
+        let d = theta_diagonal(theta, q, &self.re_blocks);
 
-        let mut lam_tri = TriMat::new((q, q));
+        let a = build_a_diagonal_scaled(&self.zt_z, &d, &self.eye_q);
 
-        let mut row_offset = 0;
-        let mut theta_offset = 0;
+        use sprs::SymmetryCheck;
+        use sprs_ldl::Ldl;
+        let ldl = Ldl::new()
+            .check_symmetry(SymmetryCheck::DontCheckSymmetry)
+            .numeric(a.view())
+            .expect("LDLT of A failed");
 
-        for block in &self.re_blocks {
-            let m = block.m;
-            let k = block.k;
+        let v_y = &self.zt_y * &d;
+        let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
+        let w_y = Array1::from_vec(w_y_vec);
 
-            for group in 0..m {
-                let offset = row_offset + group * k;
-                let mut idx = 0;
-                for j in 0..k {
-                    for i in j..k {
-                        lam_tri.add_triplet(offset + i, offset + j, theta[theta_offset + idx]);
-                        idx += 1;
-                    }
-                }
-            }
-            row_offset += m * k;
-            theta_offset += block.theta_len;
+        let mut v_cols = Vec::with_capacity(p_usize);
+        let mut w_cols = Vec::with_capacity(p_usize);
+
+        for j in 0..p_usize {
+            let v_j = &self.zt_x.column(j) * &d;
+            let w_j_vec: Vec<f64> = ldl.solve(v_j.to_vec());
+            let w_j = Array1::from_vec(w_j_vec);
+            v_cols.push(v_j);
+            w_cols.push(w_j);
         }
-        let lambda: CsMat<f64> = lam_tri.to_csr();
+
+        let mut log_det_a = 0.0;
+        for &diag in ldl.d() {
+            log_det_a += diag.ln();
+        }
+
+        solve_profile_finish(
+            self,
+            ProfileFinishInput {
+                reml,
+                n,
+                p,
+                p_usize,
+                q,
+                log_det_a,
+                v_y: &v_y,
+                w_y: &w_y,
+                v_cols: &v_cols,
+                w_cols: &w_cols,
+            },
+            |u| &d * u,
+        )
+    }
+
+    fn solve_profile_general(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+        let n = self.y.len() as f64;
+        let p = self.x.ncols() as f64;
+        let q = self.zt.rows();
+        let p_usize = p as usize;
+
+        let lambda = build_lambda(theta, q, &self.re_blocks);
 
         // A = Lambda^T Z^T W Z Lambda + I (using pre-weighted Zt)
-        // Since zt_z = zt_eff * zt_eff^T is constant w.r.t theta, we use the precomputed self.zt_z
         let lam_t = lambda.transpose_view();
         let a_part1 = &lam_t * &self.zt_z;
         let a_part2 = &a_part1 * &lambda;
-
-        let mut eye_tri = TriMat::new((q, q));
-        for i in 0..q {
-            eye_tri.add_triplet(i, i, 1.0);
-        }
-        let eye: CsMat<f64> = eye_tri.to_csr();
-        let a = &a_part2 + &eye;
+        let a = &a_part2 + &self.eye_q;
 
         // LDLT of A
         use sprs::SymmetryCheck;
@@ -207,158 +308,251 @@ impl LmmData {
             .numeric(a.view())
             .expect("LDLT of A failed");
 
-        // V_y = Lambda^T Z_w^T y_w
-        // zt_eff is CsMat, y_eff is Array1
-        let mut zt_y = Array1::<f64>::zeros(q);
-        for (val, (i, _j)) in zt_eff.iter() {
-            zt_y[i] += val * y_eff[_j]; // Note: Zt is q x n, so iter gives (val, (row_in_Zt, col_in_Zt)). col_in_Zt corresponds to observation index in y
-        }
-
-        let mut v_y = Array1::<f64>::zeros(q);
-        for (val, (i, _j)) in lam_t.iter() {
-            // lam_t is q x q
-            v_y[i] += val * zt_y[_j];
-        }
-
+        let v_y = sparse_transpose_matvec(&lambda, self.zt_y.view());
         let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
         let w_y = Array1::from_vec(w_y_vec);
 
-        // V = Lambda^T Z_w^T X_w
-        let p_usize = p as usize;
         let mut v_cols = Vec::with_capacity(p_usize);
         let mut w_cols = Vec::with_capacity(p_usize);
 
         for j in 0..p_usize {
-            let x_col = x_eff.column(j);
-            let mut zt_x_j = Array1::<f64>::zeros(q);
-            for (val, (row, col)) in zt_eff.iter() {
-                zt_x_j[row] += val * x_col[col];
-            }
-
-            let mut v_j = Array1::<f64>::zeros(q);
-            for (val, (row, col)) in lam_t.iter() {
-                v_j[row] += val * zt_x_j[col];
-            }
-
+            let v_j = sparse_transpose_matvec(&lambda, self.zt_x.column(j));
             let w_j_vec: Vec<f64> = ldl.solve(v_j.to_vec());
             let w_j = Array1::from_vec(w_j_vec);
-
             v_cols.push(v_j);
             w_cols.push(w_j);
         }
 
-        let mut rzx_t_rzx = Array2::<f64>::zeros((p_usize, p_usize));
-        for i in 0..p_usize {
-            for j in 0..p_usize {
-                let dot = v_cols[i].dot(&w_cols[j]);
-                rzx_t_rzx[[i, j]] = dot;
-            }
-        }
-
-        let mut rzx_t_cu = Array1::<f64>::zeros(p_usize);
-        for i in 0..p_usize {
-            let dot = v_cols[i].dot(&w_y);
-            rzx_t_cu[i] = dot;
-        }
-
-        let a_x = &self.xt_x - &rzx_t_rzx;
-        let l_x = a_x.cholesky(UPLO::Lower).expect("Cholesky of A_x failed");
-
-        let rhs_beta = &self.xt_y - &rzx_t_cu;
-
-        let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
-        let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
-
-        // Compute norms
-        let y_norm2: f64 = y_eff.iter().map(|&x| x * x).sum();
-
-        let mut cu_norm2 = 0.0;
-        for i in 0..v_y.len() {
-            cu_norm2 += v_y[i] * w_y[i];
-        }
-
-        let mut c_beta_norm2 = 0.0;
-        for i in 0..beta.len() {
-            c_beta_norm2 += beta[i] * rhs_beta[i];
-        }
-
-        let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
-
-        let reml_df = if reml { n - p } else { n };
-        let sigma2 = r2 / reml_df;
-
         let mut log_det_a = 0.0;
-        for &d in ldl.d() {
-            log_det_a += d.ln();
+        for &diag in ldl.d() {
+            log_det_a += diag.ln();
         }
 
-        let mut log_det_l_x = 0.0;
-        for i in 0..l_x.nrows() {
-            log_det_l_x += l_x[[i, i]].ln();
-        }
+        solve_profile_finish(
+            self,
+            ProfileFinishInput {
+                reml,
+                n,
+                p,
+                p_usize,
+                q,
+                log_det_a,
+                v_y: &v_y,
+                w_y: &w_y,
+                v_cols: &v_cols,
+                w_cols: &w_cols,
+            },
+            |u| apply_lambda(&lambda, u),
+        )
+    }
+}
 
-        let twopi = std::f64::consts::PI * 2.0;
-        let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+struct ProfileFinishInput<'a> {
+    reml: bool,
+    n: f64,
+    p: f64,
+    p_usize: usize,
+    q: usize,
+    log_det_a: f64,
+    v_y: &'a Array1<f64>,
+    w_y: &'a Array1<f64>,
+    v_cols: &'a [Array1<f64>],
+    w_cols: &'a [Array1<f64>],
+}
 
-        if reml {
-            deviance += 2.0 * log_det_l_x;
-        }
-
-        let reml_crit = deviance;
-
-        let mut u = Array1::<f64>::zeros(q);
-        for i in 0..q {
-            let mut w_beta_i = 0.0;
-            for j in 0..p_usize {
-                w_beta_i += w_cols[j][i] * beta[j];
-            }
-            u[i] = w_y[i] - w_beta_i;
-        }
-        let mut b = Array1::<f64>::zeros(q);
-        for (val, (row, col)) in lambda.iter() {
-            b[row] += val * u[col];
-        }
-
-        // Standard Errors for Fixed Effects
-        let mut beta_se = Array1::<f64>::zeros(p_usize);
-        let mut beta_t = Array1::<f64>::zeros(p_usize);
-
-        let inv_lx = l_x.inv().expect("Inverse of L_x failed");
-        let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
-
-        for i in 0..p_usize {
-            let var_i = sigma2 * v_beta_unscaled[[i, i]];
-            beta_se[i] = var_i.sqrt();
-            beta_t[i] = beta[i] / beta_se[i];
-        }
-
-        // Fitted Values and Residuals (on original unweighted scale)
-        let x_beta = self.x.dot(&beta);
-        let n_obs = self.y.len();
-        let mut z_b_vec = vec![0.0f64; n_obs];
-        for (j, row_vec) in self.zt.outer_iterator().enumerate() {
-            for (i, &val) in row_vec.iter() {
-                z_b_vec[i] += val * b[j];
-            }
-        }
-        let z_b = Array1::from_vec(z_b_vec);
-        let fitted = &x_beta + &z_b;
-        let residuals = &self.y - &fitted;
-
-        ModelCoefficients {
-            reml_crit,
-            sigma2,
-            beta,
-            b,
-            u,
-            beta_se,
-            beta_t,
-            fitted,
-            residuals,
-            l_x,
-            v_beta_unscaled,
+fn solve_profile_finish(
+    lmm: &LmmData,
+    input: ProfileFinishInput<'_>,
+    apply_lambda_to_u: impl Fn(&Array1<f64>) -> Array1<f64>,
+) -> ProfileSolution {
+    let ProfileFinishInput {
+        reml,
+        n,
+        p,
+        p_usize,
+        q,
+        log_det_a,
+        v_y,
+        w_y,
+        v_cols,
+        w_cols,
+    } = input;
+    let mut rzx_t_rzx = Array2::<f64>::zeros((p_usize, p_usize));
+    for i in 0..p_usize {
+        for j in 0..p_usize {
+            rzx_t_rzx[[i, j]] = v_cols[i].dot(&w_cols[j]);
         }
     }
+
+    let mut rzx_t_cu = Array1::<f64>::zeros(p_usize);
+    for i in 0..p_usize {
+        rzx_t_cu[i] = v_cols[i].dot(w_y);
+    }
+
+    let a_x = &lmm.xt_x - &rzx_t_rzx;
+    let l_x = a_x.cholesky(UPLO::Lower).expect("Cholesky of A_x failed");
+
+    let rhs_beta = &lmm.xt_y - &rzx_t_cu;
+
+    let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
+    let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
+
+    let y_norm2: f64 = lmm.y_eff.iter().map(|&x| x * x).sum();
+
+    let mut cu_norm2 = 0.0;
+    for i in 0..v_y.len() {
+        cu_norm2 += v_y[i] * w_y[i];
+    }
+
+    let mut c_beta_norm2 = 0.0;
+    for i in 0..beta.len() {
+        c_beta_norm2 += beta[i] * rhs_beta[i];
+    }
+
+    let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
+
+    let reml_df = if reml { n - p } else { n };
+    let sigma2 = r2 / reml_df;
+
+    let mut log_det_l_x = 0.0;
+    for i in 0..l_x.nrows() {
+        log_det_l_x += l_x[[i, i]].ln();
+    }
+
+    let twopi = std::f64::consts::PI * 2.0;
+    let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+
+    if reml {
+        deviance += 2.0 * log_det_l_x;
+    }
+
+    let mut u = Array1::<f64>::zeros(q);
+    for i in 0..q {
+        let mut w_beta_i = 0.0;
+        for j in 0..p_usize {
+            w_beta_i += w_cols[j][i] * beta[j];
+        }
+        u[i] = w_y[i] - w_beta_i;
+    }
+    let b = apply_lambda_to_u(&u);
+
+    ProfileSolution {
+        reml_crit: deviance,
+        sigma2,
+        beta,
+        b,
+        u,
+        l_x,
+    }
+}
+
+fn apply_lambda(lambda: &CsMat<f64>, u: &Array1<f64>) -> Array1<f64> {
+    let mut b = Array1::<f64>::zeros(lambda.rows());
+    for (val, (row, col)) in lambda.iter() {
+        b[row] += val * u[col];
+    }
+    b
+}
+
+fn theta_diagonal(
+    theta: &[f64],
+    q: usize,
+    re_blocks: &[crate::model_matrix::ReBlock],
+) -> Array1<f64> {
+    let mut d = Array1::<f64>::zeros(q);
+    let mut row_offset = 0;
+    let mut theta_offset = 0;
+    for block in re_blocks {
+        let t = theta[theta_offset];
+        for _ in 0..block.m {
+            d[row_offset] = t;
+            row_offset += 1;
+        }
+        theta_offset += block.theta_len;
+    }
+    d
+}
+
+fn build_a_diagonal_scaled(zt_z: &CsMat<f64>, d: &Array1<f64>, eye_q: &CsMat<f64>) -> CsMat<f64> {
+    let q = zt_z.rows();
+    let mut tri = TriMat::new((q, q));
+    for (val, (i, j)) in zt_z.iter() {
+        tri.add_triplet(i, j, val * d[i] * d[j]);
+    }
+    let scaled = tri.to_csr();
+    &scaled + eye_q
+}
+
+struct ProfileSolution {
+    reml_crit: f64,
+    sigma2: f64,
+    beta: Array1<f64>,
+    b: Array1<f64>,
+    u: Array1<f64>,
+    l_x: Array2<f64>,
+}
+
+fn build_lambda(theta: &[f64], q: usize, re_blocks: &[crate::model_matrix::ReBlock]) -> CsMat<f64> {
+    let mut lam_tri = TriMat::new((q, q));
+
+    let mut row_offset = 0;
+    let mut theta_offset = 0;
+
+    for block in re_blocks {
+        let m = block.m;
+        let k = block.k;
+
+        for group in 0..m {
+            let offset = row_offset + group * k;
+            let mut idx = 0;
+            for j in 0..k {
+                for i in j..k {
+                    lam_tri.add_triplet(offset + i, offset + j, theta[theta_offset + idx]);
+                    idx += 1;
+                }
+            }
+        }
+        row_offset += m * k;
+        theta_offset += block.theta_len;
+    }
+    lam_tri.to_csr()
+}
+
+fn precompute_zt_products(
+    zt: &CsMat<f64>,
+    x: &Array2<f64>,
+    y: &Array1<f64>,
+) -> (Array2<f64>, Array1<f64>) {
+    let q = zt.rows();
+    let p = x.ncols();
+    let mut zt_x = Array2::<f64>::zeros((q, p));
+    let mut zt_y = Array1::<f64>::zeros(q);
+
+    for (val, (row, col)) in zt.iter() {
+        zt_y[row] += val * y[col];
+        for j in 0..p {
+            zt_x[[row, j]] += val * x[[col, j]];
+        }
+    }
+
+    (zt_x, zt_y)
+}
+
+fn identity_sparse(n: usize) -> CsMat<f64> {
+    let mut tri = TriMat::new((n, n));
+    for i in 0..n {
+        tri.add_triplet(i, i, 1.0);
+    }
+    tri.to_csr()
+}
+
+/// Multiply Λᵀ by a dense vector (Λ stored in CSR).
+fn sparse_transpose_matvec(mat: &CsMat<f64>, x: ArrayView1<f64>) -> Array1<f64> {
+    let mut out = Array1::<f64>::zeros(mat.cols());
+    for (val, (row, col)) in mat.iter() {
+        out[col] += val * x[row];
+    }
+    out
 }
 
 /// Multiply each column i of a sparse CSR matrix (q×n) by scale[i].

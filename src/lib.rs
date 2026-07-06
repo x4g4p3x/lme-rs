@@ -51,6 +51,7 @@ pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmSta
 use polars::prelude::*;
 pub use robust::RobustResult;
 use std::fmt;
+use std::sync::Arc;
 use thiserror::Error;
 
 /// Standard result type alias for operations that can fail with `LmeError`.
@@ -1028,30 +1029,24 @@ pub fn lmer_weighted(
         matrices.y.clone()
     };
 
-    // 5. Optimize theta using Nelder-Mead
-    let opt_result = optimizer::optimize_theta_nd(
+    // 5. Optimize theta using Nelder-Mead (one LmmData for optimizer + final evaluation)
+    let lmm = Arc::new(math::LmmData::new_weighted(
         matrices.x.clone(),
         matrices.zt.clone(),
         y_adjusted.clone(),
         matrices.re_blocks.clone(),
-        init_theta,
-        reml,
         weights.clone(),
-    )
-    .map_err(|e| LmeError::NotImplemented {
-        feature: format!("Optimizer failed: {}", e),
-    })?;
+    ));
+    let opt_result =
+        optimizer::optimize_theta_lmm(Arc::clone(&lmm), init_theta, reml).map_err(|e| {
+            LmeError::NotImplemented {
+                feature: format!("Optimizer failed: {}", e),
+            }
+        })?;
 
     let best_theta = &opt_result.theta;
 
     // 6. Re-evaluate to get coefficients
-    let lmm = math::LmmData::new_weighted(
-        matrices.x.clone(),
-        matrices.zt.clone(),
-        y_adjusted,
-        matrices.re_blocks.clone(),
-        weights,
-    );
     let best_th_slice = best_theta.as_slice().unwrap();
     let coefs = lmm.evaluate(best_th_slice, reml);
     let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);

@@ -23,6 +23,55 @@ use rand_distr::{Distribution, Normal};
 use std::hint::black_box;
 use std::time::Instant;
 
+/// Smoke workloads use smaller synthetic data in debug builds for faster `cargo test`.
+const fn smoke_random_intercept_n_obs() -> usize {
+    if cfg!(debug_assertions) {
+        2_000
+    } else {
+        6_000
+    }
+}
+
+const fn smoke_random_intercept_n_groups() -> usize {
+    if cfg!(debug_assertions) {
+        120
+    } else {
+        400
+    }
+}
+
+const fn smoke_random_slopes_n_obs() -> usize {
+    if cfg!(debug_assertions) {
+        2_000
+    } else {
+        6_000
+    }
+}
+
+const fn smoke_random_slopes_n_groups() -> usize {
+    if cfg!(debug_assertions) {
+        100
+    } else {
+        300
+    }
+}
+
+const fn smoke_mid_rank_n_obs() -> usize {
+    if cfg!(debug_assertions) {
+        2_500
+    } else {
+        8_000
+    }
+}
+
+const fn smoke_mid_rank_n_groups() -> usize {
+    if cfg!(debug_assertions) {
+        120
+    } else {
+        350
+    }
+}
+
 fn synthetic_random_intercept(n_obs: usize, n_groups: usize, seed: u64) -> DataFrame {
     let mut rng = StdRng::seed_from_u64(seed);
     let normal = Normal::new(0.0, 1.0).unwrap();
@@ -148,7 +197,11 @@ fn vm_hwm_kb() -> Option<u64> {
 
 #[test]
 fn smoke_random_intercept_converges() {
-    let df = synthetic_random_intercept(6_000, 400, 11);
+    let df = synthetic_random_intercept(
+        smoke_random_intercept_n_obs(),
+        smoke_random_intercept_n_groups(),
+        11,
+    );
     let fit = lmer("y ~ x + (1 | group)", &df, false).expect("fit");
     assert!(fit.converged.unwrap_or(false), "expected convergence");
     assert!(fit.theta.as_ref().unwrap()[0].is_finite());
@@ -156,7 +209,11 @@ fn smoke_random_intercept_converges() {
 
 #[test]
 fn smoke_random_slopes_converges() {
-    let df = synthetic_random_slopes(6_000, 300, 17);
+    let df = synthetic_random_slopes(
+        smoke_random_slopes_n_obs(),
+        smoke_random_slopes_n_groups(),
+        17,
+    );
     let fit = lmer("y ~ x + (x | group)", &df, false).expect("fit");
     assert!(fit.converged.unwrap_or(false));
     assert_eq!(fit.theta.as_ref().unwrap().len(), 3);
@@ -164,7 +221,7 @@ fn smoke_random_slopes_converges() {
 
 #[test]
 fn smoke_high_random_effect_rank_converges() {
-    let df = synthetic_mid_rank_re(8_000, 350, 23);
+    let df = synthetic_mid_rank_re(smoke_mid_rank_n_obs(), smoke_mid_rank_n_groups(), 23);
     let fit = lmer("y ~ x1 + x2 + (x1 + x2 | group)", &df, false).expect("vector-valued RE fit");
     assert!(fit.converged.unwrap_or(false));
     let nt = fit.theta.as_ref().unwrap().len();

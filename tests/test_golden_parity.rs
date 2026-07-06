@@ -3,6 +3,7 @@ use lme_rs::family::{Family, Link};
 use lme_rs::{glmer_weighted_with_link, lmer, LmeFit};
 use ndarray::Array1;
 use polars::prelude::*;
+use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -604,7 +605,8 @@ fn golden_parity_manifest_is_well_formed() {
 #[test]
 fn golden_parity_against_reference_fixtures() {
     let manifest = load_manifest();
-    for case in &manifest.cases {
-        assert_golden_case(case);
-    }
+    manifest
+        .cases
+        .par_iter()
+        .for_each(|case| assert_golden_case(case));
 }

@@ -4,6 +4,7 @@ use argmin::core::{CostFunction, Error, Executor, State};
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
 use sprs::CsMat;
+use std::sync::Arc;
 
 /// Result of the Nelder-Mead optimization, including convergence diagnostics.
 #[derive(Debug, Clone)]
@@ -96,13 +97,9 @@ where
 
 /// Wrapper for the REML deviance function to be used by argmin.
 struct LmmObjective {
-    x: Array2<f64>,
-    zt: CsMat<f64>,
-    y: Array1<f64>,
-    re_blocks: Vec<ReBlock>,
+    lmm: Arc<LmmData>,
     reml: bool,
     lower_bounds: Vec<f64>,
-    weights: Option<Array1<f64>>,
 }
 
 impl CostFunction for LmmObjective {
@@ -114,14 +111,9 @@ impl CostFunction for LmmObjective {
         let mut theta_clamped = theta.clone();
         clamp_theta(&mut theta_clamped, &self.lower_bounds);
 
-        let lmm = LmmData::new_weighted(
-            self.x.clone(),
-            self.zt.clone(),
-            self.y.clone(),
-            self.re_blocks.clone(),
-            self.weights.clone(),
-        );
-        let val = lmm.log_reml_deviance(theta_clamped.as_slice().unwrap(), self.reml);
+        let val = self
+            .lmm
+            .log_reml_deviance(theta_clamped.as_slice().unwrap(), self.reml);
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -142,16 +134,22 @@ pub fn optimize_theta_nd(
     reml: bool,
     weights: Option<Array1<f64>>,
 ) -> Result<OptimizeResult, anyhow::Error> {
-    let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+    let lmm = Arc::new(LmmData::new_weighted(x, zt, y, re_blocks, weights));
+    optimize_theta_lmm(lmm, init_theta, reml)
+}
+
+/// Like [`optimize_theta_nd`] but reuses a pre-built [`LmmData`] (avoids duplicate cross-product setup).
+pub fn optimize_theta_lmm(
+    lmm: Arc<LmmData>,
+    init_theta: Array1<f64>,
+    reml: bool,
+) -> Result<OptimizeResult, anyhow::Error> {
+    let lower_bounds = compute_theta_lower_bounds(&lmm.re_blocks);
 
     let cost = LmmObjective {
-        x: x.clone(),
-        zt: zt.clone(),
-        y: y.clone(),
-        re_blocks: re_blocks.clone(),
+        lmm,
         reml,
         lower_bounds: lower_bounds.clone(),
-        weights,
     };
 
     nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
@@ -303,13 +301,9 @@ mod tests {
         }];
         let lower_bounds = compute_theta_lower_bounds(&re_blocks);
         let cost = LmmObjective {
-            x,
-            zt,
-            y,
-            re_blocks,
+            lmm: Arc::new(LmmData::new_weighted(x, zt, y, re_blocks, None)),
             reml: true,
             lower_bounds: lower_bounds.clone(),
-            weights: None,
         };
         let res = nelder_mead_optimize(array![1.0], &lower_bounds, 1, cost).unwrap();
         assert!(

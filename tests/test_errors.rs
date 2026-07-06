@@ -63,29 +63,28 @@ fn test_predict_mismatched_columns() {
 
 #[test]
 fn test_optimizer_nan_handling() {
-    let mut file =
-        std::fs::File::open("tests/data/sleepstudy.csv").expect("sleepstudy.csv not found");
-    let df = CsvReadOptions::default()
-        .with_has_header(true)
-        .into_reader_with_file_handle(&mut file)
-        .finish()
+    // Tiny fixture — only needs a convergent REML path that returns NaN cost.
+    let y = ndarray::array![1.0, 2.0, 3.0, 4.0];
+    let x = ndarray::Array2::from_shape_vec((4, 2), vec![1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 3.0])
         .unwrap();
+    let mut zt_tri = sprs::TriMat::new((2, 4));
+    zt_tri.add_triplet(0, 0, 1.0);
+    zt_tri.add_triplet(0, 1, 1.0);
+    zt_tri.add_triplet(1, 2, 1.0);
+    zt_tri.add_triplet(1, 3, 1.0);
+    let zt = zt_tri.to_csr();
+    let re_blocks = vec![lme_rs::model_matrix::ReBlock {
+        m: 2,
+        k: 1,
+        theta_len: 1,
+        group_name: "G".to_string(),
+        effect_names: vec!["(Intercept)".to_string()],
+        group_map: std::collections::HashMap::new(),
+    }];
 
-    let ast = lme_rs::formula::parse("Reaction ~ Days + (Days | Subject)").unwrap();
-    let matrices = lme_rs::model_matrix::build_design_matrices(&ast, &df).unwrap();
-
-    // Pass NAN y to propagate f64::NAN through deviance bounds
-    let mut nan_y = matrices.y.clone();
+    let mut nan_y = y.clone();
     nan_y[0] = f64::NAN;
 
-    let init_theta = ndarray::Array1::from_vec(vec![1.0, 0.0, 1.0]);
-    let _res = optimize_theta_nd(
-        matrices.x,
-        matrices.zt,
-        nan_y,
-        matrices.re_blocks,
-        init_theta,
-        true,
-        None,
-    );
+    let init_theta = ndarray::Array1::from_vec(vec![1.0]);
+    let _res = optimize_theta_nd(x, zt, nan_y, re_blocks, init_theta, true, None);
 }

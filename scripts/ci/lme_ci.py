@@ -120,8 +120,12 @@ def cargo_check() -> None:
 
 
 def cargo_build_test() -> None:
-    run(["cargo", "build", "--verbose", "--locked"])
     run(["cargo", "test", "--verbose", "--locked"])
+
+
+def cargo_test_fast() -> None:
+    """Unit tests only — skips integration/doc tests for quick feedback."""
+    run(["cargo", "test", "--lib", "--locked"])
 
 
 def cargo_doctest() -> None:
@@ -568,8 +572,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("check", help="cargo check --all-targets").set_defaults(
         fn=lambda _: cargo_check()
     )
-    sub.add_parser("build-test", help="cargo build + test").set_defaults(
+    sub.add_parser("build-test", help="cargo test (full suite)").set_defaults(
         fn=lambda _: cargo_build_test()
+    )
+    sub.add_parser("test-fast", help="cargo test --lib only").set_defaults(
+        fn=lambda _: cargo_test_fast()
     )
     sub.add_parser("doctest", help="cargo test --doc").set_defaults(fn=lambda _: cargo_doctest())
     sub.add_parser("doc", help="cargo doc").set_defaults(fn=lambda _: cargo_doc())

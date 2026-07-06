@@ -43,7 +43,8 @@ Useful commands:
 
 ```bash
 cargo build --locked
-cargo test --locked
+cargo test --locked          # full suite; integration tests use [profile.test] opt-level 2
+task test:fast               # unit tests only (~seconds after compile)
 cargo check --workspace --all-targets --locked
 cargo test --doc --locked
 cargo fmt --check

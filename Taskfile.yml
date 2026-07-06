@@ -107,6 +107,16 @@ tasks:
     cmds:
       - '{{.RUN}} check'
 
+  test:
+    desc: Full Rust test suite (integration + unit)
+    cmds:
+      - '{{.RUN}} build-test'
+
+  test:fast:
+    desc: Quick unit tests only (~1s runtime after compile)
+    cmds:
+      - '{{.RUN}} test-fast'
+
   rust:
     desc: Rust-only CI slice (fmt check, clippy, check, build/test, doctest, doc)
     cmds:
