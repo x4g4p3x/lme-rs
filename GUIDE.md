@@ -448,12 +448,16 @@ If you see dimension mismatch or underdetermined-system errors, inspect the effe
 
 ## Performance Notes
 
-`lme-rs` uses sparse matrix machinery for grouped random-effects structure, which helps substantially for larger mixed models. Even so, performance depends heavily on:
+`lme-rs` uses sparse matrix machinery for grouped random-effects structure, which helps substantially for larger mixed models. The θ optimizer reuses a single [`LmmData`](src/math.rs) (precomputed `Z^T Z`, `Z^T X`, `Z^T y`) across Nelder–Mead evaluations; intercept-only random-effects models use a diagonal-Λ fast path that scales `Z^T Z` directly instead of rebuilding sparse triple products each step.
+
+Even with those optimizations, performance depends heavily on:
 
 - the number of observations
 - the number of grouping levels
 - whether you fit random slopes as well as intercepts
 - how well-scaled the predictors are for optimization
+
+Fair fit-only timings vs MixedModels.jl are documented in [BENCHMARKS.md](BENCHMARKS.md#fair-rust-vs-julia-reference-results) (reference workstation medians as of 2026-07-06).
 
 For concrete parity outputs, use the scripts and datasets in `comparisons/` and `tests/data/`.
 

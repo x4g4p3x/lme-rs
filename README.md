@@ -77,7 +77,7 @@ For a subjective, area-by-area view of what is implemented versus still open (in
 - Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
 - Cross-language numerical comparisons: [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md)
 - Approximate completion by repository area: [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
-- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md) (includes fair Rust vs MixedModels.jl fit timing and [2026-07-04 reference results](BENCHMARKS.md#fair-rust-vs-julia-reference-results))
+- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md) (includes fair Rust vs MixedModels.jl fit timing and [2026-07-06 reference results](BENCHMARKS.md#fair-rust-vs-julia-reference-results))
 - Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md) (also lists security audit and crate publish dry-run workflows)

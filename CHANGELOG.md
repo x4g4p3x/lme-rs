@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- LMM fit throughput: reuse [`LmmData`](src/math.rs) across Nelder–Mead evaluations, precompute `Z^T X` / `Z^T y`, deviance-only optimizer path, and intercept-only diagonal-Λ fast path in [`src/math.rs`](src/math.rs) / [`src/optimizer.rs`](src/optimizer.rs). Updated fair-harness reference: [`benchmarks/fair-rust-julia-reference-2026-07-06.json`](benchmarks/fair-rust-julia-reference-2026-07-06.json) (random-intercept cases ~**2×** vs Julia on the reference workstation; crossed still ~**19×**).
+- Test suite speed: `[profile.test] opt-level = 2`, parallel golden-parity cases (`rayon`), smaller debug smoke fixtures, `task test:fast` / `lme_ci.py test-fast`, and leaner CI test step (no separate `cargo build` before `cargo test`).
+
 - Bump `rand` to **0.9.3+** (and transitive **0.8.6** where applicable) for [RUSTSEC-2026-0097](https://rustsec.org/advisories/RUSTSEC-2026-0097).
 
 ### Added

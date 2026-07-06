@@ -146,23 +146,23 @@ Julia is resolved from `--julia`, `JULIA_BIN`, `PATH`, or (on Windows) `%LOCALAP
 
 ### Fair Rust vs Julia reference results
 
-Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json)  
+Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json) (current); prior datapoint [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).  
 Full per-sample JSON from the same run can be reproduced locally as `benchmark-results/fair-rust-julia-benchmarks.json`.
 
-**Recorded:** 2026-07-04 on a Windows 10 AMD64 workstation (12 logical CPUs).  
-**Toolchain:** `lme-rs` at git `481bf27`, `rustc 1.96.0`, Julia **1.12.6**, MixedModels.jl **5.7.0**.  
-**Method:** 2 warmup fits + 3 measured fits per case; median wall time of the fit call only.
+**Recorded:** 2026-07-06 on a Windows 10 AMD64 workstation (12 logical CPUs).  
+**Toolchain:** `lme-rs` at git `76fdb61`, `rustc 1.96.0`, Julia **1.12.6**, MixedModels.jl **5.7.0** (Julia medians from the 2026-07-04 run on the same machine).  
+**Method:** 2 warmup fits + 5 measured fits per case; median wall time of the fit call only.
 
 | Case | Formula | *n* | Rust median | Julia median | Julia faster (median ratio) |
 |:-----|:--------|----:|------------:|-------------:|------------------------------:|
-| `sleepstudy_reml` | `Reaction ~ Days + (Days \| Subject)` | 180 | 3.71 ms | 0.77 ms | **4.8×** |
-| `random_intercept_10k` | `y ~ x + (1 \| group)` | 10 000 | 10.1 ms | 1.14 ms | **8.8×** |
-| `random_intercept_50k` | `y ~ x + (1 \| group)` | 50 000 | 48.3 ms | 6.00 ms | **8.1×** |
-| `random_intercept_100k` | `y ~ x + (1 \| group)` | 100 000 | 79.2 ms | 11.9 ms | **6.7×** |
-| `crossed_20k` | `y ~ x + (1 \| plate) + (1 \| sample)` | 20 000 | 329 ms | 14.3 ms | **23×** |
-| `nested_10k` | `y ~ x + (1 \| batch/cask)` | 10 000 | 195 ms | 6.88 ms | **28×** |
+| `sleepstudy_reml` | `Reaction ~ Days + (Days \| Subject)` | 180 | 2.71 ms | 0.77 ms | **3.5×** |
+| `random_intercept_10k` | `y ~ x + (1 \| group)` | 10 000 | 3.16 ms | 1.14 ms | **2.8×** |
+| `random_intercept_50k` | `y ~ x + (1 \| group)` | 50 000 | 12.1 ms | 6.00 ms | **2.0×** |
+| `random_intercept_100k` | `y ~ x + (1 \| group)` | 100 000 | 24.1 ms | 11.9 ms | **2.0×** |
+| `crossed_20k` | `y ~ x + (1 \| plate) + (1 \| sample)` | 20 000 | 272 ms | 14.3 ms | **19×** |
+| `nested_10k` | `y ~ x + (1 \| batch/cask)` | 10 000 | 53.8 ms | 6.88 ms | **7.8×** |
 
-**Takeaway:** on this machine, **MixedModels.jl was faster on every case**, with the largest gaps on crossed and nested structures. Synthetic cases used ML (`reml=false`); sleepstudy used REML.
+**Takeaway:** after caching [`LmmData`](src/math.rs) in the θ optimizer, precomputing `Z^T X` / `Z^T y`, and an intercept-only diagonal-Λ fast path (git `76fdb61`), **random-intercept cases on this machine are within ~2–3× of MixedModels.jl** (down from ~5–9× on the 2026-07-04 reference). **Nested** improved (~28× → ~8×). **Crossed** remains the outlier (~19×). Synthetic cases used ML (`reml=false`); sleepstudy used REML.
 
 **How to read this:**
 
@@ -220,7 +220,7 @@ Use the existing suite primarily for:
 
 Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
 
-The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on a 2026-07-04 Windows workstation showed **MixedModels.jl faster on every fit-only case** (roughly **5×–28×** by median time, widest on crossed/nested models). Treat that as a versioned datapoint, not a universal law — but do **not** claim a raw speed advantage over Julia MixedModels without fresh measurements on your hardware.
+The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) remain the main gaps. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
 
 ## Recommended next extensions
 

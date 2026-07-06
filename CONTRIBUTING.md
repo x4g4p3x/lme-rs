@@ -56,6 +56,8 @@ Or via Task:
 
 ```powershell
 task lint        # fmt --check + clippy + Ruff (python/tests + examples)
+task test:fast   # cargo test --lib only (quick unit tests)
+task test        # full Rust test suite
 task preflight   # pre-push hook: lint + check + cargo audit + repo-metadata dry-run
 task audit       # cargo audit + pip-audit (GHA security audit mirror)
 task rust        # full Rust slice (no Python)

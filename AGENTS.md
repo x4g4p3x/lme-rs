@@ -109,9 +109,12 @@ Bypass: `git push --no-verify`.
 
 ```powershell
 task lint
+task test:fast   # unit tests only (~seconds after compile)
 task preflight   # same as pre-push hook (without pip-audit)
 task audit       # full security audit incl. pip-audit
 ```
+
+Full integration tests: `task test` or `cargo test --locked` (uses `[profile.test] opt-level = 2` in [`Cargo.toml`](Cargo.toml)).
 
 Runs Rust (`fmt --check` + clippy) and Python Ruff on `python/tests` and `python/examples`.
 
@@ -174,6 +177,8 @@ python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 | `comparison-format-check` | Optional styler/JuliaFormatter check on `comparisons/` (+ `tests/*.R`); use `--required` in GHA |
 | `r-format-staged --fix` | Staged R comparison/golden-parity scripts |
 | `julia-format-staged --fix` | Staged Julia comparison scripts |
+| `build-test` | `cargo test` (full suite) |
+| `test-fast` | `cargo test --lib` only (quick unit tests) |
 | `rust-all` | Rust slice without Python bindings tests |
 | `python` | Maturin + pytest (+ wheel pass) |
 | `ruff-staged --fix` | Staged Python lint/format |
