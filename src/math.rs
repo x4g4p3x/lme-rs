@@ -76,6 +76,11 @@ pub struct LmmData {
 }
 
 impl LmmData {
+    /// True when every random-effects block is intercept-only (`k = 1`).
+    pub fn intercept_only_re(&self) -> bool {
+        self.intercept_only_re
+    }
+
     /// Create `LmmData` containing unweighted structural design matrices.
     pub fn new(
         x: Array2<f64>,
@@ -647,14 +652,28 @@ struct InterceptSparseLdl {
     zt_z_coeff: Vec<f64>,
     nz_rows: Vec<usize>,
     nz_cols: Vec<usize>,
+    /// `row_block[nz_rows[k]]` — avoids repeated indirect indexing in `factor_blocks`.
+    nz_theta_i: Vec<usize>,
+    /// `row_block[nz_cols[k]]`
+    nz_theta_j: Vec<usize>,
     ldl: sprs_ldl::LdlNumeric<f64, usize>,
     solve_buf: Vec<f64>,
 }
 
 impl InterceptSparseLdl {
-    fn new(zt_z: &CsMat<f64>, q: usize) -> Result<Self, sprs::errors::LinalgError> {
+    fn new(
+        zt_z: &CsMat<f64>,
+        q: usize,
+        row_block: &[usize],
+    ) -> Result<Self, sprs::errors::LinalgError> {
         let (indptr, indices, a_values, nz_rows, nz_cols, zt_z_coeff) =
             build_intercept_a_template(zt_z, q);
+        let mut nz_theta_i = Vec::with_capacity(nz_rows.len());
+        let mut nz_theta_j = Vec::with_capacity(nz_cols.len());
+        for k in 0..nz_rows.len() {
+            nz_theta_i.push(row_block[nz_rows[k]]);
+            nz_theta_j.push(row_block[nz_cols[k]]);
+        }
         let a = CsMat::new((q, q), indptr.clone(), indices.clone(), a_values.clone());
         use sprs::SymmetryCheck;
         let ldl = sprs_ldl::Ldl::new()
@@ -668,6 +687,8 @@ impl InterceptSparseLdl {
             zt_z_coeff,
             nz_rows,
             nz_cols,
+            nz_theta_i,
+            nz_theta_j,
             ldl,
             solve_buf: vec![0.0; q],
         })
@@ -676,13 +697,13 @@ impl InterceptSparseLdl {
     fn factor_blocks(
         &mut self,
         theta: &[f64],
-        row_block: &[usize],
+        _row_block: &[usize],
     ) -> Result<(), sprs::errors::LinalgError> {
         for k in 0..self.a_values.len() {
-            let i = self.nz_rows[k];
-            let j = self.nz_cols[k];
-            let mut val = self.zt_z_coeff[k] * theta[row_block[i]] * theta[row_block[j]];
-            if i == j {
+            let ti = self.nz_theta_i[k];
+            let tj = self.nz_theta_j[k];
+            let mut val = self.zt_z_coeff[k] * theta[ti] * theta[tj];
+            if self.nz_rows[k] == self.nz_cols[k] {
                 val += 1.0;
             }
             self.a_values[k] = val;
@@ -855,7 +876,19 @@ impl InterceptDenseChol {
         };
         let n = lmm.y.len() as f64;
         let p = lmm.x.ncols() as f64;
-        if self.p == 2 {
+        if self.p == 1 {
+            profile_deviance_p1(
+                lmm,
+                reml,
+                n,
+                p,
+                log_det_a,
+                theta,
+                &self.row_block,
+                &self.w_y,
+                &self.w_cols,
+            )
+        } else if self.p == 2 {
             profile_deviance_p2(
                 lmm,
                 reml,
@@ -919,7 +952,7 @@ impl InterceptLdlCache {
         row_block: &[usize],
         p: usize,
     ) -> Result<Self, sprs::errors::LinalgError> {
-        let sparse = Some(InterceptSparseLdl::new(zt_z, q)?);
+        let sparse = Some(InterceptSparseLdl::new(zt_z, q, row_block)?);
         #[allow(clippy::absurd_extreme_comparisons)]
         let dense = match INTERCEPT_DENSE_MAX_Q {
             0 => None,
@@ -972,7 +1005,11 @@ impl InterceptLdlCache {
         }
         let n = lmm.y.len() as f64;
         let p_f = lmm.x.ncols() as f64;
-        if *p == 2 && p_usize == 2 {
+        if *p == 1 && p_usize == 1 {
+            profile_deviance_p1(
+                lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
+            )
+        } else if *p == 2 && p_usize == 2 {
             profile_deviance_p2(
                 lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
             )
@@ -1075,6 +1112,59 @@ impl InterceptLdlCache {
             self.solve_out.clone()
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn profile_deviance_p1(
+    lmm: &LmmData,
+    reml: bool,
+    n: f64,
+    p: f64,
+    log_det_a: f64,
+    theta: &[f64],
+    row_block: &[usize],
+    w_y: &[f64],
+    w_cols: &[Vec<f64>],
+) -> f64 {
+    let w0 = w_cols[0].as_slice();
+    let zt_x = &lmm.zt_x;
+
+    let mut r00 = 0.0;
+    let mut c0 = 0.0;
+    for k in 0..row_block.len() {
+        let t = theta[row_block[k]];
+        let zk0 = zt_x[[k, 0]] * t;
+        r00 += zk0 * w0[k];
+        c0 += zk0 * w_y[k];
+    }
+
+    let a_x = lmm.xt_x[[0, 0]] - r00;
+    if a_x <= 0.0 {
+        return f64::MAX;
+    }
+    let l00 = a_x.sqrt();
+    let rhs0 = lmm.xt_y[0] - c0;
+    let beta0 = rhs0 / a_x;
+
+    let mut cu_norm2 = 0.0;
+    for k in 0..row_block.len() {
+        cu_norm2 += lmm.zt_y[k] * theta[row_block[k]] * w_y[k];
+    }
+
+    let c_beta_norm2 = beta0 * rhs0;
+    let r2 = lmm.y_norm2 - cu_norm2 - c_beta_norm2;
+    let reml_df = if reml { n - p } else { n };
+    let sigma2 = r2 / reml_df;
+    if sigma2 <= 0.0 {
+        return f64::MAX;
+    }
+
+    let twopi = std::f64::consts::PI * 2.0;
+    let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+    if reml {
+        deviance += 2.0 * l00.ln();
+    }
+    deviance
 }
 
 /// Hand-unrolled 2×2 SPD solve (avoids LAPACK overhead on the optimizer hot path).

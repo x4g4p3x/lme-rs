@@ -168,17 +168,17 @@ Full per-sample JSON from the same run can be reproduced locally as `benchmark-r
 
 ### 2026-07-07 intercept-only optimization pass
 
-Work on [`src/math.rs`](src/math.rs) adds reused sparse LDL, a deviance-only intercept hot path, and a hand-unrolled **p = 2** profile finish. Golden parity passes. Engineering detail (what worked, what was reverted, invariants) lives in **[OPTIMIZATION.md](OPTIMIZATION.md)**.
+Work on [`src/math.rs`](src/math.rs) and [`src/optimizer.rs`](src/optimizer.rs): reused sparse LDL, deviance-only intercept hot path, hand-unrolled **p = 1 / p = 2** profile finishes, precomputed θ block indices, golden-section θ search for |θ| = 1, and a two-stage **2D log-grid** for crossed ML (REML: grid + short Nelder–Mead polish for golden parity). Golden parity passes. Engineering detail (what worked, what was reverted, Julia lessons) lives in **[OPTIMIZATION.md](OPTIMIZATION.md)**.
 
 **Recorded:** 2026-07-07, same Windows AMD64 workstation as the 2026-07-06 reference; `rustc 1.96.0`; 2 warmups + 10 measured fits (`scripts/run_fair_rust_julia_benchmark.py --implementations rust`).
 
-| Case | 2026-07-06 Rust median | 2026-07-07 Rust median | Julia median (2026-07-06) | Julia faster |
-|:-----|-----------------------:|---------------------------:|--------------------------:|-------------------:|
-| `random_intercept_10k` | 3.16 ms | **2.78 ms** | 1.14 ms | **~2.4×** |
-| `crossed_20k` | 272 ms | **109 ms** | 14.3 ms | **~7.6×** |
-| `nested_10k` | 53.8 ms | **17.0 ms** | 6.88 ms | **~2.5×** |
+| Case | 2026-07-06 Rust median | After LDL pass | After θ-search pass | Julia median (2026-07-06) | Julia faster |
+|:-----|-----------------------:|---------------:|--------------------:|--------------------------:|-------------------:|
+| `random_intercept_10k` | 3.16 ms | 2.78 ms | **~2.5 ms** | 1.14 ms | **~2.3×** |
+| `crossed_20k` | 272 ms | 109 ms | **~113 ms** | 14.3 ms | **~7.9×** |
+| `nested_10k` | 53.8 ms | 17.0 ms | **~15.5 ms** | 6.88 ms | **~2.3×** |
 
-**Takeaway:** crossed ~2.5× faster and nested ~3× faster vs 2026-07-06 Rust medians; random-intercept unchanged (~2.8 ms). Julia still leads on all three; crossed remains the main gap (~8× at this median).
+**Takeaway:** the LDL reuse pass delivered most of the crossed / nested speedup (~2.5× and ~3× vs 2026-07-06 Rust). The θ-search pass improved nested and random-intercept slightly and fixed ML eval budget for crossed, but **did not materially beat** the LDL-only crossed median. Julia still leads on all three; crossed remains the main gap (~8×). See [OPTIMIZATION.md § Why MixedModels.jl is faster](OPTIMIZATION.md#why-mixedmodelsjl-is-faster-and-what-to-learn) for structural reasons and next steps (blocked augmented Cholesky).
 
 **How to read this:**
 
