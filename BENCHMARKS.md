@@ -164,6 +164,22 @@ Full per-sample JSON from the same run can be reproduced locally as `benchmark-r
 
 **Takeaway:** after caching [`LmmData`](src/math.rs) in the θ optimizer, precomputing `Z^T X` / `Z^T y`, and an intercept-only diagonal-Λ fast path (git `76fdb61`), **random-intercept cases on this machine are within ~2–3× of MixedModels.jl** (down from ~5–9× on the 2026-07-04 reference). **Nested** improved (~28× → ~8×). **Crossed** remains the outlier (~19×). Synthetic cases used ML (`reml=false`); sleepstudy used REML.
 
+<a id="fair-rust-julia-2026-07-07-wip"></a>
+
+### 2026-07-07 intercept-only optimization pass
+
+Work on [`src/math.rs`](src/math.rs) adds reused sparse LDL, a deviance-only intercept hot path, and a hand-unrolled **p = 2** profile finish. Golden parity passes. Engineering detail (what worked, what was reverted, invariants) lives in **[OPTIMIZATION.md](OPTIMIZATION.md)**.
+
+**Recorded:** 2026-07-07, same Windows AMD64 workstation as the 2026-07-06 reference; `rustc 1.96.0`; 2 warmups + 10 measured fits (`scripts/run_fair_rust_julia_benchmark.py --implementations rust`).
+
+| Case | 2026-07-06 Rust median | 2026-07-07 Rust median | Julia median (2026-07-06) | Julia faster |
+|:-----|-----------------------:|---------------------------:|--------------------------:|-------------------:|
+| `random_intercept_10k` | 3.16 ms | **2.78 ms** | 1.14 ms | **~2.4×** |
+| `crossed_20k` | 272 ms | **109 ms** | 14.3 ms | **~7.6×** |
+| `nested_10k` | 53.8 ms | **17.0 ms** | 6.88 ms | **~2.5×** |
+
+**Takeaway:** crossed ~2.5× faster and nested ~3× faster vs 2026-07-06 Rust medians; random-intercept unchanged (~2.8 ms). Julia still leads on all three; crossed remains the main gap (~8× at this median).
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.
@@ -220,7 +236,7 @@ Use the existing suite primarily for:
 
 Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
 
-The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) remain the main gaps. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
+The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×** without regressing random-intercept (~**2.4×**); see [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
 
 ## Recommended next extensions
 

@@ -105,6 +105,8 @@ Bypass: `git push --no-verify`.
 
 ## 3. Before finishing work (manual)
 
+If you changed **LMM fit throughput** ([`src/math.rs`](src/math.rs) intercept path, [`src/optimizer.rs`](src/optimizer.rs) θ search), read **[OPTIMIZATION.md](OPTIMIZATION.md)** and re-run the fair harness cases listed there.
+
 ### Quick path
 
 ```powershell

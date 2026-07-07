@@ -104,4 +104,18 @@ fn test_mock_crossed_effects() {
 
     println!("Best theta array recovered: {:?}", best_th.to_vec());
     assert!(best_th.len() == 2);
+
+    // Fast deviance kernel must match the full profile solve on the hot θ grid.
+    for &t0 in &[0.25, 0.5, 1.0, 1.5, 2.0] {
+        for &t1 in &[0.25, 0.5, 1.0, 1.5, 2.0] {
+            let theta = [t0, t1];
+            let fast = model.log_reml_deviance(&theta, true);
+            let slow = model.evaluate(&theta, true).reml_crit;
+            let scale = slow.abs().max(1.0);
+            assert!(
+                (fast - slow).abs() <= 1e-6 * scale,
+                "deviance mismatch at theta={theta:?}: fast={fast} slow={slow}"
+            );
+        }
+    }
 }

@@ -120,6 +120,7 @@ The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scri
 
 If you change fitting logic, optimizer behavior, variance calculations, or inference code:
 
+- for **LMM θ-search / intercept-only hot paths**, read [OPTIMIZATION.md](OPTIMIZATION.md) and re-run the fair harness cases it lists
 - add or update Rust tests in `tests/`
 - prefer fixture-backed tests for parity-sensitive behavior; add identities to [`tests/test_statistical_identities.rs`](tests/test_statistical_identities.rs) when a property should always hold (e.g. OLS residual sum, `y = fitted + residual`, valid LRT probabilities)
 - update `comparisons/COMPARISONS.md` when the reference output changes materially

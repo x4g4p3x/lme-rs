@@ -2,6 +2,7 @@ use ndarray::{Array1, Array2, ArrayView1};
 use ndarray_linalg::UPLO;
 use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
+use std::sync::Mutex;
 
 /// Represents the resolved analytical outputs from evaluating a fully optimized variance structure.
 #[derive(Debug, Clone)]
@@ -68,6 +69,10 @@ pub struct LmmData {
     eye_q: CsMat<f64>,
     /// True when every RE block is intercept-only (k = 1); enables diagonal-Λ fast path.
     intercept_only_re: bool,
+    /// Reused symbolic/numeric LDLT for intercept-only A = diag(θ) Z^T Z diag(θ) + I.
+    intercept_ldl: Option<Mutex<InterceptLdlCache>>,
+    /// Cached ‖y_eff‖² for profile deviance (independent of θ).
+    y_norm2: f64,
 }
 
 impl LmmData {
@@ -118,6 +123,19 @@ impl LmmData {
                 let (zt_x, zt_y) = precompute_zt_products(&zt_w, &x_w, &y_w);
                 let eye_q = identity_sparse(q);
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
+                let row_block = if intercept_only_re {
+                    build_row_blocks(&re_blocks)
+                } else {
+                    Vec::new()
+                };
+                let p_cols = x.ncols();
+                let intercept_ldl = intercept_only_re.then(|| {
+                    Mutex::new(
+                        InterceptLdlCache::new(&zt_z, q, &row_block, p_cols)
+                            .expect("intercept LDL setup failed"),
+                    )
+                });
+                let y_norm2: f64 = y_w.iter().map(|&x| x * x).sum();
 
                 LmmData {
                     x,
@@ -135,6 +153,8 @@ impl LmmData {
                     zt_y,
                     eye_q,
                     intercept_only_re,
+                    intercept_ldl,
+                    y_norm2,
                 }
             }
             None => {
@@ -145,6 +165,19 @@ impl LmmData {
                 let (zt_x, zt_y) = precompute_zt_products(&zt, &x, &y);
                 let eye_q = identity_sparse(q);
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
+                let row_block = if intercept_only_re {
+                    build_row_blocks(&re_blocks)
+                } else {
+                    Vec::new()
+                };
+                let p_cols = x.ncols();
+                let intercept_ldl = intercept_only_re.then(|| {
+                    Mutex::new(
+                        InterceptLdlCache::new(&zt_z, q, &row_block, p_cols)
+                            .expect("intercept LDL setup failed"),
+                    )
+                });
+                let y_norm2: f64 = y.iter().map(|&x| x * x).sum();
 
                 LmmData {
                     x_eff: x.clone(),
@@ -162,6 +195,8 @@ impl LmmData {
                     zt_y,
                     eye_q,
                     intercept_only_re,
+                    intercept_ldl,
+                    y_norm2,
                 }
             }
         }
@@ -220,7 +255,11 @@ impl LmmData {
 
     /// Profiled REML/ML deviance only — skips SEs, fitted values, and matrix inverses.
     fn profile_deviance(&self, theta: &[f64], reml: bool) -> f64 {
-        self.solve_profile(theta, reml).reml_crit
+        if self.intercept_only_re {
+            self.profile_deviance_diagonal(theta, reml)
+        } else {
+            self.solve_profile(theta, reml).reml_crit
+        }
     }
 
     fn solve_profile(&self, theta: &[f64], reml: bool) -> ProfileSolution {
@@ -284,6 +323,21 @@ impl LmmData {
             },
             |u| &d * u,
         )
+    }
+
+    /// Optimizer hot path: deviance without building u, b, or v_cols.
+    fn profile_deviance_diagonal(&self, theta: &[f64], reml: bool) -> f64 {
+        self.profile_deviance_diagonal_fast(theta, reml)
+    }
+
+    fn profile_deviance_diagonal_fast(&self, theta: &[f64], reml: bool) -> f64 {
+        let mut cache = self
+            .intercept_ldl
+            .as_ref()
+            .expect("intercept LDL cache missing")
+            .lock()
+            .expect("intercept LDL lock poisoned");
+        cache.profile_deviance(self, theta, reml)
     }
 
     fn solve_profile_general(&self, theta: &[f64], reml: bool) -> ProfileSolution {
@@ -360,6 +414,105 @@ struct ProfileFinishInput<'a> {
     w_cols: &'a [Array1<f64>],
 }
 
+struct ProfileDevianceBlocksInput<'a> {
+    reml: bool,
+    n: f64,
+    p: f64,
+    p_usize: usize,
+    log_det_a: f64,
+    theta: &'a [f64],
+    row_block: &'a [usize],
+    w_y: &'a [f64],
+    w_cols: &'a [Vec<f64>],
+}
+
+fn compute_profile_deviance_blocks(lmm: &LmmData, input: ProfileDevianceBlocksInput<'_>) -> f64 {
+    let ProfileDevianceBlocksInput {
+        reml,
+        n,
+        p,
+        p_usize,
+        log_det_a,
+        theta,
+        row_block,
+        w_y,
+        w_cols,
+    } = input;
+    let mut rzx_t_rzx = Array2::<f64>::zeros((p_usize, p_usize));
+    for i in 0..p_usize {
+        for j in 0..p_usize {
+            rzx_t_rzx[[i, j]] =
+                dot_scaled_block_col(lmm.zt_x.column(i), row_block, theta, w_cols[j].as_slice());
+        }
+    }
+
+    let mut rzx_t_cu = Array1::<f64>::zeros(p_usize);
+    for i in 0..p_usize {
+        rzx_t_cu[i] = dot_scaled_block_col(lmm.zt_x.column(i), row_block, theta, w_y);
+    }
+
+    let a_x = &lmm.xt_x - &rzx_t_rzx;
+    let l_x = match a_x.cholesky(UPLO::Lower) {
+        Ok(f) => f,
+        Err(_) => return f64::MAX,
+    };
+
+    let rhs_beta = &lmm.xt_y - &rzx_t_cu;
+    let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
+    let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
+
+    let y_norm2: f64 = lmm.y_eff.iter().map(|&x| x * x).sum();
+    let cu_norm2 = dot_scaled_block_col(lmm.zt_y.view(), row_block, theta, w_y);
+
+    let mut c_beta_norm2 = 0.0;
+    for i in 0..beta.len() {
+        c_beta_norm2 += beta[i] * rhs_beta[i];
+    }
+
+    let r2 = y_norm2 - cu_norm2 - c_beta_norm2;
+    let reml_df = if reml { n - p } else { n };
+    let sigma2 = r2 / reml_df;
+    if sigma2 <= 0.0 {
+        return f64::MAX;
+    }
+
+    let twopi = std::f64::consts::PI * 2.0;
+    let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+
+    if reml {
+        let mut log_det_l_x = 0.0;
+        for i in 0..l_x.nrows() {
+            log_det_l_x += l_x[[i, i]].ln();
+        }
+        deviance += 2.0 * log_det_l_x;
+    }
+
+    deviance
+}
+
+#[inline]
+fn dot_scaled_block_col(
+    zt_col: ArrayView1<f64>,
+    row_block: &[usize],
+    theta: &[f64],
+    w: &[f64],
+) -> f64 {
+    let mut s = 0.0;
+    for k in 0..row_block.len() {
+        s += zt_col[k] * theta[row_block[k]] * w[k];
+    }
+    s
+}
+
+fn build_row_blocks(re_blocks: &[crate::model_matrix::ReBlock]) -> Vec<usize> {
+    let mut row_block = Vec::new();
+    for (block_idx, block) in re_blocks.iter().enumerate() {
+        let n_rows = block.m * block.k;
+        row_block.extend(std::iter::repeat_n(block_idx, n_rows));
+    }
+    row_block
+}
+
 fn solve_profile_finish(
     lmm: &LmmData,
     input: ProfileFinishInput<'_>,
@@ -397,7 +550,7 @@ fn solve_profile_finish(
     let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
     let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
 
-    let y_norm2: f64 = lmm.y_eff.iter().map(|&x| x * x).sum();
+    let y_norm2 = lmm.y_norm2;
 
     let mut cu_norm2 = 0.0;
     for i in 0..v_y.len() {
@@ -473,6 +626,613 @@ fn theta_diagonal(
     d
 }
 
+struct ProfileSolution {
+    reml_crit: f64,
+    sigma2: f64,
+    beta: Array1<f64>,
+    b: Array1<f64>,
+    u: Array1<f64>,
+    l_x: Array2<f64>,
+}
+
+/// Use dense Cholesky when q is modest (crossed 20k → q=350); sparse LDL for larger q.
+const INTERCEPT_DENSE_MAX_Q: usize = 0;
+
+/// Cached LDLT for intercept-only models: numeric values updated each θ, symbolic part fixed.
+struct InterceptSparseLdl {
+    q: usize,
+    indptr: Vec<usize>,
+    indices: Vec<usize>,
+    a_values: Vec<f64>,
+    zt_z_coeff: Vec<f64>,
+    nz_rows: Vec<usize>,
+    nz_cols: Vec<usize>,
+    ldl: sprs_ldl::LdlNumeric<f64, usize>,
+    solve_buf: Vec<f64>,
+}
+
+impl InterceptSparseLdl {
+    fn new(zt_z: &CsMat<f64>, q: usize) -> Result<Self, sprs::errors::LinalgError> {
+        let (indptr, indices, a_values, nz_rows, nz_cols, zt_z_coeff) =
+            build_intercept_a_template(zt_z, q);
+        let a = CsMat::new((q, q), indptr.clone(), indices.clone(), a_values.clone());
+        use sprs::SymmetryCheck;
+        let ldl = sprs_ldl::Ldl::new()
+            .check_symmetry(SymmetryCheck::DontCheckSymmetry)
+            .numeric(a.view())?;
+        Ok(Self {
+            q,
+            indptr,
+            indices,
+            a_values,
+            zt_z_coeff,
+            nz_rows,
+            nz_cols,
+            ldl,
+            solve_buf: vec![0.0; q],
+        })
+    }
+
+    fn factor_blocks(
+        &mut self,
+        theta: &[f64],
+        row_block: &[usize],
+    ) -> Result<(), sprs::errors::LinalgError> {
+        for k in 0..self.a_values.len() {
+            let i = self.nz_rows[k];
+            let j = self.nz_cols[k];
+            let mut val = self.zt_z_coeff[k] * theta[row_block[i]] * theta[row_block[j]];
+            if i == j {
+                val += 1.0;
+            }
+            self.a_values[k] = val;
+        }
+        self.update_ldl()
+    }
+
+    fn update_ldl(&mut self) -> Result<(), sprs::errors::LinalgError> {
+        use sprs::CsMatView;
+        let a = CsMatView::new(
+            (self.q, self.q),
+            &self.indptr,
+            &self.indices,
+            &self.a_values,
+        );
+        self.ldl.update(a)
+    }
+
+    fn solve_into(&mut self, rhs: &[f64], out: &mut [f64]) {
+        debug_assert_eq!(rhs.len(), self.q);
+        debug_assert_eq!(out.len(), self.q);
+        self.solve_buf.copy_from_slice(rhs);
+        let solved = self.ldl.solve(self.solve_buf.as_slice());
+        out.copy_from_slice(solved.as_slice());
+    }
+
+    fn log_det_a(&self) -> f64 {
+        self.ldl.d().iter().map(|x| x.ln()).sum()
+    }
+}
+
+/// Dense Cholesky path for small q (disabled while INTERCEPT_DENSE_MAX_Q = 0).
+#[allow(dead_code)]
+struct InterceptDenseChol {
+    q: usize,
+    p: usize,
+    nz_rows: Vec<usize>,
+    nz_cols: Vec<usize>,
+    zt_z_coeff: Vec<f64>,
+    row_block: Vec<usize>,
+    a: Array2<f64>,
+    chol_l: Array2<f64>,
+    w_y: Vec<f64>,
+    w_cols: Vec<Vec<f64>>,
+    rhs_work: Array1<f64>,
+    theta_scale: Vec<f64>,
+}
+
+impl InterceptDenseChol {
+    fn new(zt_z: &CsMat<f64>, q: usize, p: usize, row_block: &[usize]) -> Self {
+        let mut tri = TriMat::new((q, q));
+        let mut diag_in_zt = vec![false; q];
+        for (val, (i, j)) in zt_z.iter() {
+            tri.add_triplet(i, j, *val);
+            if i == j {
+                diag_in_zt[i] = true;
+            }
+        }
+        for (i, &seen) in diag_in_zt.iter().enumerate().take(q) {
+            if !seen {
+                tri.add_triplet(i, i, 0.0);
+            }
+        }
+        let zt_template: CsMat<f64> = tri.to_csr();
+        let mut nz_rows = Vec::with_capacity(zt_template.nnz());
+        let mut nz_cols = Vec::with_capacity(zt_template.nnz());
+        let mut zt_z_coeff = Vec::with_capacity(zt_template.nnz());
+        for (val, (i, j)) in zt_template.iter() {
+            nz_rows.push(i);
+            nz_cols.push(j);
+            zt_z_coeff.push(*val);
+        }
+
+        let mut w_cols = Vec::with_capacity(p);
+        for _ in 0..p {
+            w_cols.push(vec![0.0; q]);
+        }
+        Self {
+            q,
+            p,
+            nz_rows,
+            nz_cols,
+            zt_z_coeff,
+            row_block: row_block.to_vec(),
+            a: Array2::zeros((q, q)),
+            chol_l: Array2::zeros((q, q)),
+            w_y: vec![0.0; q],
+            w_cols,
+            rhs_work: Array1::zeros(q),
+            theta_scale: vec![0.0; q],
+        }
+    }
+
+    fn rebuild_a(&mut self, scale: &[f64]) {
+        self.a.fill(0.0);
+        for k in 0..self.nz_rows.len() {
+            let i = self.nz_rows[k];
+            let j = self.nz_cols[k];
+            self.a[[i, j]] += self.zt_z_coeff[k] * scale[i] * scale[j];
+        }
+        for i in 0..self.q {
+            self.a[[i, i]] += 1.0;
+        }
+    }
+
+    fn build_a_from_d(&mut self, d: &Array1<f64>) {
+        self.rebuild_a(d.as_slice().unwrap());
+    }
+
+    fn build_a(&mut self, theta: &[f64]) {
+        for i in 0..self.q {
+            self.theta_scale[i] = theta[self.row_block[i]];
+        }
+        let scale = self.theta_scale.clone();
+        self.rebuild_a(&scale);
+    }
+
+    fn cholesky_factor(&mut self) -> Result<f64, sprs::errors::LinalgError> {
+        let factor = self.a.cholesky(UPLO::Lower).map_err(|_| {
+            sprs::errors::LinalgError::SingularMatrix(sprs::errors::SingularMatrixInfo {
+                index: 0,
+                reason: "intercept dense Cholesky failed",
+            })
+        })?;
+        let mut log_det_a = 0.0;
+        for i in 0..self.q {
+            log_det_a += factor[[i, i]].ln();
+        }
+        self.chol_l = factor;
+        Ok(2.0 * log_det_a)
+    }
+
+    fn factor_from_d(&mut self, d: &Array1<f64>) -> Result<(), sprs::errors::LinalgError> {
+        self.build_a_from_d(d);
+        self.cholesky_factor()?;
+        Ok(())
+    }
+
+    fn factor_and_solve(&mut self, lmm: &LmmData, theta: &[f64]) -> Result<f64, ()> {
+        self.build_a(theta);
+        let log_det_a = self.cholesky_factor().map_err(|_| ())?;
+
+        self.scale_into_work(lmm.zt_y.view(), theta);
+        chol_solve_vec(&self.chol_l, &self.rhs_work, &mut self.w_y);
+
+        for j in 0..self.p {
+            self.scale_into_work(lmm.zt_x.column(j), theta);
+            chol_solve_vec(&self.chol_l, &self.rhs_work, &mut self.w_cols[j]);
+        }
+
+        Ok(log_det_a)
+    }
+
+    fn scale_into_work(&mut self, zt_vec: ArrayView1<f64>, theta: &[f64]) {
+        let rb = &self.row_block;
+        for i in 0..self.q {
+            self.rhs_work[i] = zt_vec[i] * theta[rb[i]];
+        }
+    }
+
+    #[allow(dead_code)]
+    fn chol_solve_work_into(&self, out: &mut [f64]) {
+        chol_solve_vec(&self.chol_l, &self.rhs_work, out);
+    }
+
+    fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
+        let log_det_a = match self.factor_and_solve(lmm, theta) {
+            Ok(d) => d,
+            Err(_) => return f64::MAX,
+        };
+        let n = lmm.y.len() as f64;
+        let p = lmm.x.ncols() as f64;
+        if self.p == 2 {
+            profile_deviance_p2(
+                lmm,
+                reml,
+                n,
+                p,
+                log_det_a,
+                theta,
+                &self.row_block,
+                &self.w_y,
+                &self.w_cols,
+            )
+        } else {
+            profile_deviance_general_p(
+                lmm,
+                reml,
+                n,
+                p,
+                self.p,
+                log_det_a,
+                theta,
+                &self.row_block,
+                &self.w_y,
+                &self.w_cols,
+            )
+        }
+    }
+}
+
+fn chol_solve_vec(chol_l: &Array2<f64>, rhs: &Array1<f64>, out: &mut [f64]) {
+    let sol = chol_l.solve(rhs).expect("dense Cholesky solve failed");
+    out.copy_from_slice(sol.as_slice().unwrap());
+}
+
+fn scale_block_rhs_buf(
+    scaled_rhs: &mut [f64],
+    zt_vec: ArrayView1<f64>,
+    theta: &[f64],
+    row_block: &[usize],
+) {
+    for i in 0..row_block.len() {
+        scaled_rhs[i] = zt_vec[i] * theta[row_block[i]];
+    }
+}
+
+/// Intercept-only LDL / Cholesky cache with reusable workspaces.
+struct InterceptLdlCache {
+    dense: Option<InterceptDenseChol>,
+    sparse: Option<InterceptSparseLdl>,
+    p: usize,
+    row_block: Vec<usize>,
+    solve_out: Vec<f64>,
+    scaled_rhs: Vec<f64>,
+    w_y_buf: Vec<f64>,
+    w_col_bufs: Vec<Vec<f64>>,
+}
+
+impl InterceptLdlCache {
+    fn new(
+        zt_z: &CsMat<f64>,
+        q: usize,
+        row_block: &[usize],
+        p: usize,
+    ) -> Result<Self, sprs::errors::LinalgError> {
+        let sparse = Some(InterceptSparseLdl::new(zt_z, q)?);
+        #[allow(clippy::absurd_extreme_comparisons)]
+        let dense = match INTERCEPT_DENSE_MAX_Q {
+            0 => None,
+            max_q if q <= max_q => Some(InterceptDenseChol::new(zt_z, q, p, row_block)),
+            _ => None,
+        };
+        let mut w_col_bufs = Vec::with_capacity(p);
+        for _ in 0..p {
+            w_col_bufs.push(vec![0.0; q]);
+        }
+        Ok(Self {
+            dense,
+            sparse,
+            p,
+            row_block: row_block.to_vec(),
+            solve_out: vec![0.0; q],
+            scaled_rhs: vec![0.0; q],
+            w_y_buf: vec![0.0; q],
+            w_col_bufs,
+        })
+    }
+
+    fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
+        if let Some(dense) = &mut self.dense {
+            return dense.profile_deviance(lmm, theta, reml);
+        }
+        let InterceptLdlCache {
+            sparse,
+            p,
+            row_block,
+            solve_out,
+            scaled_rhs,
+            w_y_buf,
+            w_col_bufs,
+            dense: _,
+        } = self;
+        let sparse = sparse.as_mut().expect("sparse intercept solver missing");
+        sparse
+            .factor_blocks(theta, row_block)
+            .expect("LDLT update of A failed");
+        let log_det_a = sparse.log_det_a();
+        let p_usize = lmm.x.ncols();
+        scale_block_rhs_buf(scaled_rhs, lmm.zt_y.view(), theta, row_block);
+        sparse.solve_into(scaled_rhs, solve_out);
+        w_y_buf.copy_from_slice(solve_out);
+        for (j, col_buf) in w_col_bufs.iter_mut().enumerate().take(p_usize) {
+            scale_block_rhs_buf(scaled_rhs, lmm.zt_x.column(j), theta, row_block);
+            sparse.solve_into(scaled_rhs, solve_out);
+            col_buf.copy_from_slice(solve_out);
+        }
+        let n = lmm.y.len() as f64;
+        let p_f = lmm.x.ncols() as f64;
+        if *p == 2 && p_usize == 2 {
+            profile_deviance_p2(
+                lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
+            )
+        } else {
+            compute_profile_deviance_blocks(
+                lmm,
+                ProfileDevianceBlocksInput {
+                    reml,
+                    n,
+                    p: p_f,
+                    p_usize,
+                    log_det_a,
+                    theta,
+                    row_block,
+                    w_y: w_y_buf,
+                    w_cols: w_col_bufs,
+                },
+            )
+        }
+    }
+
+    #[allow(dead_code)]
+    fn scale_block_rhs(&mut self, zt_vec: ArrayView1<f64>, theta: &[f64]) {
+        scale_block_rhs_buf(&mut self.scaled_rhs, zt_vec, theta, &self.row_block);
+    }
+
+    #[allow(dead_code)]
+    fn factor(&mut self, d: &Array1<f64>) -> Result<(), sprs::errors::LinalgError> {
+        if let Some(dense) = &mut self.dense {
+            dense.factor_from_d(d)
+        } else {
+            Err(sprs::errors::LinalgError::SingularMatrix(
+                sprs::errors::SingularMatrixInfo {
+                    index: 0,
+                    reason: "sparse intercept cache has no d-vector factor path",
+                },
+            ))
+        }
+    }
+
+    #[allow(dead_code)]
+    fn factor_blocks(&mut self, theta: &[f64]) -> Result<(), sprs::errors::LinalgError> {
+        if self.dense.is_some() {
+            Ok(())
+        } else {
+            self.sparse
+                .as_mut()
+                .unwrap()
+                .factor_blocks(theta, &self.row_block)
+        }
+    }
+
+    #[allow(dead_code)]
+    fn log_det_a(&self) -> f64 {
+        if let Some(dense) = &self.dense {
+            let mut log_det = 0.0;
+            for i in 0..dense.q {
+                log_det += dense.chol_l[[i, i]].ln();
+            }
+            2.0 * log_det
+        } else {
+            self.sparse.as_ref().unwrap().log_det_a()
+        }
+    }
+
+    #[allow(dead_code)]
+    fn solve_vec(&mut self, rhs: ArrayView1<f64>) -> Array1<f64> {
+        if let Some(dense) = &mut self.dense {
+            for i in 0..dense.q {
+                dense.rhs_work[i] = rhs[i];
+            }
+            let sol = dense
+                .chol_l
+                .solve(&dense.rhs_work)
+                .expect("dense solve failed");
+            Array1::from_vec(sol.to_vec())
+        } else {
+            self.sparse
+                .as_mut()
+                .unwrap()
+                .solve_into(rhs.as_slice().unwrap(), &mut self.solve_out);
+            Array1::from_vec(self.solve_out.clone())
+        }
+    }
+
+    #[allow(dead_code)]
+    fn solve_scaled_block_vec(&mut self, zt_vec: ArrayView1<f64>, theta: &[f64]) -> Vec<f64> {
+        self.scale_block_rhs(zt_vec, theta);
+        if let Some(dense) = &self.dense {
+            let sol = dense
+                .chol_l
+                .solve(&Array1::from_vec(self.scaled_rhs.clone()))
+                .expect("dense solve failed");
+            sol.to_vec()
+        } else {
+            self.sparse
+                .as_mut()
+                .unwrap()
+                .solve_into(&self.scaled_rhs, &mut self.solve_out);
+            self.solve_out.clone()
+        }
+    }
+}
+
+/// Hand-unrolled 2×2 SPD solve (avoids LAPACK overhead on the optimizer hot path).
+#[inline]
+fn try_solve_spd_2x2(a: [[f64; 2]; 2], b: [f64; 2]) -> Option<([f64; 2], f64)> {
+    if a[0][0] <= 0.0 {
+        return None;
+    }
+    let l00 = a[0][0].sqrt();
+    let l10 = a[1][0] / l00;
+    let l11_sq = a[1][1] - l10 * l10;
+    if l11_sq <= 0.0 {
+        return None;
+    }
+    let l11 = l11_sq.sqrt();
+    let y0 = b[0] / l00;
+    let y1 = (b[1] - l10 * y0) / l11;
+    let x1 = y1 / l11;
+    let x0 = (y0 - l10 * x1) / l00;
+    let log_det = l00.ln() + l11.ln();
+    Some(([x0, x1], log_det))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn profile_deviance_p2(
+    lmm: &LmmData,
+    reml: bool,
+    n: f64,
+    p: f64,
+    log_det_a: f64,
+    theta: &[f64],
+    row_block: &[usize],
+    w_y: &[f64],
+    w_cols: &[Vec<f64>],
+) -> f64 {
+    let w0 = w_cols[0].as_slice();
+    let w1 = w_cols[1].as_slice();
+    let zt_x = &lmm.zt_x;
+
+    let mut r00 = 0.0;
+    let mut r01 = 0.0;
+    let mut r11 = 0.0;
+    let mut c0 = 0.0;
+    let mut c1 = 0.0;
+    for k in 0..row_block.len() {
+        let t = theta[row_block[k]];
+        let zk0 = zt_x[[k, 0]] * t;
+        let zk1 = zt_x[[k, 1]] * t;
+        r00 += zk0 * w0[k];
+        r01 += zk0 * w1[k];
+        r11 += zk1 * w1[k];
+        c0 += zk0 * w_y[k];
+        c1 += zk1 * w_y[k];
+    }
+
+    let mut a_x = [[lmm.xt_x[[0, 0]] - r00, lmm.xt_x[[0, 1]] - r01], [0.0, 0.0]];
+    a_x[1][0] = lmm.xt_x[[1, 0]] - r01;
+    a_x[1][1] = lmm.xt_x[[1, 1]] - r11;
+
+    let rhs = [lmm.xt_y[0] - c0, lmm.xt_y[1] - c1];
+    let Some((beta, log_det_l_x)) = try_solve_spd_2x2(a_x, rhs) else {
+        return f64::MAX;
+    };
+
+    let mut cu_norm2 = 0.0;
+    for k in 0..row_block.len() {
+        cu_norm2 += lmm.zt_y[k] * theta[row_block[k]] * w_y[k];
+    }
+
+    let c_beta_norm2 = beta[0] * rhs[0] + beta[1] * rhs[1];
+    let r2 = lmm.y_norm2 - cu_norm2 - c_beta_norm2;
+    let reml_df = if reml { n - p } else { n };
+    let sigma2 = r2 / reml_df;
+    if sigma2 <= 0.0 {
+        return f64::MAX;
+    }
+
+    let twopi = std::f64::consts::PI * 2.0;
+    let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+    if reml {
+        deviance += 2.0 * log_det_l_x;
+    }
+    deviance
+}
+
+#[allow(clippy::too_many_arguments)]
+fn profile_deviance_general_p(
+    lmm: &LmmData,
+    reml: bool,
+    n: f64,
+    p: f64,
+    p_usize: usize,
+    log_det_a: f64,
+    theta: &[f64],
+    row_block: &[usize],
+    w_y: &[f64],
+    w_cols: &[Vec<f64>],
+) -> f64 {
+    compute_profile_deviance_blocks(
+        lmm,
+        ProfileDevianceBlocksInput {
+            reml,
+            n,
+            p,
+            p_usize,
+            log_det_a,
+            theta,
+            row_block,
+            w_y,
+            w_cols,
+        },
+    )
+}
+
+type InterceptATemplate = (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<f64>,
+    Vec<usize>,
+    Vec<usize>,
+    Vec<f64>,
+);
+
+fn build_intercept_a_template(zt_z: &CsMat<f64>, q: usize) -> InterceptATemplate {
+    let mut tri = TriMat::new((q, q));
+    let mut diag_in_zt = vec![false; q];
+    for (val, (i, j)) in zt_z.iter() {
+        tri.add_triplet(i, j, *val);
+        if i == j {
+            diag_in_zt[i] = true;
+        }
+    }
+    for (i, &seen) in diag_in_zt.iter().enumerate().take(q) {
+        if !seen {
+            tri.add_triplet(i, i, 0.0);
+        }
+    }
+    let a = tri.to_csr();
+    let mut nz_rows = Vec::with_capacity(a.nnz());
+    let mut nz_cols = Vec::with_capacity(a.nnz());
+    let mut zt_z_coeff = Vec::with_capacity(a.nnz());
+    let mut a_values = Vec::with_capacity(a.nnz());
+    for (val, (i, j)) in a.iter() {
+        nz_rows.push(i);
+        nz_cols.push(j);
+        zt_z_coeff.push(*val);
+        a_values.push(*val + if i == j { 1.0 } else { 0.0 });
+    }
+    (
+        a.indptr().raw_storage().to_vec(),
+        a.indices().to_vec(),
+        a_values,
+        nz_rows,
+        nz_cols,
+        zt_z_coeff,
+    )
+}
+
 fn build_a_diagonal_scaled(zt_z: &CsMat<f64>, d: &Array1<f64>, eye_q: &CsMat<f64>) -> CsMat<f64> {
     let q = zt_z.rows();
     let mut tri = TriMat::new((q, q));
@@ -481,15 +1241,6 @@ fn build_a_diagonal_scaled(zt_z: &CsMat<f64>, d: &Array1<f64>, eye_q: &CsMat<f64
     }
     let scaled = tri.to_csr();
     &scaled + eye_q
-}
-
-struct ProfileSolution {
-    reml_crit: f64,
-    sigma2: f64,
-    beta: Array1<f64>,
-    b: Array1<f64>,
-    u: Array1<f64>,
-    l_x: Array2<f64>,
 }
 
 fn build_lambda(theta: &[f64], q: usize, re_blocks: &[crate::model_matrix::ReBlock]) -> CsMat<f64> {
