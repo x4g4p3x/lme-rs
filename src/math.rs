@@ -124,19 +124,14 @@ impl LmmData {
                 // Z_w^T = Z^T * diag(sqrt_w), which means scaling columns of Zt
                 let zt_w = weight_sparse_cols(&zt, &sqrt_w);
 
-                let zt_z = &zt_w * &zt_w.transpose_view();
+                let zt_z = (&zt_w * &zt_w.transpose_view()).to_csr();
                 let xt_x = x_w.t().dot(&x_w);
                 let xt_y = x_w.t().dot(&y_w);
                 let q = zt_w.rows();
                 let (zt_x, zt_y) = precompute_zt_products(&zt_w, &x_w, &y_w);
                 let eye_q = identity_sparse(q);
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
-                let _row_block = if intercept_only_re {
-                    build_row_blocks(&re_blocks)
-                } else {
-                    Vec::new()
-                };
-                let y_norm2: f64 = y_w.iter().map(|&x| x * x).sum();
+                let y_norm2: f64 = y_w.iter().map(|&xi| xi * xi).sum();
 
                 finish_lmm_data(LmmData {
                     x,
@@ -159,29 +154,25 @@ impl LmmData {
                 })
             }
             None => {
-                let zt_z = &zt * &zt.transpose_view();
+                let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
+                let zt_z = (&zt * &zt.transpose_view()).to_csr();
                 let xt_x = x.t().dot(&x);
                 let xt_y = x.t().dot(&y);
                 let q = zt.rows();
                 let (zt_x, zt_y) = precompute_zt_products(&zt, &x, &y);
                 let eye_q = identity_sparse(q);
-                let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
-                let _row_block = if intercept_only_re {
-                    build_row_blocks(&re_blocks)
-                } else {
-                    Vec::new()
-                };
-                let y_norm2: f64 = y.iter().map(|&x| x * x).sum();
+                let y_norm2: f64 = y.iter().map(|&xi| xi * xi).sum();
 
                 finish_lmm_data(LmmData {
-                    x_eff: x.clone(),
-                    zt_eff: zt.clone(),
-                    y_eff: y.clone(),
                     x,
                     zt,
                     y,
                     re_blocks,
                     weights,
+                    // Unweighted: cross-products use x/zt/y directly; no duplicate storage.
+                    x_eff: Array2::zeros((0, 0)),
+                    zt_eff: CsMat::zero((0, 0)),
+                    y_eff: Array1::zeros(0),
                     zt_z,
                     xt_x,
                     xt_y,
@@ -292,6 +283,17 @@ impl LmmData {
     }
 
     fn solve_profile_diagonal(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+        if let Some(cache_mutex) = &self.intercept_ldl {
+            if let Ok(mut cache) = cache_mutex.lock() {
+                if let Ok(solved) = cache.solve_profile(self, theta, reml) {
+                    return solved;
+                }
+            }
+        }
+        self.solve_profile_diagonal_fresh(theta, reml)
+    }
+
+    fn solve_profile_diagonal_fresh(&self, theta: &[f64], reml: bool) -> ProfileSolution {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
         let q = self.zt.rows();
@@ -328,6 +330,7 @@ impl LmmData {
             log_det_a += diag.ln();
         }
 
+        let w_col_slices: Vec<&[f64]> = w_cols.iter().map(|c| c.as_slice().unwrap()).collect();
         solve_profile_finish(
             self,
             ProfileFinishInput {
@@ -338,9 +341,9 @@ impl LmmData {
                 q,
                 log_det_a,
                 v_y: &v_y,
-                w_y: &w_y,
+                w_y: w_y.as_slice().unwrap(),
                 v_cols: &v_cols,
-                w_cols: &w_cols,
+                w_cols: &w_col_slices,
             },
             |u| &d * u,
         )
@@ -403,6 +406,7 @@ impl LmmData {
             log_det_a += diag.ln();
         }
 
+        let w_col_slices: Vec<&[f64]> = w_cols.iter().map(|c| c.as_slice().unwrap()).collect();
         solve_profile_finish(
             self,
             ProfileFinishInput {
@@ -413,9 +417,9 @@ impl LmmData {
                 q,
                 log_det_a,
                 v_y: &v_y,
-                w_y: &w_y,
+                w_y: w_y.as_slice().unwrap(),
                 v_cols: &v_cols,
-                w_cols: &w_cols,
+                w_cols: &w_col_slices,
             },
             |u| apply_lambda(&lambda, u),
         )
@@ -430,9 +434,9 @@ struct ProfileFinishInput<'a> {
     q: usize,
     log_det_a: f64,
     v_y: &'a Array1<f64>,
-    w_y: &'a Array1<f64>,
+    w_y: &'a [f64],
     v_cols: &'a [Array1<f64>],
-    w_cols: &'a [Array1<f64>],
+    w_cols: &'a [&'a [f64]],
 }
 
 struct ProfileDevianceBlocksInput<'a> {
@@ -482,7 +486,7 @@ fn compute_profile_deviance_blocks(lmm: &LmmData, input: ProfileDevianceBlocksIn
     let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
     let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
 
-    let y_norm2: f64 = lmm.y_eff.iter().map(|&x| x * x).sum();
+    let y_norm2 = lmm.y_norm2;
     let cu_norm2 = dot_scaled_block_col(lmm.zt_y.view(), row_block, theta, w_y);
 
     let mut c_beta_norm2 = 0.0;
@@ -554,13 +558,13 @@ fn solve_profile_finish(
     let mut rzx_t_rzx = Array2::<f64>::zeros((p_usize, p_usize));
     for i in 0..p_usize {
         for j in 0..p_usize {
-            rzx_t_rzx[[i, j]] = v_cols[i].dot(&w_cols[j]);
+            rzx_t_rzx[[i, j]] = v_cols[i].dot(&ArrayView1::from(w_cols[j]));
         }
     }
 
     let mut rzx_t_cu = Array1::<f64>::zeros(p_usize);
     for i in 0..p_usize {
-        rzx_t_cu[i] = v_cols[i].dot(w_y);
+        rzx_t_cu[i] = v_cols[i].dot(&ArrayView1::from(w_y));
     }
 
     let a_x = &lmm.xt_x - &rzx_t_rzx;
@@ -967,47 +971,118 @@ impl InterceptLdlCache {
         let q = lmm.zt_z.rows();
         let row_block = build_row_blocks(&lmm.re_blocks);
         let p = lmm.x.ncols();
-        let mut cache = Self::new(&lmm.zt_z, q, &row_block, p)?;
-        cache.blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
-        if lmm.intercept_only_re() {
-            if cache.blocked.is_some() {
-                crate::perf_diag::set_kernel_detail("blocked_active");
-            } else {
-                let detail = intercept_blocked::blocked_unavailable_reason(lmm);
-                crate::perf_diag::set_kernel_detail(detail);
-            }
-        }
-        Ok(cache)
-    }
-
-    fn new(
-        zt_z: &CsMat<f64>,
-        q: usize,
-        row_block: &[usize],
-        p: usize,
-    ) -> Result<Self, sprs::errors::LinalgError> {
-        let sparse = Some(InterceptSparseLdl::new(zt_z, q, row_block)?);
+        let blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
+        let sparse = if blocked.is_none() {
+            Some(InterceptSparseLdl::new(&lmm.zt_z, q, &row_block)?)
+        } else {
+            None
+        };
         #[allow(clippy::absurd_extreme_comparisons)]
         let dense = match INTERCEPT_DENSE_MAX_Q {
             0 => None,
-            max_q if q <= max_q => Some(InterceptDenseChol::new(zt_z, q, p, row_block)),
+            max_q if q <= max_q => Some(InterceptDenseChol::new(&lmm.zt_z, q, p, &row_block)),
             _ => None,
         };
         let mut w_col_bufs = Vec::with_capacity(p);
         for _ in 0..p {
             w_col_bufs.push(vec![0.0; q]);
         }
+        if lmm.intercept_only_re() {
+            if blocked.is_some() {
+                crate::perf_diag::set_kernel_detail("blocked_active");
+            } else {
+                let detail = intercept_blocked::blocked_unavailable_reason(lmm);
+                crate::perf_diag::set_kernel_detail(detail);
+            }
+        }
         Ok(Self {
-            blocked: None,
+            blocked,
             dense,
             sparse,
             p,
-            row_block: row_block.to_vec(),
+            row_block,
             solve_out: vec![0.0; q],
             scaled_rhs: vec![0.0; q],
             w_y_buf: vec![0.0; q],
             w_col_bufs,
         })
+    }
+
+    fn ensure_sparse(&mut self, lmm: &LmmData) -> Result<(), sprs::errors::LinalgError> {
+        if self.sparse.is_none() {
+            let q = lmm.zt_z.rows();
+            self.sparse = Some(InterceptSparseLdl::new(&lmm.zt_z, q, &self.row_block)?);
+            let q = self.row_block.len();
+            if self.solve_out.len() != q {
+                self.solve_out.resize(q, 0.0);
+                self.scaled_rhs.resize(q, 0.0);
+                self.w_y_buf.resize(q, 0.0);
+            }
+        }
+        Ok(())
+    }
+
+    fn solve_profile(
+        &mut self,
+        lmm: &LmmData,
+        theta: &[f64],
+        reml: bool,
+    ) -> Result<ProfileSolution, sprs::errors::LinalgError> {
+        self.ensure_sparse(lmm)?;
+        let sparse = self
+            .sparse
+            .as_mut()
+            .expect("sparse intercept solver missing");
+        sparse.factor_blocks(theta, &self.row_block)?;
+        let log_det_a = sparse.log_det_a();
+
+        let q = lmm.zt.rows();
+        let p_usize = lmm.x.ncols();
+        let n = lmm.y.len() as f64;
+        let p = p_usize as f64;
+        let d = theta_diagonal(theta, q, &lmm.re_blocks);
+
+        scale_block_rhs_buf(
+            &mut self.scaled_rhs,
+            lmm.zt_y.view(),
+            theta,
+            &self.row_block,
+        );
+        sparse.solve_into(&self.scaled_rhs, &mut self.solve_out);
+        self.w_y_buf.copy_from_slice(&self.solve_out);
+
+        let v_y = &lmm.zt_y * &d;
+        let mut v_cols = Vec::with_capacity(p_usize);
+        for j in 0..p_usize {
+            let v_j = &lmm.zt_x.column(j) * &d;
+            scale_block_rhs_buf(
+                &mut self.scaled_rhs,
+                lmm.zt_x.column(j),
+                theta,
+                &self.row_block,
+            );
+            sparse.solve_into(&self.scaled_rhs, &mut self.solve_out);
+            self.w_col_bufs[j].copy_from_slice(&self.solve_out);
+            v_cols.push(v_j);
+        }
+
+        let w_col_slices: Vec<&[f64]> = self.w_col_bufs.iter().map(|v| v.as_slice()).collect();
+        Ok(solve_profile_finish(
+            lmm,
+            ProfileFinishInput {
+                reml,
+                n,
+                p,
+                p_usize,
+                q,
+                log_det_a,
+                v_y: &v_y,
+                w_y: &self.w_y_buf,
+                v_cols: &v_cols,
+                w_cols: &w_col_slices,
+            },
+            |u| &d * u,
+        ))
     }
 
     fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
@@ -1415,10 +1490,45 @@ fn precompute_zt_products(
     let mut zt_x = Array2::<f64>::zeros((q, p));
     let mut zt_y = Array1::<f64>::zeros(q);
 
-    for (val, (row, col)) in zt.iter() {
-        zt_y[row] += val * y[col];
-        for j in 0..p {
-            zt_x[[row, j]] += val * x[[col, j]];
+    match p {
+        1 => {
+            for (row, row_vec) in zt.outer_iterator().enumerate() {
+                let mut zy = 0.0;
+                let mut zx0 = 0.0;
+                for (col, &val) in row_vec.iter() {
+                    zy += val * y[col];
+                    zx0 += val * x[[col, 0]];
+                }
+                zt_y[row] = zy;
+                zt_x[[row, 0]] = zx0;
+            }
+        }
+        2 => {
+            for (row, row_vec) in zt.outer_iterator().enumerate() {
+                let mut zy = 0.0;
+                let mut zx0 = 0.0;
+                let mut zx1 = 0.0;
+                for (col, &val) in row_vec.iter() {
+                    zy += val * y[col];
+                    zx0 += val * x[[col, 0]];
+                    zx1 += val * x[[col, 1]];
+                }
+                zt_y[row] = zy;
+                zt_x[[row, 0]] = zx0;
+                zt_x[[row, 1]] = zx1;
+            }
+        }
+        _ => {
+            for (row, row_vec) in zt.outer_iterator().enumerate() {
+                let mut zy = 0.0;
+                for (col, &val) in row_vec.iter() {
+                    zy += val * y[col];
+                    for j in 0..p {
+                        zt_x[[row, j]] += val * x[[col, j]];
+                    }
+                }
+                zt_y[row] = zy;
+            }
         }
     }
 

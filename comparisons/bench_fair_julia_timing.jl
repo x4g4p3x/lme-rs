@@ -7,10 +7,7 @@ using CSV
 using DataFrames
 using JSON
 using MixedModels
-using ProgressMeter
 using Statistics
-
-ProgressMeter.enable(false)
 
 function parse_cli_args()
     defaults = Dict(

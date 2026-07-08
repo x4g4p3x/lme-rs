@@ -3,8 +3,6 @@ use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use std::collections::HashMap;
 
-use sprs::TriMat;
-
 /// Captures structural layout and variable indices for a multi-dimensional Random Effect correlation block.
 #[derive(Clone, Debug)]
 pub struct ReBlock {
@@ -199,15 +197,20 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
             };
             let g_str = g_series.str().unwrap();
 
-            let mut unique_groups = Vec::new();
-            let mut group_map = HashMap::new();
-
-            for val_opt in g_str.into_iter() {
-                let val = val_opt.unwrap().to_string();
-                if !group_map.contains_key(&val) {
-                    group_map.insert(val.clone(), unique_groups.len());
-                    unique_groups.push(val);
-                }
+            let g_values: Vec<&str> = g_str.into_iter().map(|v| v.unwrap()).collect();
+            let mut unique_groups: Vec<String> = Vec::new();
+            let mut group_map_str: HashMap<&str, usize> = HashMap::new();
+            let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
+            for val in &g_values {
+                let idx = *group_map_str.entry(*val).or_insert_with(|| {
+                    unique_groups.push((*val).to_string());
+                    unique_groups.len() - 1
+                });
+                obs_group_idx.push(idx);
+            }
+            let mut group_map = HashMap::with_capacity(unique_groups.len());
+            for (i, label) in unique_groups.iter().enumerate() {
+                group_map.insert(label.clone(), i);
             }
 
             let m = unique_groups.len();
@@ -217,6 +220,9 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
                 slope_vars.len()
             };
             let q_block = m * k;
+            triplet_rows.reserve(n_obs * k);
+            triplet_cols.reserve(n_obs * k);
+            triplet_vals.reserve(n_obs * k);
 
             let mut slope_data: Vec<Vec<f64>> = Vec::new();
             for s_var in &slope_vars {
@@ -229,9 +235,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
                 slope_data.push(s_f64_series.into_no_null_iter().collect());
             }
 
-            for (i, val_opt) in g_str.into_iter().enumerate() {
-                let val = val_opt.unwrap();
-                let group_idx = group_map[val];
+            for (i, &group_idx) in obs_group_idx.iter().enumerate() {
                 let offset = current_q_offset + group_idx * k;
 
                 let mut current_k = 0;
@@ -269,13 +273,13 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
     }
 
     let zt = if current_q_offset > 0 {
-        // We dynamically update the ncols bound of Z to match the full horizontal width
-        let mut final_z_tri = TriMat::new((n_obs, current_q_offset));
-        for i in 0..triplet_rows.len() {
-            final_z_tri.add_triplet(triplet_rows[i], triplet_cols[i], triplet_vals[i]);
-        }
-        let z_csc = final_z_tri.to_csc();
-        z_csc.transpose_into()
+        build_zt_csr(
+            &triplet_cols,
+            &triplet_rows,
+            &triplet_vals,
+            current_q_offset,
+            n_obs,
+        )
     } else {
         sprs::CsMat::zero((0, n_obs))
     };
@@ -291,6 +295,37 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         offset,
         categorical_levels,
     })
+}
+
+fn build_zt_csr(
+    re_rows: &[usize],
+    obs_cols: &[usize],
+    vals: &[f64],
+    q: usize,
+    n_obs: usize,
+) -> sprs::CsMat<f64> {
+    debug_assert_eq!(re_rows.len(), obs_cols.len());
+    debug_assert_eq!(re_rows.len(), vals.len());
+    let nnz = re_rows.len();
+    let mut row_counts = vec![0usize; q];
+    for &row in re_rows {
+        row_counts[row] += 1;
+    }
+    let mut indptr = vec![0usize; q + 1];
+    for i in 0..q {
+        indptr[i + 1] = indptr[i] + row_counts[i];
+    }
+    let mut indices = vec![0usize; nnz];
+    let mut data = vec![0.0f64; nnz];
+    let mut cursor = indptr.clone();
+    for t in 0..nnz {
+        let row = re_rows[t];
+        let pos = cursor[row];
+        indices[pos] = obs_cols[t];
+        data[pos] = vals[t];
+        cursor[row] += 1;
+    }
+    sprs::CsMat::new((q, n_obs), indptr, indices, data)
 }
 
 fn is_fixed_effect_column(

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- LMM **setup and post-fit** throughput: direct CSR `Zᵀ` build ([`build_zt_csr`](src/model_matrix.rs)), single-pass `&str` group indexing, skip sparse LDL symbolic setup when blocked Cholesky is active, no unweighted `x`/`zt`/`y` clones, row-wise `precompute_zt_products`, lazy sparse LDL reuse in `evaluate()` ([`InterceptLdlCache::solve_profile`](src/math.rs)), and `LME_PERF_DIAG` setup sub-phases (`setup_formula`, `setup_design_matrix`, `setup_lmm_data`). Fair harness on Windows AMD64: cold `crossed_20k` **~1.4× Julia** (was ~1.7×), `random_intercept_10k` **~1.1×** (was ~2.4×), `fit_prepared` on crossed **beats Julia** (~12 ms vs ~16 ms). See [OPTIMIZATION.md § Setup and post-fit pass](OPTIMIZATION.md#setup-and-post-fit-pass-2026-07-08-continued) and [BENCHMARKS.md § 2026-07-08 setup/post-fit](BENCHMARKS.md#fair-rust-julia-2026-07-08-setup-postfit).
 - LMM fit throughput (intercept-only / crossed): blocked augmented Cholesky with in-place Schur, reused workspaces, GEMM rank/Schur updates, batched multi-RHS triangular solves, and always-dense cross blocks ≤100k elements (reliable blocked gate on `crossed_20k`). ML 2D log-grid tightened to 5×5 + 4×4 (~42 evals). Post-fit reuses a single `evaluate()` (no duplicate deviance / `Z*b` pass). Documented in [`OPTIMIZATION.md`](OPTIMIZATION.md) and [`BENCHMARKS.md`](BENCHMARKS.md#fair-rust-julia-2026-07-08-gemm-prepared). Fair `crossed_20k`: **`fit_prepared` ~1× Julia**; cold `lmer()` ~2× (explicit setup + post-fit).
 - LMM fit throughput: reuse [`LmmData`](src/math.rs) across Nelder–Mead evaluations, precompute `Z^T X` / `Z^T y`, deviance-only optimizer path, and intercept-only diagonal-Λ fast path in [`src/math.rs`](src/math.rs) / [`src/optimizer.rs`](src/optimizer.rs). Golden-section θ search for |θ|=1; 2D log-grid for |θ|=2 (ML). Updated fair-harness snapshots in [`BENCHMARKS.md`](BENCHMARKS.md).
 - Test suite speed: `[profile.test] opt-level = 2`, parallel golden-parity cases (`rayon`), smaller debug smoke fixtures, `task test:fast` / `lme_ci.py test-fast`, and leaner CI test step (no separate `cargo build` before `cargo test`).
@@ -45,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Julia fair harness ([`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl)): removed obsolete `ProgressMeter.enable(false)` so MixedModels.jl timing runs on ProgressMeter 1.11+.
 - GLMM PIRLS with `offset(...)`: penalized WLS now regresses `z − offset` on fixed and random effects so coefficients match `lme4::glmer` (e.g. grouseticks Poisson offset case).
 - **`nlmer` expansion:** `SSasymp` mean with R parity on synthetic data ([`tests/test_nlmm_ssasymp.rs`](tests/test_nlmm_ssasymp.rs)); multivariate RE parsing (`Asym + xmid | Tree`) with relative-θ Cholesky covariance, correlated Orange parity, and conditional prediction ([`tests/test_nlmm_orange_multi_re.rs`](tests/test_nlmm_orange_multi_re.rs)).
 

@@ -229,6 +229,30 @@ Further blocked-kernel tuning in [`src/intercept_blocked.rs`](src/intercept_bloc
 
 **Takeaway:** on `crossed_20k`, Rust **matches Julia** when setup is amortized (`fit_prepared`). Per-deviance-eval time (~0.23 ms) is at or below Julia (~0.24 ms). Cold `lmer()` is still ~2× Julia because Rust times formula parse + design-matrix build + post-fit assembly explicitly. Tried `ndarray` BLAS for GEMM — **no measurable win** at these block sizes; not enabled. Fixed intermittent sparse-LDL fallback by always densifying cross blocks ≤100k elements.
 
+<a id="fair-rust-julia-2026-07-08-setup-postfit"></a>
+
+### 2026-07-08 setup and post-fit pass
+
+Targets cold-`lmer()` overhead outside θ search: design-matrix construction, intercept-cache setup, and post-fit `evaluate()`. Full write-up: **[OPTIMIZATION.md § Setup and post-fit pass](OPTIMIZATION.md#setup-and-post-fit-pass-2026-07-08-continued)**.
+
+**Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`, Julia **1.12.6**, MixedModels.jl **5.7.0**; 2 warmups + 10 measured fits (`--implementations rust,julia`).
+
+| Case | Cold `lmer()` Rust | Julia `fit` | vs Julia |
+|:-----|-------------------:|------------:|---------:|
+| `crossed_20k` | **22.4 ms** | 16.1 ms | **1.39×** |
+| `nested_10k` | **12.2 ms** | 7.4 ms | 1.65× |
+| `random_intercept_10k` | **1.6 ms** | 1.4 ms | **1.14×** |
+
+`bench_perf_breakdown` on `crossed_20k`:
+
+| Phase | Before | After |
+|:------|-------:|------:|
+| `prepare_lmer` | ~10–13 ms | **~4.8 ms** |
+| `fit_prepared` | ~12–14 ms | **~12.1 ms** |
+| `lmer_post_fit` | ~4–5 ms | **~1.8 ms** |
+
+**Takeaway:** `prepare_lmer` **~2× faster** (direct CSR `Zᵀ`, skip sparse LDL when blocked active, no unweighted clones). Post-fit **~2.5× faster** (lazy sparse LDL reuse in `evaluate()`). **`fit_prepared` beats Julia** on crossed (~12 ms vs ~16 ms); cold `lmer()` gap narrowed from **~1.7× to ~1.4×** on crossed and **~2.4× to ~1.1×** on random intercept. Fixed Julia fair harness (`ProgressMeter.enable` removed).
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.
@@ -285,7 +309,7 @@ Use the existing suite primarily for:
 
 Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
 
-The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×**; [blocked Cholesky](#fair-rust-julia-2026-07-08-blocked-cholesky) and [hot-path tuning](#fair-rust-julia-2026-07-08-blocked-hotpath) cut cold `lmer()` to ~**52 ms**; a [GEMM + prepared-fit pass](#fair-rust-julia-2026-07-08-gemm-prepared) brings **`fit_prepared` to ~13 ms** (~**1×** Julia on `crossed_20k`). See [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
+The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×**; [blocked Cholesky](#fair-rust-julia-2026-07-08-blocked-cholesky) and [hot-path tuning](#fair-rust-julia-2026-07-08-blocked-hotpath) cut cold `lmer()` to ~**52 ms**; a [GEMM + prepared-fit pass](#fair-rust-julia-2026-07-08-gemm-prepared) brings **`fit_prepared` to ~13 ms** (~**1×** Julia on `crossed_20k`); a [setup/post-fit pass](#fair-rust-julia-2026-07-08-setup-postfit) cuts cold `lmer()` to **~22 ms** (~**1.4×** Julia on crossed, **~1.1×** on random intercept). See [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
 
 ## Recommended next extensions
 

@@ -17,13 +17,13 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 **Hardest case:** `crossed_20k` — `y ~ x + (1 | plate) + (1 | sample)`, ML, 20k obs, q ≈ 350, p = 2, |θ| = 2.
 
-| Case | Status vs Julia | Hot-path metric |
-|:-----|:----------------|:----------------|
-| `crossed_20k` | **~1.0×** | `fit_prepared` ~12–14 ms |
-| `random_intercept_10k` | ~2.6× | cold `lmer` ~3 ms |
-| `nested_10k` | ~2.4× | cold `lmer` ~14 ms (sparse LDL) |
+| Case | Status vs Julia (cold `lmer`) | Hot-path metric |
+|:-----|:------------------------------|:----------------|
+| `crossed_20k` | **~1.4×** (was ~1.7×) | `fit_prepared` **~12 ms** (Julia ~16 ms) |
+| `random_intercept_10k` | **~1.1×** (was ~2.4×) | cold `lmer` **~1.6 ms** |
+| `nested_10k` | **~1.7×** (was ~2.1×) | cold `lmer` **~12 ms** (sparse LDL) |
 
-Cold `lmer()` on `crossed_20k` is still **~25–28 ms** (~2× Julia) because setup (~10–13 ms) and post-fit (~2 ms) sit outside the optimizer. Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly.
+Cold `lmer()` on `crossed_20k` is **~19–22 ms** vs Julia **~16 ms** after the [setup/post-fit pass](#setup-and-post-fit-pass-2026-07-08-continued) (`prepare` ~5 ms, optimize ~10 ms, post-fit ~2 ms). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit is **at or below Julia** on crossed.
 
 ---
 
@@ -37,9 +37,9 @@ Cold `lmer()` on `crossed_20k` is still **~25–28 ms** (~2× Julia) because set
 |:-----|:------|:---------|:-----|
 | **Optimizer hot** | `profile_deviance` → `profile_deviance_diagonal` → `InterceptLdlCache::profile_deviance` | θ search cost | Fast; return `f64::MAX` on infeasible θ (no panic) |
 | **Blocked hot (crossed)** | `InterceptBlockedChol::profile_deviance` when cross blocks fit in memory | θ search on intercept-only crossed models | Same deviance as slow path; gated by cross-block size |
-| **Full profile** | `solve_profile` → `solve_profile_diagonal` | `evaluate()`, SEs, fitted values | Correct; fresh LDL per θ |
+| **Full profile** | `solve_profile` → `solve_profile_diagonal` or cached `InterceptLdlCache::solve_profile` | `evaluate()`, SEs, fitted values | Correct; blocked models lazy-init sparse LDL on first evaluate |
 
-> **Invariant:** do **not** route `solve_profile_diagonal` through `InterceptLdlCache` until parity is proven on all golden intercept-only cases. A cached evaluate path broke `crossed_20k` and golden parity during development.
+> **Invariant:** the θ optimizer hot path must not panic on infeasible θ. Post-fit `evaluate()` on blocked intercept-only models uses **lazy sparse LDL reuse** (`InterceptLdlCache::solve_profile`) instead of a fresh symbolic factorization each call — golden parity passes on all fixtures including `penicillin_crossed_reml`.
 
 ### Intercept-only fast path
 
@@ -219,7 +219,62 @@ Tried enabling `ndarray = { features = ["blas"] }` so `general_mat_mul` routes t
 
 **Takeaway:** once setup is amortized, Rust **matches Julia on crossed fit wall time** and is **at or below Julia per feval**. The remaining ~2× gap on cold `lmer()` is almost entirely **one-time setup + post-fit assembly**, not θ-search algebra.
 
-`bench_perf_breakdown` reports `prepare_wall_seconds`, `fit_prepared_wall_seconds`, `blocked_kernel`, and `blocked_kernel_detail` alongside `LME_PERF_DIAG` phases.
+`bench_perf_breakdown` reports `prepare_wall_seconds`, `fit_prepared_wall_seconds`, `blocked_kernel`, and `blocked_kernel_detail` alongside `LME_PERF_DIAG` phases. Setup sub-phases: `setup_formula`, `setup_design_matrix`, `setup_lmm_data`.
+
+---
+
+## Setup and post-fit pass (2026-07-08 continued)
+
+After blocked Cholesky matched Julia on `fit_prepared`, the remaining cold-`lmer()` gap on `crossed_20k` was **setup (~45%)** and **post-fit (~20%)**, not θ-search algebra. This pass targets both.
+
+### Recorded (Windows AMD64, `rustc 1.96.0`, Julia 1.12.6, MixedModels.jl 5.7.0)
+
+Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia`).
+
+| Case | Rust cold `lmer()` | Julia `fit` | vs Julia |
+|:-----|-------------------:|------------:|---------:|
+| `crossed_20k` | **22.4 ms** | 16.1 ms | **1.39×** |
+| `nested_10k` | **12.2 ms** | 7.4 ms | 1.65× |
+| `random_intercept_10k` | **1.6 ms** | 1.4 ms | **1.14×** |
+
+`bench_perf_breakdown` on `crossed_20k` (single measured run):
+
+| Phase | Before this pass | After |
+|:------|----------------:|------:|
+| `prepare_lmer` | ~10–13 ms | **~4.8 ms** |
+| `fit_prepared` | ~12–14 ms | **~12.1 ms** |
+| `lmer_post_fit` | ~4–5 ms | **~1.8 ms** |
+| Cold `lmer()` | ~25–26 ms | **~19 ms** |
+
+### Setup changes ([`src/model_matrix.rs`](src/model_matrix.rs), [`src/math.rs`](src/math.rs))
+
+| Change | Effect |
+|:-------|:-------|
+| **Direct CSR `Zᵀ` build** (`build_zt_csr`) | Skips `TriMat` assembly + transpose for random-effects matrices |
+| **Single-pass group indexing** (`HashMap<&str, usize>`) | Avoids per-row `String` allocation when building RE blocks |
+| **Pre-sized triplet buffers** | `reserve(n_obs × k)` per intercept RE block |
+| **Skip sparse LDL at prepare** when blocked Cholesky is active | No symbolic LDL factorization when `InterceptBlockedChol` handles θ search |
+| **No `x`/`zt`/`y` clones** for unweighted `LmmData` | Drops duplicate storage of design matrices in `x_eff`/`zt_eff`/`y_eff` |
+| **Row-wise `precompute_zt_products`** | CSR `outer_iterator`; hand-unrolled `p = 1` / `p = 2` |
+| **Setup sub-phases** in `LME_PERF_DIAG` | `setup_formula`, `setup_design_matrix`, `setup_lmm_data` |
+
+### Post-fit changes ([`src/math.rs`](src/math.rs))
+
+| Change | Effect |
+|:-------|:-------|
+| **`InterceptLdlCache::solve_profile`** | Reuses sparse LDL symbolic structure for full profile solve at converged θ |
+| **Lazy sparse LDL on evaluate** | Built on first `evaluate()` when blocked path skipped sparse at prepare — avoids fresh `Ldl::numeric()` per post-fit |
+| **Cached `y_norm2`** in profile finish | Drops redundant `y_eff` norm computation |
+
+### Fair-harness Julia fix
+
+[`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl): removed obsolete `ProgressMeter.enable(false)` (broken on ProgressMeter 1.11+) so Rust vs Julia comparisons run out of the box.
+
+### What we tried and reverted
+
+| Attempt | Outcome |
+|:--------|:--------|
+| Grouped `ZᵀZ` from per-observation RE indices (dense q×q) | Broke `penicillin_crossed_reml` golden parity; reverted. Nested q=2000 would allocate 4M f64 anyway. |
 
 ---
 
@@ -330,10 +385,10 @@ Do not reintroduce these without re-validating parity and benchmarks.
    - Ungated sparse blocked with dense Schur loops → **~66–130 ms** vs **~15 ms** reused LDL.
    - Transposing the cross alone is **not** enough: Schur/trisolve indexing must match the stored layout (MixedModels keeps consistent block orientation).
    - Target: cask×batch sparse cross + per-batch diagonal Cholesky blocks (~200×10), sparse Schur along structural nonzeros only.
-2. **Cold `lmer()` setup** — `build_design_matrices` + `zt_z` assembly (~10 ms on `crossed_20k`); only matters for one-shot fits (use `prepare_lmer` when repeating).
-3. **Fair harness reporting** — prefer `fit_prepared_wall_seconds` in regression JSON; keep cold `lmer` as a separate column.
-4. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
-5. **Criterion / fair JSON** — refresh reference after next tagged release.
+2. **`build_x_matrix` for simple formulas** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
+3. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
+4. **Fair harness reference JSON** — refresh `benchmarks/fair-rust-julia-reference-*.json` after next tagged release.
+5. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
 
 ---
 
@@ -345,6 +400,7 @@ Do not reintroduce these without re-validating parity and benchmarks.
 | [`src/intercept_blocked.rs`](src/intercept_blocked.rs) | Blocked augmented Cholesky (`updateL!`) for intercept-only crossed models |
 | [`src/optimizer.rs`](src/optimizer.rs) | `optimize_theta_lmm`, intercept golden-section (|θ|=1), 2D log-grid (|θ|=2) |
 | [`src/lib.rs`](src/lib.rs) | `lmer`, `prepare_lmer`, `fit_prepared`, `LmerPrepared` |
+| [`src/model_matrix.rs`](src/model_matrix.rs) | Design matrices; `build_zt_csr` direct `Zᵀ` assembly |
 | [`src/perf_diag.rs`](src/perf_diag.rs) | `LME_PERF_DIAG` phase timing |
 | [`comparisons/bench_perf_breakdown.rs`](comparisons/bench_perf_breakdown.rs) | Prepared vs cold fit breakdown JSON |
 | [`benches/bench_math.rs`](benches/bench_math.rs) | Criterion size sweeps |

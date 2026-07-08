@@ -1013,8 +1013,12 @@ pub fn prepare_lmer_weighted(
 
     let setup_started = perf_diag::enabled().then(Instant::now);
 
-    let ast = formula::parse(formula_str)?;
-    let matrices = model_matrix::build_design_matrices(&ast, data)?;
+    let ast = perf_diag::scope(perf_diag::Phase::SetupFormula, || {
+        formula::parse(formula_str)
+    })?;
+    let matrices = perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
+        model_matrix::build_design_matrices(&ast, data)
+    })?;
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
 
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
@@ -1026,13 +1030,15 @@ pub fn prepare_lmer_weighted(
         matrices.y.clone()
     };
 
-    let lmm = Arc::new(math::LmmData::new_weighted(
-        matrices.x.clone(),
-        matrices.zt.clone(),
-        y_adjusted,
-        matrices.re_blocks.clone(),
-        weights,
-    ));
+    let lmm = Arc::new(perf_diag::scope(perf_diag::Phase::SetupLmmData, || {
+        math::LmmData::new_weighted(
+            matrices.x.clone(),
+            matrices.zt.clone(),
+            y_adjusted,
+            matrices.re_blocks.clone(),
+            weights,
+        )
+    }));
 
     if let Some(started) = setup_started {
         perf_diag::record_duration(perf_diag::Phase::LmerSetup, started.elapsed());
@@ -1551,10 +1557,11 @@ fn validate_glmm_response(y: &Array1<f64>, family_enum: family::Family) -> Resul
 
 /// Gap 2: Builds a ranef DataFrame from the b vector organized per group/effect.
 fn build_ranef_dataframe(b: &Array1<f64>, re_blocks: &[model_matrix::ReBlock]) -> DataFrame {
-    let mut group_col = Vec::new();
-    let mut group_name_col = Vec::new();
-    let mut effect_col = Vec::new();
-    let mut value_col = Vec::new();
+    let total_rows: usize = re_blocks.iter().map(|block| block.m * block.k).sum();
+    let mut group_col = Vec::with_capacity(total_rows);
+    let mut group_name_col = Vec::with_capacity(total_rows);
+    let mut effect_col = Vec::with_capacity(total_rows);
+    let mut value_col = Vec::with_capacity(total_rows);
 
     let mut offset = 0;
     for block in re_blocks {

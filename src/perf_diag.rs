@@ -15,6 +15,12 @@ use std::time::{Duration, Instant};
 pub enum Phase {
     /// Formula parse + design-matrix build in [`crate::lmer`].
     LmerSetup,
+    /// Wilkinson formula parse in [`crate::prepare_lmer`].
+    SetupFormula,
+    /// Polars → X/Z design-matrix build in [`crate::prepare_lmer`].
+    SetupDesignMatrix,
+    /// [`crate::math::LmmData::new_weighted`] cross-products and intercept cache.
+    SetupLmmData,
     /// θ optimization (grid / Nelder–Mead).
     LmerOptimize,
     /// Post-fit coefficient extraction and DataFrame assembly.
@@ -45,6 +51,9 @@ impl Phase {
     fn name(self) -> &'static str {
         match self {
             Phase::LmerSetup => "lmer_setup",
+            Phase::SetupFormula => "setup_formula",
+            Phase::SetupDesignMatrix => "setup_design_matrix",
+            Phase::SetupLmmData => "setup_lmm_data",
             Phase::LmerOptimize => "lmer_optimize",
             Phase::LmerPostFit => "lmer_post_fit",
             Phase::DevianceEval => "deviance_eval",
