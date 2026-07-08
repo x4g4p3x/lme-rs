@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`prepare_lmer` / `fit_prepared` / `LmerPrepared`** — amortize formula parse and design-matrix build when fitting the same formula and data repeatedly (e.g. CV, bootstrap); hot `fit_prepared` wall time on fair `crossed_20k` matches MixedModels.jl (~12–14 ms). See [`OPTIMIZATION.md`](OPTIMIZATION.md).
+- **Blocked augmented Cholesky** for intercept-only crossed models ([`src/intercept_blocked.rs`](src/intercept_blocked.rs)): MixedModels.jl-style `updateL!` layout; profile deviance without full-q LDL solves on the θ hot path.
+- **LMM performance diagnostics** (`LME_PERF_DIAG=1`): phase timing in [`src/perf_diag.rs`](src/perf_diag.rs), [`comparisons/bench_perf_breakdown.rs`](comparisons/bench_perf_breakdown.rs), Julia runner [`comparisons/bench_fair_julia_perf.jl`](comparisons/bench_fair_julia_perf.jl), and [`scripts/run_perf_breakdown.py`](scripts/run_perf_breakdown.py) (`task benchmarks:perf-breakdown`). Reports `prepare_wall_seconds`, `fit_prepared_wall_seconds`, and `blocked_kernel` alongside optimizer phases.
 - Fair Rust vs Julia LMM fit benchmark ([`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py), [`comparisons/bench_fair_rust_julia.rs`](comparisons/bench_fair_rust_julia.rs), [`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl)); documented 2026-07-04 Windows reference in [`BENCHMARKS.md`](BENCHMARKS.md) and [`benchmarks/fair-rust-julia-reference-2026-07-04.json`](benchmarks/fair-rust-julia-reference-2026-07-04.json).
 - `nlmer` built-in means **`SSmicmen`** and **`SSgompertz`** (`stats::SSmicmen`; `stats::SSgompertz` as `Asym * exp(-b2 * b3^x)`).
 - Custom nonlinear means via [`NlmmMeanEval`](src/nlmm/mean_fn.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) and [`nlmer_with_mean`](src/nlmm/mod.rs).
@@ -23,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- LMM fit throughput: reuse [`LmmData`](src/math.rs) across Nelder–Mead evaluations, precompute `Z^T X` / `Z^T y`, deviance-only optimizer path, and intercept-only diagonal-Λ fast path in [`src/math.rs`](src/math.rs) / [`src/optimizer.rs`](src/optimizer.rs). Updated fair-harness reference: [`benchmarks/fair-rust-julia-reference-2026-07-06.json`](benchmarks/fair-rust-julia-reference-2026-07-06.json) (random-intercept cases ~**2×** vs Julia on the reference workstation; crossed still ~**19×**).
+- LMM fit throughput (intercept-only / crossed): blocked augmented Cholesky with in-place Schur, reused workspaces, GEMM rank/Schur updates, batched multi-RHS triangular solves, and always-dense cross blocks ≤100k elements (reliable blocked gate on `crossed_20k`). ML 2D log-grid tightened to 5×5 + 4×4 (~42 evals). Post-fit reuses a single `evaluate()` (no duplicate deviance / `Z*b` pass). Documented in [`OPTIMIZATION.md`](OPTIMIZATION.md) and [`BENCHMARKS.md`](BENCHMARKS.md#fair-rust-julia-2026-07-08-gemm-prepared). Fair `crossed_20k`: **`fit_prepared` ~1× Julia**; cold `lmer()` ~2× (explicit setup + post-fit).
+- LMM fit throughput: reuse [`LmmData`](src/math.rs) across Nelder–Mead evaluations, precompute `Z^T X` / `Z^T y`, deviance-only optimizer path, and intercept-only diagonal-Λ fast path in [`src/math.rs`](src/math.rs) / [`src/optimizer.rs`](src/optimizer.rs). Golden-section θ search for |θ|=1; 2D log-grid for |θ|=2 (ML). Updated fair-harness snapshots in [`BENCHMARKS.md`](BENCHMARKS.md).
 - Test suite speed: `[profile.test] opt-level = 2`, parallel golden-parity cases (`rayon`), smaller debug smoke fixtures, `task test:fast` / `lme_ci.py test-fast`, and leaner CI test step (no separate `cargo build` before `cargo test`).
 
 - Bump `rand` to **0.9.3+** (and transitive **0.8.6** where applicable) for [RUSTSEC-2026-0097](https://rustsec.org/advisories/RUSTSEC-2026-0097).
