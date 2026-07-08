@@ -151,7 +151,7 @@ For **where time goes** inside a fit (Rust phase breakdown + Julia `optsum.feval
 
 ### Fair Rust vs Julia reference results
 
-Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json) (current); prior datapoint [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).  
+Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json) (current); prior datapoints [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json), [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).  
 Full per-sample JSON from the same run can be reproduced locally as `benchmark-results/fair-rust-julia-benchmarks.json`.
 
 **Recorded:** 2026-07-06 on a Windows 10 AMD64 workstation (12 logical CPUs).  

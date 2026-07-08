@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- LMM **nested blocked path**: nested `batch/cask` sparse crosses use `ReFactor::Diagonal` and `trisolve_single_row_cols` on the batch block (`columns_single_row` gate) instead of densifying the cross or taking the sparse-LDL-only path. Blocked kernel active on `nested_10k`; fair harness **~1.4× Julia** cold `lmer()`, **`fit_prepared` ~0.52×** Julia. See [OPTIMIZATION.md](OPTIMIZATION.md).
+- LMM **blocked post-fit backsolve**: `solve_profile_blocked` reuses the blocked `updateL!` factor in `evaluate()` (no lazy sparse LDL init on success). When blocked `w` vectors are numerically unstable (observed on `crossed_20k` ML), `solve_profile_finish` returns an error and **`InterceptLdlCache::solve_profile` falls back to sparse LDL** instead of panicking. Fair harness tier-A cases are **within 2× Julia** on cold `lmer()`; `crossed_20k` **~1.2×**, `fit_prepared` **~0.71×** Julia. Reference: [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json).
+
+### Added
+
+- Fair-harness reference snapshot [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json) (tier-A LMM cases: `crossed_20k`, `nested_10k`, `random_intercept_10k`; Rust and Julia medians measured together).
+- Unit tests: `blocked_profile_solve_matches_sparse_evaluate_on_penicillin`, `nested_sparse_gate_uses_diagonal_batch_factor` in [`src/intercept_blocked.rs`](src/intercept_blocked.rs).
+
 ## [0.1.9] - 2026-07-08
 
 ### Changed
