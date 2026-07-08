@@ -437,7 +437,7 @@ impl LmmData {
     }
 }
 
-struct ProfileFinishInput<'a> {
+pub(crate) struct ProfileFinishInput<'a> {
     reml: bool,
     n: f64,
     p: f64,
@@ -549,7 +549,7 @@ fn build_row_blocks(re_blocks: &[crate::model_matrix::ReBlock]) -> Vec<usize> {
     row_block
 }
 
-fn solve_profile_finish(
+pub(crate) fn solve_profile_finish(
     lmm: &LmmData,
     input: ProfileFinishInput<'_>,
     apply_lambda_to_u: impl Fn(&Array1<f64>) -> Array1<f64>,
@@ -643,7 +643,7 @@ fn apply_lambda(lambda: &CsMat<f64>, u: &Array1<f64>) -> Array1<f64> {
     b
 }
 
-fn theta_diagonal(
+pub(crate) fn theta_diagonal(
     theta: &[f64],
     q: usize,
     re_blocks: &[crate::model_matrix::ReBlock],
@@ -662,7 +662,7 @@ fn theta_diagonal(
     d
 }
 
-struct ProfileSolution {
+pub(crate) struct ProfileSolution {
     reml_crit: f64,
     sigma2: f64,
     beta: Array1<f64>,
@@ -953,7 +953,7 @@ fn chol_solve_vec(chol_l: &Array2<f64>, rhs: &Array1<f64>, out: &mut [f64]) {
     out.copy_from_slice(sol.as_slice().unwrap());
 }
 
-fn scale_block_rhs_buf(
+pub(crate) fn scale_block_rhs_buf(
     scaled_rhs: &mut [f64],
     zt_vec: ArrayView1<f64>,
     theta: &[f64],

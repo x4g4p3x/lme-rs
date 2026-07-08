@@ -452,12 +452,12 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Next experiments (priority order)
 
-1. **Nested blocked path (sparse + column-disjoint)** — scaffolding in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) (`CrossBlock::Sparse`, `column_disjoint_partition`, `ReFactor::ColumnBlocks`). Lessons from 2026-07-08 WIP:
-   - Densifying nested `batch×cask` (200×2000) and factoring a single 2000×2000 `ReLower` → **~1.8 s/fit**.
-   - Ungated sparse blocked with dense Schur loops → **~66–130 ms** vs **~15 ms** reused LDL.
-   - Transposing the cross alone is **not** enough: Schur/trisolve indexing must match the stored layout (MixedModels keeps consistent block orientation).
-   - Target: cask×batch sparse cross + per-batch diagonal Cholesky blocks (~200×10), sparse Schur along structural nonzeros only.
-2. **Blocked post-fit backsolve** — extract correct `w_y` / `w_cols` from factored `updateL!` (not raw `l_xy_re` entries) to skip sparse LDL init on crossed `evaluate()` (~2 ms on cold `lmer()`).
+1. **Nested blocked path (row-grouped ColumnBlocks)** — scaffolding in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) (`CrossBlock::Sparse`, `columns_single_row`, `row_grouped_columns`, `ReFactor::ColumnBlocks`). Lessons from 2026-07-08 WIP:
+   - `column_disjoint_partition` is for **crossed** layouts (each row in one column), not nested (each **column** in one row).
+   - Ungated sparse blocked with `ReFactor::Full` on the batch block → **~6× Julia** on `nested_10k` vs **~1.5×** on reused sparse LDL; **gate stays off** until row-grouped blocks ship.
+   - Densifying nested `batch×cask` (200×2000) → **~1.8 s/fit**.
+   - Target: `row_grouped_columns` → ~200 independent 10×10 Cholesky blocks on the cask diagonal + sparse Schur on the batch block only.
+2. **Blocked post-fit backsolve** — forward/backward `cross_matvec_sub` / `cross_matvec_t_sub` scaffolding added (`backsolve_a_inv`, `solve_profile_blocked`); still disagrees with sparse LDL on crossed `evaluate()` (indefinite `A_x`). Do not wire into `InterceptLdlCache::solve_profile` until golden parity passes.
 3. **`build_x_matrix` numeric fast path** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
 4. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
 5. **Fair harness reference JSON** — refresh `benchmarks/fair-rust-julia-reference-*.json` after next tagged release.

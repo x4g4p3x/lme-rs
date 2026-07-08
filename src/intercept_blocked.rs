@@ -195,13 +195,65 @@ impl CrossBlock {
     fn fits_blocked_gate(&self) -> bool {
         match self {
             CrossBlock::Dense(d) => d.nrows() * d.ncols() <= 100_000,
-            // Nested sparse crosses stay on reused sparse LDL until column-block
-            // Cholesky matches this layout end-to-end (see OPTIMIZATION.md).
+            // Nested sparse crosses: keep sparse LDL until row-grouped ColumnBlocks
+            // beat reused LDL on `nested_10k` (ungated sparse blocked ~6× Julia vs ~1.5×).
             CrossBlock::Sparse { .. } => false,
         }
     }
 
-    /// Each RE row owned by exactly one column (nested `batch/cask` cross).
+    /// Each cross column touches exactly one row (nested `batch/cask`: cask → batch).
+    #[allow(dead_code)]
+    fn columns_single_row(&self) -> bool {
+        for col in 0..self.ncols() {
+            let mut count = 0usize;
+            match self {
+                CrossBlock::Dense(d) => {
+                    for row in 0..d.nrows() {
+                        if d[[row, col]] != 0.0 {
+                            count += 1;
+                        }
+                    }
+                }
+                CrossBlock::Sparse { col_ptr, .. } => {
+                    count = col_ptr[col + 1] - col_ptr[col];
+                }
+            }
+            if count != 1 {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Groups cross column indices by their sole row (batch → casks for nested RE).
+    #[allow(dead_code)]
+    fn row_grouped_columns(&self) -> Option<Vec<Vec<usize>>> {
+        if !self.columns_single_row() {
+            return None;
+        }
+        let nrows = self.nrows();
+        let mut groups = vec![Vec::new(); nrows];
+        for col in 0..self.ncols() {
+            let row = match self {
+                CrossBlock::Dense(d) => {
+                    let mut r = None;
+                    for row in 0..d.nrows() {
+                        if d[[row, col]] != 0.0 {
+                            r = Some(row);
+                        }
+                    }
+                    r?
+                }
+                CrossBlock::Sparse {
+                    col_ptr, row_idx, ..
+                } => row_idx[col_ptr[col]],
+            };
+            groups[row].push(col);
+        }
+        Some(groups)
+    }
+
+    /// Each RE row owned by exactly one column (crossed plate×sample — not nested).
     #[allow(dead_code)]
     fn column_disjoint_partition(&self) -> Option<Vec<Vec<usize>>> {
         let nrows = self.nrows();
@@ -931,6 +983,17 @@ impl InterceptBlockedChol {
     fn schur_sub_re_cross(&mut self, i: usize, j: usize, jj: usize) -> Result<(), ()> {
         let li_r = i - 1;
         let lj_r = j - 1;
+        let sparse_target = matches!(self.l_cross[li_r][j], CrossBlock::Sparse { .. });
+        if sparse_target {
+            let li = self.l_cross[li_r][jj].clone();
+            let lj = if li_r == lj_r {
+                li.clone()
+            } else {
+                self.l_cross[lj_r][jj].clone()
+            };
+            Self::schur_sub_sparse_at_structure(&mut self.l_cross[li_r][j], &li, &lj);
+            return Ok(());
+        }
         Self::cross_to_dense_scratch(&self.l_cross[li_r][jj], &mut self.schur_li_scratch);
         if li_r == lj_r {
             self.schur_lj_scratch.assign(&self.schur_li_scratch);
@@ -957,6 +1020,31 @@ impl InterceptBlockedChol {
             &self.rank_gram_buf,
         );
         Ok(())
+    }
+
+    /// `target -= li * ljᵀ` at structural nonzeros only (nested sparse crosses).
+    fn schur_sub_sparse_at_structure(target: &mut CrossBlock, li: &CrossBlock, lj: &CrossBlock) {
+        let CrossBlock::Sparse {
+            col_ptr,
+            row_idx,
+            vals,
+            ncols,
+            ..
+        } = target
+        else {
+            panic!("schur_sub_sparse_at_structure expects sparse target");
+        };
+        let inner = li.ncols().min(lj.nrows());
+        for col in 0..*ncols {
+            for idx in col_ptr[col]..col_ptr[col + 1] {
+                let row = row_idx[idx];
+                let mut s = vals[idx];
+                for k in 0..inner {
+                    s -= li.entry(row, k) * lj.entry(col, k);
+                }
+                vals[idx] = s;
+            }
+        }
     }
 
     fn set_cross_entry(block: &mut CrossBlock, row: usize, col: usize, val: f64) {
@@ -1130,6 +1218,223 @@ impl InterceptBlockedChol {
             deviance += 2.0 * log_det_l_x;
         }
         deviance
+    }
+
+    /// Block offsets into the global `q`-vector (RE blocks in sort order).
+    fn re_offsets(&self) -> Vec<usize> {
+        let mut offsets = Vec::with_capacity(self.k_re + 1);
+        let mut off = 0usize;
+        for &m in &self.n_re {
+            offsets.push(off);
+            off += m;
+        }
+        offsets.push(off);
+        offsets
+    }
+
+    /// `dst[r] -= Σ_c cross[r,c] · src[c]` (`cross` has `nrows = |dst|`, `ncols = |src|`).
+    fn cross_matvec_sub(cross: &CrossBlock, src: &[f64], dst: &mut [f64]) {
+        match cross {
+            CrossBlock::Dense(d) => {
+                debug_assert_eq!(d.nrows(), dst.len());
+                debug_assert_eq!(d.ncols(), src.len());
+                for row in 0..d.nrows() {
+                    let mut s = 0.0;
+                    for col in 0..d.ncols() {
+                        s += d[[row, col]] * src[col];
+                    }
+                    dst[row] -= s;
+                }
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ncols,
+                ..
+            } => {
+                debug_assert_eq!(*ncols, src.len());
+                for col in 0..*ncols {
+                    let sc = src[col];
+                    if sc == 0.0 {
+                        continue;
+                    }
+                    for idx in col_ptr[col]..col_ptr[col + 1] {
+                        dst[row_idx[idx]] -= vals[idx] * sc;
+                    }
+                }
+            }
+        }
+    }
+
+    /// `dst[c] -= Σ_r cross[r,c] · src[r]` (`cross` has `nrows = |src|`, `ncols = |dst|`).
+    fn cross_matvec_t_sub(cross: &CrossBlock, src: &[f64], dst: &mut [f64]) {
+        match cross {
+            CrossBlock::Dense(d) => {
+                debug_assert_eq!(d.nrows(), src.len());
+                debug_assert_eq!(d.ncols(), dst.len());
+                for col in 0..d.ncols() {
+                    let mut s = 0.0;
+                    for row in 0..d.nrows() {
+                        s += d[[row, col]] * src[row];
+                    }
+                    dst[col] -= s;
+                }
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ncols,
+                ..
+            } => {
+                debug_assert_eq!(*ncols, dst.len());
+                for col in 0..*ncols {
+                    let mut s = 0.0;
+                    for idx in col_ptr[col]..col_ptr[col + 1] {
+                        s += vals[idx] * src[row_idx[idx]];
+                    }
+                    dst[col] -= s;
+                }
+            }
+        }
+    }
+
+    /// `v_i -= cross(i,j) * v_j` with `cross` stored as rows in block `i`, cols in block `j`.
+    fn sub_cross_matvec(&self, i: usize, j: usize, vj: &[f64], vi: &mut [f64]) {
+        Self::cross_matvec_sub(&self.l_cross[i - 1][j], vj, vi);
+    }
+
+    /// Forward substitution: `L z = rhs` (block lower `L` from `update_l_and_factor`).
+    fn forward_solve_ld(&self, rhs: &mut [f64]) -> Result<(), ()> {
+        let offsets = self.re_offsets();
+        for i in 0..self.k_re {
+            let mut vi = rhs[offsets[i]..offsets[i + 1]].to_vec();
+            for j in 0..i {
+                let zj = &rhs[offsets[j]..offsets[j + 1]];
+                self.sub_cross_matvec(i, j, zj, &mut vi);
+            }
+            if i == 0 {
+                for (val, &d) in vi.iter_mut().zip(self.l_diag0.iter()) {
+                    if d == 0.0 {
+                        return Err(());
+                    }
+                    *val /= d;
+                }
+            } else {
+                let l = match &self.l_re_factor[i - 1] {
+                    ReFactor::Full(l) => l,
+                    ReFactor::ColumnBlocks { .. } => return Err(()),
+                };
+                l.solve_col(&mut vi);
+            }
+            rhs[offsets[i]..offsets[i + 1]].copy_from_slice(&vi);
+        }
+        Ok(())
+    }
+
+    /// Back substitution: `Lᵀ w = z`.
+    fn backward_solve_ld(&self, z: &mut [f64]) -> Result<(), ()> {
+        let offsets = self.re_offsets();
+        for i in (0..self.k_re).rev() {
+            let mut wi = z[offsets[i]..offsets[i + 1]].to_vec();
+            for j in (i + 1)..self.k_re {
+                let wj = &z[offsets[j]..offsets[j + 1]];
+                Self::cross_matvec_t_sub(&self.l_cross[j - 1][i], wj, &mut wi);
+            }
+            if i == 0 {
+                for (val, &d) in wi.iter_mut().zip(self.l_diag0.iter()) {
+                    if d == 0.0 {
+                        return Err(());
+                    }
+                    *val /= d;
+                }
+            } else {
+                let l = match &self.l_re_factor[i - 1] {
+                    ReFactor::Full(l) => l,
+                    ReFactor::ColumnBlocks { .. } => return Err(()),
+                };
+                self.backward_solve_block_lower(l, &mut wi)?;
+            }
+            z[offsets[i]..offsets[i + 1]].copy_from_slice(&wi);
+        }
+        Ok(())
+    }
+
+    fn backward_solve_block_lower(&self, l: &ReLower, wi: &mut [f64]) -> Result<(), ()> {
+        let n = l.n;
+        debug_assert_eq!(wi.len(), n);
+        for idx in (0..n).rev() {
+            let mut s = wi[idx];
+            let base = idx * (idx + 1) / 2;
+            let diag = l.data[base + idx];
+            if diag == 0.0 {
+                return Err(());
+            }
+            for (k, wk) in wi.iter().enumerate().skip(idx + 1) {
+                let base_k = k * (k + 1) / 2;
+                s -= l.data[base_k + idx] * wk;
+            }
+            wi[idx] = s / diag;
+        }
+        Ok(())
+    }
+
+    /// `w = A⁻¹ rhs` for the intercept-only `A = Λ⁻¹ + ZᵀZ` matrix at the current factorization.
+    #[allow(dead_code)]
+    pub(crate) fn backsolve_a_inv(&self, rhs: &mut [f64]) -> Result<(), ()> {
+        self.forward_solve_ld(rhs)?;
+        self.backward_solve_ld(rhs)?;
+        Ok(())
+    }
+
+    /// Full profile solve reusing the blocked `updateL!` factor (no sparse LDL).
+    #[allow(dead_code)]
+    pub(crate) fn solve_profile_blocked(
+        &mut self,
+        lmm: &super::LmmData,
+        theta: &[f64],
+        reml: bool,
+        row_block: &[usize],
+        w_y: &mut [f64],
+        w_col_bufs: &mut [Vec<f64>],
+    ) -> Result<super::ProfileSolution, ()> {
+        let log_det_a = self.update_l_and_factor(theta)?;
+        let q = lmm.zt.rows();
+        let p_usize = lmm.x.ncols();
+        debug_assert_eq!(w_y.len(), q);
+        super::scale_block_rhs_buf(w_y, lmm.zt_y.view(), theta, row_block);
+        self.backsolve_a_inv(w_y).map_err(|_| ())?;
+
+        let d = super::theta_diagonal(theta, q, &lmm.re_blocks);
+        let v_y = &lmm.zt_y * &d;
+        let mut v_cols = Vec::with_capacity(p_usize);
+        for (j, buf) in w_col_bufs.iter_mut().enumerate().take(p_usize) {
+            let v_j = &lmm.zt_x.column(j) * &d;
+            debug_assert_eq!(buf.len(), q);
+            super::scale_block_rhs_buf(buf, lmm.zt_x.column(j), theta, row_block);
+            self.backsolve_a_inv(buf).map_err(|_| ())?;
+            v_cols.push(v_j);
+        }
+        let w_col_slices: Vec<&[f64]> = w_col_bufs.iter().map(|v| v.as_slice()).collect();
+        let n = lmm.y.len() as f64;
+        let p = p_usize as f64;
+        Ok(super::solve_profile_finish(
+            lmm,
+            super::ProfileFinishInput {
+                reml,
+                n,
+                p,
+                p_usize,
+                q,
+                log_det_a,
+                v_y: &v_y,
+                w_y,
+                v_cols: &v_cols,
+                w_cols: &w_col_slices,
+            },
+            |u| &d * u,
+        ))
     }
 }
 
