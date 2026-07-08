@@ -11,19 +11,19 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 ---
 
-## At a glance (2026-07-08)
+## At a glance (2026-07-09)
 
-**Goal:** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), reach **within ~2× of MixedModels.jl** on all six reference cases **without breaking** golden parity.
+**Goal:** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), reach **within ~1.5× of MixedModels.jl** on tier-A `cold_fit` cases **without breaking** golden parity. (Legacy bar: **2×**, through 2026-07-08.)
 
-**Hardest case:** `crossed_20k` — `y ~ x + (1 | plate) + (1 | sample)`, ML, 20k obs, q ≈ 350, p = 2, |θ| = 2.
+**Hardest case:** `nested_10k` — borderline at the **1.5×** bar (~**1.51×**); then `crossed_20k` (~**1.29×**).
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
-| `crossed_20k` | **~1.2×** (was ~2×) | `fit_prepared` **~10.5 ms** (Julia ~14.7 ms) |
-| `random_intercept_10k` | **beats Julia** (~0.94×) | `fit_prepared` **~0.38 ms** |
-| `nested_10k` | **~1.4×** | `fit_prepared` **~3.6 ms** (Julia ~6.9 ms) |
+| `crossed_20k` | **~1.29×** | `fit_prepared` **~10.2 ms** (Julia ~15.0 ms) |
+| `random_intercept_10k` | **~1.02×** | `fit_prepared` **~0.31 ms** |
+| `nested_10k` | **~1.51×** (stretch) | `fit_prepared` **~3.7 ms** (Julia ~6.5 ms) |
 
-Cold `lmer()` on `crossed_20k` is **~17.6 ms** vs Julia **~14.7 ms** ([2026-07-08 reference](benchmarks/fair-rust-julia-reference-2026-07-08.json); `prepare` ~7.9 ms, optimize ~10 ms). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit is **at or below Julia** on all three tier-A cases.
+Cold `lmer()` medians: [2026-07-09 reference](benchmarks/fair-rust-julia-reference-2026-07-09.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on all three synthetic tier-A cases.
 
 ---
 

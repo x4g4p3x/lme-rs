@@ -11,7 +11,8 @@
     "warmups": 2,
     "repeats": 5,
     "cases_run": "crossed_20k,nested_10k,random_intercept_10k",
-    "note": "Rust and Julia medians measured together on this workstation after nested diagonal blocked path and blocked post-fit backsolve (sparse LDL fallback on unstable crossed backsolve)."
+    "cold_fit_target_ratio": 2.0,
+    "note": "Rust and Julia medians measured together on this workstation after nested diagonal blocked path and blocked post-fit backsolve (sparse LDL fallback on unstable crossed backsolve). Axis (3) bar at time of recording: 2× Julia on cold_fit."
   },
   "machine_info": {
     "platform": "Windows-10-10.0.26200-SP0",

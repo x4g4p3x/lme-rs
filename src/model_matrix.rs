@@ -369,6 +369,22 @@ fn is_categorical_series(dtype: &DataType) -> bool {
     matches!(dtype, DataType::String | DataType::Boolean) || dtype.is_categorical()
 }
 
+fn is_native_numeric_dtype(dtype: &DataType) -> bool {
+    matches!(
+        dtype,
+        DataType::Float64
+            | DataType::Float32
+            | DataType::Int64
+            | DataType::Int32
+            | DataType::Int16
+            | DataType::Int8
+            | DataType::UInt64
+            | DataType::UInt32
+            | DataType::UInt16
+            | DataType::UInt8
+    )
+}
+
 fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<f64>> {
     let s = data
         .column(col_name)
@@ -785,6 +801,193 @@ fn try_build_interaction_groups(
     Ok(Some((obs_group_idx, unique_groups, group_map)))
 }
 
+struct FairLmmFormula<'a> {
+    response: &'a str,
+    fixed_x: Option<&'a str>,
+    re_groups: Vec<&'a str>,
+}
+
+fn split_formula_terms(rhs: &str) -> Vec<&str> {
+    let mut terms = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    for (i, ch) in rhs.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            '+' if depth == 0 => {
+                terms.push(rhs[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    terms.push(rhs[start..].trim());
+    terms.retain(|t| !t.is_empty());
+    terms
+}
+
+fn parse_fair_lmm_formula(formula: &str) -> Option<FairLmmFormula<'_>> {
+    let formula = formula.trim();
+    let (lhs, rhs) = formula.split_once('~')?;
+    let response = lhs.trim();
+    if response.is_empty() {
+        return None;
+    }
+    let mut fixed_x = None;
+    let mut re_groups = Vec::new();
+    for term in split_formula_terms(rhs) {
+        if let Some(inner) = term.strip_prefix('(').and_then(|s| s.strip_suffix(')')) {
+            let (lhs_re, group) = inner.split_once('|')?;
+            if lhs_re.trim() != "1" {
+                return None;
+            }
+            let group = group.trim();
+            if group.is_empty() || group.contains('/') {
+                return None;
+            }
+            re_groups.push(group);
+        } else if term == "1" {
+            continue;
+        } else if term.contains('|')
+            || term.contains(':')
+            || term.contains('*')
+            || fixed_x.is_some()
+        {
+            return None;
+        } else {
+            fixed_x = Some(term);
+        }
+    }
+    if re_groups.is_empty() {
+        return None;
+    }
+    Some(FairLmmFormula {
+        response,
+        fixed_x,
+        re_groups,
+    })
+}
+
+/// Fast design-matrix build for fair-harness intercept-only LMMs (skips generic fiasto column walk).
+pub fn try_build_fair_lmm_design(
+    formula_str: &str,
+    data: &DataFrame,
+) -> crate::Result<Option<DesignMatrices>> {
+    let Some(parsed) = parse_fair_lmm_formula(formula_str) else {
+        return Ok(None);
+    };
+    let n_obs = data.height();
+    if n_obs == 0 {
+        return Ok(None);
+    }
+
+    let y_series = data
+        .column(parsed.response)
+        .map_err(|e| crate::LmeError::NotImplemented {
+            feature: format!("Missing response column '{}': {}", parsed.response, e),
+        })?
+        .cast(&DataType::Float64)
+        .map_err(|e| crate::LmeError::NotImplemented {
+            feature: format!("Response must be float: {}", e),
+        })?;
+    if y_series.null_count() > 0 {
+        return Err(crate::LmeError::NotImplemented {
+            feature: "Response column contains nulls".to_string(),
+        });
+    }
+    let y = Array1::from_vec(y_series.f64().unwrap().into_no_null_iter().collect());
+
+    let (x, fixed_names, fixed_term_assign) = if let Some(x_name) = parsed.fixed_x {
+        let series = data
+            .column(x_name)
+            .map_err(|e| crate::LmeError::NotImplemented {
+                feature: format!("Missing fixed column '{}': {}", x_name, e),
+            })?;
+        if is_categorical_series(series.dtype()) || !is_native_numeric_dtype(series.dtype()) {
+            return Ok(None);
+        }
+        let col = numeric_column_f64(data, x_name)?;
+        let mut mat = Array2::<f64>::zeros((n_obs, 2));
+        mat.column_mut(0).fill(1.0);
+        mat.column_mut(1).assign(&col);
+        (
+            mat,
+            vec!["(Intercept)".to_string(), x_name.to_string()],
+            vec!["(Intercept)".to_string(), x_name.to_string()],
+        )
+    } else {
+        (
+            Array2::<f64>::ones((n_obs, 1)),
+            vec!["(Intercept)".to_string()],
+            vec!["(Intercept)".to_string()],
+        )
+    };
+
+    let mut triplet_rows = Vec::new();
+    let mut triplet_cols = Vec::new();
+    let mut triplet_vals = Vec::new();
+    let mut re_blocks = Vec::new();
+    let mut current_q_offset = 0usize;
+
+    for g_var in parsed.re_groups {
+        let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
+            let parts: Vec<&str> = g_var.split(':').collect();
+            if let Some(groups) = try_build_interaction_groups(data, &parts, n_obs)? {
+                groups
+            } else {
+                build_grouping_from_string_column(data, g_var, n_obs)?
+            }
+        } else {
+            build_grouping_from_string_column(data, g_var, n_obs)?
+        };
+
+        let m = unique_groups.len();
+        triplet_rows.reserve(n_obs);
+        triplet_cols.reserve(n_obs);
+        triplet_vals.reserve(n_obs);
+        for (obs, &g_idx) in obs_group_idx.iter().enumerate() {
+            triplet_rows.push(current_q_offset + g_idx);
+            triplet_cols.push(obs);
+            triplet_vals.push(1.0);
+        }
+
+        re_blocks.push(ReBlock {
+            m,
+            k: 1,
+            theta_len: 1,
+            group_name: g_var.to_string(),
+            effect_names: vec!["(Intercept)".to_string()],
+            group_map,
+        });
+        current_q_offset += m;
+    }
+
+    let zt = if current_q_offset > 0 {
+        build_zt_csr(
+            &triplet_rows,
+            &triplet_cols,
+            &triplet_vals,
+            current_q_offset,
+            n_obs,
+        )
+    } else {
+        sprs::CsMat::zero((0, n_obs))
+    };
+
+    Ok(Some(DesignMatrices {
+        formula: formula_str.to_string(),
+        x,
+        zt,
+        y,
+        re_blocks,
+        fixed_names,
+        fixed_term_assign,
+        offset: None,
+        categorical_levels: HashMap::new(),
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -797,6 +1000,72 @@ mod tests {
             "subgroup" => &["a1", "a2", "b1", "b2"]
         )
         .unwrap()
+    }
+
+    #[test]
+    fn pastes_categorical_fixed_effect_uses_generic_build() {
+        let mut file = std::fs::File::open("tests/data/pastes.csv").unwrap();
+        let df = CsvReadOptions::default()
+            .with_has_header(true)
+            .into_reader_with_file_handle(&mut file)
+            .finish()
+            .unwrap();
+        let fast = try_build_fair_lmm_design("strength ~ cask + (1 | batch)", &df).unwrap();
+        assert!(
+            fast.is_none(),
+            "categorical fixed effect must use generic fiasto path"
+        );
+    }
+
+    #[test]
+    fn nested_slash_formula_skips_fast_path() {
+        use std::path::Path;
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/benchmark-results/fair-rust-julia-data/nested_10k.csv"
+        );
+        if !Path::new(path).exists() {
+            return;
+        }
+        let mut file = std::fs::File::open(path).unwrap();
+        let df = CsvReadOptions::default()
+            .with_has_header(true)
+            .into_reader_with_file_handle(&mut file)
+            .finish()
+            .unwrap();
+        assert!(try_build_fair_lmm_design("y ~ x + (1 | batch/cask)", &df)
+            .unwrap()
+            .is_none());
+        let prep = crate::prepare_lmer("y ~ x + (1 | batch/cask)", &df).unwrap();
+        assert!(
+            prep.blocked_kernel,
+            "detail: {}",
+            prep.blocked_kernel_detail
+        );
+    }
+
+    #[test]
+    fn test_fair_lmm_design_matches_generic_for_crossed_formula() {
+        let df = df!(
+            "y" => &[1.0, 2.0, 3.0, 4.0],
+            "x" => &[0.1, 0.2, 0.3, 0.4],
+            "plate" => &["P1", "P1", "P2", "P2"],
+            "sample" => &["S1", "S2", "S1", "S2"]
+        )
+        .unwrap();
+        let formula = "y ~ x + (1 | plate) + (1 | sample)";
+        let fast = try_build_fair_lmm_design(formula, &df)
+            .unwrap()
+            .expect("fair fast path");
+        let ast = crate::formula::parse(formula).unwrap();
+        let slow = build_design_matrices(&ast, &df).unwrap();
+        assert_eq!(fast.x.shape(), slow.x.shape());
+        assert_eq!(fast.zt.rows(), slow.zt.rows());
+        assert_eq!(fast.zt.cols(), slow.zt.cols());
+        assert_eq!(fast.re_blocks.len(), slow.re_blocks.len());
+        for (a, b) in fast.x.iter().zip(slow.x.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
     }
 
     #[test]

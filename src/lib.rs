@@ -1013,12 +1013,17 @@ pub fn prepare_lmer_weighted(
 
     let setup_started = perf_diag::enabled().then(Instant::now);
 
-    let ast = perf_diag::scope(perf_diag::Phase::SetupFormula, || {
-        formula::parse(formula_str)
-    })?;
-    let mut matrices = perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
-        model_matrix::build_design_matrices(&ast, data)
-    })?;
+    let mut matrices =
+        if let Some(fast) = model_matrix::try_build_fair_lmm_design(formula_str, data)? {
+            fast
+        } else {
+            let ast = perf_diag::scope(perf_diag::Phase::SetupFormula, || {
+                formula::parse(formula_str)
+            })?;
+            perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
+                model_matrix::build_design_matrices(&ast, data)
+            })?
+        };
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
 
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();

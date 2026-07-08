@@ -192,8 +192,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target-ratio",
         type=float,
-        default=2.0,
-        help="Target rust/julia median ratio for cold_fit (axis 3 threshold).",
+        default=1.5,
+        help="Target rust/julia median ratio for cold_fit (axis 3 threshold; default 1.5).",
     )
     return parser.parse_args()
 

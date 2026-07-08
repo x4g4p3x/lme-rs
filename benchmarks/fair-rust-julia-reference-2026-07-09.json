@@ -1,0 +1,83 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-09",
+  "generated_at": "2026-07-08T22:44:33.480275+00:00",
+  "git_sha": "4cf17bf353e883a485d4445174844cfe4ad3f8e7",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+    "rust_engine": "lme-rs lmer(); optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 5,
+    "cases_run": "crossed_20k,nested_10k,random_intercept_10k",
+    "cold_fit_target_ratio": 1.5,
+    "note": "Rust and Julia medians measured together on this workstation with uncommitted prepare fast path (try_build_fair_lmm_design), lazy blocked Cholesky init, and global zt row indexing for blocked gate/backsolve (on top of git_sha). Axis (3) cold-fit bar tightened from 2× (2026-07-08) to 1.5×."
+  },
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "julia": "julia version 1.12.6"
+  },
+  "comparisons": [
+    {
+      "case": "crossed_20k",
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "reml": false,
+      "n_obs": 20000,
+      "rust_median_seconds": 0.0194047,
+      "julia_median_seconds": 0.0150168,
+      "rust_over_julia_median": 1.29,
+      "faster_implementation": "julia",
+      "meets_cold_fit_target": true,
+      "fit_prepared_rust_median_seconds": 0.0101974,
+      "fit_prepared_rust_over_julia_median": 0.68,
+      "prepare_lmer_rust_median_seconds": 0.0067942,
+      "notes": "prepare_lmer down from ~7.9 ms (2026-07-08); fit_prepared ~0.68× Julia."
+    },
+    {
+      "case": "nested_10k",
+      "formula": "y ~ x + (1 | batch/cask)",
+      "reml": false,
+      "n_obs": 10000,
+      "rust_median_seconds": 0.0098677,
+      "julia_median_seconds": 0.006514,
+      "rust_over_julia_median": 1.51,
+      "faster_implementation": "julia",
+      "meets_cold_fit_target": false,
+      "fit_prepared_rust_median_seconds": 0.0036586,
+      "fit_prepared_rust_over_julia_median": 0.56,
+      "prepare_lmer_rust_median_seconds": 0.0056296,
+      "notes": "Lazy blocked init; prepare ~5% faster vs 2026-07-08; fit_prepared ~0.56× Julia."
+    },
+    {
+      "case": "random_intercept_10k",
+      "formula": "y ~ x + (1 | group)",
+      "reml": false,
+      "n_obs": 10000,
+      "rust_median_seconds": 0.0012734,
+      "julia_median_seconds": 0.0012475,
+      "rust_over_julia_median": 1.02,
+      "faster_implementation": "julia",
+      "meets_cold_fit_target": true,
+      "fit_prepared_rust_median_seconds": 0.0003102,
+      "fit_prepared_rust_over_julia_median": 0.25,
+      "prepare_lmer_rust_median_seconds": 0.0009007,
+      "notes": "Fair-path design build; prepare ~2% faster vs 2026-07-08; fit_prepared ~0.25× Julia."
+    }
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "tier_a_synthetic_cases_meet_cold_fit_target": false,
+    "prior_reference": "benchmarks/fair-rust-julia-reference-2026-07-08.json",
+    "interpretation": "Synthetic tier-A LMM cases are ~1.0–1.5× Julia on cold lmer() under the tightened 1.5× bar: crossed_20k and random_intercept_10k meet it; nested_10k is borderline (~1.51×). prepare_lmer medians drop ~14% on crossed_20k (fair design fast path + deferred blocked init); fit_prepared still beats Julia on all three cases. Prior 2× milestone (2026-07-08) is superseded for axis (3) tracking."
+  }
+}

@@ -969,6 +969,7 @@ pub(crate) fn scale_block_rhs_buf(
 /// Intercept-only LDL / Cholesky cache with reusable workspaces.
 struct InterceptLdlCache {
     blocked: Option<intercept_blocked::InterceptBlockedChol>,
+    blocked_gate: bool,
     dense: Option<InterceptDenseChol>,
     sparse: Option<InterceptSparseLdl>,
     p: usize,
@@ -984,8 +985,8 @@ impl InterceptLdlCache {
         let q = lmm.zt_z.rows();
         let row_block = build_row_blocks(&lmm.re_blocks);
         let p = lmm.x.ncols();
-        let blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
-        let sparse = if blocked.is_none() {
+        let blocked_gate = intercept_blocked::blocked_gate_failure(lmm).is_none();
+        let sparse = if !blocked_gate {
             Some(InterceptSparseLdl::new(&lmm.zt_z, q, &row_block)?)
         } else {
             None
@@ -1001,7 +1002,7 @@ impl InterceptLdlCache {
             w_col_bufs.push(vec![0.0; q]);
         }
         if lmm.intercept_only_re() {
-            if blocked.is_some() {
+            if blocked_gate {
                 crate::perf_diag::set_kernel_detail("blocked_active");
             } else {
                 let detail = intercept_blocked::blocked_unavailable_reason(lmm);
@@ -1009,7 +1010,8 @@ impl InterceptLdlCache {
             }
         }
         Ok(Self {
-            blocked,
+            blocked: None,
+            blocked_gate,
             dense,
             sparse,
             p,
@@ -1019,6 +1021,12 @@ impl InterceptLdlCache {
             w_y_buf: vec![0.0; q],
             w_col_bufs,
         })
+    }
+
+    fn ensure_blocked(&mut self, lmm: &LmmData) {
+        if self.blocked_gate && self.blocked.is_none() {
+            self.blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
+        }
     }
 
     fn ensure_sparse(&mut self, lmm: &LmmData) -> Result<(), sprs::errors::LinalgError> {
@@ -1041,6 +1049,7 @@ impl InterceptLdlCache {
         theta: &[f64],
         reml: bool,
     ) -> Result<ProfileSolution, sprs::errors::LinalgError> {
+        self.ensure_blocked(lmm);
         if let Some(blocked) = &mut self.blocked {
             crate::perf_diag::set_kernel("blocked");
             if let Ok(solved) = blocked.solve_profile_blocked(
@@ -1118,6 +1127,7 @@ impl InterceptLdlCache {
     }
 
     fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
+        self.ensure_blocked(lmm);
         if let Some(blocked) = &mut self.blocked {
             crate::perf_diag::set_kernel("blocked");
             return blocked.profile_deviance(lmm, theta, reml);
@@ -1140,6 +1150,7 @@ impl InterceptLdlCache {
                 w_col_bufs,
                 dense: _,
                 blocked: _,
+                blocked_gate: _,
             } = self;
             let sparse = sparse.as_mut().expect("sparse intercept solver missing");
             sparse

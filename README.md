@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). For **whether your workflow is in scope** — and the distinction between repository test coverage and real-world field experience — see **[USABILITY.md](USABILITY.md)**.
 
-On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` + `fit_prepared`) are now **~12–14 ms** — parity with Julia on the same fixture — while one-shot `lmer()` remains ~2× slower because setup and post-fit work are included in wall time. See [OPTIMIZATION.md](OPTIMIZATION.md) and [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-08-gemm-prepared).
+On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` + `fit_prepared`) are **~10 ms** — faster than Julia on the same fixture — while one-shot `lmer()` is **~1.3×** Julia because setup and post-fit work are included in wall time. Axis (3) cold-fit target: **≤1.5×** Julia ([BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)). See [OPTIMIZATION.md](OPTIMIZATION.md) and [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-prepare-fast-path).
 
 [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) is an internal **coverage** map (how much of the intended API exists), not a usability score.
 

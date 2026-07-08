@@ -794,6 +794,8 @@ pub(crate) struct InterceptBlockedChol {
     k_re: usize,
     p: usize,
     n_re: Vec<usize>,
+    /// Global `q` row index where sorted RE block `j` begins in `zt` / `w` vectors.
+    block_row_start: Vec<usize>,
     theta_idx: Vec<usize>,
     a_diag: Vec<Vec<f64>>,
     a_cross: Vec<Vec<CrossBlock>>,
@@ -827,23 +829,27 @@ pub(crate) fn blocked_gate_failure(lmm: &super::LmmData) -> Option<&'static str>
     }
     let mut order: Vec<usize> = (0..re_blocks.len()).collect();
     order.sort_by(|&a, &b| re_blocks[b].m.cmp(&re_blocks[a].m));
-    let mut offset = 0usize;
+    let mut q = 0usize;
     for &orig in &order {
         let b = &re_blocks[orig];
         if b.k != 1 {
             return Some("blocked_unavailable_slopes");
         }
-        offset += b.m;
+        q += b.m;
     }
-    if offset != lmm.zt_z.rows() {
+    if q != lmm.zt_z.rows() {
         return Some("blocked_unavailable_dim_mismatch");
     }
+    let mut block_row_off = Vec::with_capacity(re_blocks.len());
+    let mut off = 0usize;
+    for b in re_blocks {
+        block_row_off.push(off);
+        off += b.m;
+    }
     let mut ranges = Vec::with_capacity(order.len());
-    let mut offset = 0usize;
     for &orig in &order {
-        let b = &re_blocks[orig];
-        ranges.push((offset, offset + b.m));
-        offset += b.m;
+        let start = block_row_off[orig];
+        ranges.push((start, start + re_blocks[orig].m));
     }
     for j in 1..order.len() {
         for jj in 0..j {
@@ -871,16 +877,24 @@ impl InterceptBlockedChol {
         order.sort_by(|&a, &b| re_blocks[b].m.cmp(&re_blocks[a].m));
 
         let k_re = order.len();
+        let mut block_row_off = Vec::with_capacity(re_blocks.len());
+        let mut off = 0usize;
+        for b in re_blocks {
+            block_row_off.push(off);
+            off += b.m;
+        }
+
         let mut n_re = Vec::with_capacity(k_re);
         let mut theta_idx = Vec::with_capacity(k_re);
         let mut ranges = Vec::with_capacity(k_re);
-        let mut offset = 0usize;
+        let mut block_row_start = Vec::with_capacity(k_re);
         for &orig in &order {
             let b = &re_blocks[orig];
+            let start = block_row_off[orig];
             n_re.push(b.m);
             theta_idx.push(orig);
-            ranges.push((offset, offset + b.m));
-            offset += b.m;
+            block_row_start.push(start);
+            ranges.push((start, start + b.m));
         }
 
         let mut a_diag = Vec::with_capacity(k_re);
@@ -950,6 +964,7 @@ impl InterceptBlockedChol {
             k_re,
             p,
             n_re,
+            block_row_start,
             theta_idx,
             a_diag,
             a_cross,
@@ -1356,16 +1371,10 @@ impl InterceptBlockedChol {
         deviance
     }
 
-    /// Block offsets into the global `q`-vector (RE blocks in sort order).
-    fn re_offsets(&self) -> Vec<usize> {
-        let mut offsets = Vec::with_capacity(self.k_re + 1);
-        let mut off = 0usize;
-        for &m in &self.n_re {
-            offsets.push(off);
-            off += m;
-        }
-        offsets.push(off);
-        offsets
+    /// Global `zt` row range for sorted RE block `i`.
+    fn block_row_range(&self, i: usize) -> std::ops::Range<usize> {
+        let start = self.block_row_start[i];
+        start..start + self.n_re[i]
     }
 
     /// `dst[r] -= Σ_c cross[r,c] · src[c]` (`cross` has `nrows = |dst|`, `ncols = |src|`).
@@ -1443,11 +1452,11 @@ impl InterceptBlockedChol {
 
     /// Forward substitution: `L z = rhs` (block lower `L` from `update_l_and_factor`).
     fn forward_solve_ld(&self, rhs: &mut [f64]) -> Result<(), ()> {
-        let offsets = self.re_offsets();
         for i in 0..self.k_re {
-            let mut vi = rhs[offsets[i]..offsets[i + 1]].to_vec();
+            let range_i = self.block_row_range(i);
+            let mut vi = rhs[range_i.clone()].to_vec();
             for j in 0..i {
-                let zj = &rhs[offsets[j]..offsets[j + 1]];
+                let zj = &rhs[self.block_row_range(j)];
                 self.sub_cross_matvec(i, j, zj, &mut vi);
             }
             if i == 0 {
@@ -1460,18 +1469,18 @@ impl InterceptBlockedChol {
             } else {
                 self.l_re_factor[i - 1].forward_solve_block(&mut vi)?;
             }
-            rhs[offsets[i]..offsets[i + 1]].copy_from_slice(&vi);
+            rhs[range_i].copy_from_slice(&vi);
         }
         Ok(())
     }
 
     /// Back substitution: `Lᵀ w = z`.
     fn backward_solve_ld(&self, z: &mut [f64]) -> Result<(), ()> {
-        let offsets = self.re_offsets();
         for i in (0..self.k_re).rev() {
-            let mut wi = z[offsets[i]..offsets[i + 1]].to_vec();
+            let range_i = self.block_row_range(i);
+            let mut wi = z[range_i.clone()].to_vec();
             for j in (i + 1)..self.k_re {
-                let wj = &z[offsets[j]..offsets[j + 1]];
+                let wj = &z[self.block_row_range(j)];
                 Self::cross_matvec_t_sub(&self.l_cross[j - 1][i], wj, &mut wi);
             }
             if i == 0 {
@@ -1484,7 +1493,7 @@ impl InterceptBlockedChol {
             } else {
                 self.l_re_factor[i - 1].backward_solve_block(&mut wi)?;
             }
-            z[offsets[i]..offsets[i + 1]].copy_from_slice(&wi);
+            z[range_i].copy_from_slice(&wi);
         }
         Ok(())
     }
@@ -1691,6 +1700,61 @@ mod tests {
     }
 
     #[test]
+    fn blocked_profile_solve_matches_sparse_on_crossed_ml_grid() {
+        use crate::prepare_lmer;
+        use polars::prelude::*;
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/benchmark-results/fair-rust-julia-data/crossed_20k.csv"
+        );
+        if !std::path::Path::new(path).exists() {
+            return;
+        }
+        let mut file = std::fs::File::open(path).unwrap();
+        let df = CsvReadOptions::default()
+            .with_has_header(true)
+            .into_reader_with_file_handle(&mut file)
+            .finish()
+            .unwrap();
+        let prep = prepare_lmer("y ~ x + (1 | plate) + (1 | sample)", &df).unwrap();
+        let lmm = &prep.lmm;
+        let mut blocked = InterceptBlockedChol::try_new(lmm).expect("blocked setup");
+        let p = lmm.x.ncols();
+        let q = lmm.zt.rows();
+        let row_block: Vec<usize> = lmm
+            .re_blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(bi, b)| std::iter::repeat_n(bi, b.m))
+            .collect();
+        let mut w_y = vec![0.0; q];
+        let mut w_col_bufs: Vec<Vec<f64>> = (0..p).map(|_| vec![0.0; q]).collect();
+        for &t0 in &[0.5, 1.0, 2.0] {
+            for &t1 in &[0.5, 1.0, 2.0] {
+                let theta = [t0, t1];
+                let blocked_sol = blocked
+                    .solve_profile_blocked(
+                        lmm,
+                        &theta,
+                        false,
+                        &row_block,
+                        &mut w_y,
+                        &mut w_col_bufs,
+                    )
+                    .expect("blocked profile solve");
+                let sparse = lmm.evaluate(&theta, false);
+                let scale = sparse.reml_crit.abs().max(1.0);
+                assert!(
+                    (blocked_sol.reml_crit - sparse.reml_crit).abs() <= 1e-5 * scale,
+                    "theta={theta:?} blocked={} sparse={}",
+                    blocked_sol.reml_crit,
+                    sparse.reml_crit
+                );
+            }
+        }
+    }
+
+    #[test]
     fn nested_sparse_gate_uses_diagonal_batch_factor() {
         use crate::prepare_lmer;
         use polars::prelude::*;
@@ -1709,9 +1773,10 @@ mod tests {
             .unwrap();
         let prep = prepare_lmer("y ~ x + (1 | batch/cask)", &df).unwrap();
         assert!(
-            prep.lmm.blocked_kernel_available(),
-            "nested_10k should use blocked kernel"
+            prep.blocked_kernel,
+            "nested_10k should use blocked kernel (detail: {})",
+            prep.blocked_kernel_detail
         );
-        assert_eq!(prep.lmm.blocked_kernel_detail(), "blocked_active");
+        assert_eq!(prep.blocked_kernel_detail, "blocked_active");
     }
 }

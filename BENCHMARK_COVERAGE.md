@@ -2,7 +2,7 @@
 
 This file maps **which parts of `lme-rs` have external performance references** (not just Rust-only Criterion benches). Use it to ground [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) and [USABILITY.md](USABILITY.md) performance posture.
 
-**Last assessed:** 2026-07-08
+**Last assessed:** 2026-07-09
 
 ---
 
@@ -21,13 +21,15 @@ This file maps **which parts of `lme-rs` have external performance references** 
 
 ## Axis (3) threshold
 
-Default target: **Rust median ≤ 2× Julia median** on `cold_fit` for tier-A cases on the reference workstation.
+Default target: **Rust median ≤ 1.5× Julia median** on `cold_fit` for tier-A cases on the reference workstation.
+
+Prior milestone (2026-07-04 → 2026-07-08): **≤ 2×** while crossed/nested were still multi× slower; synthetic tier-A medians are now **~1.0–1.5×** on cold `lmer()` ([2026-07-09 reference](benchmarks/fair-rust-julia-reference-2026-07-09.json)), so the bar was tightened.
 
 ```powershell
 python scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases --repeats 10
 ```
 
-Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--with-phases` is set (LMM only).
+Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--with-phases` is set (LMM only). Override cold threshold: `--target-ratio 2.0` (legacy bar).
 
 ---
 
@@ -42,8 +44,8 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 | `random_intercept_10k` | LMM | Synthetic | MixedModels.jl | **Rust faster** (Jul 2026) | Rust faster | |
 | `random_intercept_50k` | LMM | Synthetic | MixedModels.jl | **Re-run required** | Optional phases | |
 | `random_intercept_100k` | LMM | Synthetic | MixedModels.jl | **Re-run required** | Optional phases | |
-| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~1.7×** (Jul 2026) | **~0.8×** hot | Primary optimization case |
-| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~1.6×** (Jul 2026) | **~0.7×** hot | |
+| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~1.3×** (Jul 2026) | **~0.68×** hot | Primary optimization case |
+| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~1.5×** (Jul 2026) | **~0.56×** hot | At cold-fit target; stretch case |
 | `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **Measured** | N/A | Laplace; not R `nAGQ`-in-θ |
 | `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **Measured** | N/A | |
 

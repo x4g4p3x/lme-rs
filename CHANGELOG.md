@@ -9,13 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Fair-harness **axis (3) cold-fit target** tightened from **2×** to **1.5×** Julia median on `cold_fit` (default `--target-ratio 1.5` in [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py)); synthetic tier-A medians are now ~1.0–1.5×. See [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md).
+- LMM **`prepare_lmer` fast path** for fair-harness formulas (`y ~ x + (1 | g)`, numeric `x`): [`try_build_fair_lmm_design`](src/model_matrix.rs) skips fiasto; categorical fixed effects and nested `/` syntax fall back to generic build. **Lazy blocked Cholesky init** defers `InterceptBlockedChol::try_new` to first deviance/solve. Blocked gate/backsolve use global `zt` row indexing when sort order ≠ packed layout. Fair harness: `prepare_lmer` **~14% faster** on `crossed_20k` vs [2026-07-08 reference](benchmarks/fair-rust-julia-reference-2026-07-08.json); cold `lmer()` and `fit_prepared` within noise. New reference: [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json).
 - LMM **nested blocked path**: nested `batch/cask` sparse crosses use `ReFactor::Diagonal` and `trisolve_single_row_cols` on the batch block (`columns_single_row` gate) instead of densifying the cross or taking the sparse-LDL-only path. Blocked kernel active on `nested_10k`; fair harness **~1.4× Julia** cold `lmer()`, **`fit_prepared` ~0.52×** Julia. See [OPTIMIZATION.md](OPTIMIZATION.md).
 - LMM **blocked post-fit backsolve**: `solve_profile_blocked` reuses the blocked `updateL!` factor in `evaluate()` (no lazy sparse LDL init on success). When blocked `w` vectors are numerically unstable (observed on `crossed_20k` ML), `solve_profile_finish` returns an error and **`InterceptLdlCache::solve_profile` falls back to sparse LDL** instead of panicking. Fair harness tier-A cases are **within 2× Julia** on cold `lmer()`; `crossed_20k` **~1.2×**, `fit_prepared` **~0.71×** Julia. Reference: [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json).
 
 ### Added
 
+- Fair-harness reference snapshot [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json) (tier-A LMM cases after prepare fast path; Rust and Julia medians measured together). Documented in [BENCHMARKS.md § 2026-07-09 prepare fast path](BENCHMARKS.md#fair-rust-julia-2026-07-09-prepare-fast-path).
 - Fair-harness reference snapshot [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json) (tier-A LMM cases: `crossed_20k`, `nested_10k`, `random_intercept_10k`; Rust and Julia medians measured together). Documented in [BENCHMARKS.md § 2026-07-08 nested/post-fit](BENCHMARKS.md#fair-rust-julia-2026-07-08-nested-postfit).
-- Unit tests: `blocked_profile_solve_matches_sparse_evaluate_on_penicillin`, `nested_sparse_gate_uses_diagonal_batch_factor` in [`src/intercept_blocked.rs`](src/intercept_blocked.rs).
+- Unit tests: `blocked_profile_solve_matches_sparse_on_crossed_ml_grid`, `pastes_categorical_fixed_effect_uses_generic_build`, `nested_slash_formula_skips_fast_path`, `test_fair_lmm_design_matches_generic_for_crossed_formula`; `nested_sparse_gate_uses_diagonal_batch_factor` in [`src/intercept_blocked.rs`](src/intercept_blocked.rs).
 
 ## [0.1.9] - 2026-07-08
 
