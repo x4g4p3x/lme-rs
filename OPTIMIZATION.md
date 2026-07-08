@@ -19,11 +19,11 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
-| `crossed_20k` | **~1.4×** (was ~1.7×) | `fit_prepared` **~12 ms** (Julia ~16 ms) |
-| `random_intercept_10k` | **~1.1×** (was ~2.4×) | cold `lmer` **~1.6 ms** |
-| `nested_10k` | **~1.7×** (was ~2.1×) | cold `lmer` **~12 ms** (sparse LDL) |
+| `crossed_20k` | **~1.3×** (was ~1.7×) | `fit_prepared` **~12 ms** (Julia ~16 ms) |
+| `random_intercept_10k` | **beats Julia** (was ~2.4×) | cold `lmer` **~1.3 ms** |
+| `nested_10k` | **~1.8×** (was ~2.1×) | cold `lmer` **~12 ms** (sparse LDL) |
 
-Cold `lmer()` on `crossed_20k` is **~19–22 ms** vs Julia **~16 ms** after the [setup/post-fit pass](#setup-and-post-fit-pass-2026-07-08-continued) (`prepare` ~5 ms, optimize ~10 ms, post-fit ~2 ms). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit is **at or below Julia** on crossed.
+Cold `lmer()` on `crossed_20k` is **~21 ms** vs Julia **~16 ms** after the [prepare ownership pass](#prepare-ownership-pass-2026-07-08-continued) (`prepare` ~5–6 ms, optimize ~10 ms, post-fit ~2 ms). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit is **at or below Julia** on crossed.
 
 ---
 
@@ -275,6 +275,31 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 | Attempt | Outcome |
 |:--------|:--------|
 | Grouped `ZᵀZ` from per-observation RE indices (dense q×q) | Broke `penicillin_crossed_reml` golden parity; reverted. Nested q=2000 would allocate 4M f64 anyway. |
+| Blocked `solve_profile` via `l_xy_re` `w` extraction | Broke golden parity — post-factorization `l_xy_re` ≠ LDL `w` vectors; needs full `updateL!` backsolve. |
+
+---
+
+## Prepare ownership pass (2026-07-08 continued)
+
+Second setup slice after the [setup/post-fit pass](#setup-and-post-fit-pass-2026-07-08-continued): eliminate duplicate design-matrix storage between `DesignMatrices` and `LmmData`.
+
+### Recorded (Windows AMD64, `rustc 1.96.0`, Julia 1.12.6, MixedModels.jl 5.7.0)
+
+Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia`).
+
+| Case | Rust cold `lmer()` | Julia `fit` | vs Julia |
+|:-----|-------------------:|------------:|---------:|
+| `crossed_20k` | **21.1 ms** | 15.7 ms | **1.34×** |
+| `nested_10k` | **12.5 ms** | 6.9 ms | 1.81× |
+| `random_intercept_10k` | **1.3 ms** | 1.7 ms | **Rust faster** |
+
+### Changes ([`src/lib.rs`](src/lib.rs), [`src/model_matrix.rs`](src/model_matrix.rs))
+
+| Change | Effect |
+|:-------|:-------|
+| **`mem::take` into `LmmData`** | `prepare_lmer` moves `x`, `zt`, `y`, `re_blocks` into `LmmData` instead of cloning; `fit_prepared` reads from `lmm` |
+| **Offset path unchanged** | When an offset is present, `matrices.y` keeps the original response; `LmmData` stores the adjusted vector |
+| **Categorical dummy encoding** | `HashMap<&str, usize>` level lookup + integer `level_id` per row — O(n_obs) string hashing instead of O(n_obs × n_levels) string compares |
 
 ---
 
@@ -385,10 +410,11 @@ Do not reintroduce these without re-validating parity and benchmarks.
    - Ungated sparse blocked with dense Schur loops → **~66–130 ms** vs **~15 ms** reused LDL.
    - Transposing the cross alone is **not** enough: Schur/trisolve indexing must match the stored layout (MixedModels keeps consistent block orientation).
    - Target: cask×batch sparse cross + per-batch diagonal Cholesky blocks (~200×10), sparse Schur along structural nonzeros only.
-2. **`build_x_matrix` for simple formulas** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
-3. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
-4. **Fair harness reference JSON** — refresh `benchmarks/fair-rust-julia-reference-*.json` after next tagged release.
-5. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
+2. **Blocked post-fit backsolve** — extract correct `w_y` / `w_cols` from factored `updateL!` (not raw `l_xy_re` entries) to skip sparse LDL init on crossed `evaluate()`.
+3. **`build_x_matrix` numeric fast path** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
+4. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
+5. **Fair harness reference JSON** — refresh `benchmarks/fair-rust-julia-reference-*.json` after next tagged release.
+6. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
 
 ---
 

@@ -1016,7 +1016,7 @@ pub fn prepare_lmer_weighted(
     let ast = perf_diag::scope(perf_diag::Phase::SetupFormula, || {
         formula::parse(formula_str)
     })?;
-    let matrices = perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
+    let mut matrices = perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
         model_matrix::build_design_matrices(&ast, data)
     })?;
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
@@ -1024,18 +1024,18 @@ pub fn prepare_lmer_weighted(
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
     let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
 
-    let y_adjusted = if let Some(off) = &matrices.offset {
+    let y_for_lmm = if let Some(off) = &matrices.offset {
         &matrices.y - off
     } else {
-        matrices.y.clone()
+        std::mem::take(&mut matrices.y)
     };
 
     let lmm = Arc::new(perf_diag::scope(perf_diag::Phase::SetupLmmData, || {
         math::LmmData::new_weighted(
-            matrices.x.clone(),
-            matrices.zt.clone(),
-            y_adjusted,
-            matrices.re_blocks.clone(),
+            std::mem::take(&mut matrices.x),
+            std::mem::replace(&mut matrices.zt, sprs::CsMat::zero((0, 0))),
+            y_for_lmm,
+            std::mem::take(&mut matrices.re_blocks),
             weights,
         )
     }));
@@ -1084,17 +1084,21 @@ pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
         if let Some(off) = &offset_arr {
             fitted += off;
         }
-        let residuals = &matrices.y - &fitted;
+        let y_obs = if matrices.y.is_empty() {
+            &lmm.y
+        } else {
+            &matrices.y
+        };
+        let residuals = y_obs - &fitted;
 
-        let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
-        let var_corr_df =
-            build_var_corr_dataframe(best_th_slice, &matrices.re_blocks, coefs.sigma2);
+        let ranef_df = build_ranef_dataframe(&coefs.b, &lmm.re_blocks);
+        let var_corr_df = build_var_corr_dataframe(best_th_slice, &lmm.re_blocks, coefs.sigma2);
 
         let deviance_val = reml_eval;
         let log_lik = -deviance_val / 2.0;
-        let p = matrices.x.ncols();
+        let p = lmm.x.ncols();
         let n_params = (total_theta_len + p + 1) as f64;
-        let n = matrices.y.len() as f64;
+        let n = y_obs.len() as f64;
         let aic = deviance_val + 2.0 * n_params;
         let bic = deviance_val + n_params * n.ln();
 
@@ -1118,9 +1122,9 @@ pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
             formula: Some(matrices.formula.clone()),
             fixed_names: Some(matrices.fixed_names.clone()),
             fixed_term_assign: Some(matrices.fixed_term_assign.clone()),
-            fixed_design_x: Some(matrices.x.clone()),
-            re_blocks: Some(matrices.re_blocks.clone()),
-            num_obs: matrices.y.len(),
+            fixed_design_x: Some(lmm.x.clone()),
+            re_blocks: Some(lmm.re_blocks.clone()),
+            num_obs: y_obs.len(),
             converged: Some(opt_result.converged),
             iterations: Some(opt_result.iterations),
             family_name: None,

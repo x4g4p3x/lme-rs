@@ -551,18 +551,30 @@ pub fn build_x_matrix(
                     .map_err(|e| crate::LmeError::NotImplemented {
                         feature: format!("Cannot cast {} to string: {}", col_name, e),
                     })?;
-            let str_data: Vec<String> = full_str_col
+            let str_data: Vec<&str> = full_str_col
                 .str()
                 .unwrap()
                 .into_iter()
-                .map(|o| o.unwrap_or("").to_string())
+                .map(|o| o.unwrap_or(""))
                 .collect();
 
+            let mut level_index = std::collections::HashMap::with_capacity(unique_vals.len());
+            for (li, val) in unique_vals.iter().enumerate() {
+                level_index.insert(val.as_str(), li);
+            }
+            let mut level_id = vec![usize::MAX; n_obs];
+            for (i, &obs) in str_data.iter().enumerate() {
+                if let Some(&li) = level_index.get(obs) {
+                    level_id[i] = li;
+                }
+            }
+
             let mut term_cols: Vec<Array1<f64>> = Vec::new();
-            for val in unique_vals.iter().skip(start_idx) {
+            for (dummy_j, val) in unique_vals.iter().skip(start_idx).enumerate() {
+                let lvl = start_idx + dummy_j;
                 let mut col_data = ndarray::Array1::<f64>::zeros(n_obs);
                 for i in 0..n_obs {
-                    if str_data[i] == *val {
+                    if level_id[i] == lvl {
                         col_data[i] = 1.0;
                     }
                 }

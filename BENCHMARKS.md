@@ -253,6 +253,22 @@ Targets cold-`lmer()` overhead outside θ search: design-matrix construction, in
 
 **Takeaway:** `prepare_lmer` **~2× faster** (direct CSR `Zᵀ`, skip sparse LDL when blocked active, no unweighted clones). Post-fit **~2.5× faster** (lazy sparse LDL reuse in `evaluate()`). **`fit_prepared` beats Julia** on crossed (~12 ms vs ~16 ms); cold `lmer()` gap narrowed from **~1.7× to ~1.4×** on crossed and **~2.4× to ~1.1×** on random intercept. Fixed Julia fair harness (`ProgressMeter.enable` removed).
 
+<a id="fair-rust-julia-2026-07-08-prepare-ownership"></a>
+
+### 2026-07-08 prepare ownership pass
+
+Eliminates duplicate `x` / `zt` / `y` / `re_blocks` clones in [`prepare_lmer`](src/lib.rs) and speeds categorical dummy encoding in [`build_x_matrix`](src/model_matrix.rs). Full write-up: **[OPTIMIZATION.md § Prepare ownership pass](OPTIMIZATION.md#prepare-ownership-pass-2026-07-08-continued)**.
+
+**Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`, Julia **1.12.6**, MixedModels.jl **5.7.0**; 2 warmups + 10 measured fits (`--implementations rust,julia`).
+
+| Case | Cold `lmer()` Rust | Julia `fit` | vs Julia |
+|:-----|-------------------:|------------:|---------:|
+| `crossed_20k` | **21.1 ms** | 15.7 ms | **1.34×** |
+| `nested_10k` | **12.5 ms** | 6.9 ms | 1.81× |
+| `random_intercept_10k` | **1.3 ms** | 1.7 ms | **Rust faster** |
+
+**Takeaway:** `mem::take` into `LmmData` drops a full copy of design matrices at prepare time. **`random_intercept_10k` cold `lmer()` now beats Julia** on this machine; crossed gap narrowed to **~1.3×**. Nested kernel gap unchanged (still sparse LDL).
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.
@@ -309,7 +325,7 @@ Use the existing suite primarily for:
 
 Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
 
-The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×**; [blocked Cholesky](#fair-rust-julia-2026-07-08-blocked-cholesky) and [hot-path tuning](#fair-rust-julia-2026-07-08-blocked-hotpath) cut cold `lmer()` to ~**52 ms**; a [GEMM + prepared-fit pass](#fair-rust-julia-2026-07-08-gemm-prepared) brings **`fit_prepared` to ~13 ms** (~**1×** Julia on `crossed_20k`); a [setup/post-fit pass](#fair-rust-julia-2026-07-08-setup-postfit) cuts cold `lmer()` to **~22 ms** (~**1.4×** Julia on crossed, **~1.1×** on random intercept). See [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
+The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×**; [blocked Cholesky](#fair-rust-julia-2026-07-08-blocked-cholesky) and [hot-path tuning](#fair-rust-julia-2026-07-08-blocked-hotpath) cut cold `lmer()` to ~**52 ms**; a [GEMM + prepared-fit pass](#fair-rust-julia-2026-07-08-gemm-prepared) brings **`fit_prepared` to ~13 ms** (~**1×** Julia on `crossed_20k`); a [setup/post-fit pass](#fair-rust-julia-2026-07-08-setup-postfit) cuts cold `lmer()` to **~22 ms** (~**1.4×** Julia on crossed, **~1.1×** on random intercept); a [prepare ownership pass](#fair-rust-julia-2026-07-08-prepare-ownership) brings **`random_intercept_10k` ahead of Julia** and crossed to **~1.3×**. See [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
 
 ## Recommended next extensions
 
