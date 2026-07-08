@@ -246,11 +246,58 @@ fn fixed_effects_anova_to_py(res: lme_rs::FixedEffectsAnovaResult) -> PyFixedEff
     }
 }
 
+fn dataframe_input_error() -> PyErr {
+    pyo3::exceptions::PyTypeError::new_err(
+        "data must be a polars.DataFrame, pandas.DataFrame, or pyarrow.Table \
+         (install pandas or pyarrow if needed)",
+    )
+}
+
+/// Normalize Python tabular input to a Polars ``DataFrame`` for IPC serialization.
+fn to_polars_dataframe<'py>(
+    py: Python<'py>,
+    data: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    if let Ok(module) = data.get_type().getattr("__module__") {
+        if let Ok(mod_name) = module.extract::<String>() {
+            if mod_name.starts_with("polars") {
+                return Ok(data.clone());
+            }
+        }
+    }
+
+    let polars = py.import("polars")?;
+
+    if let Ok(pandas) = py.import("pandas") {
+        let pandas_df = pandas.getattr("DataFrame")?;
+        if data.is_instance(&pandas_df)? {
+            return polars.call_method1("from_pandas", (data,));
+        }
+    }
+
+    if let Ok(pyarrow) = py.import("pyarrow") {
+        let table_cls = pyarrow.getattr("Table")?;
+        if data.is_instance(&table_cls)? {
+            return polars.call_method1("from_arrow", (data,));
+        }
+    }
+
+    if data.getattr("write_ipc").is_ok() {
+        return Ok(data.clone());
+    }
+
+    Err(dataframe_input_error())
+}
+
 fn get_ipc_bytes<'py>(py: Python<'py>, data: &Bound<'py, PyAny>) -> PyResult<Vec<u8>> {
+    let pl_df = to_polars_dataframe(py, data)?;
     let io = py.import("io")?;
     let bytes_io = io.call_method0("BytesIO")?;
-    data.call_method1("write_ipc", (&bytes_io,))
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("DataFrame must have a write_ipc method (e.g., polars.DataFrame): {}", e)))?;
+    pl_df.call_method1("write_ipc", (&bytes_io,)).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Failed to serialize dataframe to Polars IPC: {e}"
+        ))
+    })?;
     let py_bytes = bytes_io.call_method0("getvalue")?;
     let bytes: Bound<'py, PyBytes> = py_bytes.cast()?.clone();
     Ok(bytes.as_bytes().to_vec())
@@ -1147,8 +1194,8 @@ pub fn lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml:
 /// ----------
 /// formula : str
 ///     Wilkinson formula, e.g. ``"y ~ x1 + x2"`` or ``"y ~ 1"``.
-/// data : polars.DataFrame
-///     DataFrame containing the variables referenced in the formula.
+/// data : polars.DataFrame, pandas.DataFrame, or pyarrow.Table
+///     Tabular data containing the variables referenced in the formula.
 ///
 /// Returns
 /// -------

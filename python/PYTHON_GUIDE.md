@@ -289,17 +289,43 @@ print(model.confint(level=0.95))
 
 ## Data expectations
 
-The Python layer currently expects a `polars.DataFrame` or another object that can write itself to IPC via a `write_ipc` method. In practice, using `polars.DataFrame` directly is the supported path.
+Formula entry points accept **Polars**, **pandas**, or **PyArrow** tabular data. Internally everything is converted to a Polars `DataFrame` via IPC before the Rust engine runs — Polars remains the canonical representation.
 
-If your data is in pandas, convert it first:
+| Input type | Notes |
+|:-----------|:------|
+| `polars.DataFrame` | Preferred; no conversion overhead beyond IPC |
+| `pandas.DataFrame` | Converted with `polars.from_pandas` (requires `pandas` installed) |
+| `pyarrow.Table` | Converted with `polars.from_arrow` (requires `pyarrow` installed) |
+
+```python
+import polars as pl
+import lme_python
+
+df = pl.read_csv("sleepstudy.csv")
+fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
+```
+
+pandas users can pass a `DataFrame` directly:
 
 ```python
 import pandas as pd
-import polars as pl
+import lme_python
 
-pdf = pd.read_csv("data.csv")
-df = pl.from_pandas(pdf)
+pdf = pd.read_csv("sleepstudy.csv")
+fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=pdf, reml=True)
 ```
+
+PyArrow pipelines can pass a `Table`:
+
+```python
+import pyarrow.csv as pacsv
+import lme_python
+
+table = pacsv.read_csv("sleepstudy.csv")
+fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=True)
+```
+
+**Categorical / string columns:** use string columns for grouping factors (same as Polars). With pandas, prefer explicit `str` dtypes or `category` columns whose levels match the formula; nullable integer columns may need casting before fitting.
 
 ## Current limitations
 

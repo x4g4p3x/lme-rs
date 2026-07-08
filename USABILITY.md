@@ -103,7 +103,7 @@ Statuses are **practical**, not formal support tiers.
 | `nlmer` built-in `SS*` means | Subset of R `stats::SS*`; one grouping factor | Orange / synthetic parity cases; not general `nlme` |
 | `nlmer_with_mean` (custom μ) | No R `selfStart` for custom means; defaults are naive | Supply `start`; verify predictions |
 | Scalar AGQ (`n_agq ≥ 2`) | Applied at final θ, not inside optimizer | Same pattern as `glmer`; compare Laplace vs AGQ |
-| Python bindings | Polars `DataFrame` required | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
+| Python bindings | Polars, pandas, or PyArrow `Table` accepted; Polars canonical internally | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 
 ### Red — not a substitute yet
 
@@ -137,7 +137,7 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 | Concern | Rust (`lme-rs`) | Python (`lme_python`) |
 |:--------|:----------------|:----------------------|
 | API breadth | Full formula + matrix paths | Formula mirror + `lm_matrix`; matrix `lm(y, x)` Rust-only |
-| Data | `polars::DataFrame` | Polars `DataFrame` (IPC across the FFI boundary) |
+| Data | `polars::DataFrame` | Polars / pandas / PyArrow `Table` (normalized to Polars IPC) |
 | Maturity | Same engine | Same engine; stubs in [`python/lme_python.pyi`](python/lme_python.pyi) |
 | When to prefer | Native pipelines, amortized `fit_prepared`, embedding in Rust services | Notebooks, Polars-centric Python stacks, quick parity with Rust |
 

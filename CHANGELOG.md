@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Python bindings accept **pandas `DataFrame`** and **PyArrow `Table`** inputs (converted to Polars at the FFI boundary); Polars remains the only runtime dependency.
 - **[BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)** — maps tier-A (fair MixedModels.jl) vs Rust-only benchmarks; axis (3) thresholds.
 - Fair harness: real fixtures (`penicillin`, `pastes`, weighted `sleepstudy`), GLMM (`cbpp`, `grouseticks`), Rust `prepare_lmer`/`fit_prepared` phases (`--with-phases`), multi-metric JSON comparisons.
 - Python [`nlmer_with_mean`](python/src/lib.rs) for user-defined nonlinear means; Rust [`parse_nlmer_custom_formula`](src/nlmm/formula.rs).
