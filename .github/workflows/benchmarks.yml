@@ -125,7 +125,7 @@ jobs:
           Rscript -e 'install.packages(c("lme4", "lmerTest", "car", "rlang", "styler"), repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
 
       - name: Install Julia benchmark dependencies
-        run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "JSON", "MixedModels", "JuliaFormatter"])'
+        run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "JSON", "MixedModels", "GLM", "JuliaFormatter"])'
 
       - name: Check comparison script formatting
         run: python3 scripts/ci/lme_ci.py comparison-format-check --required

@@ -4,7 +4,7 @@ This document answers **“can I use this for my problem?”** — a different q
 
 For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md). That file tracks **coverage** (what is implemented). This file tracks **usability** (what is safe and practical to rely on).
 
-**Last assessed:** 2026-07-08 · `lme-rs` / `lme_python` **0.1.8**
+**Last assessed:** 2026-07-08 · `lme-rs` / `lme_python` **0.1.9**
 
 ---
 

@@ -43,17 +43,9 @@ cargo bench --no-run
 
 ```bash
 cd python
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
-
-pip install maturin polars pytest
-maturin develop --release
-pytest
+uv sync --extra dev --no-install-project
+uv run maturin develop --release
+uv run pytest tests/
 ```
 
 ## Version bump checklist

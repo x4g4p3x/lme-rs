@@ -6,7 +6,7 @@ This file gives **approximate completion percentages** for major parts of the `l
 
 **Last assessed:** 2026-07-08.
 
-**Versions checked:** `lme-rs` **0.1.8** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.1.8** ([`python/Cargo.toml`](python/Cargo.toml)).
+**Versions checked:** `lme-rs` **0.1.9** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.1.9** ([`python/Cargo.toml`](python/Cargo.toml)).
 
 Repository completion is judged on **three** axes, not features alone:
 
