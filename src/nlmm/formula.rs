@@ -53,6 +53,53 @@ impl NlmmMeanKind {
     }
 }
 
+/// Parse a three-part custom-mean formula: `response ~ covariate ~ re | group`.
+///
+/// The middle segment is the covariate column name (not an `SS*` call). Pass the
+/// full list of fixed nonlinear parameter names via `fixed_param_names`.
+pub fn parse_nlmer_custom_formula(
+    formula: &str,
+    fixed_param_names: &[String],
+) -> crate::Result<NlmerFormula> {
+    let parts: Vec<&str> = formula.split('~').map(str::trim).collect();
+    if parts.len() != 3 {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "custom nlmer formulas require three parts separated by '~' (got {} segments)",
+                parts.len()
+            ),
+        });
+    }
+    if fixed_param_names.is_empty() {
+        return Err(LmeError::NotImplemented {
+            feature: "custom nlmer requires at least one fixed nonlinear parameter name"
+                .to_string(),
+        });
+    }
+    let response = parts[0].to_string();
+    let covariate = parts[1].to_string();
+    if covariate.is_empty() {
+        return Err(LmeError::NotImplemented {
+            feature: "custom nlmer covariate name is empty".to_string(),
+        });
+    }
+    if covariate.contains('(') || covariate.contains(')') {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "custom nlmer middle part must be a covariate column name, not a function call (got '{covariate}')"
+            ),
+        });
+    }
+    let (re_params, re_group) = parse_random_part(parts[2], fixed_param_names)?;
+    Ok(NlmerFormula {
+        response,
+        covariate,
+        fixed_param_names: fixed_param_names.to_vec(),
+        re_params,
+        re_group,
+    })
+}
+
 /// Parse a three-part `nlmer` formula string.
 pub fn parse_nlmer_formula(formula: &str) -> crate::Result<(NlmerFormula, NlmmMeanKind)> {
     let parts: Vec<&str> = formula.split('~').map(str::trim).collect();
@@ -222,5 +269,16 @@ mod tests {
         let (f, kind) = parse_nlmer_formula("y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id").unwrap();
         assert_eq!(kind, NlmmMeanKind::Ssgompertz);
         assert_eq!(f.fixed_param_names, vec!["Asym", "b2", "b3"]);
+    }
+
+    #[test]
+    fn parses_custom_mean_formula() {
+        let names = vec!["a".to_string(), "b".to_string()];
+        let f = parse_nlmer_custom_formula("y ~ x ~ a | g", &names).unwrap();
+        assert_eq!(f.response, "y");
+        assert_eq!(f.covariate, "x");
+        assert_eq!(f.fixed_param_names, names);
+        assert_eq!(f.re_params, vec!["a".to_string()]);
+        assert_eq!(f.re_group, "g");
     }
 }

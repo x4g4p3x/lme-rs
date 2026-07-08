@@ -1,10 +1,11 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict};
+use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use polars::prelude::*;
 use std::io::Cursor;
+use std::sync::Arc;
 use lme_rs::contrast::contrast_matrix;
 use lme_rs::family::Family;
-use lme_rs::nlmm::NlmmStart;
+use lme_rs::nlmm::{parse_nlmer_custom_formula, NlmmMeanEval, NlmmStart};
 use lme_rs::{AnovaType, DdfMethod, LmeFit};
 use ndarray::Array2;
 
@@ -263,6 +264,116 @@ fn parse_nlmm_start(start: Option<&Bound<'_, PyDict>>) -> PyResult<NlmmStart> {
         }
     }
     Ok(map)
+}
+
+/// User-defined nonlinear mean backed by a Python callable.
+struct PyNlmmMeanEval {
+    n_params: usize,
+    callable: Py<PyAny>,
+}
+
+// Fitting is single-threaded; the GIL is acquired on each eval.
+unsafe impl Send for PyNlmmMeanEval {}
+unsafe impl Sync for PyNlmmMeanEval {}
+
+impl std::fmt::Debug for PyNlmmMeanEval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PyNlmmMeanEval")
+            .field("n_params", &self.n_params)
+            .finish()
+    }
+}
+
+fn call_py_nlmm_mean(
+    callable: &Bound<'_, PyAny>,
+    n_params: usize,
+    x: f64,
+    params: &[f64],
+) -> PyResult<(f64, Vec<f64>)> {
+    let py = callable.py();
+    let py_params = PyList::new(py, params.iter().copied())?;
+    let result = callable.call1((x, py_params))?;
+    let tuple = result.cast::<PyTuple>().map_err(|_| {
+        pyo3::exceptions::PyValueError::new_err(
+            "custom nlmer mean must return a 2-tuple (mu, grad)",
+        )
+    })?;
+    if tuple.len() != 2 {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "custom nlmer mean must return (mu, grad); got {} values",
+            tuple.len()
+        )));
+    }
+    let mu: f64 = tuple.get_item(0)?.extract().map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "custom nlmer mean mu must be a float: {e}"
+        ))
+    })?;
+    let grads: Vec<f64> = tuple.get_item(1)?.extract().map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "custom nlmer mean grad must be a sequence of floats: {e}"
+        ))
+    })?;
+    if grads.len() != n_params {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "custom nlmer mean grad length {} does not match n_params ({n_params})",
+            grads.len()
+        )));
+    }
+    Ok((mu, grads))
+}
+
+fn validate_py_nlmm_mean(
+    mean_fn: &Bound<'_, PyAny>,
+    n_params: usize,
+) -> PyResult<PyNlmmMeanEval> {
+    if !mean_fn.is_callable() {
+        return Err(pyo3::exceptions::PyTypeError::new_err(
+            "mean_fn must be callable",
+        ));
+    }
+    let probe = vec![1.0; n_params];
+    call_py_nlmm_mean(mean_fn, n_params, 0.0, &probe).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "custom nlmer mean failed validation call at (x=0.0, params={probe:?}): {e}"
+        ))
+    })?;
+    Ok(PyNlmmMeanEval {
+        n_params,
+        callable: mean_fn.clone().unbind(),
+    })
+}
+
+impl NlmmMeanEval for PyNlmmMeanEval {
+    fn n_params(&self) -> usize {
+        self.n_params
+    }
+
+    fn eval(&self, x: f64, params: &[f64]) -> (f64, Vec<f64>) {
+        Python::attach(|py| {
+            let callable = self.callable.bind(py);
+            call_py_nlmm_mean(&callable, self.n_params, x, params).unwrap_or_else(|e| {
+                panic!("custom nlmer mean evaluation failed: {e}");
+            })
+        })
+    }
+
+    fn default_start_values(&self, names: &[String]) -> Vec<f64> {
+        names.iter().map(|_| 1.0).collect()
+    }
+
+    fn self_start_values(
+        &self,
+        _x: &ndarray::Array1<f64>,
+        _y: &ndarray::Array1<f64>,
+        names: &[String],
+    ) -> NlmmStart {
+        self.default_start_values(names)
+            .into_iter()
+            .zip(names.iter())
+            .map(|(v, n)| (n.clone(), v))
+            .collect()
+    }
 }
 
 fn parse_ddf_method(ddf_method: &str) -> PyResult<DdfMethod> {
@@ -1218,6 +1329,56 @@ pub fn nlmer<'py>(
     }
 }
 
+/// Fit a nonlinear mixed model with a user-defined mean function.
+///
+/// ``formula`` uses the custom-mean layout ``response ~ covariate ~ re | group``
+/// (middle segment is the covariate column, not an ``SS*`` call). ``mean_fn(x, params)``
+/// must return ``(mu, grad)`` where ``grad`` has one partial derivative per name in
+/// ``param_names``.
+#[pyfunction]
+#[pyo3(signature = (formula, data, mean_fn, param_names, start=None, reml=false, n_agq=1))]
+pub fn nlmer_with_mean<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    mean_fn: &Bound<'py, PyAny>,
+    param_names: Vec<String>,
+    start: Option<&Bound<'py, PyDict>>,
+    reml: bool,
+    n_agq: usize,
+) -> PyResult<PyLmeFit> {
+    if param_names.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "param_names must name at least one nonlinear parameter",
+        ));
+    }
+    let mean = validate_py_nlmm_mean(mean_fn, param_names.len())?;
+    let parsed = parse_nlmer_custom_formula(formula, &param_names).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Invalid nlmer formula: {e}"))
+    })?;
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    let start_map = parse_nlmm_start(start)?;
+    let opts = lme_rs::NlmerOptions {
+        reml,
+        start: start_map,
+        n_agq,
+        ..lme_rs::NlmerOptions::default()
+    };
+    match lme_rs::nlmer_with_mean(
+        &parsed,
+        Arc::new(mean),
+        &df,
+        Some(formula),
+        &opts,
+    ) {
+        Ok(fit) => Ok(PyLmeFit { inner: fit }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Model fit failed: {e}"
+        ))),
+    }
+}
+
 /// Likelihood ratio test between two nested fitted models.
 #[pyfunction]
 pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<PyLikelihoodRatioAnova> {
@@ -1253,6 +1414,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
     m.add_function(wrap_pyfunction!(glmer_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(nlmer, m)?)?;
+    m.add_function(wrap_pyfunction!(nlmer_with_mean, m)?)?;
     m.add_function(wrap_pyfunction!(contrast_matrix_py, m)?)?;
     m.add_function(wrap_pyfunction!(contrast_matrix_from_names_py, m)?)?;
     m.add_function(wrap_pyfunction!(anova, m)?)?;
@@ -1273,6 +1435,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "glmer",
             "glmer_weighted",
             "nlmer",
+            "nlmer_with_mean",
             "anova",
             "contrast_matrix",
             "contrast_matrix_from_names",

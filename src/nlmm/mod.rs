@@ -20,7 +20,7 @@ pub use sslogis::sslogis_eval;
 pub use ssmicmen::ssmicmen_eval;
 
 pub use fit::{fit_nlmer, NlmerOptions, NlmmStart};
-pub use formula::{parse_nlmer_formula, NlmerFormula, NlmmMeanKind};
+pub use formula::{parse_nlmer_custom_formula, parse_nlmer_formula, NlmerFormula, NlmmMeanKind};
 pub use mean_fn::{builtin_mean, CustomNlmmMean, NlmmMeanEval};
 
 use std::sync::Arc;

@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **[USABILITY.md](USABILITY.md)** — workflows in scope (green/yellow/red), engineering validation vs field experience, and adoption guidance; distinct from [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) coverage percentages.
+- Python [`nlmer_with_mean`](python/src/lib.rs) for user-defined nonlinear means; Rust [`parse_nlmer_custom_formula`](src/nlmm/formula.rs).
 - **`prepare_lmer` / `fit_prepared` / `LmerPrepared`** — amortize formula parse and design-matrix build when fitting the same formula and data repeatedly (e.g. CV, bootstrap); hot `fit_prepared` wall time on fair `crossed_20k` matches MixedModels.jl (~12–14 ms). See [`OPTIMIZATION.md`](OPTIMIZATION.md).
 - **Blocked augmented Cholesky** for intercept-only crossed models ([`src/intercept_blocked.rs`](src/intercept_blocked.rs)): MixedModels.jl-style `updateL!` layout; profile deviance without full-q LDL solves on the θ hot path.
 - **LMM performance diagnostics** (`LME_PERF_DIAG=1`): phase timing in [`src/perf_diag.rs`](src/perf_diag.rs), [`comparisons/bench_perf_breakdown.rs`](comparisons/bench_perf_breakdown.rs), Julia runner [`comparisons/bench_fair_julia_perf.jl`](comparisons/bench_fair_julia_perf.jl), and [`scripts/run_perf_breakdown.py`](scripts/run_perf_breakdown.py) (`task benchmarks:perf-breakdown`). Reports `prepare_wall_seconds`, `fit_prepared_wall_seconds`, and `blocked_kernel` alongside optimizer phases.
 - Fair Rust vs Julia LMM fit benchmark ([`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py), [`comparisons/bench_fair_rust_julia.rs`](comparisons/bench_fair_rust_julia.rs), [`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl)); documented 2026-07-04 Windows reference in [`BENCHMARKS.md`](BENCHMARKS.md) and [`benchmarks/fair-rust-julia-reference-2026-07-04.json`](benchmarks/fair-rust-julia-reference-2026-07-04.json).
 - `nlmer` built-in means **`SSmicmen`** and **`SSgompertz`** (`stats::SSmicmen`; `stats::SSgompertz` as `Asym * exp(-b2 * b3^x)`).
-- Custom nonlinear means via [`NlmmMeanEval`](src/nlmm/mean_fn.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) and [`nlmer_with_mean`](src/nlmm/mod.rs).
+- Custom nonlinear means via [`NlmmMeanEval`](src/nlmm/mean_fn.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) and [`nlmer_with_mean`](src/nlmm/mod.rs); Python [`nlmer_with_mean`](python/src/lib.rs) with a callable mean function.
 - Scalar **AGQ** for `nlmer` (`NlmerOptions::n_agq`, `k = 1` random effects); tests in [`tests/test_nlmm_agq.rs`](tests/test_nlmm_agq.rs).
 - Python docs for `nlmer(..., start=None)` / `selfStart` in [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md).
 - Python `nlmer(..., n_agq=1)` binding (scalar AGQ for `k = 1` RE).

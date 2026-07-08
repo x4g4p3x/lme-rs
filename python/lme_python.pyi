@@ -1,6 +1,6 @@
 """Type stubs for the ``lme_python`` PyO3 extension."""
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Sequence
 
 import polars as pl
 
@@ -148,6 +148,15 @@ def glmer_weighted(
 def nlmer(
     formula: str,
     data: pl.DataFrame,
+    start: Optional[dict[str, float]] = None,
+    reml: bool = False,
+    n_agq: int = 1,
+) -> PyLmeFit: ...
+def nlmer_with_mean(
+    formula: str,
+    data: pl.DataFrame,
+    mean_fn: Callable[[float, Sequence[float]], tuple[float, Sequence[float]]],
+    param_names: list[str],
     start: Optional[dict[str, float]] = None,
     reml: bool = False,
     n_agq: int = 1,

@@ -53,6 +53,7 @@ Top-level functions:
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
 - `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`)
+- `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
@@ -218,6 +219,36 @@ Explicit `start` overrides `selfStart`; partial dicts merge with defaults for mi
 Set `n_agq` to a value `≥ 2` for adaptive Gauss–Hermite quadrature on scalar random effects (`k = 1`); default `1` is Laplace only (same convention as `glmer`).
 
 `predict()` and `predict_conditional()` work on NLMM fits: population predictions use fixed nonlinear parameters only; conditional predictions add stored random effects, including multivariate nonlinear-parameter effects such as `Asym + xmid | Tree`.
+
+### Custom nonlinear means
+
+Use `nlmer_with_mean` when the built-in `SS*` catalog does not cover your mean function. The formula layout is `response ~ covariate ~ re | group` (the middle segment is the covariate column name, not an `SS*` call). The callable `mean_fn(x, params)` must return `(mu, grad)` where `grad` has one partial derivative per name in `param_names`.
+
+```python
+import math
+
+import polars as pl
+
+import lme_python
+
+
+def exp_mean(x: float, params: list[float]) -> tuple[float, list[float]]:
+    a, b = params
+    mu = a * math.exp(-b * x)
+    return mu, [math.exp(-b * x), -x * a * math.exp(-b * x)]
+
+
+df = pl.DataFrame({"y": [...], "x": [...], "g": [...]})
+fit = lme_python.nlmer_with_mean(
+    "y ~ x ~ a | g",
+    data=df,
+    mean_fn=exp_mean,
+    param_names=["a", "b"],
+    start={"a": 2.0, "b": 0.4},
+)
+```
+
+When `start=None`, defaults use `1.0` for each parameter name (custom means do not run R `selfStart` heuristics).
 
 ## Predictions
 
