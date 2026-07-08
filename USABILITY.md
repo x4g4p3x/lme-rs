@@ -156,7 +156,7 @@ There is no sharp line between “analysis” and “throughput” use — only 
 
 **Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.
 
-Before committing to a hot path, read [OPTIMIZATION.md](OPTIMIZATION.md) and run [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) on cases that resemble your random-effects structure.
+Before committing to a hot path, read [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) for tier-A cases and run [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) with `--with-phases` on workloads that match your RE structure.
 
 ---
 
@@ -168,7 +168,7 @@ Before committing to a hot path, read [OPTIMIZATION.md](OPTIMIZATION.md) and run
 | [GUIDE.md](GUIDE.md) / [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md) | How to call APIs |
 | [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) | What is regression-tested vs manual |
 | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | Internal coverage map (not a usability score) |
-| [BENCHMARKS.md](BENCHMARKS.md) / [OPTIMIZATION.md](OPTIMIZATION.md) | Fit timing scope and engineering notes |
+| [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) / [BENCHMARKS.md](BENCHMARKS.md) / [OPTIMIZATION.md](OPTIMIZATION.md) | Tier-A cases, fit timing scope, engineering notes |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ---

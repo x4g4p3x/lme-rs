@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **[USABILITY.md](USABILITY.md)** — workflows in scope (green/yellow/red), engineering validation vs field experience, and adoption guidance; distinct from [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) coverage percentages.
+- **[BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)** — maps tier-A (fair MixedModels.jl) vs Rust-only benchmarks; axis (3) thresholds.
+- Fair harness: real fixtures (`penicillin`, `pastes`, weighted `sleepstudy`), GLMM (`cbpp`, `grouseticks`), Rust `prepare_lmer`/`fit_prepared` phases (`--with-phases`), multi-metric JSON comparisons.
 - Python [`nlmer_with_mean`](python/src/lib.rs) for user-defined nonlinear means; Rust [`parse_nlmer_custom_formula`](src/nlmm/formula.rs).
 - **`prepare_lmer` / `fit_prepared` / `LmerPrepared`** — amortize formula parse and design-matrix build when fitting the same formula and data repeatedly (e.g. CV, bootstrap); hot `fit_prepared` wall time on fair `crossed_20k` matches MixedModels.jl (~12–14 ms). See [`OPTIMIZATION.md`](OPTIMIZATION.md).
 - **Blocked augmented Cholesky** for intercept-only crossed models ([`src/intercept_blocked.rs`](src/intercept_blocked.rs)): MixedModels.jl-style `updateL!` layout; profile deviance without full-q LDL solves on the θ hot path.

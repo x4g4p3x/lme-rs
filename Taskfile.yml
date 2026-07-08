@@ -51,7 +51,7 @@ tasks:
       - '{{.RUN}} benchmarks-preflight'
 
   benchmarks:fair-rust-julia:
-    desc: Fair fit-only Rust vs Julia LMM timing (skip if Julia/MixedModels missing)
+    desc: Fair fit-only Rust vs Julia timing (LMM+GLMM; skip if Julia/MixedModels missing)
     cmds:
       - '{{.RUN}} benchmarks-fair-rust-julia'
 

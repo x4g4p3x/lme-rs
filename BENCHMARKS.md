@@ -2,6 +2,8 @@
 
 This repository includes Criterion benchmarks for the Rust crate. Performance is an important selling point of `lme-rs`, but the benchmark suite should be described accurately: it is useful and non-trivial, yet it is not comprehensive enough to support blanket speed claims on its own.
 
+**External reference map:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) lists which workflows have tier-A (fair) MixedModels.jl timing vs Rust-only Criterion benches. Use it before raising [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) percentages.
+
 ## Current benchmark coverage
 
 The existing benchmark target is [benches/bench_math.rs](benches/bench_math.rs).
@@ -124,7 +126,7 @@ This script writes JSON output with runtime versions, machine metadata, and per-
 For a more apples-to-apples throughput comparison against **MixedModels.jl**, use the dedicated harness:
 
 ```bash
-python scripts/run_fair_rust_julia_benchmark.py
+python scripts/run_fair_rust_julia_benchmark.py --with-phases
 # or
 task benchmarks:fair-rust-julia
 ```
@@ -134,11 +136,12 @@ task benchmarks:fair-rust-julia
 - generate **shared CSV fixtures** from the same RNG recipes as [`benches/bench_math.rs`](benches/bench_math.rs)
 - load each dataset **once** before timing
 - run **warmup fits** (including Julia JIT) before measured samples
-- time **only the model fit** (`lme-rs::lmer` vs `MixedModels.fit`), excluding CSV I/O and process startup
-- default cases: `sleepstudy_reml`, `random_intercept_10k/50k/100k`, `crossed_20k`, `nested_10k`
-- write JSON to `benchmark-results/fair-rust-julia-benchmarks.json` with per-case medians and `rust_over_julia_median` ratios
+- time **cold fit** (`lmer` / `glmer` / weighted `lmer` vs `MixedModels.fit` / `GeneralizedLinearMixedModel`)
+- optional **`--with-phases`**: Rust `prepare_lmer` and `fit_prepared` medians (LMM cases)
+- default cases: all entries in [BENCHMARK_COVERAGE.md § Tier A](BENCHMARK_COVERAGE.md#tier-a-case-catalog) (LMM synthetics + real fixtures + CBPP/grouseticks GLMM)
+- write JSON to `benchmark-results/fair-rust-julia-benchmarks.json` with per-metric medians and `rust_over_julia_median` ratios (default target ratio **2×**)
 
-Julia is resolved from `--julia`, `JULIA_BIN`, `PATH`, or (on Windows) `%LOCALAPPDATA%\Programs\Julia-*\bin\julia.exe`. Requires Julia packages `CSV`, `DataFrames`, `JSON`, and `MixedModels`.
+Julia is resolved from `--julia`, `JULIA_BIN`, `PATH`, or (on Windows) `%LOCALAPPDATA%\Programs\Julia-*\bin\julia.exe`. Requires Julia packages `CSV`, `DataFrames`, `JSON`, `MixedModels`, and **`GLM`** (GLMM cases).
 
 For **where time goes** inside a fit (Rust phase breakdown + Julia `optsum.feval` on the same CSV), use [`scripts/run_perf_breakdown.py`](scripts/run_perf_breakdown.py) (`task benchmarks:perf-breakdown`). The Rust runner reports **`prepare_wall_seconds`**, **`fit_prepared_wall_seconds`** (hot path), and **`blocked_kernel`** alongside `LME_PERF_DIAG` phases. See [OPTIMIZATION.md § Performance diagnostics](OPTIMIZATION.md#performance-diagnostics-lme_perf_diag).
 

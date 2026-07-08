@@ -611,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
     ).set_defaults(fn=lambda _: benchmarks_preflight())
     sub.add_parser(
         "benchmarks-fair-rust-julia",
-        help="Fair fit-only Rust vs Julia timing when Julia + MixedModels are installed",
+        help="Fair fit-only Rust vs Julia timing when Julia + MixedModels are installed (LMM smoke; GLM only for GLMM cases)",
     ).set_defaults(fn=lambda _: benchmarks_fair_rust_julia())
     sub.add_parser(
         "perf-breakdown",

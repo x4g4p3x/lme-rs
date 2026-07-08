@@ -81,7 +81,7 @@ On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` +
 - Cross-language numerical comparisons: [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md)
 - **Usability** (workflows in scope, validation posture, field experience): [USABILITY.md](USABILITY.md)
 - Approximate **coverage** by repository area (not usability): [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
-- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md) (includes fair Rust vs MixedModels.jl fit timing and [2026-07-06 reference results](BENCHMARKS.md#fair-rust-vs-julia-reference-results))
+- Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md); **coverage map** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)
 - LMM fit optimization (engineering notes): [OPTIMIZATION.md](OPTIMIZATION.md)
 - Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
