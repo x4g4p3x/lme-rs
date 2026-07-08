@@ -1,7 +1,7 @@
 {
   "reference_label": "fair-rust-julia-windows-amd64-2026-07-08",
   "generated_at": "2026-07-08T19:57:03.991513+00:00",
-  "git_sha": "3ea2a86",
+  "git_sha": "50dc675ff932f9e84f1ed448ea6f741b224b6120",
   "methodology": {
     "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
     "harness": "scripts/run_fair_rust_julia_benchmark.py",
