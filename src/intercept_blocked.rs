@@ -1,5 +1,6 @@
 //! Blocked augmented Cholesky for intercept-only LMMs (MixedModels.jl `updateL!` layout).
 
+use ndarray::linalg::general_mat_mul;
 use ndarray::Array2;
 use sprs::CsMat;
 use std::collections::HashSet;
@@ -151,7 +152,8 @@ impl CrossBlock {
         }
         let nnz = vals.len();
         let density = nnz as f64 / (nrows as f64 * ncols as f64);
-        if density > SPARSE_CROSS_MAX_DENSITY {
+        let elems = nrows.saturating_mul(ncols);
+        if elems <= 100_000 || density > SPARSE_CROSS_MAX_DENSITY {
             let mut dense = Array2::<f64>::zeros((nrows, ncols));
             for local_col in 0..ncols {
                 let start = col_ptr[local_col];
@@ -188,35 +190,6 @@ impl CrossBlock {
                 dst.scale(scale);
             }
         }
-    }
-
-    fn schur_sub_from_xy_re(
-        &self,
-        target: &mut Array2<f64>,
-        lij: &Array2<f64>,
-        col: usize,
-        row: usize,
-    ) -> f64 {
-        let mut s = target[[row, col]];
-        match self {
-            CrossBlock::Dense(d) => {
-                for k in 0..lij.ncols() {
-                    s -= lij[[row, k]] * d[[col, k]];
-                }
-            }
-            CrossBlock::Sparse {
-                col_ptr,
-                row_idx,
-                vals,
-                ..
-            } => {
-                for idx in col_ptr[col]..col_ptr[col + 1] {
-                    let k = row_idx[idx];
-                    s -= lij[[row, k]] * vals[idx];
-                }
-            }
-        }
-        s
     }
 
     fn fits_blocked_gate(&self) -> bool {
@@ -264,9 +237,9 @@ impl CrossBlock {
         }
     }
 
-    fn rank_sub_lower(&self, target: &mut ReLower) {
+    fn rank_sub_lower(&self, target: &mut ReLower, gram: &mut Array2<f64>) {
         match self {
-            CrossBlock::Dense(d) => target.rank_sub_dense(d),
+            CrossBlock::Dense(d) => target.rank_sub_dense(d, gram),
             CrossBlock::Sparse {
                 col_ptr,
                 row_idx,
@@ -388,38 +361,24 @@ impl CrossBlock {
     fn trisolve_full_lower(&mut self, lower: &ReLower, rhs_buf: &mut [f64]) -> Result<(), ()> {
         let nrows = self.nrows();
         debug_assert!(rhs_buf.len() >= nrows);
-        for col in 0..self.ncols() {
-            rhs_buf[..nrows].fill(0.0);
-            match self {
-                CrossBlock::Dense(d) => {
-                    for row in 0..nrows {
-                        rhs_buf[row] = d[[row, col]];
-                    }
-                }
-                CrossBlock::Sparse {
-                    col_ptr,
-                    row_idx,
-                    vals,
-                    ..
-                } => {
+        debug_assert_eq!(nrows, lower.n);
+        match self {
+            CrossBlock::Dense(d) => {
+                lower.solve_multi_rhs(d);
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ncols,
+                ..
+            } => {
+                for col in 0..*ncols {
+                    rhs_buf[..nrows].fill(0.0);
                     for idx in col_ptr[col]..col_ptr[col + 1] {
                         rhs_buf[row_idx[idx]] = vals[idx];
                     }
-                }
-            }
-            lower.solve_col(&mut rhs_buf[..nrows]);
-            match self {
-                CrossBlock::Dense(d) => {
-                    for row in 0..nrows {
-                        d[[row, col]] = rhs_buf[row];
-                    }
-                }
-                CrossBlock::Sparse {
-                    col_ptr,
-                    row_idx,
-                    vals,
-                    ..
-                } => {
+                    lower.solve_col(&mut rhs_buf[..nrows]);
                     for idx in col_ptr[col]..col_ptr[col + 1] {
                         vals[idx] = rhs_buf[row_idx[idx]];
                     }
@@ -456,15 +415,17 @@ impl ReLower {
         self.data[r * (r + 1) / 2 + c] = val;
     }
 
-    fn rank_sub_dense(&mut self, cross: &Array2<f64>) {
+    fn rank_sub_dense(&mut self, cross: &Array2<f64>, gram: &mut Array2<f64>) {
         debug_assert_eq!(cross.nrows(), self.n);
-        for r in 0..self.n {
-            let row_r = cross.row(r);
+        let n = self.n;
+        if gram.nrows() != n || gram.ncols() != n {
+            *gram = Array2::zeros((n, n));
+        }
+        general_mat_mul(1.0, cross, &cross.t(), 0.0, gram);
+        for r in 0..n {
+            let base = r * (r + 1) / 2;
             for c in 0..=r {
-                let s = row_r.dot(&cross.row(c));
-                if s != 0.0 {
-                    self.set(r, c, self.get(r, c) - s);
-                }
+                self.data[base + c] -= gram[[r, c]];
             }
         }
     }
@@ -483,25 +444,29 @@ impl ReLower {
     }
 
     fn chol(&mut self) -> Result<f64, ()> {
+        let n = self.n;
+        let data = &mut self.data;
         let mut log_det = 0.0;
-        for j in 0..self.n {
-            let mut sum = self.get(j, j);
+        for j in 0..n {
+            let base_j = j * (j + 1) / 2;
+            let mut sum = data[base_j + j];
             for k in 0..j {
-                let ljk = self.get(j, k);
+                let ljk = data[base_j + k];
                 sum -= ljk * ljk;
             }
             if sum <= 0.0 {
                 return Err(());
             }
             let ljj = sum.sqrt();
-            self.set(j, j, ljj);
+            data[base_j + j] = ljj;
             log_det += ljj.ln();
-            for i in (j + 1)..self.n {
-                let mut s = self.get(i, j);
+            for i in (j + 1)..n {
+                let base_i = i * (i + 1) / 2;
+                let mut s = data[base_i + j];
                 for k in 0..j {
-                    s -= self.get(i, k) * self.get(j, k);
+                    s -= data[base_i + k] * data[base_j + k];
                 }
-                self.set(i, j, s / ljj);
+                data[base_i + j] = s / ljj;
             }
         }
         Ok(log_det)
@@ -510,15 +475,35 @@ impl ReLower {
     fn solve_col(&self, rhs: &mut [f64]) {
         let n = self.n;
         debug_assert_eq!(rhs.len(), n);
-        let mut x = vec![0.0; n];
         for i in 0..n {
             let mut s = rhs[i];
-            for (k, xk) in x.iter().enumerate().take(i) {
-                s -= self.get(i, k) * xk;
+            let base = i * (i + 1) / 2;
+            for (k, &rk) in rhs[..i].iter().enumerate() {
+                s -= self.data[base + k] * rk;
             }
-            x[i] = s / self.get(i, i);
+            rhs[i] = s / self.data[base + i];
         }
-        rhs.copy_from_slice(&x);
+    }
+
+    /// Solve `L X = rhs` in place; `rhs` is `n × nrhs` with one RHS per column.
+    fn solve_multi_rhs(&self, rhs: &mut Array2<f64>) {
+        let n = self.n;
+        debug_assert_eq!(rhs.nrows(), n);
+        let nrhs = rhs.ncols();
+        let data = &self.data;
+        for i in 0..n {
+            let base_i = i * (i + 1) / 2;
+            let diag = data[base_i + i];
+            for k in 0..i {
+                let l_ik = data[base_i + k];
+                for col in 0..nrhs {
+                    rhs[[i, col]] -= l_ik * rhs[[k, col]];
+                }
+            }
+            for col in 0..nrhs {
+                rhs[[i, col]] /= diag;
+            }
+        }
     }
 }
 
@@ -557,9 +542,9 @@ impl ReFactor {
         }
     }
 
-    fn rank_sub_cross(&mut self, cross: &CrossBlock) {
+    fn rank_sub_cross(&mut self, cross: &CrossBlock, gram: &mut Array2<f64>) {
         match self {
-            ReFactor::Full(l) => cross.rank_sub_lower(l),
+            ReFactor::Full(l) => cross.rank_sub_lower(l, gram),
             ReFactor::ColumnBlocks { blocks, col_rows } => {
                 cross.rank_sub_column_blocks(blocks, col_rows);
             }
@@ -611,21 +596,67 @@ pub(crate) struct InterceptBlockedChol {
     l_diag0: Vec<f64>,
     l_re_factor: Vec<ReFactor>,
     diag_buf: Vec<f64>,
-    trisolve_buf: Vec<f64>,
     cross_rhs_buf: Vec<f64>,
     schur_li_scratch: Array2<f64>,
     schur_lj_scratch: Array2<f64>,
+    rank_gram_buf: Array2<f64>,
+    xy_trisolve_buf: Array2<f64>,
+}
+
+/// Stable perf-diag label when [`InterceptBlockedChol::try_new`] returns `None`.
+pub(crate) fn blocked_unavailable_reason(lmm: &super::LmmData) -> &'static str {
+    blocked_gate_failure(lmm).unwrap_or("blocked_unavailable_unknown")
+}
+
+pub(crate) fn blocked_gate_failure(lmm: &super::LmmData) -> Option<&'static str> {
+    if !lmm.intercept_only_re() {
+        return Some("blocked_unavailable_not_intercept_only");
+    }
+    let re_blocks = &lmm.re_blocks;
+    if re_blocks.is_empty() {
+        return Some("blocked_unavailable_empty_re");
+    }
+    let mut order: Vec<usize> = (0..re_blocks.len()).collect();
+    order.sort_by(|&a, &b| re_blocks[b].m.cmp(&re_blocks[a].m));
+    let mut offset = 0usize;
+    for &orig in &order {
+        let b = &re_blocks[orig];
+        if b.k != 1 {
+            return Some("blocked_unavailable_slopes");
+        }
+        offset += b.m;
+    }
+    if offset != lmm.zt_z.rows() {
+        return Some("blocked_unavailable_dim_mismatch");
+    }
+    let mut ranges = Vec::with_capacity(order.len());
+    let mut offset = 0usize;
+    for &orig in &order {
+        let b = &re_blocks[orig];
+        ranges.push((offset, offset + b.m));
+        offset += b.m;
+    }
+    for j in 1..order.len() {
+        for jj in 0..j {
+            let block = CrossBlock::from_submatrix(&lmm.zt_z, ranges[j], ranges[jj]);
+            if !block.fits_blocked_gate() {
+                return Some("blocked_unavailable_cross_gate");
+            }
+        }
+    }
+    None
 }
 
 impl InterceptBlockedChol {
     pub fn try_new(lmm: &super::LmmData) -> Option<Self> {
-        if !lmm.intercept_only_re() {
+        if blocked_gate_failure(lmm).is_some() {
             return None;
         }
+        Self::try_new_inner(lmm)
+    }
+
+    fn try_new_inner(lmm: &super::LmmData) -> Option<Self> {
         let re_blocks = &lmm.re_blocks;
-        if re_blocks.is_empty() {
-            return None;
-        }
         let p = lmm.x.ncols();
         let mut order: Vec<usize> = (0..re_blocks.len()).collect();
         order.sort_by(|&a, &b| re_blocks[b].m.cmp(&re_blocks[a].m));
@@ -637,16 +668,10 @@ impl InterceptBlockedChol {
         let mut offset = 0usize;
         for &orig in &order {
             let b = &re_blocks[orig];
-            if b.k != 1 {
-                return None;
-            }
             n_re.push(b.m);
             theta_idx.push(orig);
             ranges.push((offset, offset + b.m));
             offset += b.m;
-        }
-        if offset != lmm.zt_z.rows() {
-            return None;
         }
 
         let mut a_diag = Vec::with_capacity(k_re);
@@ -661,9 +686,7 @@ impl InterceptBlockedChol {
             let mut l_row = Vec::with_capacity(j);
             for jj in 0..j {
                 let block = CrossBlock::from_submatrix(&lmm.zt_z, ranges[j], ranges[jj]);
-                if !block.fits_blocked_gate() {
-                    return None;
-                }
+                debug_assert!(block.fits_blocked_gate());
                 l_row.push(block.zeros_like());
                 a_row.push(block);
             }
@@ -713,6 +736,7 @@ impl InterceptBlockedChol {
                 max_cross_cols = max_cross_cols.max(block.ncols());
             }
         }
+        let max_n_re = *n_re.iter().max().unwrap_or(&0);
         Some(Self {
             k_re,
             p,
@@ -728,10 +752,11 @@ impl InterceptBlockedChol {
             l_diag0: vec![0.0; n0],
             l_re_factor,
             diag_buf: Vec::new(),
-            trisolve_buf: vec![0.0; max_m],
             cross_rhs_buf: vec![0.0; max_cross_rows],
             schur_li_scratch: Array2::zeros((max_cross_rows, max_cross_cols)),
             schur_lj_scratch: Array2::zeros((max_cross_rows, max_cross_cols)),
+            rank_gram_buf: Array2::zeros((max_n_re, max_n_re)),
+            xy_trisolve_buf: Array2::zeros((max_m, pq)),
         })
     }
 
@@ -766,26 +791,20 @@ impl InterceptBlockedChol {
         }
     }
 
-    fn schur_sub_dense_blocks(target: &mut CrossBlock, li: &Array2<f64>, lj: &Array2<f64>) {
+    fn schur_sub_dense_blocks(
+        target: &mut CrossBlock,
+        li: &Array2<f64>,
+        lj: &Array2<f64>,
+        product: &Array2<f64>,
+    ) {
         debug_assert_eq!(li.dim(), lj.dim());
         match target {
             CrossBlock::Dense(d) => {
                 let nrows = d.nrows();
-                let ncols = d.ncols();
-                for col in 0..ncols {
-                    let lj_row = if col < lj.nrows() {
-                        Some(lj.row(col))
-                    } else {
-                        None
-                    };
-                    for row in 0..nrows {
-                        let mut s = d[[row, col]];
-                        if let Some(lj_row) = lj_row {
-                            s -= li.row(row).dot(&lj_row);
-                        }
-                        d[[row, col]] = s;
-                    }
-                }
+                let subcols = d.ncols().min(product.ncols());
+                ndarray::Zip::from(d.slice_mut(ndarray::s![..nrows, 0..subcols]))
+                    .and(product.slice(ndarray::s![..nrows, 0..subcols]))
+                    .for_each(|dst, &src| *dst -= src);
             }
             CrossBlock::Sparse { .. } => {
                 for col in 0..target.ncols() {
@@ -855,7 +874,8 @@ impl InterceptBlockedChol {
                         crate::perf_diag::PhaseGuard::new(crate::perf_diag::Phase::BlockedRankChol);
                     for jj in 0..j {
                         if j > 0 {
-                            self.l_re_factor[j - 1].rank_sub_cross(&self.l_cross[j - 1][jj]);
+                            self.l_re_factor[j - 1]
+                                .rank_sub_cross(&self.l_cross[j - 1][jj], &mut self.rank_gram_buf);
                         }
                     }
                     if j == 0 {
@@ -917,10 +937,25 @@ impl InterceptBlockedChol {
         } else {
             Self::cross_to_dense_scratch(&self.l_cross[lj_r][jj], &mut self.schur_lj_scratch);
         }
-        let li = &self.schur_li_scratch;
-        let lj = &self.schur_lj_scratch;
+        let nrows = self.schur_li_scratch.nrows();
+        let lj_rows = self.schur_lj_scratch.nrows();
+        if self.rank_gram_buf.nrows() != nrows || self.rank_gram_buf.ncols() != lj_rows {
+            self.rank_gram_buf = Array2::zeros((nrows, lj_rows));
+        }
+        general_mat_mul(
+            1.0,
+            &self.schur_li_scratch,
+            &self.schur_lj_scratch.t(),
+            0.0,
+            &mut self.rank_gram_buf,
+        );
         let target = &mut self.l_cross[li_r][j];
-        Self::schur_sub_dense_blocks(target, li, lj);
+        Self::schur_sub_dense_blocks(
+            target,
+            &self.schur_li_scratch,
+            &self.schur_lj_scratch,
+            &self.rank_gram_buf,
+        );
         Ok(())
     }
 
@@ -971,15 +1006,30 @@ impl InterceptBlockedChol {
 
     fn schur_sub_xy_re(&mut self, j: usize, jj: usize) -> Result<(), ()> {
         debug_assert!(jj < j);
-        let pq = self.p + 1;
-        let m = self.n_re[j];
-        let ljj = &self.l_cross[j - 1][jj];
         let (xy_lo, xy_hi) = self.l_xy_re.split_at_mut(j);
         let lij = &xy_lo[jj];
         let block = &mut xy_hi[0];
-        for col in 0..m {
-            for row in 0..pq {
-                block[[row, col]] = ljj.schur_sub_from_xy_re(block, lij, col, row);
+        match &self.l_cross[j - 1][jj] {
+            CrossBlock::Dense(ljj) => {
+                general_mat_mul(1.0, lij, &ljj.t(), -1.0, block);
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                let m = block.ncols();
+                for col in 0..m {
+                    for row in 0..block.nrows() {
+                        let mut s = block[[row, col]];
+                        for idx in col_ptr[col]..col_ptr[col + 1] {
+                            let k = row_idx[idx];
+                            s -= lij[[row, k]] * vals[idx];
+                        }
+                        block[[row, col]] = s;
+                    }
+                }
             }
         }
         Ok(())
@@ -1004,17 +1054,13 @@ impl InterceptBlockedChol {
             ReFactor::Full(l) => l,
             ReFactor::ColumnBlocks { .. } => unreachable!("column blocks disabled"),
         };
-        if self.trisolve_buf.len() < m {
-            self.trisolve_buf.resize(m, 0.0);
+        let pq = self.p + 1;
+        if self.xy_trisolve_buf.nrows() != m || self.xy_trisolve_buf.ncols() != pq {
+            self.xy_trisolve_buf = Array2::zeros((m, pq));
         }
-        let buf = &mut self.trisolve_buf[..m];
-        for row in 0..pq {
-            buf.copy_from_slice(self.l_xy_re[j].row(row).as_slice().unwrap());
-            ljj.solve_col(buf);
-            for (col, &v) in buf.iter().enumerate().take(m) {
-                self.l_xy_re[j][[row, col]] = v;
-            }
-        }
+        self.xy_trisolve_buf.assign(&self.l_xy_re[j].t());
+        ljj.solve_multi_rhs(&mut self.xy_trisolve_buf);
+        self.l_xy_re[j].assign(&self.xy_trisolve_buf.t());
         Ok(())
     }
 

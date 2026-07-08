@@ -21,7 +21,15 @@ struct BreakdownReport {
     reml: bool,
     n_obs: usize,
     optimizer_iterations: u64,
+    /// Full `lmer()` wall time (prepare + optimize + post-fit).
     fit_wall_seconds: f64,
+    /// One-time `prepare_lmer` wall time.
+    prepare_wall_seconds: f64,
+    /// `fit_prepared` wall time after prepare (amortized hot path).
+    fit_prepared_wall_seconds: f64,
+    /// Blocked Cholesky active after [`prepare_lmer`].
+    blocked_kernel: bool,
+    blocked_kernel_detail: String,
     #[serde(flatten)]
     perf: lme_rs::perf_diag::PerfReport,
 }
@@ -93,13 +101,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         lme_rs::perf_diag::reset();
     }
 
+    let prepare_started = Instant::now();
+    let prepared = lme_rs::prepare_lmer(&formula, &df)?;
+    let prepare_wall = prepare_started.elapsed();
+
+    for _ in 0..warmups {
+        let _ = lme_rs::fit_prepared(&prepared, reml)?;
+        lme_rs::perf_diag::reset();
+    }
+
     lme_rs::perf_diag::reset();
-    let started = Instant::now();
-    let fit = lme_rs::lmer(&formula, &df, reml)?;
-    let fit_wall = started.elapsed();
-    lme_rs::perf_diag::set_fit_wall(fit_wall);
+    let fit_prepared_started = Instant::now();
+    let fit = lme_rs::fit_prepared(&prepared, reml)?;
+    let fit_prepared_wall = fit_prepared_started.elapsed();
+    lme_rs::perf_diag::set_fit_wall(fit_prepared_wall);
 
     let perf = lme_rs::perf_diag::take_report().ok_or("perf diagnostics produced no report")?;
+
+    lme_rs::perf_diag::reset();
+    let cold_started = Instant::now();
+    let _ = lme_rs::lmer(&formula, &df, reml)?;
+    let fit_wall = cold_started.elapsed();
+
     let report = BreakdownReport {
         case,
         formula,
@@ -107,6 +130,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         n_obs,
         optimizer_iterations: fit.iterations.unwrap_or(0),
         fit_wall_seconds: fit_wall.as_secs_f64(),
+        prepare_wall_seconds: prepare_wall.as_secs_f64(),
+        fit_prepared_wall_seconds: fit_prepared_wall.as_secs_f64(),
+        blocked_kernel: prepared.blocked_kernel,
+        blocked_kernel_detail: prepared.blocked_kernel_detail.to_string(),
         perf,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);

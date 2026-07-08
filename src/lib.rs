@@ -982,118 +982,112 @@ pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
     lmer_weighted(formula_str, data, reml, None)
 }
 
-/// Fit a linear mixed-effects model with optional observation weights.
+/// Cached design matrices and [`math::LmmData`] for repeated fits on the same formula/data.
 ///
-/// When `weights` is provided, it must be an `Array1<f64>` of length `n_obs`.
-/// Observations with higher weights contribute more to the fit.
-pub fn lmer_weighted(
+/// Build once with [`prepare_lmer`] or [`prepare_lmer_weighted`], then call [`fit_prepared`]
+/// for each REML/ML fit (amortizes formula parse, design-matrix construction, and LDL setup).
+pub struct LmerPrepared {
+    lmm: Arc<math::LmmData>,
+    matrices: model_matrix::DesignMatrices,
+    init_theta: Array1<f64>,
+    /// Blocked Cholesky active after [`prepare_lmer`].
+    pub blocked_kernel: bool,
+    /// Why blocked was or was not installed at prepare time.
+    pub blocked_kernel_detail: &'static str,
+}
+
+/// Prepare a weighted LMM fit (design matrices + [`math::LmmData`]) without optimizing θ.
+pub fn prepare_lmer(formula_str: &str, data: &DataFrame) -> Result<LmerPrepared> {
+    prepare_lmer_weighted(formula_str, data, None)
+}
+
+/// Prepare a weighted LMM fit (design matrices + [`math::LmmData`]) without optimizing θ.
+pub fn prepare_lmer_weighted(
     formula_str: &str,
     data: &DataFrame,
-    reml: bool,
     weights: Option<Array1<f64>>,
-) -> Result<LmeFit> {
+) -> Result<LmerPrepared> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
 
     let setup_started = perf_diag::enabled().then(Instant::now);
 
-    // 1. Parse Wilkinson formula into AST
     let ast = formula::parse(formula_str)?;
-
-    // 2. Build design matrices X, Zt, y from DataFrame and AST
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
 
-    // 3. Setup initial theta vector (length depends on the random effects structure)
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
     let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
 
-    // Gap 8: use log::debug! instead of println!
-    log::debug!(
-        "Zt shape: {}x{}, nnz: {}, theta_len: {}",
-        matrices.zt.rows(),
-        matrices.zt.cols(),
-        matrices.zt.nnz(),
-        total_theta_len
-    );
-    for block in &matrices.re_blocks {
-        log::debug!(
-            "  block: m={}, k={}, theta={}",
-            block.m,
-            block.k,
-            block.theta_len
-        );
-    }
-
-    // 4. Handle offset: For LMMs, y = Xβ + Zb + offset -> y - offset = Xβ + Zb
-    let offset_arr = matrices.offset.clone();
-    let y_adjusted = if let Some(off) = &offset_arr {
+    let y_adjusted = if let Some(off) = &matrices.offset {
         &matrices.y - off
     } else {
         matrices.y.clone()
     };
 
-    // 5. Optimize theta using Nelder-Mead (one LmmData for optimizer + final evaluation)
     let lmm = Arc::new(math::LmmData::new_weighted(
         matrices.x.clone(),
         matrices.zt.clone(),
-        y_adjusted.clone(),
+        y_adjusted,
         matrices.re_blocks.clone(),
-        weights.clone(),
+        weights,
     ));
 
     if let Some(started) = setup_started {
         perf_diag::record_duration(perf_diag::Phase::LmerSetup, started.elapsed());
     }
 
-    let opt_result =
-        optimizer::optimize_theta_lmm(Arc::clone(&lmm), init_theta, reml).map_err(|e| {
-            LmeError::NotImplemented {
-                feature: format!("Optimizer failed: {}", e),
-            }
+    let blocked_kernel = lmm.blocked_kernel_available();
+    let blocked_kernel_detail = lmm.blocked_kernel_detail();
+
+    Ok(LmerPrepared {
+        lmm,
+        matrices,
+        init_theta,
+        blocked_kernel,
+        blocked_kernel_detail,
+    })
+}
+
+/// Fit θ and assemble an [`LmeFit`] from a prior [`prepare_lmer`] call.
+pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
+    let LmerPrepared {
+        lmm,
+        matrices,
+        init_theta,
+        blocked_kernel: _,
+        blocked_kernel_detail: _,
+    } = prepared;
+
+    let opt_result = optimizer::optimize_theta_lmm(Arc::clone(lmm), init_theta.clone(), reml)
+        .map_err(|e| LmeError::NotImplemented {
+            feature: format!("Optimizer failed: {}", e),
         })?;
 
     let best_theta = opt_result.theta.clone();
+    let total_theta_len = init_theta.len();
+    let offset_arr = matrices.offset.clone();
 
     Ok(perf_diag::scope(perf_diag::Phase::LmerPostFit, || {
-        // 6. Re-evaluate to get coefficients
         let best_th_slice = best_theta.as_slice().unwrap();
         let coefs = lmm.evaluate(best_th_slice, reml);
-        let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);
+        let reml_eval = coefs.reml_crit;
 
-        // 7. Extract offset and adjust fitted values
-        // Fitted values from solver: Xβ + Zb
-        let mut fitted = lmm.x.dot(&coefs.beta);
-        let mut z_b_vec = vec![0.0f64; lmm.y_eff.len()];
-        let zt = &lmm.zt;
-        for (j, row_vec) in zt.outer_iterator().enumerate() {
-            for (i, &val) in row_vec.iter() {
-                z_b_vec[i] += val * coefs.b[j];
-            }
-        }
-        fitted = fitted + Array1::from_vec(z_b_vec);
-
-        // Add the offset back to get true predictions on response scale
+        let mut fitted = coefs.fitted;
         if let Some(off) = &offset_arr {
             fitted += off;
         }
-
-        // Residuals correspond to original y - final fitted
         let residuals = &matrices.y - &fitted;
 
-        // Gap 2: Build ranef DataFrame from b vector
         let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
-
-        // Gap 3: Build var_corr DataFrame from theta/sigma2
         let var_corr_df =
             build_var_corr_dataframe(best_th_slice, &matrices.re_blocks, coefs.sigma2);
 
-        // Gap 4 + Gap 9: Compute log-likelihood, AIC, BIC
         let deviance_val = reml_eval;
         let log_lik = -deviance_val / 2.0;
-        let p = matrices.x.ncols(); // number of fixed effects
-        let n_params = (total_theta_len + p + 1) as f64; // theta + beta + sigma
+        let p = matrices.x.ncols();
+        let n_params = (total_theta_len + p + 1) as f64;
         let n = matrices.y.len() as f64;
         let aic = deviance_val + 2.0 * n_params;
         let bic = deviance_val + n_params * n.ln();
@@ -1115,11 +1109,11 @@ pub fn lmer_weighted(
             u: Some(coefs.u),
             beta_se: Some(coefs.beta_se),
             beta_t: Some(coefs.beta_t),
-            formula: Some(matrices.formula),
-            fixed_names: Some(matrices.fixed_names),
-            fixed_term_assign: Some(matrices.fixed_term_assign),
-            fixed_design_x: Some(matrices.x),
-            re_blocks: Some(matrices.re_blocks),
+            formula: Some(matrices.formula.clone()),
+            fixed_names: Some(matrices.fixed_names.clone()),
+            fixed_term_assign: Some(matrices.fixed_term_assign.clone()),
+            fixed_design_x: Some(matrices.x.clone()),
+            re_blocks: Some(matrices.re_blocks.clone()),
             num_obs: matrices.y.len(),
             converged: Some(opt_result.converged),
             iterations: Some(opt_result.iterations),
@@ -1130,11 +1124,25 @@ pub fn lmer_weighted(
             kenward_roger: None,
             v_beta_unscaled: Some(coefs.v_beta_unscaled),
             robust: None,
-            categorical_levels: Some(matrices.categorical_levels),
+            categorical_levels: Some(matrices.categorical_levels.clone()),
             nlmm_mean: None,
             nlmm_formula: None,
         }
     }))
+}
+
+/// Fit a linear mixed-effects model with optional observation weights.
+///
+/// When `weights` is provided, it must be an `Array1<f64>` of length `n_obs`.
+/// Observations with higher weights contribute more to the fit.
+pub fn lmer_weighted(
+    formula_str: &str,
+    data: &DataFrame,
+    reml: bool,
+    weights: Option<Array1<f64>>,
+) -> Result<LmeFit> {
+    let prepared = prepare_lmer_weighted(formula_str, data, weights)?;
+    fit_prepared(&prepared, reml)
 }
 
 /// Fit a fixed-effects-only linear model from a Wilkinson formula string and a Polars `DataFrame`.

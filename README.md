@@ -11,6 +11,7 @@
 
 - `lm()` for fixed-effects-only linear models
 - `lmer()` and `lmer_weighted()` for linear mixed models
+- `prepare_lmer()` / `fit_prepared()` to amortize design-matrix setup when fitting the same formula and data repeatedly (see [OPTIMIZATION.md](OPTIMIZATION.md))
 - `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` means; optional scalar AGQ; Rust `nlmer_with_mean` for custom μ; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
@@ -58,6 +59,8 @@ fn main() -> anyhow::Result<()> {
 ## Current status
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). The crate is usable today, but some features are intentionally narrower than the R ecosystem wrappers they resemble.
+
+On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` + `fit_prepared`) are now **~12–14 ms** — parity with Julia on the same fixture — while one-shot `lmer()` remains ~2× slower because setup and post-fit work are included in wall time. See [OPTIMIZATION.md](OPTIMIZATION.md) and [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-08-gemm-prepared).
 
 For a subjective, area-by-area view of what is implemented versus still open (including fit-throughput optimization vs MixedModels.jl), see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
 

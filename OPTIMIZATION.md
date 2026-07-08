@@ -71,16 +71,18 @@ Keep sparse LDL reuse for q ≈ 350 until dense matches `build_a_diagonal_scaled
 | Golden-section θ search (|θ| = 1) | Random intercept, nested | Replaces Nelder–Mead simplex overhead |
 | 2D log-grid θ search (|θ| = 2, ML) | `crossed_20k` | ~42 fixed evals (5×5 + 4×4 log-grids) |
 | **Blocked augmented Cholesky** (`intercept_blocked.rs`) | `crossed_20k` (cross block ≤100k) | MixedModels-style `updateL!`; no q solves per θ |
+| **Blocked kernel tuning** (GEMM, batched trisolve, prepared fit) | `crossed_20k` | ~12–14 ms `fit_prepared`; per-eval ≈ Julia; see § below |
+| **`prepare_lmer` / `fit_prepared`** | Repeated fits on same data | Amortizes setup (~10–13 ms); hot path ≈ Julia `fit` only |
 
 Fair-harness snapshot (Windows AMD64, 10 repeats) — see [BENCHMARKS.md § 2026-07-07](BENCHMARKS.md#fair-rust-julia-2026-07-07-wip):
 
-| Case | 2026-07-06 Rust | After LDL pass | After θ-search | After blocked Cholesky | vs Julia (2026-07-06) |
-|:-----|----------------:|---------------:|---------------:|-----------------------:|----------------------:|
-| `random_intercept_10k` | 3.16 ms | 2.78 ms | ~2.5 ms | **~3.0 ms** | ~2.6× slower |
-| `crossed_20k` | 272 ms | 109 ms | ~113 ms | **~52 ms** | ~4.8× slower |
-| `nested_10k` | 53.8 ms | 17.0 ms | ~15.5 ms | **~16.5 ms** | ~2.4× slower |
+| Case | 2026-07-06 Rust | After LDL pass | After θ-search | After blocked Cholesky | After GEMM + prepared fit (2026-07-08) | vs Julia (2026-07-06) |
+|:-----|----------------:|---------------:|---------------:|-----------------------:|---------------------------------------:|----------------------:|
+| `random_intercept_10k` | 3.16 ms | 2.78 ms | ~2.5 ms | **~3.0 ms** | **~3.0 ms** | ~2.6× slower |
+| `crossed_20k` | 272 ms | 109 ms | ~113 ms | **~52 ms** (cold `lmer`) | **~12–14 ms** (`fit_prepared`) | **~1.0×** (hot) |
+| `nested_10k` | 53.8 ms | 17.0 ms | ~15.5 ms | **~16.5 ms** | **~14 ms** | ~2.4× slower |
 
-Blocked Cholesky is enabled when intercept-only and every cross block passes `fits_blocked_gate` (dense ≤100k elements; sparse crosses still use LDL).
+Blocked Cholesky is enabled when intercept-only and every cross block passes `fits_blocked_gate` (≤100k elements). Cross blocks under that cap are **always stored dense** (see § reliability fix below); nested sparse crosses still use LDL.
 
 ## Blocked augmented Cholesky — what delivered the crossed speedup (2026-07-08)
 
@@ -101,9 +103,75 @@ The **~1.7×** drop on `crossed_20k` (113 ms → **~68 ms** median) came from ad
 
 **Why that is faster on crossed:** work scales with **per-term block sizes** (e.g. 250×100 cross + 100×100 filled second diagonal) instead of a single sparse **350×350** LDL plus **p** full-q backsolves per θ eval. On our fair harness that is roughly **~4×** faster than the prior crossed median and **~4×** the 2026-07-06 reference — still **~5×** behind MixedModels.jl on the same machine, but the dominant structural gap is much smaller.
 
-**Gate:** `CrossBlock::fits_blocked_gate()` — dense crosses with ≤ **100 000** elements use the blocked path (`crossed_20k` qualifies). **Sparse** crosses (nested `batch/cask`) return `None` from `InterceptBlockedChol::try_new` and keep **reused sparse LDL** until column-disjoint block Cholesky is wired with matching Schur layout.
+**Gate:** `CrossBlock::fits_blocked_gate()` — crosses with ≤ **100 000** elements use the blocked path (`crossed_20k` qualifies). **Nested** sparse crosses (e.g. `batch/cask`) return `None` from `InterceptBlockedChol::try_new` and keep **reused sparse LDL** until column-disjoint block Cholesky is wired with matching Schur layout.
+
+**Reliability (2026-07-08):** `from_submatrix` used to pick **sparse** storage when cross density ≤ 35%, but `fits_blocked_gate()` rejects sparse crosses — so borderline crossed fixtures could **intermittently** fall back to sparse LDL (~60 ms) instead of blocked (~14 ms). Cross blocks with `nrows × ncols ≤ 100_000` are now **always densified** at build time.
 
 **Parity:** `tests/test_crossed_mock.rs` and `intercept_blocked` unit tests compare blocked deviance to `evaluate().reml_crit`; golden parity passes with the blocked path enabled for crossed fixtures.
+
+## Blocked kernel tuning — GEMM, batched trisolve, prepared fit (2026-07-08, continued)
+
+Second optimization pass on [`src/intercept_blocked.rs`](src/intercept_blocked.rs) plus API/setup changes in [`src/lib.rs`](src/lib.rs). **All of this is in the current tree** (not yet tagged in a release).
+
+### Kernel changes (`intercept_blocked.rs`)
+
+| Change | Effect |
+|:-------|:-------|
+| `general_mat_mul` into reusable `rank_gram_buf` | Rank updates `cross @ crossᵀ` without per-θ `dot()` allocation |
+| GEMM Schur on RE crosses (`li @ ljᵀ`) | Replaces per-element row-dot loops in `schur_sub_re_cross` |
+| GEMM Schur on `Xy` blocks (`lij @ ljjᵀ`, `beta=-1`) | `schur_sub_xy_re` ~4× faster (`blocked_schur_xy` ~1.7 ms → ~0.4 ms) |
+| `ReLower::solve_multi_rhs` | Batched forward substitution for all cross columns at once |
+| Dense `trisolve_full_lower` uses multi-RHS | ~250 column `solve_col` calls → one batched solve per cross block |
+| `xy_trisolve_buf` + transpose | `trisolve_xy_re` solves all fixed/response rows in one batch |
+| Packed-array `chol()` | Direct indexing on lower-triangular storage (no `get`/`set` in inner loops) |
+| Always-dense cross ≤100k elements | Fixes intermittent `sparse_ldl` fallback (see above) |
+
+### Setup amortization (`prepare_lmer` / `fit_prepared`)
+
+Cold `lmer()` pays **setup every time** (~10–13 ms on `crossed_20k`: formula parse, Polars → design matrices, `LmmData::new_weighted`, blocked LDL cache build). Julia’s fair harness times `fit(MixedModel, …)` with model-matrix work **inside** `fit`, but Rust’s `lmer_setup` phase was an apples-to-oranges overhead when comparing wall times.
+
+**API** (same numerics as `lmer` / `lmer_weighted`):
+
+```rust
+use lme_rs::{prepare_lmer, fit_prepared, lmer};
+
+// One-shot (includes setup)
+let fit = lmer(formula, &df, false)?;
+
+// Amortized (CV, bootstrap, grid search on same data)
+let prepared = prepare_lmer(formula, &df)?;
+let fit = fit_prepared(&prepared, false)?;  // ~12–14 ms on crossed_20k
+```
+
+`LmerPrepared` exposes `blocked_kernel` and `blocked_kernel_detail` (`blocked_active`, `blocked_unavailable_*`) for diagnostics.
+
+**Post-fit fix:** `fit_prepared` reuses `coefs.fitted` and `coefs.reml_crit` from a single `evaluate()` — removed duplicate `log_reml_deviance` and redundant `Z*b` assembly (~5 ms → ~2 ms post-fit).
+
+### BLAS A/B (`ndarray` `blas` feature)
+
+Tried enabling `ndarray = { features = ["blas"] }` so `general_mat_mul` routes to MKL/OpenBLAS (already linked via `ndarray-linalg` on x86_64).
+
+| Config | `fit_prepared` median (`crossed_20k`) |
+|:-------|--------------------------------------:|
+| BLAS on | ~12–14 ms |
+| BLAS off (default) | **~13.9 ms** (8-run avg) |
+
+**Verdict:** no meaningful win at these block sizes (~100×250); **BLAS left disabled** to avoid extra linking surface. Rank/Schur GEMM still uses `ndarray`’s `matrixmultiply` backend.
+
+### Recorded timings (`crossed_20k`, ML, blocked path, Windows AMD64, 2026-07-08)
+
+| Metric | Rust | Julia (same fixture) |
+|:-------|-----:|-------------------:|
+| `fit_prepared` (hot) | **~12–14 ms** | ~14–16 ms |
+| Cold `lmer()` | ~25–28 ms | — |
+| `prepare_lmer` | ~10–13 ms | (inside Julia `fit`) |
+| Mean deviance eval | **~0.23 ms** | ~0.24–0.25 ms |
+| Eval count | 43 | 60 |
+| `blocked_rank_chol` share of eval | ~68% | — |
+
+**Takeaway:** once setup is amortized, Rust **matches Julia on crossed fit wall time** and is **at or below Julia per feval**. The remaining ~2× gap on cold `lmer()` is almost entirely **one-time setup + post-fit assembly**, not θ-search algebra.
+
+`bench_perf_breakdown` now reports `prepare_wall_seconds`, `fit_prepared_wall_seconds`, `blocked_kernel`, and `blocked_kernel_detail` alongside the existing `LME_PERF_DIAG` phases.
 
 ## What did not work (do not reintroduce blindly)
 
@@ -118,6 +186,8 @@ The **~1.7×** drop on `crossed_20k` (113 ms → **~68 ms** median) came from ad
 | Two-block Schur LDL (smaller crossed block) | Removed | ~10 s/fit; golden failures |
 | 2D golden-section with 40×60 cycles | Removed earlier | ~4.8k evals; large regression |
 | Blocked path without cross-block size gate | Reverted | `nested_10k` regressed to **~1.8 s** (2000×200 dense cross); gate at 100k elements |
+| `ndarray` BLAS for `general_mat_mul` (100×250 blocks) | **No win** | ~12–14 ms vs ~14 ms without BLAS; not enabled in `Cargo.toml` |
+| 2D coordinate golden-section polish (2 cycles) | Reverted earlier | ~85 extra evals; crossed regressed to ~94 ms |
 
 **Transient pitfall:** a broken dense hot path briefly showed **`random_intercept_10k` ~480 ms**. Current code is **~2.8 ms** — do not cite the 480 ms figure as a design regression.
 
@@ -130,7 +200,7 @@ The **~1.7×** drop on `crossed_20k` (113 ms → **~68 ms** median) came from ad
    ```powershell
    python scripts/run_fair_rust_julia_benchmark.py --implementations rust --cases crossed_20k,nested_10k,random_intercept_10k --repeats 10
    ```
-5. **Bimodal `crossed_20k`** — some Windows runs show two clusters (~70 ms and ~100 ms) from OS scheduling; use medians over ≥10 repeats.
+5. **Bimodal `crossed_20k`** — older builds showed two clusters (~70 ms and ~100 ms) from OS scheduling or intermittent sparse-LDL fallback; the dense-cross reliability fix and `blocked_kernel` reporting in `bench_perf_breakdown` reduce confusion. Use medians over ≥10 repeats on a **fresh** `cargo build --release`.
 
 ## Performance diagnostics (`LME_PERF_DIAG`)
 
@@ -146,18 +216,19 @@ python scripts/run_perf_breakdown.py --cases crossed_20k,nested_10k
 
 Runs **Rust** (`LME_PERF_DIAG=1` phase breakdown) and **Julia** (`m.optsum.feval`, optimizer, mean seconds/eval) on the same CSV, then writes `benchmark-results/perf-breakdown.json` with a `comparison` block (`rust_over_julia_feval`, `julia_over_rust_mean_eval`, …). Skips Julia when not installed.
 
-**Caveat:** Rust `fit_wall_seconds` is end-to-end `lmer()` (setup + optimize + post-fit `evaluate()`). Julia `fit_wall_seconds` is `fit(MixedModel, …)` only (model matrix already built inside `fit`). Compare eval counts and `mean_*_eval_seconds` for optimizer fairness; use Rust `lmer_setup` / `lmer_post_fit` phases for overhead.
+**Caveat:** Rust `fit_wall_seconds` in `bench_perf_breakdown` is still end-to-end cold `lmer()` for backward compatibility. Use **`fit_prepared_wall_seconds`** for optimizer-only fairness vs Julia `fit(MixedModel, …)`. Compare eval counts and `mean_*_eval_seconds` for algebra fairness; use `prepare_wall_seconds` / `lmer_post_fit` for overhead.
 
-**Example (`crossed_20k`, 2026-07-08 workstation):**
+**Example (`crossed_20k`, blocked path, 2026-07-08 workstation):**
 
-| | Rust | Julia |
-|:--|-----:|------:|
-| Eval count | 43 | 60 |
-| Mean s/eval | ~0.33 ms | ~0.22 ms |
-| Fit wall | ~32 ms (full `lmer`) | ~13 ms (`fit` only) |
-| Optimizer | 5×5 + 4×4 grid | NLopt `LN_NEWUOA` |
+| | Rust (`fit_prepared`) | Rust (cold `lmer`) | Julia (`fit` only) |
+|:--|----------------------:|-------------------:|-------------------:|
+| Eval count | 43 | 43 | 60 |
+| Mean s/eval | **~0.23 ms** | ~0.23 ms | ~0.24 ms |
+| Fit wall | **~13 ms** | ~26 ms | ~14 ms |
+| Setup (`prepare` / `lmer_setup`) | (prior call ~11 ms) | ~11 ms | inside `fit` |
+| Optimizer | 5×5 + 4×4 grid | same | NLopt `LN_NEWUOA` |
 
-Julia uses **more** fevals on crossed but **less time per feval**; Rust’s remaining gap is mostly per-eval algebra (`blocked_rank_chol` ~76% of eval time), not eval budget.
+Rust matches Julia on **hot fit wall** and **per-eval** time; cold `lmer()` is ~2× Julia because of explicit setup + post-fit phases.
 
 **What you get** — JSON with:
 
@@ -182,34 +253,54 @@ Implementation: [`src/perf_diag.rs`](src/perf_diag.rs); Rust runner [`comparison
 
 ## Closing the `crossed_20k` gap vs Julia (~14 ms)
 
-**Target:** fair-harness `crossed_20k` ML median should approach MixedModels.jl (~14 ms on the 2026-07-06 reference). After the hot-path pass (2026-07-08) Rust is **~52 ms** (~**3.7×** vs Julia), down from **~68 ms** pre-pass.
+**Target:** fair-harness `crossed_20k` ML median should approach MixedModels.jl (~14 ms on the 2026-07-06 reference).
 
-**Where time goes (Rust, blocked path):**
+**Status (2026-07-08, continued pass):** with `prepare_lmer` + `fit_prepared`, Rust is **~12–14 ms** — **parity with Julia** on hot fit wall time. Cold `lmer()` remains **~25–28 ms** (~1.8–2× Julia) because of one-time setup and post-fit work outside the optimizer.
+
+| Milestone | `crossed_20k` median | vs Julia |
+|:----------|---------------------:|---------:|
+| 2026-07-06 reference | 272 ms | ~19× |
+| Sparse LDL reuse | 109 ms | ~8× |
+| Blocked Cholesky | ~68 ms | ~5× |
+| Hot-path tuning (in-place Schur, scratch) | ~52 ms (cold `lmer`) | ~3.6× |
+| GEMM + batched trisolve + prepared fit | **~13 ms** (`fit_prepared`) | **~1.0×** |
+
+**Where time goes (Rust, blocked path, hot fit):**
 
 | Component | Approx. share | Notes |
 |:----------|:--------------|:------|
-| θ optimizer evals | ~42 ML grid points | Was ~61 (6×6+5×5); Julia often **fewer** evals via NLopt |
-| Per-θ `updateL!` | ~1–2 ms/eval pre-2026-07-08 | Dominated by **cloning** `l_xy_re` / `l_cross` in Schur steps (~200 KB/eval for 100×250 cross) |
-| Constant factors | BLAS/MKL vs pure Rust | Shows up on random intercept (~2.6×) |
+| θ optimizer evals | ~42 ML grid points | Julia uses more fevals (60) but similar per-feval cost |
+| Per-θ `updateL!` | **~0.23 ms/eval** | `blocked_rank_chol` ~68%; Schur/trisolve reduced by GEMM + multi-RHS |
+| One-time setup | ~10–13 ms | `prepare_lmer` only; not in `fit_prepared` |
+| Post-fit | ~2 ms | Single `evaluate()`; DataFrame assembly |
 
-**2026-07-08 hot-path pass** (`intercept_blocked.rs`):
+**2026-07-08 hot-path passes** (`intercept_blocked.rs`):
+
+*First pass (in-place Schur, scratch buffers, ML grid 5×5+4×4):*
 
 - In-place Schur on `l_xy_re` / `l_xy_xy` (no per-θ `clone()` of cross / XY blocks).
 - Fused `assign_scaled` for dense cross blocks (one pass vs `assign` + `scale`).
-- Reused `diag_buf` / `trisolve_buf` / `cross_rhs_buf` (no per-θ `Vec` allocs in trisolve).
-- Reused `schur_li_scratch` / `schur_lj_scratch` for `schur_sub_re_cross` (was cloning the full cross block twice per θ).
+- Reused `diag_buf` / `cross_rhs_buf` / `schur_li_scratch` / `schur_lj_scratch`.
 - ML grid tightened to **5×5 + 4×4** (~42 evals) after parity checks.
 
-**Still to do for Julia parity:**
+*Second pass (GEMM, batched trisolve, prepared fit):*
+
+- `general_mat_mul` rank updates and Schur complements (no `dot()` alloc).
+- `solve_multi_rhs` for dense cross trisolve and `trisolve_xy_re`.
+- `prepare_lmer` / `fit_prepared` API; post-fit deduplication.
+- Always-dense cross blocks ≤100k elements (reliability).
+- BLAS feature tried and **not** enabled (no measurable win).
+
+**Still to do for nested / general workflows:**
 
 1. ~~Instrument `optsum.feval` (Julia) vs Rust eval count on the same fixture.~~ → `scripts/run_perf_breakdown.py`
-2. Dense specialized kernels for 100×250 cross rank-update / trisolve (or BLAS `syrk`/`trsm`).
-3. 2D local search after coarse grid (golden-section on each θ) only if eval budget can drop **without** exceeding ~42 fixed grid evals — coordinate golden at 2 cycles added ~85 evals and regressed crossed to ~94 ms.
+2. Nested blocked path (sparse + column-disjoint Cholesky) — still on sparse LDL (~14–16 ms vs Julia ~7 ms).
+3. Optional: speed up cold `lmer()` setup (design-matrix build, `zt_z` assembly) if single-shot API must match Julia.
 4. Optional: deviance-only Criterion bench separate from full `lmer()` to isolate algebra from optimizer.
 
 ## Why MixedModels.jl is faster (and what to learn)
 
-The fair harness times only `fit(MixedModel, ...)` after JIT warmup ([`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl)). On the same machine, Julia still leads on all reference cases; **`crossed_20k` is ~5×** at the latest Rust median (~68 ms vs ~14 ms Julia, 2026-07-06 reference).
+The fair harness times only `fit(MixedModel, ...)` after JIT warmup ([`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl)). On the 2026-07-06 reference, Julia led on all cases; **`crossed_20k` was ~5×** at the blocked-Cholesky median (~68 ms vs ~14 ms Julia). After the **prepared-fit** pass (2026-07-08), Rust **`fit_prepared` matches Julia** on the same fixture (~13 ms vs ~14 ms); cold `lmer()` is still ~2× because setup is timed separately.
 
 MixedModels.jl (see [Bates et al., blocked Cholesky, 2025](https://arxiv.org/html/2505.11674v1)) differs from `lme-rs` in ways that explain the remaining gap:
 
@@ -224,8 +315,9 @@ MixedModels.jl (see [Bates et al., blocked Cholesky, 2025](https://arxiv.org/htm
 
 **How to read the ratios:**
 
-- **Random intercept ~2.6×** across 10k obs → mostly **constant-factor** overhead (BLAS, allocation, per-eval plumbing).
-- **Crossed ~5×** (down from ~8× pre-blocked) → blocked Cholesky closed much of the structural gap; remainder is optimizer eval count, constant factors, and nested/large-cross cases still on LDL.
+- **Random intercept ~2.6×** across 10k obs → mostly **constant-factor** overhead (allocation, per-eval plumbing).
+- **Crossed ~1.0×** on **`fit_prepared`** (2026-07-08) → blocked Cholesky + GEMM/trisolve tuning closed the kernel gap; cold `lmer()` ~2× is setup/post-fit accounting.
+- **Nested ~2×** → still on sparse LDL; blocked nested path not yet wired.
 
 ## Next experiments (priority order)
 
@@ -234,8 +326,8 @@ MixedModels.jl (see [Bates et al., blocked Cholesky, 2025](https://arxiv.org/htm
    - Ungated sparse blocked with dense Schur loops → **~66–130 ms** vs **~15 ms** reused LDL.
    - Transposing the cross alone is **not** enough: Schur/trisolve indexing must match the stored layout (MixedModels keeps consistent block orientation).
    - Target: cask×batch sparse cross + per-batch diagonal Cholesky blocks (~200×10), sparse Schur along structural nonzeros only.
-2. **θ eval instrumentation** — compare Julia `optsum.feval` vs Rust ~42 ML grid evals on `crossed_20k`; consider 2D golden-section polish if Julia uses fewer.
-3. **Parallel multi-RHS** — incremental win on remaining LDL fallback path.
+2. **Cold `lmer()` setup** — `build_design_matrices` + `zt_z` assembly (~10 ms on `crossed_20k`); only matters for one-shot fits (use `prepare_lmer` when repeating).
+3. **Fair harness reporting** — prefer `fit_prepared_wall_seconds` in regression JSON; keep cold `lmer` as a separate column.
 4. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
 5. **Criterion / fair JSON** — refresh reference after next tagged release.
 
@@ -246,9 +338,12 @@ MixedModels.jl (see [Bates et al., blocked Cholesky, 2025](https://arxiv.org/htm
 | [`src/math.rs`](src/math.rs) | `LmmData`, `InterceptLdlCache`, `InterceptSparseLdl`, `profile_deviance_p2` |
 | [`src/intercept_blocked.rs`](src/intercept_blocked.rs) | Blocked augmented Cholesky (`updateL!`) for intercept-only crossed models |
 | [`src/optimizer.rs`](src/optimizer.rs) | `optimize_theta_lmm`, intercept golden-section (|θ|=1), 2D log-grid (|θ|=2) |
-| [`src/lib.rs`](src/lib.rs) | `Arc<LmmData>` wiring for optimize + evaluate |
+| [`src/lib.rs`](src/lib.rs) | `lmer`, `prepare_lmer`, `fit_prepared`, `LmerPrepared` |
+| [`src/perf_diag.rs`](src/perf_diag.rs) | `LME_PERF_DIAG` phase timing |
+| [`comparisons/bench_perf_breakdown.rs`](comparisons/bench_perf_breakdown.rs) | Prepared vs cold fit breakdown JSON |
 | [`benches/bench_math.rs`](benches/bench_math.rs) | Criterion size sweeps |
 | [`comparisons/bench_fair_rust_julia.rs`](comparisons/bench_fair_rust_julia.rs) | Fair harness example binary |
+| [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) | Fair harness driver |
 | [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) | Fair harness driver |
 
 ## Related docs

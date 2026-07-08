@@ -196,6 +196,20 @@ impl LmmData {
         }
     }
 
+    /// True when intercept-only blocked Cholesky is available for this model.
+    pub fn blocked_kernel_available(&self) -> bool {
+        self.intercept_only_re() && intercept_blocked::blocked_gate_failure(self).is_none()
+    }
+
+    /// Perf-diag label for blocked kernel availability.
+    pub fn blocked_kernel_detail(&self) -> &'static str {
+        if self.blocked_kernel_available() {
+            "blocked_active"
+        } else {
+            intercept_blocked::blocked_unavailable_reason(self)
+        }
+    }
+
     /// Evaluate the profiled REML/ML deviance for a fixed θ (optimizer hot path).
     pub fn log_reml_deviance(&self, theta: &[f64], reml: bool) -> f64 {
         crate::perf_diag::inc_deviance_eval();
@@ -959,7 +973,8 @@ impl InterceptLdlCache {
             if cache.blocked.is_some() {
                 crate::perf_diag::set_kernel_detail("blocked_active");
             } else {
-                crate::perf_diag::set_kernel_detail("blocked_unavailable");
+                let detail = intercept_blocked::blocked_unavailable_reason(lmm);
+                crate::perf_diag::set_kernel_detail(detail);
             }
         }
         Ok(cache)
