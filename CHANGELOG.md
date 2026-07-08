@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Fair-harness reference snapshot [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json) (tier-A LMM cases: `crossed_20k`, `nested_10k`, `random_intercept_10k`; Rust and Julia medians measured together).
+- Fair-harness reference snapshot [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json) (tier-A LMM cases: `crossed_20k`, `nested_10k`, `random_intercept_10k`; Rust and Julia medians measured together). Documented in [BENCHMARKS.md § 2026-07-08 nested/post-fit](BENCHMARKS.md#fair-rust-julia-2026-07-08-nested-postfit).
 - Unit tests: `blocked_profile_solve_matches_sparse_evaluate_on_penicillin`, `nested_sparse_gate_uses_diagonal_batch_factor` in [`src/intercept_blocked.rs`](src/intercept_blocked.rs).
 
 ## [0.1.9] - 2026-07-08
