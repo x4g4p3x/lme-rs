@@ -358,6 +358,7 @@ impl LmmData {
             },
             |u| &d * u,
         )
+        .expect("profile finish failed")
     }
 
     /// Optimizer hot path: deviance without building u, b, or v_cols.
@@ -434,6 +435,7 @@ impl LmmData {
             },
             |u| apply_lambda(&lambda, u),
         )
+        .expect("profile finish failed")
     }
 }
 
@@ -553,7 +555,7 @@ pub(crate) fn solve_profile_finish(
     lmm: &LmmData,
     input: ProfileFinishInput<'_>,
     apply_lambda_to_u: impl Fn(&Array1<f64>) -> Array1<f64>,
-) -> ProfileSolution {
+) -> Result<ProfileSolution, ()> {
     let ProfileFinishInput {
         reml,
         n,
@@ -579,12 +581,12 @@ pub(crate) fn solve_profile_finish(
     }
 
     let a_x = &lmm.xt_x - &rzx_t_rzx;
-    let l_x = a_x.cholesky(UPLO::Lower).expect("Cholesky of A_x failed");
+    let l_x = a_x.cholesky(UPLO::Lower).map_err(|_| ())?;
 
     let rhs_beta = &lmm.xt_y - &rzx_t_cu;
 
-    let c_beta = l_x.solve(&rhs_beta).expect("Solve for c_beta failed");
-    let beta = l_x.t().solve(&c_beta).expect("Solve for beta failed");
+    let c_beta = l_x.solve(&rhs_beta).map_err(|_| ())?;
+    let beta = l_x.t().solve(&c_beta).map_err(|_| ())?;
 
     let y_norm2 = lmm.y_norm2;
 
@@ -625,14 +627,14 @@ pub(crate) fn solve_profile_finish(
     }
     let b = apply_lambda_to_u(&u);
 
-    ProfileSolution {
+    Ok(ProfileSolution {
         reml_crit: deviance,
         sigma2,
         beta,
         b,
         u,
         l_x,
-    }
+    })
 }
 
 fn apply_lambda(lambda: &CsMat<f64>, u: &Array1<f64>) -> Array1<f64> {
@@ -1039,6 +1041,19 @@ impl InterceptLdlCache {
         theta: &[f64],
         reml: bool,
     ) -> Result<ProfileSolution, sprs::errors::LinalgError> {
+        if let Some(blocked) = &mut self.blocked {
+            crate::perf_diag::set_kernel("blocked");
+            if let Ok(solved) = blocked.solve_profile_blocked(
+                lmm,
+                theta,
+                reml,
+                &self.row_block,
+                &mut self.w_y_buf,
+                &mut self.w_col_bufs,
+            ) {
+                return Ok(solved);
+            }
+        }
         self.ensure_sparse(lmm)?;
         let sparse = self
             .sparse
@@ -1078,7 +1093,7 @@ impl InterceptLdlCache {
         }
 
         let w_col_slices: Vec<&[f64]> = self.w_col_bufs.iter().map(|v| v.as_slice()).collect();
-        Ok(solve_profile_finish(
+        solve_profile_finish(
             lmm,
             ProfileFinishInput {
                 reml,
@@ -1093,7 +1108,13 @@ impl InterceptLdlCache {
                 w_cols: &w_col_slices,
             },
             |u| &d * u,
-        ))
+        )
+        .map_err(|_| {
+            sprs::errors::LinalgError::SingularMatrix(sprs::errors::SingularMatrixInfo {
+                index: 0,
+                reason: "intercept profile finish failed",
+            })
+        })
     }
 
     fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {

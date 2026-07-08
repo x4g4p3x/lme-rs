@@ -19,11 +19,11 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
-| `crossed_20k` | **~1.6×** (was ~1.45×) | `fit_prepared` **~13 ms** (Julia ~12 ms) |
-| `random_intercept_10k` | **beats Julia** | cold `lmer` **~1.2 ms** |
-| `nested_10k` | **~1.5×** (was ~1.6×) | `prepare_lmer` **~5.3 ms** (was ~7 ms) |
+| `crossed_20k` | **~1.2×** (was ~2×) | `fit_prepared` **~10.5 ms** (Julia ~14.7 ms) |
+| `random_intercept_10k` | **beats Julia** (~0.94×) | `fit_prepared` **~0.38 ms** |
+| `nested_10k` | **~1.4×** | `fit_prepared` **~3.6 ms** (Julia ~6.9 ms) |
 
-Cold `lmer()` on `crossed_20k` is **~25 ms** vs Julia **~16 ms** after the [prepare fast paths pass](#prepare-fast-paths-pass-2026-07-08-continued) (`prepare` ~6 ms, optimize ~13 ms, post-fit ~2 ms). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit is **at or below Julia** on crossed and nested.
+Cold `lmer()` on `crossed_20k` is **~17.6 ms** vs Julia **~14.7 ms** ([2026-07-08 reference](benchmarks/fair-rust-julia-reference-2026-07-08.json); `prepare` ~7.9 ms, optimize ~10 ms). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit is **at or below Julia** on all three tier-A cases.
 
 ---
 
@@ -37,9 +37,9 @@ Cold `lmer()` on `crossed_20k` is **~25 ms** vs Julia **~16 ms** after the [prep
 |:-----|:------|:---------|:-----|
 | **Optimizer hot** | `profile_deviance` → `profile_deviance_diagonal` → `InterceptLdlCache::profile_deviance` | θ search cost | Fast; return `f64::MAX` on infeasible θ (no panic) |
 | **Blocked hot (crossed)** | `InterceptBlockedChol::profile_deviance` when cross blocks fit in memory | θ search on intercept-only crossed models | Same deviance as slow path; gated by cross-block size |
-| **Full profile** | `solve_profile` → `solve_profile_diagonal` or cached `InterceptLdlCache::solve_profile` | `evaluate()`, SEs, fitted values | Correct; blocked models lazy-init sparse LDL on first evaluate |
+| **Full profile** | `solve_profile` → blocked `solve_profile_blocked` or cached sparse `InterceptLdlCache::solve_profile` | `evaluate()`, SEs, fitted values | Correct; blocked models reuse `updateL!` factor (no sparse LDL on post-fit) |
 
-> **Invariant:** the θ optimizer hot path must not panic on infeasible θ. Post-fit `evaluate()` on blocked intercept-only models uses **lazy sparse LDL reuse** (`InterceptLdlCache::solve_profile`) instead of a fresh symbolic factorization each call — golden parity passes on all fixtures including `penicillin_crossed_reml`.
+> **Invariant:** the θ optimizer hot path must not panic on infeasible θ. Post-fit `evaluate()` on blocked intercept-only models uses **`InterceptBlockedChol::solve_profile_blocked`** (reusing the same `updateL!` factor as θ search), with sparse LDL fallback only if the blocked backsolve fails — golden parity passes on all fixtures including `penicillin_crossed_reml`.
 
 ### Intercept-only fast path
 
@@ -262,8 +262,8 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 
 | Change | Effect |
 |:-------|:-------|
-| **`InterceptLdlCache::solve_profile`** | Reuses sparse LDL symbolic structure for full profile solve at converged θ |
-| **Lazy sparse LDL on evaluate** | Built on first `evaluate()` when blocked path skipped sparse at prepare — avoids fresh `Ldl::numeric()` per post-fit |
+| **`InterceptLdlCache::solve_profile`** | Blocked models: `solve_profile_blocked` reuses `updateL!` factor; sparse LDL fallback if backsolve fails |
+| **Blocked post-fit backsolve (2026-07-08)** | `backsolve_a_inv` + `solve_profile_blocked` wired into `solve_profile`; skips ~2 ms lazy sparse LDL init on `crossed_20k` |
 | **Cached `y_norm2`** in profile finish | Drops redundant `y_eff` norm computation |
 
 ### Fair-harness Julia fix
@@ -277,7 +277,7 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 | Grouped `ZᵀZ` from per-observation RE indices (dense q×q) | Broke `penicillin_crossed_reml` golden parity; reverted. Nested q=2000 would allocate 4M f64 anyway. |
 | Obs-major sparse `ZᵀZ` bucket accumulation | **Shipped** when `q ≥ 256` — matches sparse multiply (unit-tested); gated off tiny models to avoid O(n) bucket alloc on `random_intercept_10k`. |
 | Blocked `solve_profile` via `l_xy_re` `w` extraction | Broke golden parity — post-factorization `l_xy_re` ≠ LDL `w` vectors; needs full `updateL!` backsolve. |
-| Blocked `ranef!`/`fixef!` backsolve (2026-07-08) | `backsolve_profile_w` + `u + Wβ` reconstruction still disagrees with `profile_deviance` on `penicillin_crossed_reml` (e.g. solve deviance **774** vs profile **331** at golden θ); golden parity panics on indefinite `A_x`. **Eager sparse LDL at prepare** for blocked models shifts ~5 ms prepare → post-fit with **no net** cold-`lmer()` win (~24 ms unchanged). Reverted; post-fit still uses lazy sparse init. |
+| Blocked `ranef!`/`fixef!` backsolve (2026-07-08, first attempt) | Early `backsolve_profile_w` disagreed with sparse LDL; **superseded** by `forward_solve_ld` / `backward_solve_ld` + `solve_profile_blocked` (golden parity OK). |
 | `inv_from_chol_lower` in `evaluate()` for all `p` | Regressed `random_intercept_10k` ~0.3 ms vs `l_x.inv()` at `p = 2`; not committed (use only for `p > 2` if revisited). |
 
 ---
@@ -333,7 +333,7 @@ Fair harness: 3 warmups + 20 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 | `nested_10k` | **~5.3 ms** (was ~7 ms) | **~4.0 ms** | ~6.6 ms |
 | `crossed_20k` | **~6.4 ms** | **~13 ms** | ~12.4 ms |
 
-**Diagnosis:** θ-search (`fit_prepared`) already beats or matches Julia on both Julia-lagging cases. Remaining cold-`lmer()` gap on `crossed_20k` is mostly **post-fit** (~2 ms lazy sparse LDL on blocked `evaluate()`), not the optimizer kernel.
+**Diagnosis:** θ-search (`fit_prepared`) already beats or matches Julia on both Julia-lagging cases. Cold-`lmer()` gap on `crossed_20k` is now mostly **setup**, not post-fit — blocked `solve_profile_blocked` removed the ~2 ms lazy sparse LDL on `evaluate()`.
 
 ### Changes ([`src/math.rs`](src/math.rs), [`src/model_matrix.rs`](src/model_matrix.rs))
 
@@ -346,7 +346,7 @@ Fair harness: 3 warmups + 20 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 ### What we did not change
 
 - **`random_intercept_10k`** — explicitly out of scope; still beats Julia after the `q` gate.
-- **Blocked post-fit backsolve** — attempted `ranef!`/`fixef!`-style extraction after `updateL!`; numerics do not yet match `profile_deviance` / sparse LDL (see [reverted attempts](#what-we-tried-and-reverted)). Post-fit still lazy-inits sparse LDL (~2 ms on `crossed_20k`).
+- **Blocked post-fit backsolve** — **shipped (2026-07-08):** `solve_profile_blocked` wired into `InterceptLdlCache::solve_profile`; unit-tested vs sparse LDL on penicillin; golden parity passes.
 
 ---
 
@@ -452,12 +452,8 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Next experiments (priority order)
 
-1. **Nested blocked path (row-grouped ColumnBlocks)** — scaffolding in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) (`CrossBlock::Sparse`, `columns_single_row`, `row_grouped_columns`, `ReFactor::ColumnBlocks`). Lessons from 2026-07-08 WIP:
-   - `column_disjoint_partition` is for **crossed** layouts (each row in one column), not nested (each **column** in one row).
-   - Ungated sparse blocked with `ReFactor::Full` on the batch block → **~6× Julia** on `nested_10k` vs **~1.5×** on reused sparse LDL; **gate stays off** until row-grouped blocks ship.
-   - Densifying nested `batch×cask` (200×2000) → **~1.8 s/fit**.
-   - Target: `row_grouped_columns` → ~200 independent 10×10 Cholesky blocks on the cask diagonal + sparse Schur on the batch block only.
-2. **Blocked post-fit backsolve** — forward/backward `cross_matvec_sub` / `cross_matvec_t_sub` scaffolding added (`backsolve_a_inv`, `solve_profile_blocked`); still disagrees with sparse LDL on crossed `evaluate()` (indefinite `A_x`). Do not wire into `InterceptLdlCache::solve_profile` until golden parity passes.
+1. **Nested blocked path (row-grouped ColumnBlocks)** — **partial (2026-07-08):** nested `batch/cask` now uses `ReFactor::Diagonal` + `trisolve_single_row_cols` on the batch block (`columns_single_row` sparse gate). Fair harness: `nested_10k` cold **~1.7×** Julia, **`fit_prepared` ~0.56×** Julia. Remaining: row-grouped **10×10 cask** ColumnBlocks on block 0 if `prepare_lmer` needs it.
+2. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
 3. **`build_x_matrix` numeric fast path** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
 4. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
 5. **Fair harness reference JSON** — refresh `benchmarks/fair-rust-julia-reference-*.json` after next tagged release.

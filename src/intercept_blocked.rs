@@ -195,14 +195,13 @@ impl CrossBlock {
     fn fits_blocked_gate(&self) -> bool {
         match self {
             CrossBlock::Dense(d) => d.nrows() * d.ncols() <= 100_000,
-            // Nested sparse crosses: keep sparse LDL until row-grouped ColumnBlocks
-            // beat reused LDL on `nested_10k` (ungated sparse blocked ~6× Julia vs ~1.5×).
-            CrossBlock::Sparse { .. } => false,
+            // Nested `batch/cask`: one batch row per cask column; uses `ReFactor::Diagonal`
+            // on the batch block instead of densifying the cross.
+            CrossBlock::Sparse { .. } => self.columns_single_row(),
         }
     }
 
     /// Each cross column touches exactly one row (nested `batch/cask`: cask → batch).
-    #[allow(dead_code)]
     fn columns_single_row(&self) -> bool {
         for col in 0..self.ncols() {
             let mut count = 0usize;
@@ -226,7 +225,6 @@ impl CrossBlock {
     }
 
     /// Groups cross column indices by their sole row (batch → casks for nested RE).
-    #[allow(dead_code)]
     fn row_grouped_columns(&self) -> Option<Vec<Vec<usize>>> {
         if !self.columns_single_row() {
             return None;
@@ -286,6 +284,63 @@ impl CrossBlock {
             Some(col_rows)
         } else {
             None
+        }
+    }
+
+    /// Rank update onto a diagonal RE factor (nested batch block from `batch/cask` cross).
+    fn rank_sub_diagonal(&self, diag: &mut [f64]) {
+        let Some(groups) = self.row_grouped_columns() else {
+            return;
+        };
+        for (row, cols) in groups.iter().enumerate() {
+            let mut sum_sq = 0.0;
+            for &col in cols {
+                let v = self.entry(row, col);
+                sum_sq += v * v;
+            }
+            diag[row] -= sum_sq;
+        }
+    }
+
+    /// `cross[:,col] /= diag_chol[row]` when each column has one structural row.
+    fn trisolve_single_row_cols(&mut self, diag_chol: &[f64]) -> Result<(), ()> {
+        match self {
+            CrossBlock::Dense(d) => {
+                for col in 0..d.ncols() {
+                    for row in 0..d.nrows() {
+                        let v = d[[row, col]];
+                        if v != 0.0 {
+                            let div = diag_chol[row];
+                            if div == 0.0 {
+                                return Err(());
+                            }
+                            d[[row, col]] = v / div;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ncols,
+                ..
+            } => {
+                for col in 0..*ncols {
+                    let start = col_ptr[col];
+                    let end = col_ptr[col + 1];
+                    for idx in start..end {
+                        let r = row_idx[idx];
+                        let div = diag_chol[r];
+                        if div == 0.0 {
+                            return Err(());
+                        }
+                        vals[idx] /= div;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 
@@ -562,6 +617,8 @@ impl ReLower {
 /// Cholesky storage for an RE diagonal block after fill-in.
 enum ReFactor {
     Full(ReLower),
+    /// Nested batch block: rank updates from `batch/cask` cross stay diagonal.
+    Diagonal(Vec<f64>),
     /// Nested: each cross column updates an independent diagonal block (casks within a batch).
     #[allow(dead_code)]
     ColumnBlocks {
@@ -571,8 +628,12 @@ enum ReFactor {
 }
 
 impl ReFactor {
-    fn from_diag_and_cross(diag: &[f64], _cross: &CrossBlock) -> Self {
-        ReFactor::Full(ReLower::diagonal_init(diag.len(), diag))
+    fn from_diag_and_cross(diag: &[f64], cross: &CrossBlock) -> Self {
+        if cross.columns_single_row() {
+            ReFactor::Diagonal(diag.to_vec())
+        } else {
+            ReFactor::Full(ReLower::diagonal_init(diag.len(), diag))
+        }
     }
 
     fn reset_diag(&mut self, diag: &[f64]) {
@@ -584,6 +645,9 @@ impl ReFactor {
                         l.set(i, j, 0.0);
                     }
                 }
+            }
+            ReFactor::Diagonal(d) => {
+                d.clone_from_slice(diag);
             }
             ReFactor::ColumnBlocks { blocks, col_rows } => {
                 for (b, rows) in col_rows.iter().enumerate() {
@@ -597,6 +661,7 @@ impl ReFactor {
     fn rank_sub_cross(&mut self, cross: &CrossBlock, gram: &mut Array2<f64>) {
         match self {
             ReFactor::Full(l) => cross.rank_sub_lower(l, gram),
+            ReFactor::Diagonal(d) => cross.rank_sub_diagonal(d),
             ReFactor::ColumnBlocks { blocks, col_rows } => {
                 cross.rank_sub_column_blocks(blocks, col_rows);
             }
@@ -606,6 +671,17 @@ impl ReFactor {
     fn chol(&mut self) -> Result<f64, ()> {
         match self {
             ReFactor::Full(l) => l.chol(),
+            ReFactor::Diagonal(d) => {
+                let mut log_det = 0.0;
+                for val in d.iter_mut() {
+                    if *val <= 0.0 {
+                        return Err(());
+                    }
+                    *val = val.sqrt();
+                    log_det += val.ln();
+                }
+                Ok(log_det)
+            }
             ReFactor::ColumnBlocks { blocks, .. } => {
                 let mut log_det = 0.0;
                 for b in blocks {
@@ -616,19 +692,100 @@ impl ReFactor {
         }
     }
 
-    fn trisolve_cross_col(
-        &self,
-        cross: &mut CrossBlock,
-        col: usize,
-        diag0: Option<&[f64]>,
-        rhs_buf: &mut [f64],
-    ) -> Result<(), ()> {
+    fn trisolve_cross(&self, cross: &mut CrossBlock, rhs_buf: &mut [f64]) -> Result<(), ()> {
         match self {
             ReFactor::Full(l) => cross.trisolve_full_lower(l, rhs_buf),
+            ReFactor::Diagonal(d) => cross.trisolve_single_row_cols(d),
             ReFactor::ColumnBlocks { blocks, col_rows } => {
-                let _ = diag0;
-                cross.trisolve_column_blocks(col, blocks, col_rows)
+                for col in 0..cross.ncols() {
+                    cross.trisolve_column_blocks(col, blocks, col_rows)?;
+                }
+                Ok(())
             }
+        }
+    }
+
+    fn trisolve_xy_block(
+        &self,
+        block: &mut Array2<f64>,
+        m: usize,
+        pq: usize,
+        scratch: &mut Array2<f64>,
+    ) -> Result<(), ()> {
+        match self {
+            ReFactor::Full(l) => {
+                if scratch.dim() != (m, pq) {
+                    *scratch = Array2::zeros((m, pq));
+                }
+                scratch.assign(&block.t());
+                l.solve_multi_rhs(scratch);
+                block.assign(&scratch.t());
+                Ok(())
+            }
+            ReFactor::Diagonal(d) => {
+                for col in 0..m {
+                    let div = d[col];
+                    if div == 0.0 {
+                        return Err(());
+                    }
+                    for row in 0..pq {
+                        block[[row, col]] /= div;
+                    }
+                }
+                Ok(())
+            }
+            ReFactor::ColumnBlocks { .. } => Err(()),
+        }
+    }
+
+    fn forward_solve_block(&self, vi: &mut [f64]) -> Result<(), ()> {
+        match self {
+            ReFactor::Full(l) => {
+                l.solve_col(vi);
+                Ok(())
+            }
+            ReFactor::Diagonal(d) => {
+                for (val, &div) in vi.iter_mut().zip(d.iter()) {
+                    if div == 0.0 {
+                        return Err(());
+                    }
+                    *val /= div;
+                }
+                Ok(())
+            }
+            ReFactor::ColumnBlocks { .. } => Err(()),
+        }
+    }
+
+    fn backward_solve_block(&self, wi: &mut [f64]) -> Result<(), ()> {
+        match self {
+            ReFactor::Full(l) => {
+                let n = l.n;
+                for idx in (0..n).rev() {
+                    let mut s = wi[idx];
+                    let base = idx * (idx + 1) / 2;
+                    let diag = l.data[base + idx];
+                    if diag == 0.0 {
+                        return Err(());
+                    }
+                    for (k, wk) in wi.iter().enumerate().skip(idx + 1) {
+                        let base_k = k * (k + 1) / 2;
+                        s -= l.data[base_k + idx] * wk;
+                    }
+                    wi[idx] = s / diag;
+                }
+                Ok(())
+            }
+            ReFactor::Diagonal(d) => {
+                for (val, &div) in wi.iter_mut().zip(d.iter()) {
+                    if div == 0.0 {
+                        return Err(());
+                    }
+                    *val /= div;
+                }
+                Ok(())
+            }
+            ReFactor::ColumnBlocks { .. } => Err(()),
         }
     }
 }
@@ -1074,22 +1231,7 @@ impl InterceptBlockedChol {
             self.l_cross[i - 1][j].trisolve_diag0(&self.l_diag0)?;
             return Ok(());
         }
-        if matches!(self.l_re_factor[j - 1], ReFactor::ColumnBlocks { .. }) {
-            for col in 0..self.l_cross[i - 1][j].ncols() {
-                self.l_re_factor[j - 1].trisolve_cross_col(
-                    &mut self.l_cross[i - 1][j],
-                    col,
-                    None,
-                    &mut self.cross_rhs_buf,
-                )?;
-            }
-            return Ok(());
-        }
-        let l = match &self.l_re_factor[j - 1] {
-            ReFactor::Full(l) => l,
-            ReFactor::ColumnBlocks { .. } => unreachable!(),
-        };
-        self.l_cross[i - 1][j].trisolve_full_lower(l, &mut self.cross_rhs_buf)
+        self.l_re_factor[j - 1].trisolve_cross(&mut self.l_cross[i - 1][j], &mut self.cross_rhs_buf)
     }
 
     fn schur_sub_xy_re(&mut self, j: usize, jj: usize) -> Result<(), ()> {
@@ -1138,18 +1280,12 @@ impl InterceptBlockedChol {
             }
             return Ok(());
         }
-        let ljj = match &self.l_re_factor[j - 1] {
-            ReFactor::Full(l) => l,
-            ReFactor::ColumnBlocks { .. } => unreachable!("column blocks disabled"),
-        };
-        let pq = self.p + 1;
-        if self.xy_trisolve_buf.nrows() != m || self.xy_trisolve_buf.ncols() != pq {
-            self.xy_trisolve_buf = Array2::zeros((m, pq));
-        }
-        self.xy_trisolve_buf.assign(&self.l_xy_re[j].t());
-        ljj.solve_multi_rhs(&mut self.xy_trisolve_buf);
-        self.l_xy_re[j].assign(&self.xy_trisolve_buf.t());
-        Ok(())
+        self.l_re_factor[j - 1].trisolve_xy_block(
+            &mut self.l_xy_re[j],
+            m,
+            pq,
+            &mut self.xy_trisolve_buf,
+        )
     }
 
     fn schur_sub_xy_xy(&mut self, jj: usize) -> Result<(), ()> {
@@ -1322,11 +1458,7 @@ impl InterceptBlockedChol {
                     *val /= d;
                 }
             } else {
-                let l = match &self.l_re_factor[i - 1] {
-                    ReFactor::Full(l) => l,
-                    ReFactor::ColumnBlocks { .. } => return Err(()),
-                };
-                l.solve_col(&mut vi);
+                self.l_re_factor[i - 1].forward_solve_block(&mut vi)?;
             }
             rhs[offsets[i]..offsets[i + 1]].copy_from_slice(&vi);
         }
@@ -1350,38 +1482,14 @@ impl InterceptBlockedChol {
                     *val /= d;
                 }
             } else {
-                let l = match &self.l_re_factor[i - 1] {
-                    ReFactor::Full(l) => l,
-                    ReFactor::ColumnBlocks { .. } => return Err(()),
-                };
-                self.backward_solve_block_lower(l, &mut wi)?;
+                self.l_re_factor[i - 1].backward_solve_block(&mut wi)?;
             }
             z[offsets[i]..offsets[i + 1]].copy_from_slice(&wi);
         }
         Ok(())
     }
 
-    fn backward_solve_block_lower(&self, l: &ReLower, wi: &mut [f64]) -> Result<(), ()> {
-        let n = l.n;
-        debug_assert_eq!(wi.len(), n);
-        for idx in (0..n).rev() {
-            let mut s = wi[idx];
-            let base = idx * (idx + 1) / 2;
-            let diag = l.data[base + idx];
-            if diag == 0.0 {
-                return Err(());
-            }
-            for (k, wk) in wi.iter().enumerate().skip(idx + 1) {
-                let base_k = k * (k + 1) / 2;
-                s -= l.data[base_k + idx] * wk;
-            }
-            wi[idx] = s / diag;
-        }
-        Ok(())
-    }
-
     /// `w = A⁻¹ rhs` for the intercept-only `A = Λ⁻¹ + ZᵀZ` matrix at the current factorization.
-    #[allow(dead_code)]
     pub(crate) fn backsolve_a_inv(&self, rhs: &mut [f64]) -> Result<(), ()> {
         self.forward_solve_ld(rhs)?;
         self.backward_solve_ld(rhs)?;
@@ -1389,7 +1497,6 @@ impl InterceptBlockedChol {
     }
 
     /// Full profile solve reusing the blocked `updateL!` factor (no sparse LDL).
-    #[allow(dead_code)]
     pub(crate) fn solve_profile_blocked(
         &mut self,
         lmm: &super::LmmData,
@@ -1419,7 +1526,7 @@ impl InterceptBlockedChol {
         let w_col_slices: Vec<&[f64]> = w_col_bufs.iter().map(|v| v.as_slice()).collect();
         let n = lmm.y.len() as f64;
         let p = p_usize as f64;
-        Ok(super::solve_profile_finish(
+        super::solve_profile_finish(
             lmm,
             super::ProfileFinishInput {
                 reml,
@@ -1434,7 +1541,7 @@ impl InterceptBlockedChol {
                 w_cols: &w_col_slices,
             },
             |u| &d * u,
-        ))
+        )
     }
 }
 
@@ -1442,7 +1549,7 @@ impl ReFactor {
     #[allow(dead_code)]
     fn column_block_count(&self) -> usize {
         match self {
-            ReFactor::Full(_) => 0,
+            ReFactor::Full(_) | ReFactor::Diagonal(_) => 0,
             ReFactor::ColumnBlocks { blocks, .. } => blocks.len(),
         }
     }
@@ -1450,7 +1557,7 @@ impl ReFactor {
     #[allow(dead_code)]
     fn col_rows(&self, col: usize) -> &[usize] {
         match self {
-            ReFactor::Full(_) => &[],
+            ReFactor::Full(_) | ReFactor::Diagonal(_) => &[],
             ReFactor::ColumnBlocks { col_rows, .. } => &col_rows[col],
         }
     }
@@ -1538,5 +1645,73 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn blocked_profile_solve_matches_sparse_evaluate_on_penicillin() {
+        let (lmm, golden_theta) = load_penicillin_lmm();
+        let mut blocked = InterceptBlockedChol::try_new(&lmm).expect("blocked setup");
+        let p = lmm.x.ncols();
+        let q = lmm.zt.rows();
+        let mut row_block = Vec::with_capacity(q);
+        for (bi, block) in lmm.re_blocks.iter().enumerate() {
+            for _ in 0..block.m {
+                row_block.push(bi);
+            }
+        }
+        let mut w_y = vec![0.0; q];
+        let mut w_col_bufs: Vec<Vec<f64>> = (0..p).map(|_| vec![0.0; q]).collect();
+        let blocked_sol = blocked
+            .solve_profile_blocked(
+                &lmm,
+                &golden_theta,
+                true,
+                &row_block,
+                &mut w_y,
+                &mut w_col_bufs,
+            )
+            .expect("blocked profile solve");
+        let sparse = lmm.evaluate(&golden_theta, true);
+        let scale = sparse.reml_crit.abs().max(1.0);
+        assert!(
+            (blocked_sol.reml_crit - sparse.reml_crit).abs() <= 1e-6 * scale,
+            "reml_crit blocked={} sparse={}",
+            blocked_sol.reml_crit,
+            sparse.reml_crit
+        );
+        for (i, (&b, &s)) in blocked_sol.beta.iter().zip(sparse.beta.iter()).enumerate() {
+            assert!((b - s).abs() <= 1e-8, "beta[{i}] blocked={b} sparse={s}");
+        }
+        assert!(
+            (blocked_sol.sigma2 - sparse.sigma2).abs() <= 1e-8 * sparse.sigma2.abs().max(1.0),
+            "sigma2 blocked={} sparse={}",
+            blocked_sol.sigma2,
+            sparse.sigma2
+        );
+    }
+
+    #[test]
+    fn nested_sparse_gate_uses_diagonal_batch_factor() {
+        use crate::prepare_lmer;
+        use polars::prelude::*;
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/benchmark-results/fair-rust-julia-data/nested_10k.csv"
+        );
+        if !std::path::Path::new(path).exists() {
+            return;
+        }
+        let mut file = std::fs::File::open(path).unwrap();
+        let df = CsvReadOptions::default()
+            .with_has_header(true)
+            .into_reader_with_file_handle(&mut file)
+            .finish()
+            .unwrap();
+        let prep = prepare_lmer("y ~ x + (1 | batch/cask)", &df).unwrap();
+        assert!(
+            prep.lmm.blocked_kernel_available(),
+            "nested_10k should use blocked kernel"
+        );
+        assert_eq!(prep.lmm.blocked_kernel_detail(), "blocked_active");
     }
 }
