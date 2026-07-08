@@ -277,6 +277,7 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 | Grouped `ZᵀZ` from per-observation RE indices (dense q×q) | Broke `penicillin_crossed_reml` golden parity; reverted. Nested q=2000 would allocate 4M f64 anyway. |
 | Obs-major sparse `ZᵀZ` bucket accumulation | **Shipped** when `q ≥ 256` — matches sparse multiply (unit-tested); gated off tiny models to avoid O(n) bucket alloc on `random_intercept_10k`. |
 | Blocked `solve_profile` via `l_xy_re` `w` extraction | Broke golden parity — post-factorization `l_xy_re` ≠ LDL `w` vectors; needs full `updateL!` backsolve. |
+| Blocked `ranef!`/`fixef!` backsolve (2026-07-08) | `backsolve_profile_w` + `u + Wβ` reconstruction still disagrees with `profile_deviance` on `penicillin_crossed_reml` (e.g. solve deviance **774** vs profile **331** at golden θ); golden parity panics on indefinite `A_x`. **Eager sparse LDL at prepare** for blocked models shifts ~5 ms prepare → post-fit with **no net** cold-`lmer()` win (~24 ms unchanged). Reverted; post-fit still uses lazy sparse init. |
 | `inv_from_chol_lower` in `evaluate()` for all `p` | Regressed `random_intercept_10k` ~0.3 ms vs `l_x.inv()` at `p = 2`; not committed (use only for `p > 2` if revisited). |
 
 ---
@@ -345,7 +346,7 @@ Fair harness: 3 warmups + 20 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 ### What we did not change
 
 - **`random_intercept_10k`** — explicitly out of scope; still beats Julia after the `q` gate.
-- **Blocked post-fit backsolve** — still lazy-init sparse LDL on first `evaluate()` (~2 ms on `crossed_20k`); correct `updateL!` backsolve remains the next lever for crossed cold wall time.
+- **Blocked post-fit backsolve** — attempted `ranef!`/`fixef!`-style extraction after `updateL!`; numerics do not yet match `profile_deviance` / sparse LDL (see [reverted attempts](#what-we-tried-and-reverted)). Post-fit still lazy-inits sparse LDL (~2 ms on `crossed_20k`).
 
 ---
 
