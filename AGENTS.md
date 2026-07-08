@@ -38,7 +38,7 @@ flowchart TD
 | [`scripts/ci/lme_ci.py`](lme_ci.py) | One cross-platform implementation (stdlib Python 3.10+) |
 | [`lefthook.yml`](../lefthook.yml) | Declarative hooks, **parallel** pre-commit, `stage_fixed` auto-staging |
 | [`mise.toml`](../mise.toml) | Pins Rust, Python 3.11, uv, lefthook, task — reproducible dev env |
-| [`uv`](https://docs.astral.sh/uv/) | Fast venv creation (`uv venv --python 3.11`), no repo-root `.venv` backup dance |
+| [`uv`](https://docs.astral.sh/uv/) | Locked Python env (`uv sync` + `uv.lock`); Ruff via `uv tool run` |
 | **Ruff** | `python/tests` + `python/examples` on `task lint`; staged auto-fix on commit |
 | **pre-push hook** | Automatic `preflight` (lint + `cargo check --all-targets` + `cargo audit` + repo metadata dry-run) |
 

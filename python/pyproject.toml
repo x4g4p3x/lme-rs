@@ -25,6 +25,9 @@ dev = [
     "pyarrow>=14.0",
 ]
 
+# Dev deps install via `uv sync --extra dev`; the extension is built with `maturin develop`.
+[tool.uv]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 

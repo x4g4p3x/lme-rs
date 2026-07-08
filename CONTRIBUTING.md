@@ -87,34 +87,25 @@ task hooks:install
 
 ### Python bindings
 
-If you are changing `python/` or verifying the Python package locally:
+If you are changing `python/` or verifying the Python package locally (requires [uv](https://docs.astral.sh/uv/) — pinned in [`mise.toml`](mise.toml)):
 
 ```bash
 cd python
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -r requirements-ci.txt
-maturin develop --release
-pytest tests/
+uv sync --extra dev --no-install-project
+uv run maturin develop --release
+uv run pytest tests/
 ```
 
-[`python/requirements-ci.txt`](python/requirements-ci.txt) is a pinned tree for CI and local scripts (generated from [`python/pyproject.toml`](python/pyproject.toml) `[project.optional-dependencies] dev`). Regenerate it after changing those dependencies:
+[`python/uv.lock`](python/uv.lock) pins CI and local dev dependencies from [`python/pyproject.toml`](python/pyproject.toml) (`[project.optional-dependencies] dev`). After changing those dependencies:
 
 ```bash
-pip install pip-tools
 cd python
-pip-compile pyproject.toml --extra dev -o requirements-ci.txt --allow-unsafe --strip-extras
+uv lock
 ```
 
-Use `pytest tests/` so only [`python/tests/`](python/tests/) runs (same as the tag-triggered [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
+Use `uv run pytest tests/` so only [`python/tests/`](python/tests/) runs (same as the tag-triggered [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
 
-The [`scripts/local_ci.sh`](scripts/local_ci.sh) / [`scripts/local_ci.ps1`](scripts/local_ci.ps1) helpers use **uv** to create `python/.venv` with Python **3.11** explicitly, then `pip install -r requirements-ci.txt`, `maturin develop`, and `pytest tests/`. The tag-triggered CI also runs that binding flow on **Ubuntu only** for Python **3.10**, **3.12**, and **3.13** (see job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** in your own venv, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
+[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) run the same uv-native flow. Tag-triggered CI also exercises Python **3.10**, **3.12**, and **3.13** on Ubuntu (job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 ## Working on numerical changes
 
@@ -165,7 +156,7 @@ Do not describe a feature as supported unless it is exposed by the public API an
 ## Other GitHub Actions workflows
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — release CI on `v*` tags and manual dispatch.
-- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` Rust crates, plus `pip-audit` against [`python/requirements-ci.txt`](python/requirements-ci.txt), on `v*` tags and manual dispatch.
+- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` Rust crates, plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment, on `v*` tags and manual dispatch.
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — `cargo publish --dry-run --locked` on `v*` tags and manual dispatch.
 - [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — Python wheel builds and PyPI publish on `v*` tags; manual dispatch builds artifacts without publishing.
 

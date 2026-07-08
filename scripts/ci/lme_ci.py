@@ -149,13 +149,8 @@ def cargo_audit() -> None:
 
 def pip_audit() -> None:
     _require_tool("uv")
-    venv = _uv_venv(reuse=True)
-    py = venv_python(venv)
-    run(
-        ["uv", "pip", "install", "-r", "requirements-ci.txt", "--python", str(py)],
-        cwd=PYTHON_DIR,
-    )
-    run([str(py), "-m", "pip_audit"], cwd=PYTHON_DIR)
+    _uv_sync(python="3.11")
+    run(["uv", "run", "pip-audit"], cwd=PYTHON_DIR)
 
 
 def audit() -> None:
@@ -489,50 +484,65 @@ def _venv_python_version(venv: Path) -> tuple[int, int]:
     return int(major), int(minor)
 
 
-def _uv_venv(*, reuse: bool) -> Path:
+def _parse_python_version(python: str) -> tuple[int, int]:
+    major, minor = python.split(".", 1)
+    return int(major), int(minor)
+
+
+def _uv_python_env() -> dict[str, str]:
+    venv = PYTHON_VENV
+    return {
+        "PYO3_PYTHON": str(venv_python(venv)),
+        "VIRTUAL_ENV": str(venv),
+    }
+
+
+def _uv_sync(*, python: str = "3.11", reuse: bool = True) -> None:
+    """Install locked dev dependencies into python/.venv (uv-native flow)."""
     _require_tool("uv")
-    if reuse and PYTHON_VENV.exists():
-        major, minor = _venv_python_version(PYTHON_VENV)
-        if (major, minor) == (3, 11):
-            print("    (reusing python/.venv)", flush=True)
-            return PYTHON_VENV
-        print(
-            f"    (replacing python/.venv: found Python {major}.{minor}, need 3.11)",
-            flush=True,
-        )
+    want = _parse_python_version(python)
     if PYTHON_VENV.exists():
-        shutil.rmtree(PYTHON_VENV)
-    run(["uv", "venv", "--python", "3.11", str(PYTHON_VENV)], cwd=PYTHON_DIR)
-    return PYTHON_VENV
+        if not reuse:
+            shutil.rmtree(PYTHON_VENV)
+        elif want != _venv_python_version(PYTHON_VENV):
+            print(
+                f"    (replacing python/.venv: need Python {python})",
+                flush=True,
+            )
+            shutil.rmtree(PYTHON_VENV)
+    run(
+        [
+            "uv",
+            "sync",
+            "--extra",
+            "dev",
+            "--python",
+            python,
+            "--no-install-project",
+        ],
+        cwd=PYTHON_DIR,
+    )
 
 
 def python_bindings(*, reuse_venv: bool = False, skip_wheel: bool = False) -> None:
-    venv = _uv_venv(reuse=reuse_venv)
-    py = venv_python(venv)
-    env = {
-        "PYO3_PYTHON": str(py),
-        "VIRTUAL_ENV": str(venv),
-    }
-    run(
-        ["uv", "pip", "install", "-r", "requirements-ci.txt", "--python", str(py)],
-        cwd=PYTHON_DIR,
-    )
-    run([str(py), "-m", "maturin", "develop", "--release"], cwd=PYTHON_DIR, env=env)
-    run([str(py), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+    _uv_sync(python="3.11", reuse=reuse_venv)
+    env = _uv_python_env()
+    run(["uv", "run", "maturin", "develop", "--release"], cwd=PYTHON_DIR, env=env)
+    run(["uv", "run", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
 
     if skip_wheel:
         return
 
-    run([str(py), "-m", "maturin", "build", "--release", "-o", "dist"], cwd=PYTHON_DIR, env=env)
+    run(["uv", "run", "maturin", "build", "--release", "-o", "dist"], cwd=PYTHON_DIR, env=env)
     wheels = sorted((PYTHON_DIR / "dist").glob("lme_python-*.whl"))
     if not wheels:
         raise CiError("no wheel under python/dist")
     run(
-        [str(py), "-m", "pip", "install", "--force-reinstall", str(wheels[-1])],
+        ["uv", "run", "pip", "install", "--force-reinstall", str(wheels[-1])],
         cwd=PYTHON_DIR,
         env=env,
     )
-    run([str(py), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+    run(["uv", "run", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
 
 
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:

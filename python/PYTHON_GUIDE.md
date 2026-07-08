@@ -8,24 +8,17 @@ This guide covers the Python bindings shipped in `python/`. The Python package i
 
 - Python 3.8 or newer
 - Rust toolchain via [rustup](https://rustup.rs)
-- `maturin`
+- [uv](https://docs.astral.sh/uv/) (recommended; also via [`mise.toml`](../mise.toml))
 
 ### Build and install
 
 ```bash
 cd python
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
-
-pip install maturin polars pytest
-
-maturin develop --release
+uv sync --extra dev --no-install-project
+uv run maturin develop --release
 ```
+
+Without uv, create a venv manually and `pip install` the `[project.optional-dependencies] dev` packages from `pyproject.toml`, then run `maturin develop --release`.
 
 If you are building with CPython 3.14, set the PyO3 forward-compatibility flag first:
 
