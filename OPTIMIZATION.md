@@ -276,6 +276,7 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 |:--------|:--------|
 | Grouped `ZᵀZ` from per-observation RE indices (dense q×q) | Broke `penicillin_crossed_reml` golden parity; reverted. Nested q=2000 would allocate 4M f64 anyway. |
 | Blocked `solve_profile` via `l_xy_re` `w` extraction | Broke golden parity — post-factorization `l_xy_re` ≠ LDL `w` vectors; needs full `updateL!` backsolve. |
+| `inv_from_chol_lower` in `evaluate()` for all `p` | Regressed `random_intercept_10k` ~0.3 ms vs `l_x.inv()` at `p = 2`; not committed (use only for `p > 2` if revisited). |
 
 ---
 
@@ -300,6 +301,12 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 | **`mem::take` into `LmmData`** | `prepare_lmer` moves `x`, `zt`, `y`, `re_blocks` into `LmmData` instead of cloning; `fit_prepared` reads from `lmm` |
 | **Offset path unchanged** | When an offset is present, `matrices.y` keeps the original response; `LmmData` stores the adjusted vector |
 | **Categorical dummy encoding** | `HashMap<&str, usize>` level lookup + integer `level_id` per row — O(n_obs) string hashing instead of O(n_obs × n_levels) string compares |
+
+### Simple fixed-effects fast path (2026-07-08 continued)
+
+[`try_build_simple_x_matrix`](src/model_matrix.rs) bypasses the generic fiasto column loop for **`y ~ 1`**, **`y ~ x`**, and **`y ~ 1 + x`** (no interactions, no categorical fixed effects). Fair-harness fixtures and `penicillin_crossed_reml` (`diameter ~ 1 + …`) hit this path.
+
+**Recorded** (same machine, 3 warmups + 20 repeats): `prepare_lmer` on `crossed_20k` **~4.2 ms** (was ~5–6 ms before); `random_intercept_10k` cold `lmer()` **~1.3 ms** (still **beats Julia** ~1.5 ms). Dropped a post-fit experiment (`inv_from_chol_lower` for `p = 2`) after it regressed `random_intercept_10k` ~0.3 ms in A/B — not committed.
 
 ---
 

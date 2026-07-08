@@ -269,6 +269,22 @@ Eliminates duplicate `x` / `zt` / `y` / `re_blocks` clones in [`prepare_lmer`](s
 
 **Takeaway:** `mem::take` into `LmmData` drops a full copy of design matrices at prepare time. **`random_intercept_10k` cold `lmer()` now beats Julia** on this machine; crossed gap narrowed to **~1.3×**. Nested kernel gap unchanged (still sparse LDL).
 
+<a id="fair-rust-julia-2026-07-08-simple-x"></a>
+
+### 2026-07-08 simple fixed-effects fast path
+
+[`try_build_simple_x_matrix`](src/model_matrix.rs) for `y ~ 1`, `y ~ x`, and `y ~ 1 + x` (fair-harness fixtures). See **[OPTIMIZATION.md § Prepare ownership pass](OPTIMIZATION.md#prepare-ownership-pass-2026-07-08-continued)** (simple fixed-effects subsection).
+
+**Recorded:** 3 warmups + 20 repeats, same workstation.
+
+| Case | Cold `lmer()` Rust | Julia `fit` | vs Julia |
+|:-----|-------------------:|------------:|---------:|
+| `crossed_20k` | **22.0 ms** | 15.2 ms | 1.45× |
+| `nested_10k` | **11.9 ms** | 7.6 ms | 1.57× |
+| `random_intercept_10k` | **1.3 ms** | 1.5 ms | **Rust faster** |
+
+`prepare_lmer` on `crossed_20k`: **~4.2 ms**. No regression on `random_intercept_10k` vs the prepare-ownership commit (A/B: `inv_from_chol_lower` post-fit change regressed that case and was **not** shipped).
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.

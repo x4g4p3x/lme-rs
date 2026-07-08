@@ -328,6 +328,102 @@ fn build_zt_csr(
     sprs::CsMat::new((q, n_obs), indptr, indices, data)
 }
 
+/// Fast path for `y ~ 1`, `y ~ x`, and `y ~ 1 + x` without interactions or categorical fixed effects.
+#[allow(clippy::type_complexity)]
+fn try_build_simple_x_matrix(
+    ast: &FiastoModel,
+    data: &DataFrame,
+    response_name: &str,
+    n_obs: usize,
+) -> crate::Result<
+    Option<(
+        Array2<f64>,
+        Vec<String>,
+        Vec<String>,
+        HashMap<String, Vec<String>>,
+    )>,
+> {
+    let mut numeric_name: Option<&str> = None;
+    for col_name in &ast.all_generated_columns {
+        let Some(info) = ast.columns.get(col_name) else {
+            continue;
+        };
+        if !is_fixed_effect_column(info, col_name, response_name) {
+            continue;
+        }
+        if info.roles.contains(&"InteractionTerm".to_string()) {
+            return Ok(None);
+        }
+        let s = match data.column(col_name) {
+            Ok(s) => s,
+            Err(_) => return Ok(None),
+        };
+        if is_categorical_series(s.dtype()) {
+            return Ok(None);
+        }
+        if numeric_name.is_some() {
+            return Ok(None);
+        }
+        numeric_name = Some(col_name.as_str());
+    }
+
+    match (ast.metadata.has_intercept, numeric_name) {
+        (true, None) => {
+            let x = Array2::<f64>::ones((n_obs, 1));
+            Ok(Some((
+                x,
+                vec!["(Intercept)".to_string()],
+                vec!["(Intercept)".to_string()],
+                HashMap::new(),
+            )))
+        }
+        (true, Some(col_name)) => {
+            let col = numeric_column_f64(data, col_name)?;
+            let mut x = Array2::<f64>::zeros((n_obs, 2));
+            x.column_mut(0).fill(1.0);
+            x.column_mut(1).assign(&col);
+            Ok(Some((
+                x,
+                vec!["(Intercept)".to_string(), col_name.to_string()],
+                vec!["(Intercept)".to_string(), col_name.to_string()],
+                HashMap::new(),
+            )))
+        }
+        (false, Some(col_name)) => {
+            let col = numeric_column_f64(data, col_name)?;
+            let mut x = Array2::<f64>::zeros((n_obs, 1));
+            x.column_mut(0).assign(&col);
+            Ok(Some((
+                x,
+                vec![col_name.to_string()],
+                vec![col_name.to_string()],
+                HashMap::new(),
+            )))
+        }
+        (false, None) => Ok(None),
+    }
+}
+
+fn is_categorical_series(dtype: &DataType) -> bool {
+    matches!(dtype, DataType::String | DataType::Boolean) || dtype.is_categorical()
+}
+
+fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<f64>> {
+    let s = data
+        .column(col_name)
+        .map_err(|_| crate::LmeError::NotImplemented {
+            feature: format!("Missing or invalid column: {}", col_name),
+        })?
+        .cast(&DataType::Float64)
+        .map_err(|_| crate::LmeError::NotImplemented {
+            feature: format!("Missing or invalid column: {}", col_name),
+        })?;
+    let s_f64 = s.f64().map_err(|_| crate::LmeError::NotImplemented {
+        feature: format!("Missing or invalid column: {}", col_name),
+    })?;
+    Ok(Array1::from_vec(s_f64.into_no_null_iter().collect()))
+}
+
 fn is_fixed_effect_column(
     info: &crate::formula::ColumnInfo,
     col_name: &str,
@@ -388,6 +484,12 @@ pub fn build_x_matrix(
     Vec<String>,
     HashMap<String, Vec<String>>,
 )> {
+    if training_levels.is_none() {
+        if let Some(fast) = try_build_simple_x_matrix(ast, data, response_name, n_obs)? {
+            return Ok(fast);
+        }
+    }
+
     let mut fixed_cols = Vec::new();
     let mut fixed_names = Vec::new();
     let mut fixed_term_assign = Vec::new();
@@ -501,11 +603,7 @@ pub fn build_x_matrix(
                 feature: format!("Missing or invalid column: {}", col_name),
             })?;
 
-        let is_categorical = match s.dtype() {
-            DataType::String | DataType::Boolean => true,
-            dt if dt.is_categorical() => true,
-            _ => false,
-        };
+        let is_categorical = is_categorical_series(s.dtype());
 
         if is_categorical {
             let unique_vals = if let Some(tr_levels) = training_levels {
