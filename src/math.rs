@@ -4,6 +4,9 @@ use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
 use std::sync::Mutex;
 
+#[path = "intercept_blocked.rs"]
+mod intercept_blocked;
+
 /// Represents the resolved analytical outputs from evaluating a fully optimized variance structure.
 #[derive(Debug, Clone)]
 pub struct ModelCoefficients {
@@ -128,21 +131,14 @@ impl LmmData {
                 let (zt_x, zt_y) = precompute_zt_products(&zt_w, &x_w, &y_w);
                 let eye_q = identity_sparse(q);
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
-                let row_block = if intercept_only_re {
+                let _row_block = if intercept_only_re {
                     build_row_blocks(&re_blocks)
                 } else {
                     Vec::new()
                 };
-                let p_cols = x.ncols();
-                let intercept_ldl = intercept_only_re.then(|| {
-                    Mutex::new(
-                        InterceptLdlCache::new(&zt_z, q, &row_block, p_cols)
-                            .expect("intercept LDL setup failed"),
-                    )
-                });
                 let y_norm2: f64 = y_w.iter().map(|&x| x * x).sum();
 
-                LmmData {
+                finish_lmm_data(LmmData {
                     x,
                     zt,
                     y,
@@ -158,9 +154,9 @@ impl LmmData {
                     zt_y,
                     eye_q,
                     intercept_only_re,
-                    intercept_ldl,
+                    intercept_ldl: None,
                     y_norm2,
-                }
+                })
             }
             None => {
                 let zt_z = &zt * &zt.transpose_view();
@@ -170,21 +166,14 @@ impl LmmData {
                 let (zt_x, zt_y) = precompute_zt_products(&zt, &x, &y);
                 let eye_q = identity_sparse(q);
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
-                let row_block = if intercept_only_re {
+                let _row_block = if intercept_only_re {
                     build_row_blocks(&re_blocks)
                 } else {
                     Vec::new()
                 };
-                let p_cols = x.ncols();
-                let intercept_ldl = intercept_only_re.then(|| {
-                    Mutex::new(
-                        InterceptLdlCache::new(&zt_z, q, &row_block, p_cols)
-                            .expect("intercept LDL setup failed"),
-                    )
-                });
                 let y_norm2: f64 = y.iter().map(|&x| x * x).sum();
 
-                LmmData {
+                finish_lmm_data(LmmData {
                     x_eff: x.clone(),
                     zt_eff: zt.clone(),
                     y_eff: y.clone(),
@@ -200,9 +189,9 @@ impl LmmData {
                     zt_y,
                     eye_q,
                     intercept_only_re,
-                    intercept_ldl,
+                    intercept_ldl: None,
                     y_norm2,
-                }
+                })
             }
         }
     }
@@ -211,7 +200,17 @@ impl LmmData {
     pub fn log_reml_deviance(&self, theta: &[f64], reml: bool) -> f64 {
         self.profile_deviance(theta, reml)
     }
+}
 
+fn finish_lmm_data(mut data: LmmData) -> LmmData {
+    if data.intercept_only_re {
+        let cache = InterceptLdlCache::new_from_lmm(&data).expect("intercept LDL setup failed");
+        data.intercept_ldl = Some(Mutex::new(cache));
+    }
+    data
+}
+
+impl LmmData {
     /// Computes the complete profiled analytical output for a specific parameter vector `theta`,
     /// including coefficient values (fixed β, random $u$/$b$), deviance limits and scaling components.
     pub fn evaluate(&self, theta: &[f64], reml: bool) -> ModelCoefficients {
@@ -935,6 +934,7 @@ fn scale_block_rhs_buf(
 
 /// Intercept-only LDL / Cholesky cache with reusable workspaces.
 struct InterceptLdlCache {
+    blocked: Option<intercept_blocked::InterceptBlockedChol>,
     dense: Option<InterceptDenseChol>,
     sparse: Option<InterceptSparseLdl>,
     p: usize,
@@ -946,6 +946,15 @@ struct InterceptLdlCache {
 }
 
 impl InterceptLdlCache {
+    fn new_from_lmm(lmm: &LmmData) -> Result<Self, sprs::errors::LinalgError> {
+        let q = lmm.zt_z.rows();
+        let row_block = build_row_blocks(&lmm.re_blocks);
+        let p = lmm.x.ncols();
+        let mut cache = Self::new(&lmm.zt_z, q, &row_block, p)?;
+        cache.blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
+        Ok(cache)
+    }
+
     fn new(
         zt_z: &CsMat<f64>,
         q: usize,
@@ -964,6 +973,7 @@ impl InterceptLdlCache {
             w_col_bufs.push(vec![0.0; q]);
         }
         Ok(Self {
+            blocked: None,
             dense,
             sparse,
             p,
@@ -976,6 +986,9 @@ impl InterceptLdlCache {
     }
 
     fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
+        if let Some(blocked) = &mut self.blocked {
+            return blocked.profile_deviance(lmm, theta, reml);
+        }
         if let Some(dense) = &mut self.dense {
             return dense.profile_deviance(lmm, theta, reml);
         }
@@ -988,6 +1001,7 @@ impl InterceptLdlCache {
             w_y_buf,
             w_col_bufs,
             dense: _,
+            blocked: _,
         } = self;
         let sparse = sparse.as_mut().expect("sparse intercept solver missing");
         sparse

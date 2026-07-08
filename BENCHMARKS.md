@@ -180,6 +180,22 @@ Work on [`src/math.rs`](src/math.rs) and [`src/optimizer.rs`](src/optimizer.rs):
 
 **Takeaway:** the LDL reuse pass delivered most of the crossed / nested speedup (~2.5× and ~3× vs 2026-07-06 Rust). The θ-search pass improved nested and random-intercept slightly and fixed ML eval budget for crossed, but **did not materially beat** the LDL-only crossed median. Julia still leads on all three; crossed remains the main gap (~8×). See [OPTIMIZATION.md § Why MixedModels.jl is faster](OPTIMIZATION.md#why-mixedmodelsjl-is-faster-and-what-to-learn) for structural reasons and next steps (blocked augmented Cholesky).
 
+<a id="fair-rust-julia-2026-07-08-blocked-cholesky"></a>
+
+### 2026-07-08 blocked augmented Cholesky (MixedModels-style)
+
+Implemented [`src/intercept_blocked.rs`](src/intercept_blocked.rs): precomputed per-RE Gram blocks, RE ordering by level count, and per-θ **blocked Cholesky** in the layout of MixedModels.jl [`updateL!`](https://github.com/JuliaStats/MixedModels.jl/blob/main/src/linearmixedmodel.jl) — profile deviance from the factored `Xy` block **without** q-dimensional LDL solves or explicit β on the hot path. Full write-up: **[OPTIMIZATION.md § Blocked augmented Cholesky](OPTIMIZATION.md#blocked-augmented-cholesky--what-delivered-the-crossed-speedup-2026-07-08)**.
+
+**Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`; 2 warmups + 10 measured fits (`scripts/run_fair_rust_julia_benchmark.py --implementations rust`).
+
+| Case | 2026-07-06 Rust | After θ-search (07-07) | After blocked Cholesky | Julia median (2026-07-06) | Julia faster |
+|:-----|----------------:|-----------------------:|-----------------------:|--------------------------:|-------------------:|
+| `random_intercept_10k` | 3.16 ms | ~2.5 ms | **~3.0 ms** | 1.14 ms | **~2.6×** |
+| `crossed_20k` | 272 ms | ~113 ms | **~68 ms** | 14.3 ms | **~4.8×** |
+| `nested_10k` | 53.8 ms | ~15.5 ms | **~16.5 ms** | 6.88 ms | **~2.4×** |
+
+**Takeaway:** crossed median **~1.7× faster** than the 07-07 LDL path and **~4× faster** than the 2026-07-06 reference — the largest single-step gain so far. Nested and random-intercept unchanged (blocked path gated off: single RE or cross block too large for dense storage). Julia still leads; crossed gap narrowed from ~**8×** to ~**5×** on this machine.
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.
@@ -236,7 +252,7 @@ Use the existing suite primarily for:
 
 Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
 
-The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×** without regressing random-intercept (~**2.4×**); see [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
+The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×**; a [2026-07-08 blocked Cholesky pass](#fair-rust-julia-2026-07-08-blocked-cholesky) cuts crossed further to ~**5×** (~68 ms vs ~14 ms Julia) — see [OPTIMIZATION.md](OPTIMIZATION.md) for what changed. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
 
 ## Recommended next extensions
 
