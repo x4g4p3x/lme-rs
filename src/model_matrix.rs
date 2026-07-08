@@ -3,6 +3,9 @@ use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use std::collections::HashMap;
 
+/// Observation group indices, unique level labels, and label→index map for one RE block.
+type GroupingIndices = (Vec<usize>, Vec<String>, HashMap<String, usize>);
+
 /// Captures structural layout and variable indices for a multi-dimensional Random Effect correlation block.
 #[derive(Clone, Debug)]
 pub struct ReBlock {
@@ -160,58 +163,16 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
 
             // Handle interaction grouping variables (e.g., "school:student")
             // created by nested RE expansion: paste column values to create interaction groups
-            let g_series = if g_var.contains(':') {
+            let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
                 let parts: Vec<&str> = g_var.split(':').collect();
-                let mut interaction_values: Vec<String> = Vec::with_capacity(n_obs);
-
-                for i in 0..n_obs {
-                    let mut parts_str = Vec::new();
-                    for part in &parts {
-                        let col =
-                            data.column(part)
-                                .map_err(|e| crate::LmeError::NotImplemented {
-                                    feature: format!(
-                                        "Nested RE column '{}' not found: {}",
-                                        part, e
-                                    ),
-                                })?;
-                        let val = col.get(i).unwrap();
-                        parts_str.push(format!("{}", val));
-                    }
-                    interaction_values.push(parts_str.join("_"));
+                if let Some(groups) = try_build_interaction_groups(data, &parts, n_obs)? {
+                    groups
+                } else {
+                    build_grouping_from_string_column(data, g_var, n_obs)?
                 }
-
-                Column::new(g_var.as_str().into(), &interaction_values)
             } else {
-                data.column(g_var)
-                    .map_err(|e| crate::LmeError::NotImplemented {
-                        feature: format!("Grouping column '{}' not found: {}", g_var, e),
-                    })?
-                    .cast(&DataType::String)
-                    .map_err(|e| crate::LmeError::NotImplemented {
-                        feature: format!(
-                            "Grouping column '{}' could not be cast to string: {}",
-                            g_var, e
-                        ),
-                    })?
+                build_grouping_from_string_column(data, g_var, n_obs)?
             };
-            let g_str = g_series.str().unwrap();
-
-            let g_values: Vec<&str> = g_str.into_iter().map(|v| v.unwrap()).collect();
-            let mut unique_groups: Vec<String> = Vec::new();
-            let mut group_map_str: HashMap<&str, usize> = HashMap::new();
-            let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
-            for val in &g_values {
-                let idx = *group_map_str.entry(*val).or_insert_with(|| {
-                    unique_groups.push((*val).to_string());
-                    unique_groups.len() - 1
-                });
-                obs_group_idx.push(idx);
-            }
-            let mut group_map = HashMap::with_capacity(unique_groups.len());
-            for (i, label) in unique_groups.iter().enumerate() {
-                group_map.insert(label.clone(), i);
-            }
 
             let m = unique_groups.len();
             let k = if has_intercept {
@@ -710,6 +671,118 @@ pub fn build_x_matrix(
     }
 
     Ok((x, fixed_names, fixed_term_assign, extracted_levels))
+}
+
+fn build_grouping_from_string_column(
+    data: &DataFrame,
+    g_var: &str,
+    n_obs: usize,
+) -> Result<GroupingIndices, crate::LmeError> {
+    let g_series = data
+        .column(g_var)
+        .map_err(|e| crate::LmeError::NotImplemented {
+            feature: format!("Grouping column '{}' not found: {}", g_var, e),
+        })?
+        .cast(&DataType::String)
+        .map_err(|e| crate::LmeError::NotImplemented {
+            feature: format!(
+                "Grouping column '{}' could not be cast to string: {}",
+                g_var, e
+            ),
+        })?;
+    let g_str = g_series.str().unwrap();
+
+    let mut unique_groups: Vec<String> = Vec::new();
+    let mut group_map_str: HashMap<&str, usize> = HashMap::new();
+    let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
+    for val in g_str.into_iter().map(|v| v.unwrap()) {
+        let idx = *group_map_str.entry(val).or_insert_with(|| {
+            unique_groups.push(val.to_string());
+            unique_groups.len() - 1
+        });
+        obs_group_idx.push(idx);
+    }
+    let mut group_map = HashMap::with_capacity(unique_groups.len());
+    for (i, label) in unique_groups.iter().enumerate() {
+        group_map.insert(label.clone(), i);
+    }
+    Ok((obs_group_idx, unique_groups, group_map))
+}
+
+fn index_column_obs_levels(
+    col: &Column,
+    n_obs: usize,
+) -> Result<(Vec<usize>, Vec<String>), crate::LmeError> {
+    let mut levels: Vec<String> = Vec::new();
+    let mut obs_idx = Vec::with_capacity(n_obs);
+    if let Ok(str_col) = col.str() {
+        let mut level_map: HashMap<&str, usize> = HashMap::new();
+        for i in 0..n_obs {
+            let s = str_col.get(i).unwrap_or("");
+            let idx = *level_map.entry(s).or_insert_with(|| {
+                levels.push(s.to_string());
+                levels.len() - 1
+            });
+            obs_idx.push(idx);
+        }
+    } else {
+        let mut level_map: HashMap<String, usize> = HashMap::new();
+        for i in 0..n_obs {
+            let s = format!("{}", col.get(i).unwrap());
+            let idx = *level_map.entry(s.clone()).or_insert_with(|| {
+                levels.push(s);
+                levels.len() - 1
+            });
+            obs_idx.push(idx);
+        }
+    }
+    Ok((obs_idx, levels))
+}
+
+/// Fast path for nested interaction groups (`batch:cask`): index each factor column once,
+/// then hash composite level tuples instead of formatting joined strings per row.
+fn try_build_interaction_groups(
+    data: &DataFrame,
+    parts: &[&str],
+    n_obs: usize,
+) -> Result<Option<GroupingIndices>, crate::LmeError> {
+    if parts.len() < 2 {
+        return Ok(None);
+    }
+
+    let mut level_obs_idx: Vec<Vec<usize>> = Vec::with_capacity(parts.len());
+    let mut level_labels: Vec<Vec<String>> = Vec::with_capacity(parts.len());
+    for part in parts {
+        let col = data
+            .column(part)
+            .map_err(|e| crate::LmeError::NotImplemented {
+                feature: format!("Nested RE column '{}' not found: {}", part, e),
+            })?;
+        let (obs_idx, labels) = index_column_obs_levels(col, n_obs)?;
+        level_obs_idx.push(obs_idx);
+        level_labels.push(labels);
+    }
+
+    let mut pair_map: HashMap<Vec<usize>, usize> = HashMap::new();
+    let mut unique_groups: Vec<String> = Vec::new();
+    let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
+    for i in 0..n_obs {
+        let key: Vec<usize> = level_obs_idx.iter().map(|v| v[i]).collect();
+        let idx = *pair_map.entry(key).or_insert_with(|| {
+            let label = (0..parts.len())
+                .map(|p| level_labels[p][level_obs_idx[p][i]].as_str())
+                .collect::<Vec<_>>()
+                .join("_");
+            unique_groups.push(label);
+            unique_groups.len() - 1
+        });
+        obs_group_idx.push(idx);
+    }
+    let mut group_map = HashMap::with_capacity(unique_groups.len());
+    for (i, label) in unique_groups.iter().enumerate() {
+        group_map.insert(label.clone(), i);
+    }
+    Ok(Some((obs_group_idx, unique_groups, group_map)))
 }
 
 #[cfg(test)]

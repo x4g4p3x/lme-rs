@@ -285,6 +285,22 @@ Eliminates duplicate `x` / `zt` / `y` / `re_blocks` clones in [`prepare_lmer`](s
 
 `prepare_lmer` on `crossed_20k`: **~4.2 ms**. No regression on `random_intercept_10k` vs the prepare-ownership commit (A/B: `inv_from_chol_lower` post-fit change regressed that case and was **not** shipped).
 
+<a id="fair-rust-julia-2026-07-08-prepare-fast-paths"></a>
+
+### 2026-07-08 prepare fast paths (ZᵀZ + nested interaction groups)
+
+Obs-major `ZᵀZ` accumulation for intercept-only models with `q ≥ 256` and fast nested interaction group indexing (`batch:cask`). Full write-up: **[OPTIMIZATION.md § Prepare fast paths pass](OPTIMIZATION.md#prepare-fast-paths-pass-2026-07-08-continued)**.
+
+**Recorded:** 3 warmups + 20 repeats, same workstation.
+
+| Case | Cold `lmer()` Rust | Julia `fit` | vs Julia |
+|:-----|-------------------:|------------:|---------:|
+| `crossed_20k` | **25.1 ms** | 15.6 ms | 1.61× |
+| `nested_10k` | **10.7 ms** | 7.0 ms | **1.53×** |
+| `random_intercept_10k` | **1.2 ms** | 1.3 ms | **Rust faster** |
+
+`prepare_lmer` on `nested_10k`: **~5.3 ms** (was ~7 ms). `fit_prepared` on nested **~4 ms** beats Julia **~6.6 ms** (`bench_perf_breakdown`). Crossed cold wall time unchanged in shape: hot fit ≈ Julia; gap is post-fit sparse LDL init (~2 ms).
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.

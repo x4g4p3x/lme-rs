@@ -2,6 +2,7 @@ use ndarray::{Array1, Array2, ArrayView1};
 use ndarray_linalg::UPLO;
 use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[path = "intercept_blocked.rs"]
@@ -124,7 +125,13 @@ impl LmmData {
                 // Z_w^T = Z^T * diag(sqrt_w), which means scaling columns of Zt
                 let zt_w = weight_sparse_cols(&zt, &sqrt_w);
 
-                let zt_z = (&zt_w * &zt_w.transpose_view()).to_csr();
+                let zt_z = if re_blocks.iter().all(|b| b.k == 1)
+                    && should_build_zt_z_intercept_fast(&zt_w)
+                {
+                    build_zt_z_intercept_from_zt(&zt_w)
+                } else {
+                    (&zt_w * &zt_w.transpose_view()).to_csr()
+                };
                 let xt_x = x_w.t().dot(&x_w);
                 let xt_y = x_w.t().dot(&y_w);
                 let q = zt_w.rows();
@@ -155,7 +162,11 @@ impl LmmData {
             }
             None => {
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
-                let zt_z = (&zt * &zt.transpose_view()).to_csr();
+                let zt_z = if intercept_only_re && should_build_zt_z_intercept_fast(&zt) {
+                    build_zt_z_intercept_from_zt(&zt)
+                } else {
+                    (&zt * &zt.transpose_view()).to_csr()
+                };
                 let xt_x = x.t().dot(&x);
                 let xt_y = x.t().dot(&y);
                 let q = zt.rows();
@@ -1409,6 +1420,53 @@ type InterceptATemplate = (
     Vec<f64>,
 );
 
+/// For intercept-only RE with many levels, each observation touches few Z columns;
+/// accumulate ZᵀZ per observation instead of a full sparse multiply.
+fn should_build_zt_z_intercept_fast(zt: &CsMat<f64>) -> bool {
+    // Obs-major bucketing allocates O(n) scratch; only pay that for larger q where
+    // sparse ZᵀZ dominates prepare (nested/crossed), not tiny random-intercept models.
+    zt.rows() >= 256
+}
+
+fn build_zt_z_intercept_from_zt(zt: &CsMat<f64>) -> CsMat<f64> {
+    let q = zt.rows();
+    let n = zt.cols();
+    let mut buckets: Vec<Vec<(usize, f64)>> = vec![Vec::with_capacity(2); n];
+    for (re_idx, row_vec) in zt.outer_iterator().enumerate() {
+        for (obs_col, &v) in row_vec.iter() {
+            if v != 0.0 {
+                buckets[obs_col].push((re_idx, v));
+            }
+        }
+    }
+    let mut acc: HashMap<(usize, usize), f64> = HashMap::new();
+    for bucket in buckets {
+        let k = bucket.len();
+        for i in 0..k {
+            for j in i..k {
+                let (ri, vi) = bucket[i];
+                let (rj, vj) = bucket[j];
+                let contrib = vi * vj;
+                if contrib == 0.0 {
+                    continue;
+                }
+                let (r, c) = if ri >= rj { (ri, rj) } else { (rj, ri) };
+                *acc.entry((r, c)).or_insert(0.0) += contrib;
+            }
+        }
+    }
+    let mut tri = TriMat::new((q, q));
+    for ((r, c), v) in acc {
+        if v != 0.0 {
+            tri.add_triplet(r, c, v);
+            if r != c {
+                tri.add_triplet(c, r, v);
+            }
+        }
+    }
+    tri.to_csr()
+}
+
 fn build_intercept_a_template(zt_z: &CsMat<f64>, q: usize) -> InterceptATemplate {
     let mut tri = TriMat::new((q, q));
     let mut diag_in_zt = vec![false; q];
@@ -1570,6 +1628,36 @@ mod tests {
     use crate::model_matrix::ReBlock;
     use ndarray::array;
     use sprs::TriMat;
+
+    #[test]
+    fn test_zt_z_fast_matches_sparse_mul() {
+        let mut tri = TriMat::new((7, 12));
+        for obs in 0..12 {
+            let plate = obs % 3;
+            let sample = 3 + (obs % 4);
+            tri.add_triplet(plate, obs, 1.0);
+            tri.add_triplet(sample, obs, 1.0);
+        }
+        let zt = tri.to_csr();
+        let fast = build_zt_z_intercept_from_zt(&zt);
+        let slow = (&zt * &zt.transpose_view()).to_csr();
+        assert_eq!(fast.rows(), slow.rows());
+        assert_eq!(fast.cols(), slow.cols());
+        for (v_ref, (i, j)) in slow.iter() {
+            let v_fast = fast.get(i, j).copied().unwrap_or(0.0);
+            assert!(
+                (v_fast - v_ref).abs() < 1e-12,
+                "({i},{j}): fast={v_fast} ref={v_ref}"
+            );
+        }
+        for (v_fast, (i, j)) in fast.iter() {
+            let v_ref = slow.get(i, j).copied().unwrap_or(0.0);
+            assert!(
+                (v_fast - v_ref).abs() < 1e-12,
+                "({i},{j}): fast={v_fast} ref={v_ref}"
+            );
+        }
+    }
 
     #[test]
     fn test_weighted_lmm_evaluation() {
