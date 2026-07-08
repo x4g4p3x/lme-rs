@@ -12,7 +12,7 @@ Repository completion is judged on **three** axes, not features alone:
 
 1. **Correctness / lme4-aligned behavior** — golden tests, comparisons, documented scope.
 2. **Shipped API surface** — Rust crate, Python bindings, docs, CI.
-3. **Competitive fit throughput** — on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), `lme-rs` should be **in the same ballpark as MixedModels.jl** on core LMM cases (random intercept, crossed, nested), not an order of magnitude slower. Instrumentation exists; optimization is **on the critical path** to calling the library complete for performance-sensitive Rust workflows.
+3. **Competitive fit throughput** — on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), `lme-rs` should be **in the same ballpark as MixedModels.jl** on core LMM cases (random intercept, crossed, nested), not an order of magnitude slower. This axis is **usability for performance-sensitive workflows**, not a separate concern from [USABILITY.md](USABILITY.md); instrumentation exists and optimization remains on the critical path until medians are competitively close.
 
 Until axis (3) closes, overall completion percentages are capped in practice even when feature rows look high.
 

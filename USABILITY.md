@@ -13,9 +13,25 @@ For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_A
 | Question | Where to look | What it means |
 |:---------|:--------------|:--------------|
 | How much is implemented? | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | APIs shipped, docs written, tests added. Grows when features land. |
-| Can I depend on it for my analysis? | **This file** | Whether your workflow is in scope, regression-locked, and reasonable to trust on *your* data. |
+| Can I depend on it for my analysis? | **This file** | Whether your workflow is in scope, regression-locked, **fast enough for how you will call it**, and reasonable to trust on *your* data. |
 
-A new API (for example `nlmer_with_mean`) increases **coverage**. It only increases **usability** if it solves a workflow you actually need and behaves predictably on real inputs.
+A new API (for example `nlmer_with_mean`) increases **coverage**. It only increases **usability** if it solves a workflow you actually need, behaves predictably on real inputs, and does not make that workflow impractically slow.
+
+---
+
+## Usability has three legs
+
+Coverage percentages in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) mostly track **correctness and API surface**. In practice, “usable” also depends on **performance for your call pattern** and **field experience** (below).
+
+| Leg | Question | If it fails |
+|:----|:---------|:------------|
+| **Correctness & scope** | Does the model fit and match a reference on cases like mine? | Wrong answers — not usable regardless of speed. |
+| **Performance fit** | Is wall time acceptable for how often I will fit? | Correct but too slow — **not usable** for batch, interactive, or embedded Rust paths even when fine for a one-off analysis. |
+| **Field experience** | Has this shape of problem been exercised beyond the repo fixtures? | Higher risk on odd data and formulas; validate before you rely on it. |
+
+**Performance and usability are not separate.** Optimization work ([OPTIMIZATION.md](OPTIMIZATION.md), fair harness in [BENCHMARKS.md](BENCHMARKS.md)) is usability work for anyone who fits more than occasionally or embeds `lmer` in a Rust pipeline. A library that is correct but an order of magnitude slower than alternatives is a poor fit for those workflows — that is a usability failure, not merely a benchmark nit.
+
+The traffic-light tables below combine scope and typical performance posture. When in doubt, benchmark on your RE layout and call frequency.
 
 ---
 
@@ -127,12 +143,20 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 
 ---
 
-## Performance and “usable”
+## Performance is part of usability
 
-Usability for **analysis** (fit once, inspect, predict) is largely separate from usability for **high-throughput fitting** (millions of fits, tight latency budgets).
+There is no sharp line between “analysis” and “throughput” use — only **how often you pay the fit cost** and **whether that cost fits your budget**.
 
-- **Analysis-style use:** LMM green workflows are usable today; yellow items need a timing check on your hardware.
-- **Throughput-sensitive use:** Read [OPTIMIZATION.md](OPTIMIZATION.md) and run [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) on cases that resemble your RE structure before committing to `lme-rs` in a hot path.
+| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-08) |
+|:-------------|:----------------|:----------------------------------------|
+| **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
+| **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
+| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Prefer `prepare_lmer` + `fit_prepared`; see [OPTIMIZATION.md](OPTIMIZATION.md) |
+| **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; crossed cold `lmer()` may still be yellow/red |
+
+**Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.
+
+Before committing to a hot path, read [OPTIMIZATION.md](OPTIMIZATION.md) and run [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) on cases that resemble your random-effects structure.
 
 ---
 
@@ -151,4 +175,4 @@ Usability for **analysis** (fit once, inspect, predict) is largely separate from
 
 ## Maintenance
 
-When a workflow moves from yellow → green (new golden case, clearer docs, production feedback), update the tables and bump **Last assessed**. When adding features, update [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) separately — do not treat a higher completion percentage as automatic usability improvement.
+When a workflow moves from yellow → green (new golden case, clearer docs, production feedback, **or performance that meets the intended call pattern**), update the tables and bump **Last assessed**. When adding features, update [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) separately — do not treat a higher completion percentage as automatic usability improvement.
