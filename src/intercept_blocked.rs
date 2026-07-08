@@ -2,6 +2,433 @@
 
 use ndarray::Array2;
 use sprs::CsMat;
+use std::collections::HashSet;
+
+const SPARSE_CROSS_MAX_DENSITY: f64 = 0.35;
+
+/// Off-diagonal RE cross block: dense when fill is high (crossed), sparse CSC otherwise (nested).
+#[derive(Clone)]
+enum CrossBlock {
+    Dense(Array2<f64>),
+    Sparse {
+        nrows: usize,
+        ncols: usize,
+        col_ptr: Vec<usize>,
+        row_idx: Vec<usize>,
+        vals: Vec<f64>,
+    },
+}
+
+impl CrossBlock {
+    fn nrows(&self) -> usize {
+        match self {
+            CrossBlock::Dense(d) => d.nrows(),
+            CrossBlock::Sparse { nrows, .. } => *nrows,
+        }
+    }
+
+    fn ncols(&self) -> usize {
+        match self {
+            CrossBlock::Dense(d) => d.ncols(),
+            CrossBlock::Sparse { ncols, .. } => *ncols,
+        }
+    }
+
+    fn entry(&self, row: usize, col: usize) -> f64 {
+        match self {
+            CrossBlock::Dense(d) => d[[row, col]],
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                let start = col_ptr[col];
+                let end = col_ptr[col + 1];
+                for idx in start..end {
+                    if row_idx[idx] == row {
+                        return vals[idx];
+                    }
+                }
+                0.0
+            }
+        }
+    }
+
+    fn assign_from(&mut self, other: &Self) {
+        match (self, other) {
+            (CrossBlock::Dense(a), CrossBlock::Dense(b)) => a.assign(b),
+            (
+                CrossBlock::Sparse {
+                    col_ptr: cp,
+                    row_idx: ri,
+                    vals: v,
+                    nrows,
+                    ncols,
+                },
+                CrossBlock::Sparse {
+                    col_ptr: cp2,
+                    row_idx: ri2,
+                    vals: v2,
+                    nrows: n2,
+                    ncols: nc2,
+                },
+            ) => {
+                debug_assert_eq!(*nrows, *n2);
+                debug_assert_eq!(*ncols, *nc2);
+                cp.clone_from(cp2);
+                ri.clone_from(ri2);
+                v.clone_from(v2);
+            }
+            _ => panic!("CrossBlock storage mismatch in assign_from"),
+        }
+    }
+
+    fn scale(&mut self, factor: f64) {
+        if factor == 1.0 {
+            return;
+        }
+        match self {
+            CrossBlock::Dense(d) => d.mapv_inplace(|v| v * factor),
+            CrossBlock::Sparse { vals, .. } => {
+                for v in vals {
+                    *v *= factor;
+                }
+            }
+        }
+    }
+
+    fn zeros_like(&self) -> Self {
+        match self {
+            CrossBlock::Dense(d) => CrossBlock::Dense(Array2::zeros(d.dim())),
+            CrossBlock::Sparse {
+                nrows,
+                ncols,
+                col_ptr,
+                ..
+            } => CrossBlock::Sparse {
+                nrows: *nrows,
+                ncols: *ncols,
+                col_ptr: col_ptr.clone(),
+                row_idx: Vec::new(),
+                vals: Vec::new(),
+            },
+        }
+    }
+
+    fn from_submatrix(
+        zt_z: &CsMat<f64>,
+        row_range: (usize, usize),
+        col_range: (usize, usize),
+    ) -> Self {
+        Self::from_submatrix_raw(zt_z, row_range, col_range)
+    }
+
+    fn from_submatrix_raw(
+        zt_z: &CsMat<f64>,
+        row_range: (usize, usize),
+        col_range: (usize, usize),
+    ) -> Self {
+        let (r0, r1) = row_range;
+        let (c0, c1) = col_range;
+        let nrows = r1 - r0;
+        let ncols = c1 - c0;
+        let mut col_ptr = vec![0usize; ncols + 1];
+        let mut row_idx = Vec::new();
+        let mut vals = Vec::new();
+        for local_col in 0..ncols {
+            let global_col = c0 + local_col;
+            let row_view = zt_z
+                .outer_view(global_col)
+                .expect("zt_z column missing in cross block");
+            for (global_row, &val) in row_view.iter() {
+                if (r0..r1).contains(&global_row) {
+                    row_idx.push(global_row - r0);
+                    vals.push(val);
+                }
+            }
+            col_ptr[local_col + 1] = row_idx.len();
+        }
+        let nnz = vals.len();
+        let density = nnz as f64 / (nrows as f64 * ncols as f64);
+        if density > SPARSE_CROSS_MAX_DENSITY {
+            let mut dense = Array2::<f64>::zeros((nrows, ncols));
+            for local_col in 0..ncols {
+                let start = col_ptr[local_col];
+                let end = col_ptr[local_col + 1];
+                for idx in start..end {
+                    dense[[row_idx[idx], local_col]] = vals[idx];
+                }
+            }
+            CrossBlock::Dense(dense)
+        } else {
+            CrossBlock::Sparse {
+                nrows,
+                ncols,
+                col_ptr,
+                row_idx,
+                vals,
+            }
+        }
+    }
+
+    fn assign_scaled(&mut self, src: &Self, scale: f64) {
+        match (self, src) {
+            (CrossBlock::Dense(dst), CrossBlock::Dense(src_m)) => {
+                if scale == 1.0 {
+                    dst.assign(src_m);
+                } else {
+                    ndarray::Zip::from(dst)
+                        .and(src_m)
+                        .for_each(|d, &s| *d = s * scale);
+                }
+            }
+            (dst, src) => {
+                dst.assign_from(src);
+                dst.scale(scale);
+            }
+        }
+    }
+
+    fn schur_sub_from_xy_re(
+        &self,
+        target: &mut Array2<f64>,
+        lij: &Array2<f64>,
+        col: usize,
+        row: usize,
+    ) -> f64 {
+        let mut s = target[[row, col]];
+        match self {
+            CrossBlock::Dense(d) => {
+                for k in 0..lij.ncols() {
+                    s -= lij[[row, k]] * d[[col, k]];
+                }
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                for idx in col_ptr[col]..col_ptr[col + 1] {
+                    let k = row_idx[idx];
+                    s -= lij[[row, k]] * vals[idx];
+                }
+            }
+        }
+        s
+    }
+
+    fn fits_blocked_gate(&self) -> bool {
+        match self {
+            CrossBlock::Dense(d) => d.nrows() * d.ncols() <= 100_000,
+            // Nested sparse crosses stay on reused sparse LDL until column-block
+            // Cholesky matches this layout end-to-end (see OPTIMIZATION.md).
+            CrossBlock::Sparse { .. } => false,
+        }
+    }
+
+    /// Each RE row owned by exactly one column (nested `batch/cask` cross).
+    #[allow(dead_code)]
+    fn column_disjoint_partition(&self) -> Option<Vec<Vec<usize>>> {
+        let nrows = self.nrows();
+        let mut col_rows = Vec::with_capacity(self.ncols());
+        let mut seen = HashSet::new();
+        for col in 0..self.ncols() {
+            let mut rows = Vec::new();
+            match self {
+                CrossBlock::Dense(d) => {
+                    for row in 0..nrows {
+                        if d[[row, col]] != 0.0 {
+                            rows.push(row);
+                        }
+                    }
+                }
+                CrossBlock::Sparse {
+                    col_ptr, row_idx, ..
+                } => {
+                    rows.extend_from_slice(&row_idx[col_ptr[col]..col_ptr[col + 1]]);
+                }
+            }
+            for &r in &rows {
+                if !seen.insert(r) {
+                    return None;
+                }
+            }
+            col_rows.push(rows);
+        }
+        if seen.len() == nrows {
+            Some(col_rows)
+        } else {
+            None
+        }
+    }
+
+    fn rank_sub_lower(&self, target: &mut ReLower) {
+        match self {
+            CrossBlock::Dense(d) => target.rank_sub_dense(d),
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                for col in 0..self.ncols() {
+                    let start = col_ptr[col];
+                    let end = col_ptr[col + 1];
+                    for i in start..end {
+                        let r1 = row_idx[i];
+                        let v1 = vals[i];
+                        for j in start..=i {
+                            let r2 = row_idx[j];
+                            let v2 = vals[j];
+                            let (r, c) = if r1 >= r2 { (r1, r2) } else { (r2, r1) };
+                            target.set(r, c, target.get(r, c) - v1 * v2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn rank_sub_column_blocks(&self, blocks: &mut [ReLower], col_rows: &[Vec<usize>]) {
+        for (col, rows) in col_rows.iter().enumerate() {
+            let mut local_vals = Vec::with_capacity(rows.len());
+            match self {
+                CrossBlock::Dense(d) => {
+                    for &r in rows {
+                        local_vals.push(d[[r, col]]);
+                    }
+                }
+                CrossBlock::Sparse {
+                    col_ptr,
+                    row_idx: _,
+                    vals,
+                    ..
+                } => {
+                    local_vals.extend_from_slice(&vals[col_ptr[col]..col_ptr[col + 1]]);
+                }
+            }
+            let local_indices: Vec<usize> = (0..rows.len()).collect();
+            blocks[col].rank_sub_outer(&local_indices, &local_vals);
+        }
+    }
+
+    fn trisolve_diag0(&mut self, diag0: &[f64]) -> Result<(), ()> {
+        let nrows = self.nrows();
+        for col in 0..self.ncols() {
+            let d = diag0[col];
+            if d == 0.0 {
+                return Err(());
+            }
+            match self {
+                CrossBlock::Dense(dense) => {
+                    for row in 0..nrows {
+                        dense[[row, col]] /= d;
+                    }
+                }
+                CrossBlock::Sparse { col_ptr, vals, .. } => {
+                    for v in &mut vals[col_ptr[col]..col_ptr[col + 1]] {
+                        *v /= d;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn trisolve_column_blocks(
+        &mut self,
+        col: usize,
+        blocks: &[ReLower],
+        col_rows: &[Vec<usize>],
+    ) -> Result<(), ()> {
+        let rows = &col_rows[col];
+        let mut rhs = vec![0.0; rows.len()];
+        match self {
+            CrossBlock::Dense(d) => {
+                for (li, &r) in rows.iter().enumerate() {
+                    rhs[li] = d[[r, col]];
+                }
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                for (li, idx) in (col_ptr[col]..col_ptr[col + 1]).enumerate() {
+                    debug_assert_eq!(row_idx[idx], rows[li]);
+                    rhs[li] = vals[idx];
+                }
+            }
+        }
+        let mut work = rhs.clone();
+        blocks[col].solve_col(&mut work);
+        match self {
+            CrossBlock::Dense(d) => {
+                for (li, &r) in rows.iter().enumerate() {
+                    d[[r, col]] = work[li];
+                }
+            }
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx: _,
+                vals,
+                ..
+            } => {
+                let span = col_ptr[col]..col_ptr[col + 1];
+                let n = span.end - span.start;
+                vals[span].copy_from_slice(&work[..n]);
+            }
+        }
+        Ok(())
+    }
+
+    fn trisolve_full_lower(&mut self, lower: &ReLower, rhs_buf: &mut [f64]) -> Result<(), ()> {
+        let nrows = self.nrows();
+        debug_assert!(rhs_buf.len() >= nrows);
+        for col in 0..self.ncols() {
+            rhs_buf[..nrows].fill(0.0);
+            match self {
+                CrossBlock::Dense(d) => {
+                    for row in 0..nrows {
+                        rhs_buf[row] = d[[row, col]];
+                    }
+                }
+                CrossBlock::Sparse {
+                    col_ptr,
+                    row_idx,
+                    vals,
+                    ..
+                } => {
+                    for idx in col_ptr[col]..col_ptr[col + 1] {
+                        rhs_buf[row_idx[idx]] = vals[idx];
+                    }
+                }
+            }
+            lower.solve_col(&mut rhs_buf[..nrows]);
+            match self {
+                CrossBlock::Dense(d) => {
+                    for row in 0..nrows {
+                        d[[row, col]] = rhs_buf[row];
+                    }
+                }
+                CrossBlock::Sparse {
+                    col_ptr,
+                    row_idx,
+                    vals,
+                    ..
+                } => {
+                    for idx in col_ptr[col]..col_ptr[col + 1] {
+                        vals[idx] = rhs_buf[row_idx[idx]];
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 struct ReLower {
     n: usize,
@@ -32,14 +459,25 @@ impl ReLower {
     fn rank_sub_dense(&mut self, cross: &Array2<f64>) {
         debug_assert_eq!(cross.nrows(), self.n);
         for r in 0..self.n {
+            let row_r = cross.row(r);
             for c in 0..=r {
-                let mut s = 0.0;
-                for k in 0..cross.ncols() {
-                    s += cross[[r, k]] * cross[[c, k]];
-                }
+                let s = row_r.dot(&cross.row(c));
                 if s != 0.0 {
                     self.set(r, c, self.get(r, c) - s);
                 }
+            }
+        }
+    }
+
+    fn rank_sub_outer(&mut self, rows: &[usize], vals: &[f64]) {
+        for i in 0..vals.len() {
+            for j in 0..=i {
+                let (r, c) = if rows[i] >= rows[j] {
+                    (rows[i], rows[j])
+                } else {
+                    (rows[j], rows[i])
+                };
+                self.set(r, c, self.get(r, c) - vals[i] * vals[j]);
             }
         }
     }
@@ -84,21 +522,99 @@ impl ReLower {
     }
 }
 
+/// Cholesky storage for an RE diagonal block after fill-in.
+enum ReFactor {
+    Full(ReLower),
+    /// Nested: each cross column updates an independent diagonal block (casks within a batch).
+    #[allow(dead_code)]
+    ColumnBlocks {
+        blocks: Vec<ReLower>,
+        col_rows: Vec<Vec<usize>>,
+    },
+}
+
+impl ReFactor {
+    fn from_diag_and_cross(diag: &[f64], _cross: &CrossBlock) -> Self {
+        ReFactor::Full(ReLower::diagonal_init(diag.len(), diag))
+    }
+
+    fn reset_diag(&mut self, diag: &[f64]) {
+        match self {
+            ReFactor::Full(l) => {
+                for (i, &d) in diag.iter().enumerate().take(l.n) {
+                    l.set(i, i, d);
+                    for j in 0..i {
+                        l.set(i, j, 0.0);
+                    }
+                }
+            }
+            ReFactor::ColumnBlocks { blocks, col_rows } => {
+                for (b, rows) in col_rows.iter().enumerate() {
+                    let sub: Vec<f64> = rows.iter().map(|&r| diag[r]).collect();
+                    blocks[b] = ReLower::diagonal_init(sub.len(), &sub);
+                }
+            }
+        }
+    }
+
+    fn rank_sub_cross(&mut self, cross: &CrossBlock) {
+        match self {
+            ReFactor::Full(l) => cross.rank_sub_lower(l),
+            ReFactor::ColumnBlocks { blocks, col_rows } => {
+                cross.rank_sub_column_blocks(blocks, col_rows);
+            }
+        }
+    }
+
+    fn chol(&mut self) -> Result<f64, ()> {
+        match self {
+            ReFactor::Full(l) => l.chol(),
+            ReFactor::ColumnBlocks { blocks, .. } => {
+                let mut log_det = 0.0;
+                for b in blocks {
+                    log_det += b.chol()?;
+                }
+                Ok(log_det)
+            }
+        }
+    }
+
+    fn trisolve_cross_col(
+        &self,
+        cross: &mut CrossBlock,
+        col: usize,
+        diag0: Option<&[f64]>,
+        rhs_buf: &mut [f64],
+    ) -> Result<(), ()> {
+        match self {
+            ReFactor::Full(l) => cross.trisolve_full_lower(l, rhs_buf),
+            ReFactor::ColumnBlocks { blocks, col_rows } => {
+                let _ = diag0;
+                cross.trisolve_column_blocks(col, blocks, col_rows)
+            }
+        }
+    }
+}
+
 pub(crate) struct InterceptBlockedChol {
     k_re: usize,
     p: usize,
     n_re: Vec<usize>,
     theta_idx: Vec<usize>,
     a_diag: Vec<Vec<f64>>,
-    a_cross: Vec<Vec<Array2<f64>>>,
-    l_cross: Vec<Vec<Array2<f64>>>,
+    a_cross: Vec<Vec<CrossBlock>>,
+    l_cross: Vec<Vec<CrossBlock>>,
     a_xy_re: Vec<Array2<f64>>,
     l_xy_re: Vec<Array2<f64>>,
     a_xy_xy: Array2<f64>,
     l_xy_xy: Array2<f64>,
     l_diag0: Vec<f64>,
-    l_dense: Vec<ReLower>,
-    solve_buf: Vec<f64>,
+    l_re_factor: Vec<ReFactor>,
+    diag_buf: Vec<f64>,
+    trisolve_buf: Vec<f64>,
+    cross_rhs_buf: Vec<f64>,
+    schur_li_scratch: Array2<f64>,
+    schur_lj_scratch: Array2<f64>,
 }
 
 impl InterceptBlockedChol {
@@ -132,9 +648,6 @@ impl InterceptBlockedChol {
         if offset != lmm.zt_z.rows() {
             return None;
         }
-        if !blocked_cross_fits(&n_re) {
-            return None;
-        }
 
         let mut a_diag = Vec::with_capacity(k_re);
         for &(s, e) in &ranges {
@@ -147,12 +660,22 @@ impl InterceptBlockedChol {
             let mut a_row = Vec::with_capacity(j);
             let mut l_row = Vec::with_capacity(j);
             for jj in 0..j {
-                let dense = extract_dense_submatrix(&lmm.zt_z, ranges[j], ranges[jj]);
-                l_row.push(Array2::zeros(dense.dim()));
-                a_row.push(dense);
+                let block = CrossBlock::from_submatrix(&lmm.zt_z, ranges[j], ranges[jj]);
+                if !block.fits_blocked_gate() {
+                    return None;
+                }
+                l_row.push(block.zeros_like());
+                a_row.push(block);
             }
             a_cross.push(a_row);
             l_cross.push(l_row);
+        }
+
+        let mut l_re_factor = Vec::with_capacity(k_re.saturating_sub(1));
+        for j in 1..k_re {
+            let diag: Vec<f64> = a_diag[j].iter().map(|_| 0.0).collect();
+            let cross0 = &a_cross[j - 1][0];
+            l_re_factor.push(ReFactor::from_diag_and_cross(&diag, cross0));
         }
 
         let pq = p + 1;
@@ -180,11 +703,16 @@ impl InterceptBlockedChol {
         }
         a_xy_xy[[p, p]] = lmm.y_norm2;
 
-        let max_m = *n_re.iter().max().unwrap_or(&0);
         let n0 = n_re[0];
-        let l_dense = (1..k_re)
-            .map(|j| ReLower::diagonal_init(n_re[j], &vec![0.0; n_re[j]]))
-            .collect();
+        let max_m = *n_re.iter().max().unwrap_or(&0);
+        let mut max_cross_rows = 0usize;
+        let mut max_cross_cols = 0usize;
+        for row in &a_cross {
+            for block in row {
+                max_cross_rows = max_cross_rows.max(block.nrows());
+                max_cross_cols = max_cross_cols.max(block.ncols());
+            }
+        }
         Some(Self {
             k_re,
             p,
@@ -198,14 +726,89 @@ impl InterceptBlockedChol {
             a_xy_xy: a_xy_xy.clone(),
             l_xy_xy: a_xy_xy,
             l_diag0: vec![0.0; n0],
-            l_dense,
-            solve_buf: vec![0.0; max_m],
+            l_re_factor,
+            diag_buf: Vec::new(),
+            trisolve_buf: vec![0.0; max_m],
+            cross_rhs_buf: vec![0.0; max_cross_rows],
+            schur_li_scratch: Array2::zeros((max_cross_rows, max_cross_cols)),
+            schur_lj_scratch: Array2::zeros((max_cross_rows, max_cross_cols)),
         })
+    }
+
+    fn cross_to_dense_scratch(block: &CrossBlock, scratch: &mut Array2<f64>) {
+        match block {
+            CrossBlock::Dense(d) => {
+                if scratch.dim() != d.dim() {
+                    *scratch = d.clone();
+                } else {
+                    scratch.assign(d);
+                }
+            }
+            CrossBlock::Sparse {
+                nrows,
+                ncols,
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                if scratch.dim() != (*nrows, *ncols) {
+                    *scratch = Array2::zeros((*nrows, *ncols));
+                } else {
+                    scratch.fill(0.0);
+                }
+                for col in 0..*ncols {
+                    for idx in col_ptr[col]..col_ptr[col + 1] {
+                        scratch[[row_idx[idx], col]] = vals[idx];
+                    }
+                }
+            }
+        }
+    }
+
+    fn schur_sub_dense_blocks(target: &mut CrossBlock, li: &Array2<f64>, lj: &Array2<f64>) {
+        debug_assert_eq!(li.dim(), lj.dim());
+        match target {
+            CrossBlock::Dense(d) => {
+                let nrows = d.nrows();
+                let ncols = d.ncols();
+                for col in 0..ncols {
+                    let lj_row = if col < lj.nrows() {
+                        Some(lj.row(col))
+                    } else {
+                        None
+                    };
+                    for row in 0..nrows {
+                        let mut s = d[[row, col]];
+                        if let Some(lj_row) = lj_row {
+                            s -= li.row(row).dot(&lj_row);
+                        }
+                        d[[row, col]] = s;
+                    }
+                }
+            }
+            CrossBlock::Sparse { .. } => {
+                for col in 0..target.ncols() {
+                    for row in 0..target.nrows() {
+                        let mut s = target.entry(row, col);
+                        for k in 0..li.ncols() {
+                            let ljv = if col < lj.nrows() { lj[[col, k]] } else { 0.0 };
+                            s -= li[[row, k]] * ljv;
+                        }
+                        Self::set_cross_entry(target, row, col, s);
+                    }
+                }
+            }
+        }
     }
 
     pub fn profile_deviance(&mut self, lmm: &super::LmmData, theta: &[f64], reml: bool) -> f64 {
         match self.update_l_and_factor(theta) {
-            Ok(log_det_re) => self.deviance_from_factor(lmm, reml, log_det_re),
+            Ok(log_det_re) => {
+                crate::perf_diag::scope(crate::perf_diag::Phase::BlockedDevianceTail, || {
+                    self.deviance_from_factor(lmm, reml, log_det_re)
+                })
+            }
             Err(()) => f64::MAX,
         }
     }
@@ -213,27 +816,32 @@ impl InterceptBlockedChol {
     fn update_l_and_factor(&mut self, theta: &[f64]) -> Result<f64, ()> {
         let k_re = self.k_re;
 
-        self.l_xy_xy.assign(&self.a_xy_xy);
-        for j in 0..k_re {
-            let th = theta[self.theta_idx[j]];
-            let th2 = th * th;
-            if j == 0 {
-                for i in 0..self.n_re[0] {
-                    self.l_diag0[i] = th2 * self.a_diag[0][i] + 1.0;
+        {
+            let _phase = crate::perf_diag::PhaseGuard::new(crate::perf_diag::Phase::BlockedReset);
+            self.l_xy_xy.assign(&self.a_xy_xy);
+            for j in 0..k_re {
+                let th = theta[self.theta_idx[j]];
+                let th2 = th * th;
+                if j == 0 {
+                    for i in 0..self.n_re[0] {
+                        self.l_diag0[i] = th2 * self.a_diag[0][i] + 1.0;
+                    }
+                } else {
+                    self.diag_buf.clear();
+                    self.diag_buf
+                        .extend(self.a_diag[j].iter().map(|&a| th2 * a + 1.0));
+                    self.l_re_factor[j - 1].reset_diag(&self.diag_buf);
                 }
-            } else {
-                let diag: Vec<f64> = self.a_diag[j].iter().map(|&a| th2 * a + 1.0).collect();
-                self.l_dense[j - 1] = ReLower::diagonal_init(self.n_re[j], &diag);
-            }
-            for i in (j + 1)..k_re {
-                self.l_cross[i - 1][j].assign(&self.a_cross[i - 1][j]);
-                self.l_cross[i - 1][j].mapv_inplace(|v| v * th);
-            }
-            self.l_xy_re[j].assign(&self.a_xy_re[j]);
-            self.l_xy_re[j].mapv_inplace(|v| v * th);
-            if j > 0 {
-                for jj in 0..j {
-                    self.l_cross[j - 1][jj].mapv_inplace(|v| v * th);
+                for i in (j + 1)..k_re {
+                    self.l_cross[i - 1][j].assign_scaled(&self.a_cross[i - 1][j], th);
+                }
+                ndarray::Zip::from(&mut self.l_xy_re[j])
+                    .and(&self.a_xy_re[j])
+                    .for_each(|l, &a| *l = a * th);
+                if j > 0 {
+                    for jj in 0..j {
+                        self.l_cross[j - 1][jj].scale(th);
+                    }
                 }
             }
         }
@@ -242,23 +850,29 @@ impl InterceptBlockedChol {
         let kb = k_re + 1;
         for j in 0..kb {
             if j < k_re {
-                for jj in 0..j {
-                    if j > 0 {
-                        self.l_dense[j - 1].rank_sub_dense(&self.l_cross[j - 1][jj]);
-                    }
-                }
-                if j == 0 {
-                    for i in 0..self.n_re[0] {
-                        if self.l_diag0[i] <= 0.0 {
-                            return Err(());
+                {
+                    let _phase =
+                        crate::perf_diag::PhaseGuard::new(crate::perf_diag::Phase::BlockedRankChol);
+                    for jj in 0..j {
+                        if j > 0 {
+                            self.l_re_factor[j - 1].rank_sub_cross(&self.l_cross[j - 1][jj]);
                         }
-                        self.l_diag0[i] = self.l_diag0[i].sqrt();
-                        log_det_re += self.l_diag0[i].ln();
                     }
-                } else {
-                    log_det_re += self.l_dense[j - 1].chol()?;
+                    if j == 0 {
+                        for i in 0..self.n_re[0] {
+                            if self.l_diag0[i] <= 0.0 {
+                                return Err(());
+                            }
+                            self.l_diag0[i] = self.l_diag0[i].sqrt();
+                            log_det_re += self.l_diag0[i].ln();
+                        }
+                    } else {
+                        log_det_re += self.l_re_factor[j - 1].chol()?;
+                    }
                 }
             } else {
+                let _phase =
+                    crate::perf_diag::PhaseGuard::new(crate::perf_diag::Phase::BlockedSchurXy);
                 for jj in 0..k_re {
                     self.schur_sub_xy_xy(jj)?;
                 }
@@ -268,14 +882,24 @@ impl InterceptBlockedChol {
             for i in (j + 1)..kb {
                 for jj in 0..j {
                     if i < k_re {
+                        let _phase = crate::perf_diag::PhaseGuard::new(
+                            crate::perf_diag::Phase::BlockedSchurRe,
+                        );
                         self.schur_sub_re_cross(i, j, jj)?;
                     } else {
+                        let _phase = crate::perf_diag::PhaseGuard::new(
+                            crate::perf_diag::Phase::BlockedSchurXy,
+                        );
                         self.schur_sub_xy_re(j, jj)?;
                     }
                 }
                 if i < k_re {
+                    let _phase =
+                        crate::perf_diag::PhaseGuard::new(crate::perf_diag::Phase::BlockedTrisolve);
                     self.trisolve_re_cross(i, j)?;
                 } else {
+                    let _phase =
+                        crate::perf_diag::PhaseGuard::new(crate::perf_diag::Phase::BlockedTrisolve);
                     self.trisolve_xy_re(j)?;
                 }
             }
@@ -285,70 +909,85 @@ impl InterceptBlockedChol {
     }
 
     fn schur_sub_re_cross(&mut self, i: usize, j: usize, jj: usize) -> Result<(), ()> {
-        let lij = self.l_cross[i - 1][jj].clone();
-        let ljj = self.l_cross[j - 1][jj].clone();
-        let target = &mut self.l_cross[i - 1][j];
-        for col in 0..target.ncols() {
-            for row in 0..target.nrows() {
-                let mut s = target[[row, col]];
-                for k in 0..lij.ncols() {
-                    s -= lij[[row, k]] * ljj[[col, k]];
+        let li_r = i - 1;
+        let lj_r = j - 1;
+        Self::cross_to_dense_scratch(&self.l_cross[li_r][jj], &mut self.schur_li_scratch);
+        if li_r == lj_r {
+            self.schur_lj_scratch.assign(&self.schur_li_scratch);
+        } else {
+            Self::cross_to_dense_scratch(&self.l_cross[lj_r][jj], &mut self.schur_lj_scratch);
+        }
+        let li = &self.schur_li_scratch;
+        let lj = &self.schur_lj_scratch;
+        let target = &mut self.l_cross[li_r][j];
+        Self::schur_sub_dense_blocks(target, li, lj);
+        Ok(())
+    }
+
+    fn set_cross_entry(block: &mut CrossBlock, row: usize, col: usize, val: f64) {
+        match block {
+            CrossBlock::Dense(d) => d[[row, col]] = val,
+            CrossBlock::Sparse {
+                col_ptr,
+                row_idx,
+                vals,
+                ..
+            } => {
+                for idx in col_ptr[col]..col_ptr[col + 1] {
+                    if row_idx[idx] == row {
+                        vals[idx] = val;
+                        return;
+                    }
                 }
-                target[[row, col]] = s;
+                if val != 0.0 {
+                    panic!("sparse cross structural nonzero missing at ({row}, {col})");
+                }
             }
         }
-        Ok(())
     }
 
     fn trisolve_re_cross(&mut self, i: usize, j: usize) -> Result<(), ()> {
-        let cross = &self.l_cross[i - 1][j];
-        let mut updated = cross.clone();
         if j == 0 {
-            for col in 0..cross.ncols() {
-                let d = self.l_diag0[col];
-                if d == 0.0 {
-                    return Err(());
-                }
-                for row in 0..cross.nrows() {
-                    updated[[row, col]] /= d;
-                }
-            }
-        } else {
-            for col in 0..cross.ncols() {
-                for row in 0..cross.nrows() {
-                    self.solve_buf[row] = cross[[row, col]];
-                }
-                self.l_dense[j - 1].solve_col(&mut self.solve_buf[..cross.nrows()]);
-                for row in 0..cross.nrows() {
-                    updated[[row, col]] = self.solve_buf[row];
-                }
-            }
+            self.l_cross[i - 1][j].trisolve_diag0(&self.l_diag0)?;
+            return Ok(());
         }
-        self.l_cross[i - 1][j] = updated;
-        Ok(())
+        if matches!(self.l_re_factor[j - 1], ReFactor::ColumnBlocks { .. }) {
+            for col in 0..self.l_cross[i - 1][j].ncols() {
+                self.l_re_factor[j - 1].trisolve_cross_col(
+                    &mut self.l_cross[i - 1][j],
+                    col,
+                    None,
+                    &mut self.cross_rhs_buf,
+                )?;
+            }
+            return Ok(());
+        }
+        let l = match &self.l_re_factor[j - 1] {
+            ReFactor::Full(l) => l,
+            ReFactor::ColumnBlocks { .. } => unreachable!(),
+        };
+        self.l_cross[i - 1][j].trisolve_full_lower(l, &mut self.cross_rhs_buf)
     }
 
     fn schur_sub_xy_re(&mut self, j: usize, jj: usize) -> Result<(), ()> {
-        let lij = self.l_xy_re[jj].clone();
-        let ljj = self.l_cross[j - 1][jj].clone();
-        let mut block = self.l_xy_re[j].clone();
-        for col in 0..block.ncols() {
-            for row in 0..block.nrows() {
-                let mut s = block[[row, col]];
-                for k in 0..lij.ncols() {
-                    s -= lij[[row, k]] * ljj[[col, k]];
-                }
-                block[[row, col]] = s;
+        debug_assert!(jj < j);
+        let pq = self.p + 1;
+        let m = self.n_re[j];
+        let ljj = &self.l_cross[j - 1][jj];
+        let (xy_lo, xy_hi) = self.l_xy_re.split_at_mut(j);
+        let lij = &xy_lo[jj];
+        let block = &mut xy_hi[0];
+        for col in 0..m {
+            for row in 0..pq {
+                block[[row, col]] = ljj.schur_sub_from_xy_re(block, lij, col, row);
             }
         }
-        self.l_xy_re[j] = block;
         Ok(())
     }
 
     fn trisolve_xy_re(&mut self, j: usize) -> Result<(), ()> {
         let m = self.n_re[j];
         let pq = self.p + 1;
-        let mut block = self.l_xy_re[j].clone();
         if j == 0 {
             for col in 0..m {
                 let d = self.l_diag0[col];
@@ -356,30 +995,37 @@ impl InterceptBlockedChol {
                     return Err(());
                 }
                 for row in 0..pq {
-                    block[[row, col]] /= d;
+                    self.l_xy_re[j][[row, col]] /= d;
                 }
             }
-        } else {
-            let ljj = &self.l_dense[j - 1];
-            for row in 0..pq {
-                let mut rhs: Vec<f64> = (0..m).map(|col| block[[row, col]]).collect();
-                ljj.solve_col(&mut rhs);
-                for col in 0..m {
-                    block[[row, col]] = rhs[col];
-                }
+            return Ok(());
+        }
+        let ljj = match &self.l_re_factor[j - 1] {
+            ReFactor::Full(l) => l,
+            ReFactor::ColumnBlocks { .. } => unreachable!("column blocks disabled"),
+        };
+        if self.trisolve_buf.len() < m {
+            self.trisolve_buf.resize(m, 0.0);
+        }
+        let buf = &mut self.trisolve_buf[..m];
+        for row in 0..pq {
+            buf.copy_from_slice(self.l_xy_re[j].row(row).as_slice().unwrap());
+            ljj.solve_col(buf);
+            for (col, &v) in buf.iter().enumerate().take(m) {
+                self.l_xy_re[j][[row, col]] = v;
             }
         }
-        self.l_xy_re[j] = block;
         Ok(())
     }
 
     fn schur_sub_xy_xy(&mut self, jj: usize) -> Result<(), ()> {
-        let lxy = self.l_xy_re[jj].clone();
         let pq = self.p + 1;
+        let lxy = &self.l_xy_re[jj];
+        let ncol = lxy.ncols();
         for col in 0..pq {
             for row in col..pq {
                 let mut s = self.l_xy_xy[[row, col]];
-                for k in 0..lxy.ncols() {
+                for k in 0..ncol {
                     s -= lxy[[row, k]] * lxy[[col, k]];
                 }
                 self.l_xy_xy[[row, col]] = s;
@@ -441,18 +1087,22 @@ impl InterceptBlockedChol {
     }
 }
 
-fn blocked_cross_fits(n_re: &[usize]) -> bool {
-    if n_re.len() < 2 {
-        return false;
-    }
-    let mut max_cross = 0usize;
-    for j in 1..n_re.len() {
-        for jj in 0..j {
-            max_cross = max_cross.max(n_re[j].saturating_mul(n_re[jj]));
+impl ReFactor {
+    #[allow(dead_code)]
+    fn column_block_count(&self) -> usize {
+        match self {
+            ReFactor::Full(_) => 0,
+            ReFactor::ColumnBlocks { blocks, .. } => blocks.len(),
         }
     }
-    // crossed_20k (250×100) fits; nested_10k (2000×200) does not — keep sparse LDL there.
-    max_cross <= 100_000
+
+    #[allow(dead_code)]
+    fn col_rows(&self, col: usize) -> &[usize] {
+        match self {
+            ReFactor::Full(_) => &[],
+            ReFactor::ColumnBlocks { col_rows, .. } => &col_rows[col],
+        }
+    }
 }
 
 fn extract_diag(zt_z: &CsMat<f64>, start: usize, end: usize) -> Vec<f64> {
@@ -467,28 +1117,6 @@ fn extract_diag(zt_z: &CsMat<f64>, start: usize, end: usize) -> Vec<f64> {
         }
     }
     d
-}
-
-fn extract_dense_submatrix(
-    zt_z: &CsMat<f64>,
-    row_range: (usize, usize),
-    col_range: (usize, usize),
-) -> Array2<f64> {
-    let (r0, r1) = row_range;
-    let (c0, c1) = col_range;
-    let mut out = Array2::<f64>::zeros((r1 - r0, c1 - c0));
-    for local_col in 0..out.ncols() {
-        let global_col = c0 + local_col;
-        let row_view = zt_z
-            .outer_view(global_col)
-            .expect("zt_z column missing in cross block");
-        for (global_row, &val) in row_view.iter() {
-            if (r0..r1).contains(&global_row) {
-                out[[global_row - r0, local_col]] = val;
-            }
-        }
-    }
-    out
 }
 
 #[cfg(test)]

@@ -198,7 +198,10 @@ impl LmmData {
 
     /// Evaluate the profiled REML/ML deviance for a fixed θ (optimizer hot path).
     pub fn log_reml_deviance(&self, theta: &[f64], reml: bool) -> f64 {
-        self.profile_deviance(theta, reml)
+        crate::perf_diag::inc_deviance_eval();
+        crate::perf_diag::scope(crate::perf_diag::Phase::DevianceEval, || {
+            self.profile_deviance(theta, reml)
+        })
     }
 }
 
@@ -952,6 +955,13 @@ impl InterceptLdlCache {
         let p = lmm.x.ncols();
         let mut cache = Self::new(&lmm.zt_z, q, &row_block, p)?;
         cache.blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
+        if lmm.intercept_only_re() {
+            if cache.blocked.is_some() {
+                crate::perf_diag::set_kernel_detail("blocked_active");
+            } else {
+                crate::perf_diag::set_kernel_detail("blocked_unavailable");
+            }
+        }
         Ok(cache)
     }
 
@@ -987,62 +997,69 @@ impl InterceptLdlCache {
 
     fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
         if let Some(blocked) = &mut self.blocked {
+            crate::perf_diag::set_kernel("blocked");
             return blocked.profile_deviance(lmm, theta, reml);
         }
         if let Some(dense) = &mut self.dense {
-            return dense.profile_deviance(lmm, theta, reml);
+            crate::perf_diag::set_kernel("dense_chol");
+            return crate::perf_diag::scope(crate::perf_diag::Phase::DevianceDenseChol, || {
+                dense.profile_deviance(lmm, theta, reml)
+            });
         }
-        let InterceptLdlCache {
-            sparse,
-            p,
-            row_block,
-            solve_out,
-            scaled_rhs,
-            w_y_buf,
-            w_col_bufs,
-            dense: _,
-            blocked: _,
-        } = self;
-        let sparse = sparse.as_mut().expect("sparse intercept solver missing");
-        sparse
-            .factor_blocks(theta, row_block)
-            .expect("LDLT update of A failed");
-        let log_det_a = sparse.log_det_a();
-        let p_usize = lmm.x.ncols();
-        scale_block_rhs_buf(scaled_rhs, lmm.zt_y.view(), theta, row_block);
-        sparse.solve_into(scaled_rhs, solve_out);
-        w_y_buf.copy_from_slice(solve_out);
-        for (j, col_buf) in w_col_bufs.iter_mut().enumerate().take(p_usize) {
-            scale_block_rhs_buf(scaled_rhs, lmm.zt_x.column(j), theta, row_block);
+        crate::perf_diag::set_kernel("sparse_ldl");
+        crate::perf_diag::scope(crate::perf_diag::Phase::DevianceSparseLdl, || {
+            let InterceptLdlCache {
+                sparse,
+                p,
+                row_block,
+                solve_out,
+                scaled_rhs,
+                w_y_buf,
+                w_col_bufs,
+                dense: _,
+                blocked: _,
+            } = self;
+            let sparse = sparse.as_mut().expect("sparse intercept solver missing");
+            sparse
+                .factor_blocks(theta, row_block)
+                .expect("LDLT update of A failed");
+            let log_det_a = sparse.log_det_a();
+            let p_usize = lmm.x.ncols();
+            scale_block_rhs_buf(scaled_rhs, lmm.zt_y.view(), theta, row_block);
             sparse.solve_into(scaled_rhs, solve_out);
-            col_buf.copy_from_slice(solve_out);
-        }
-        let n = lmm.y.len() as f64;
-        let p_f = lmm.x.ncols() as f64;
-        if *p == 1 && p_usize == 1 {
-            profile_deviance_p1(
-                lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
-            )
-        } else if *p == 2 && p_usize == 2 {
-            profile_deviance_p2(
-                lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
-            )
-        } else {
-            compute_profile_deviance_blocks(
-                lmm,
-                ProfileDevianceBlocksInput {
-                    reml,
-                    n,
-                    p: p_f,
-                    p_usize,
-                    log_det_a,
-                    theta,
-                    row_block,
-                    w_y: w_y_buf,
-                    w_cols: w_col_bufs,
-                },
-            )
-        }
+            w_y_buf.copy_from_slice(solve_out);
+            for (j, col_buf) in w_col_bufs.iter_mut().enumerate().take(p_usize) {
+                scale_block_rhs_buf(scaled_rhs, lmm.zt_x.column(j), theta, row_block);
+                sparse.solve_into(scaled_rhs, solve_out);
+                col_buf.copy_from_slice(solve_out);
+            }
+            let n = lmm.y.len() as f64;
+            let p_f = lmm.x.ncols() as f64;
+            if *p == 1 && p_usize == 1 {
+                profile_deviance_p1(
+                    lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
+                )
+            } else if *p == 2 && p_usize == 2 {
+                profile_deviance_p2(
+                    lmm, reml, n, p_f, log_det_a, theta, row_block, w_y_buf, w_col_bufs,
+                )
+            } else {
+                compute_profile_deviance_blocks(
+                    lmm,
+                    ProfileDevianceBlocksInput {
+                        reml,
+                        n,
+                        p: p_f,
+                        p_usize,
+                        log_det_a,
+                        theta,
+                        row_block,
+                        w_y: w_y_buf,
+                        w_cols: w_col_bufs,
+                    },
+                )
+            }
+        })
     }
 
     #[allow(dead_code)]

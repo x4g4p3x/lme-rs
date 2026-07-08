@@ -245,6 +245,11 @@ def _resolve_julia_bin() -> str | None:
     return None
 
 
+def perf_breakdown() -> None:
+    """Rust LME_PERF_DIAG vs Julia optsum.feval on fair fixtures."""
+    run([sys.executable, "scripts/run_perf_breakdown.py", "--cases", "crossed_20k"])
+
+
 def benchmarks_fair_rust_julia() -> None:
     """Fair fit-only Rust vs Julia timing (optional when Julia + MixedModels are installed)."""
     julia = _resolve_julia_bin()
@@ -608,6 +613,10 @@ def main(argv: list[str] | None = None) -> int:
         "benchmarks-fair-rust-julia",
         help="Fair fit-only Rust vs Julia timing when Julia + MixedModels are installed",
     ).set_defaults(fn=lambda _: benchmarks_fair_rust_julia())
+    sub.add_parser(
+        "perf-breakdown",
+        help="Rust LME_PERF_DIAG vs Julia optsum.feval on crossed_20k fair fixture",
+    ).set_defaults(fn=lambda _: perf_breakdown())
     p_bench_fail = sub.add_parser(
         "benchmark-failures",
         help="Print cross-language benchmark failure details from JSON",

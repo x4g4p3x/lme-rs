@@ -140,6 +140,8 @@ task benchmarks:fair-rust-julia
 
 Julia is resolved from `--julia`, `JULIA_BIN`, `PATH`, or (on Windows) `%LOCALAPPDATA%\Programs\Julia-*\bin\julia.exe`. Requires Julia packages `CSV`, `DataFrames`, `JSON`, and `MixedModels`.
 
+For **where time goes** inside a fit (Rust phase breakdown + Julia `optsum.feval` on the same CSV), use [`scripts/run_perf_breakdown.py`](scripts/run_perf_breakdown.py) (`task benchmarks:perf-breakdown`). See [OPTIMIZATION.md § Performance diagnostics](OPTIMIZATION.md#performance-diagnostics-lme_perf_diag).
+
 **Caveats:** optimizers and likelihood paths still differ between `lme-rs` and MixedModels.jl; use this harness for **throughput**, not coefficient identity. ML (`reml=false`) is used on synthetic sweeps to match Criterion; `sleepstudy_reml` uses REML.
 
 <a id="fair-rust-vs-julia-reference-results"></a>
@@ -195,6 +197,22 @@ Implemented [`src/intercept_blocked.rs`](src/intercept_blocked.rs): precomputed 
 | `nested_10k` | 53.8 ms | ~15.5 ms | **~16.5 ms** | 6.88 ms | **~2.4×** |
 
 **Takeaway:** crossed median **~1.7× faster** than the 07-07 LDL path and **~4× faster** than the 2026-07-06 reference — the largest single-step gain so far. Nested and random-intercept unchanged (blocked path gated off: single RE or cross block too large for dense storage). Julia still leads; crossed gap narrowed from ~**8×** to ~**5×** on this machine.
+
+<a id="fair-rust-julia-2026-07-08-blocked-hotpath"></a>
+
+### 2026-07-08 blocked Cholesky hot-path pass
+
+Removed per-θ **clone/alloc** overhead in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) (in-place Schur, fused `assign_scaled`, reused workspaces) and tightened the ML 2D log-grid to **5×5 + 4×4** (~42 evals). Nested sparse crosses remain on reused LDL (`fits_blocked_gate`). Details: **[OPTIMIZATION.md § Closing the crossed_20k gap](OPTIMIZATION.md#closing-the-crossed_20k-gap-vs-julia-14-ms)**.
+
+**Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`; 2 warmups + 10 measured fits (`--implementations rust`).
+
+| Case | After blocked Cholesky | After hot-path pass | After Schur scratch + row-dot | Julia median (2026-07-06) | vs Julia |
+|:-----|-----------------------:|--------------------:|------------------------------:|--------------------------:|---------:|
+| `random_intercept_10k` | ~3.0 ms | **~2.9 ms** | **~2.8 ms** | 1.14 ms | **~2.5×** |
+| `crossed_20k` | ~68 ms | **~52 ms** | **~52–60 ms** (bimodal) | 14.3 ms | **~3.6–4.2×** |
+| `nested_10k` | ~16.5 ms | **~13 ms** | **~14 ms** | 6.88 ms | **~2.0×** |
+
+**Takeaway:** crossed improved **~1.3×** again (~68 ms → **~52 ms** best cluster); a second pass reused Schur scratch buffers (no cross-block `clone`) and row-dot kernels in rank/Schur updates. Remaining crossed gap vs Julia is still ~**3.6×+** — mostly θ eval count × per-eval constant factor (~1.2 ms/eval at 42 evals). Next: match Julia's optimizer eval budget and BLAS-level block kernels (`syrk`/`trsm`).
 
 **How to read this:**
 

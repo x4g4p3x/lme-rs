@@ -55,6 +55,11 @@ tasks:
     cmds:
       - '{{.RUN}} benchmarks-fair-rust-julia'
 
+  benchmarks:perf-breakdown:
+    desc: Rust LME_PERF_DIAG vs Julia optsum.feval on fair fixtures
+    cmds:
+      - '{{.RUN}} perf-breakdown'
+
   lint:rust:
     desc: Rust-only lint (fmt check + clippy)
     cmds:

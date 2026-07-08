@@ -144,6 +144,16 @@ pub fn optimize_theta_lmm(
     init_theta: Array1<f64>,
     reml: bool,
 ) -> Result<OptimizeResult, anyhow::Error> {
+    crate::perf_diag::scope(crate::perf_diag::Phase::LmerOptimize, || {
+        optimize_theta_lmm_inner(lmm, init_theta, reml)
+    })
+}
+
+fn optimize_theta_lmm_inner(
+    lmm: Arc<LmmData>,
+    init_theta: Array1<f64>,
+    reml: bool,
+) -> Result<OptimizeResult, anyhow::Error> {
     let lower_bounds = compute_theta_lower_bounds(&lmm.re_blocks);
 
     if lmm.intercept_only_re() {
@@ -225,8 +235,8 @@ fn optimize_theta_intercept_profile(
 
 /// Low-evaluation 2D search for intercept-only crossed models.
 ///
-/// ML (`reml = false`): 6×6 + local 5×5 log-grids only (~61 evals).
-/// REML: adds a short Nelder–Mead polish so golden parity fixtures converge.
+/// ML (`reml = false`): 5×5 + local 4×4 log-grids (~42 evals).
+/// REML: adds local 4×4 grid and short Nelder–Mead polish so golden parity fixtures converge.
 fn optimize_theta_intercept_2d(
     lmm: Arc<LmmData>,
     init_theta: Array1<f64>,
@@ -234,8 +244,8 @@ fn optimize_theta_intercept_2d(
     lower_bounds: &[f64],
 ) -> Result<OptimizeResult, anyhow::Error> {
     const THETA_HI: f64 = 12.0;
-    const COARSE_N: usize = 6;
-    const ML_FINE_N: usize = 5;
+    const COARSE_N: usize = 5;
+    const ML_FINE_N: usize = 4;
     const REML_FINE_N: usize = 4;
     const NM_POLISH_ITERS: u64 = 20;
 

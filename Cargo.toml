@@ -102,6 +102,10 @@ name = "bench_fair_rust_julia"
 path = "comparisons/bench_fair_rust_julia.rs"
 
 [[example]]
+name = "bench_perf_breakdown"
+path = "comparisons/bench_perf_breakdown.rs"
+
+[[example]]
 name = "parity_export"
 path = "comparisons/parity_export.rs"
 

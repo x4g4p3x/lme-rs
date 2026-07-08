@@ -34,6 +34,8 @@ pub mod model_matrix;
 pub mod nlmm;
 /// Optimization routines (Nelder-Mead) for theta estimation.
 pub mod optimizer;
+/// Optional performance diagnostics (`LME_PERF_DIAG=1`).
+pub mod perf_diag;
 pub(crate) mod quadrature;
 /// Robust Standard Errors (Sandwich Estimators).
 pub mod robust;
@@ -52,6 +54,7 @@ use polars::prelude::*;
 pub use robust::RobustResult;
 use std::fmt;
 use std::sync::Arc;
+use std::time::Instant;
 use thiserror::Error;
 
 /// Standard result type alias for operations that can fail with `LmeError`.
@@ -993,6 +996,8 @@ pub fn lmer_weighted(
         return Err(LmeError::EmptyFormula);
     }
 
+    let setup_started = perf_diag::enabled().then(Instant::now);
+
     // 1. Parse Wilkinson formula into AST
     let ast = formula::parse(formula_str)?;
 
@@ -1037,6 +1042,11 @@ pub fn lmer_weighted(
         matrices.re_blocks.clone(),
         weights.clone(),
     ));
+
+    if let Some(started) = setup_started {
+        perf_diag::record_duration(perf_diag::Phase::LmerSetup, started.elapsed());
+    }
+
     let opt_result =
         optimizer::optimize_theta_lmm(Arc::clone(&lmm), init_theta, reml).map_err(|e| {
             LmeError::NotImplemented {
@@ -1044,84 +1054,87 @@ pub fn lmer_weighted(
             }
         })?;
 
-    let best_theta = &opt_result.theta;
+    let best_theta = opt_result.theta.clone();
 
-    // 6. Re-evaluate to get coefficients
-    let best_th_slice = best_theta.as_slice().unwrap();
-    let coefs = lmm.evaluate(best_th_slice, reml);
-    let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);
+    Ok(perf_diag::scope(perf_diag::Phase::LmerPostFit, || {
+        // 6. Re-evaluate to get coefficients
+        let best_th_slice = best_theta.as_slice().unwrap();
+        let coefs = lmm.evaluate(best_th_slice, reml);
+        let reml_eval = lmm.log_reml_deviance(best_th_slice, reml);
 
-    // 7. Extract offset and adjust fitted values
-    // Fitted values from solver: Xβ + Zb
-    let mut fitted = lmm.x.dot(&coefs.beta);
-    let mut z_b_vec = vec![0.0f64; lmm.y_eff.len()];
-    let zt = &lmm.zt;
-    for (j, row_vec) in zt.outer_iterator().enumerate() {
-        for (i, &val) in row_vec.iter() {
-            z_b_vec[i] += val * coefs.b[j];
+        // 7. Extract offset and adjust fitted values
+        // Fitted values from solver: Xβ + Zb
+        let mut fitted = lmm.x.dot(&coefs.beta);
+        let mut z_b_vec = vec![0.0f64; lmm.y_eff.len()];
+        let zt = &lmm.zt;
+        for (j, row_vec) in zt.outer_iterator().enumerate() {
+            for (i, &val) in row_vec.iter() {
+                z_b_vec[i] += val * coefs.b[j];
+            }
         }
-    }
-    fitted = fitted + Array1::from_vec(z_b_vec);
+        fitted = fitted + Array1::from_vec(z_b_vec);
 
-    // Add the offset back to get true predictions on response scale
-    if let Some(off) = &offset_arr {
-        fitted += off;
-    }
+        // Add the offset back to get true predictions on response scale
+        if let Some(off) = &offset_arr {
+            fitted += off;
+        }
 
-    // Residuals correspond to original y - final fitted
-    let residuals = &matrices.y - &fitted;
+        // Residuals correspond to original y - final fitted
+        let residuals = &matrices.y - &fitted;
 
-    // Gap 2: Build ranef DataFrame from b vector
-    let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
+        // Gap 2: Build ranef DataFrame from b vector
+        let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
 
-    // Gap 3: Build var_corr DataFrame from theta/sigma2
-    let var_corr_df = build_var_corr_dataframe(best_th_slice, &matrices.re_blocks, coefs.sigma2);
+        // Gap 3: Build var_corr DataFrame from theta/sigma2
+        let var_corr_df =
+            build_var_corr_dataframe(best_th_slice, &matrices.re_blocks, coefs.sigma2);
 
-    // Gap 4 + Gap 9: Compute log-likelihood, AIC, BIC
-    let deviance_val = reml_eval;
-    let log_lik = -deviance_val / 2.0;
-    let p = matrices.x.ncols(); // number of fixed effects
-    let n_params = (total_theta_len + p + 1) as f64; // theta + beta + sigma
-    let n = matrices.y.len() as f64;
-    let aic = deviance_val + 2.0 * n_params;
-    let bic = deviance_val + n_params * n.ln();
+        // Gap 4 + Gap 9: Compute log-likelihood, AIC, BIC
+        let deviance_val = reml_eval;
+        let log_lik = -deviance_val / 2.0;
+        let p = matrices.x.ncols(); // number of fixed effects
+        let n_params = (total_theta_len + p + 1) as f64; // theta + beta + sigma
+        let n = matrices.y.len() as f64;
+        let aic = deviance_val + 2.0 * n_params;
+        let bic = deviance_val + n_params * n.ln();
 
-    Ok(LmeFit {
-        coefficients: coefs.beta,
-        residuals,
-        fitted,
-        ranef: Some(ranef_df),
-        var_corr: Some(var_corr_df),
-        theta: Some(opt_result.theta),
-        sigma2: Some(coefs.sigma2),
-        reml: if reml { Some(reml_eval) } else { None },
-        log_likelihood: Some(log_lik),
-        aic: Some(aic),
-        bic: Some(bic),
-        deviance: Some(deviance_val),
-        b: Some(coefs.b),
-        u: Some(coefs.u),
-        beta_se: Some(coefs.beta_se),
-        beta_t: Some(coefs.beta_t),
-        formula: Some(matrices.formula),
-        fixed_names: Some(matrices.fixed_names),
-        fixed_term_assign: Some(matrices.fixed_term_assign),
-        fixed_design_x: Some(matrices.x),
-        re_blocks: Some(matrices.re_blocks),
-        num_obs: matrices.y.len(),
-        converged: Some(opt_result.converged),
-        iterations: Some(opt_result.iterations),
-        family_name: None,
-        link_name: None,
-        family: None,
-        satterthwaite: None,
-        kenward_roger: None,
-        v_beta_unscaled: Some(coefs.v_beta_unscaled),
-        robust: None,
-        categorical_levels: Some(matrices.categorical_levels),
-        nlmm_mean: None,
-        nlmm_formula: None,
-    })
+        LmeFit {
+            coefficients: coefs.beta,
+            residuals,
+            fitted,
+            ranef: Some(ranef_df),
+            var_corr: Some(var_corr_df),
+            theta: Some(best_theta),
+            sigma2: Some(coefs.sigma2),
+            reml: if reml { Some(reml_eval) } else { None },
+            log_likelihood: Some(log_lik),
+            aic: Some(aic),
+            bic: Some(bic),
+            deviance: Some(deviance_val),
+            b: Some(coefs.b),
+            u: Some(coefs.u),
+            beta_se: Some(coefs.beta_se),
+            beta_t: Some(coefs.beta_t),
+            formula: Some(matrices.formula),
+            fixed_names: Some(matrices.fixed_names),
+            fixed_term_assign: Some(matrices.fixed_term_assign),
+            fixed_design_x: Some(matrices.x),
+            re_blocks: Some(matrices.re_blocks),
+            num_obs: matrices.y.len(),
+            converged: Some(opt_result.converged),
+            iterations: Some(opt_result.iterations),
+            family_name: None,
+            link_name: None,
+            family: None,
+            satterthwaite: None,
+            kenward_roger: None,
+            v_beta_unscaled: Some(coefs.v_beta_unscaled),
+            robust: None,
+            categorical_levels: Some(matrices.categorical_levels),
+            nlmm_mean: None,
+            nlmm_formula: None,
+        }
+    }))
 }
 
 /// Fit a fixed-effects-only linear model from a Wilkinson formula string and a Polars `DataFrame`.
