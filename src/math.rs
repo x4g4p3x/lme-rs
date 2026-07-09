@@ -733,15 +733,13 @@ impl SingleFactorSlopesCache {
             return None;
         }
 
-        let mut s_blocks = Vec::with_capacity(m);
-        for g in 0..m {
-            let o = g * k;
-            let mut s = Array2::<f64>::zeros((k, k));
-            for (val, (i, j)) in lmm.zt_z.iter() {
-                if i / k == g && j / k == g {
-                    s[[i - o, j - o]] += *val;
-                }
-            }
+        let mut s_blocks = vec![Array2::<f64>::zeros((k, k)); m];
+        for (val, (i, j)) in lmm.zt_z.iter() {
+            let g = i / k;
+            debug_assert_eq!(g, j / k, "block-diagonal gate must hold");
+            s_blocks[g][[i % k, j % k]] += *val;
+        }
+        for s in &mut s_blocks {
             for i in 0..k {
                 for j in (i + 1)..k {
                     let sym = 0.5 * (s[[i, j]] + s[[j, i]]);
@@ -749,7 +747,6 @@ impl SingleFactorSlopesCache {
                     s[[j, i]] = sym;
                 }
             }
-            s_blocks.push(s);
         }
 
         let p_usize = lmm.x.ncols();

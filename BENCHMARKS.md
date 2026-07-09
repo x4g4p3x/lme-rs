@@ -368,6 +368,16 @@ For a single intercept-only grouping factor, the fair design path now avoids no-
 
 The gain is preparation only: `fit_prepared` stays at ~0.83 ms / ~1.81 ms, while `prepare_lmer` falls to ~2.08 ms / ~4.75 ms. This closes the previous large one-shot cold-fit gap without changing the θ optimizer.
 
+### Large random-slopes showcase
+
+`large_random_slopes_100k` is the stress example for a workload where structured mixed-model implementations are strongest: 100,000 observations, 2,000 groups, and a correlated random intercept/slope (`y ~ x + (1 + x | group)`). It is generated once into a shared CSV and timed cold plus with Rust prepared phases:
+
+```powershell
+python scripts/run_fair_rust_julia_benchmark.py --cases large_random_slopes_100k --implementations rust,julia --with-phases --warmups 2 --repeats 10
+```
+
+The [baseline fair result](benchmarks/fair-rust-julia-reference-2026-07-09-large-slopes.json) was cold Rust **82.12 ms vs 69.53 ms Julia** (**1.18×**) with `fit_prepared` already faster. Replacing the cache constructor's repeated `ZᵀZ` scan with one linear pass across its block-diagonal nonzeros cuts `prepare_lmer` from ~36.23 ms to **11.79 ms**. The resulting cold fit is **58.00 ms vs 69.54 ms Julia** (**0.83×**, Rust faster), and `fit_prepared` is **45.14 ms** (**0.65× Julia**). See the [final large-slopes reference](benchmarks/fair-rust-julia-reference-2026-07-09-large-slopes-linear-cache.json).
+
 **How to read this:**
 
 - These numbers are **machine- and version-specific**; Linux CI or different BLAS builds may differ. Re-run the harness before citing new hardware.

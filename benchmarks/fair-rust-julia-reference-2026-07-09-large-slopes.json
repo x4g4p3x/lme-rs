@@ -1,0 +1,23 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-09-large-slopes",
+  "generated_at": "2026-07-09T22:30:00+02:00",
+  "git_sha": "640e4b9",
+  "methodology": {
+    "description": "Shared CSV fixture; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "rust_engine": "lme-rs lmer; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 10,
+    "cases_run": "large_random_slopes_100k",
+    "cold_fit_target_ratio": 1.5,
+    "note": "Measured with the uncommitted large_random_slopes_100k fair-harness case: y ~ x + (1 + x | group), 100k observations and 2k groups."
+  },
+  "comparisons": [
+    {"case":"large_random_slopes_100k","rust_median_seconds":0.0821194,"julia_median_seconds":0.0695283,"rust_over_julia_median":1.1810931663797333,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.0425176,"fit_prepared_rust_over_julia_median":0.6115150233789695,"prepare_lmer_rust_median_seconds":0.0362286}
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "interpretation": "Cold Rust is within 18% of Julia on this large correlated random-slopes workload, while prepared Rust is 39% faster. The remaining cold gap is setup."
+  }
+}

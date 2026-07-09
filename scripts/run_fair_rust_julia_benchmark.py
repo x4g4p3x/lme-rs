@@ -110,6 +110,14 @@ FAIR_CASES: dict[str, FairCase] = {
         reml=False,
         params={"n_obs": 100_000, "n_groups": 1_000},
     ),
+    "large_random_slopes_100k": lmm_case(
+        name="large_random_slopes_100k",
+        generator="random_slopes",
+        formula="y ~ x + (1 + x | group)",
+        reml=False,
+        params={"n_obs": 100_000, "n_groups": 2_000},
+        reference="MixedModels.jl; synthetic correlated random slopes",
+    ),
     "crossed_20k": lmm_case(
         name="crossed_20k",
         generator="crossed",
@@ -278,7 +286,7 @@ def generate_args(case: FairCase, output: Path) -> list[str]:
         "--output",
         str(output),
     ]
-    if case.generator == "random_intercept":
+    if case.generator in ("random_intercept", "random_slopes"):
         cmd.extend(
             [
                 "--n-obs",

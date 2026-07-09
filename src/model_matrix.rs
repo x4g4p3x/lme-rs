@@ -314,6 +314,42 @@ fn build_intercept_zt_csr(obs_group_idx: &[usize], n_groups: usize) -> sprs::CsM
     sprs::CsMat::new((n_groups, n_obs), indptr, indices, vec![1.0; n_obs])
 }
 
+/// Direct CSR construction for one correlated intercept/slope grouping factor.
+fn build_intercept_slope_zt_csr(
+    obs_group_idx: &[usize],
+    slope: &Array1<f64>,
+    n_groups: usize,
+) -> sprs::CsMat<f64> {
+    let n_obs = obs_group_idx.len();
+    debug_assert_eq!(slope.len(), n_obs);
+    let mut row_counts = vec![0usize; n_groups * 2];
+    for &group in obs_group_idx {
+        row_counts[group * 2] += 1;
+        row_counts[group * 2 + 1] += 1;
+    }
+    let mut indptr = vec![0usize; n_groups * 2 + 1];
+    for row in 0..(n_groups * 2) {
+        indptr[row + 1] = indptr[row] + row_counts[row];
+    }
+    let mut indices = vec![0usize; n_obs * 2];
+    let mut data = vec![0.0; n_obs * 2];
+    let mut cursor = indptr.clone();
+    for (obs, &group) in obs_group_idx.iter().enumerate() {
+        let intercept_row = group * 2;
+        let intercept_pos = cursor[intercept_row];
+        indices[intercept_pos] = obs;
+        data[intercept_pos] = 1.0;
+        cursor[intercept_row] += 1;
+
+        let slope_row = intercept_row + 1;
+        let slope_pos = cursor[slope_row];
+        indices[slope_pos] = obs;
+        data[slope_pos] = slope[obs];
+        cursor[slope_row] += 1;
+    }
+    sprs::CsMat::new((n_groups * 2, n_obs), indptr, indices, data)
+}
+
 /// Fast path for `y ~ 1`, `y ~ x`, and `y ~ 1 + x` without interactions or categorical fixed effects.
 #[allow(clippy::type_complexity)]
 fn try_build_simple_x_matrix(
@@ -844,7 +880,12 @@ fn try_build_interaction_groups(
 struct FairLmmFormula<'a> {
     response: &'a str,
     fixed_x: Option<&'a str>,
-    re_groups: Vec<&'a str>,
+    re_terms: Vec<FairReTerm<'a>>,
+}
+
+struct FairReTerm<'a> {
+    group: &'a str,
+    slope: Option<&'a str>,
 }
 
 fn split_formula_terms(rhs: &str) -> Vec<&str> {
@@ -875,18 +916,25 @@ fn parse_fair_lmm_formula(formula: &str) -> Option<FairLmmFormula<'_>> {
         return None;
     }
     let mut fixed_x = None;
-    let mut re_groups = Vec::new();
+    let mut re_terms = Vec::new();
     for term in split_formula_terms(rhs) {
         if let Some(inner) = term.strip_prefix('(').and_then(|s| s.strip_suffix(')')) {
             let (lhs_re, group) = inner.split_once('|')?;
-            if lhs_re.trim() != "1" {
-                return None;
-            }
+            let lhs_re = lhs_re.trim();
+            let slope = if lhs_re == "1" {
+                None
+            } else {
+                let (intercept, slope) = lhs_re.split_once('+')?;
+                if intercept.trim() != "1" || slope.trim().is_empty() {
+                    return None;
+                }
+                Some(slope.trim())
+            };
             let group = group.trim();
             if group.is_empty() || group.contains('/') {
                 return None;
             }
-            re_groups.push(group);
+            re_terms.push(FairReTerm { group, slope });
         } else if term == "1" {
             continue;
         } else if term.contains('|')
@@ -899,17 +947,19 @@ fn parse_fair_lmm_formula(formula: &str) -> Option<FairLmmFormula<'_>> {
             fixed_x = Some(term);
         }
     }
-    if re_groups.is_empty() {
+    if re_terms.is_empty()
+        || (re_terms.len() != 1 && re_terms.iter().any(|term| term.slope.is_some()))
+    {
         return None;
     }
     Some(FairLmmFormula {
         response,
         fixed_x,
-        re_groups,
+        re_terms,
     })
 }
 
-/// Fast design-matrix build for fair-harness intercept-only LMMs (skips generic fiasto column walk).
+/// Fast design-matrix build for fair-harness intercept-only and single-slope LMMs.
 pub fn try_build_fair_lmm_design(
     formula_str: &str,
     data: &DataFrame,
@@ -965,10 +1015,11 @@ pub fn try_build_fair_lmm_design(
     let mut triplet_vals = Vec::new();
     let mut re_blocks = Vec::new();
     let mut current_q_offset = 0usize;
-    let single_factor = parsed.re_groups.len() == 1;
+    let single_factor = parsed.re_terms.len() == 1;
     let mut single_factor_zt = None;
 
-    for g_var in parsed.re_groups {
+    for re_term in parsed.re_terms {
+        let g_var = re_term.group;
         let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
             let parts: Vec<&str> = g_var.split(':').collect();
             if let Some(groups) = try_build_interaction_groups(data, &parts, n_obs)? {
@@ -981,8 +1032,25 @@ pub fn try_build_fair_lmm_design(
         };
 
         let m = unique_groups.len();
+        let random_slope = if let Some(slope_name) = re_term.slope {
+            let series = data
+                .column(slope_name)
+                .map_err(|e| crate::LmeError::NotImplemented {
+                    feature: format!("Missing random-slope column '{}': {}", slope_name, e),
+                })?;
+            if is_categorical_series(series.dtype()) || !is_native_numeric_dtype(series.dtype()) {
+                return Ok(None);
+            }
+            Some(numeric_column_f64(data, slope_name)?)
+        } else {
+            None
+        };
         if single_factor {
-            single_factor_zt = Some(build_intercept_zt_csr(&obs_group_idx, m));
+            single_factor_zt = Some(if let Some(slope) = random_slope.as_ref() {
+                build_intercept_slope_zt_csr(&obs_group_idx, slope, m)
+            } else {
+                build_intercept_zt_csr(&obs_group_idx, m)
+            });
         } else {
             triplet_rows.reserve(n_obs);
             triplet_cols.reserve(n_obs);
@@ -994,15 +1062,24 @@ pub fn try_build_fair_lmm_design(
             }
         }
 
+        let (k, theta_len, effect_names) = if let Some(slope_name) = re_term.slope {
+            (
+                2,
+                3,
+                vec!["(Intercept)".to_string(), slope_name.to_string()],
+            )
+        } else {
+            (1, 1, vec!["(Intercept)".to_string()])
+        };
         re_blocks.push(ReBlock {
             m,
-            k: 1,
-            theta_len: 1,
+            k,
+            theta_len,
             group_name: g_var.to_string(),
-            effect_names: vec!["(Intercept)".to_string()],
+            effect_names,
             group_map,
         });
-        current_q_offset += m;
+        current_q_offset += m * k;
     }
 
     let zt = if let Some(zt) = single_factor_zt {
@@ -1133,6 +1210,34 @@ mod tests {
         assert_eq!(fast.zt.indices(), slow.zt.indices());
         assert_eq!(fast.zt.data(), slow.zt.data());
         assert_eq!(fast.re_blocks[0].group_map, slow.re_blocks[0].group_map);
+    }
+
+    #[test]
+    fn test_fair_lmm_design_matches_generic_for_random_slope_formula() {
+        let df = df!(
+            "y" => &[1.0, 2.0, 3.0, 4.0],
+            "x" => &[0.1, 0.2, 0.3, 0.4],
+            "group" => &["G1", "G1", "G2", "G2"]
+        )
+        .unwrap();
+        let formula = "y ~ x + (1 + x | group)";
+        let fast = try_build_fair_lmm_design(formula, &df)
+            .unwrap()
+            .expect("fair random-slope fast path");
+        let ast = crate::formula::parse(formula).unwrap();
+        let slow = build_design_matrices(&ast, &df).unwrap();
+        assert_eq!(
+            fast.zt.indptr().raw_storage(),
+            slow.zt.indptr().raw_storage()
+        );
+        assert_eq!(fast.zt.indices(), slow.zt.indices());
+        assert_eq!(fast.zt.data(), slow.zt.data());
+        assert_eq!(fast.re_blocks[0].k, 2);
+        assert_eq!(fast.re_blocks[0].theta_len, 3);
+        assert_eq!(
+            fast.re_blocks[0].effect_names,
+            slow.re_blocks[0].effect_names
+        );
     }
 
     #[test]

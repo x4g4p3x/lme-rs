@@ -108,6 +108,34 @@ fn generate_large_synthetic_df(n_obs: usize, n_groups: usize) -> DataFrame {
     .unwrap()
 }
 
+/// Large correlated random-intercept/random-slope fixture for the fair harness.
+fn generate_large_random_slopes_df(n_obs: usize, n_groups: usize) -> DataFrame {
+    let mut rng = StdRng::seed_from_u64(20260709);
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    let random_intercepts: Vec<f64> = (0..n_groups).map(|_| normal.sample(&mut rng)).collect();
+    let random_slopes: Vec<f64> = random_intercepts
+        .iter()
+        .map(|&intercept| 0.35 * intercept + 0.65 * normal.sample(&mut rng))
+        .collect();
+
+    let mut y = Vec::with_capacity(n_obs);
+    let mut x = Vec::with_capacity(n_obs);
+    let mut group = Vec::with_capacity(n_obs);
+    for _ in 0..n_obs {
+        let g = rng.random_range(0..n_groups);
+        let x_i = normal.sample(&mut rng);
+        y.push(
+            1.0 + 1.25 * x_i
+                + random_intercepts[g]
+                + random_slopes[g] * x_i
+                + 0.25 * normal.sample(&mut rng),
+        );
+        x.push(x_i);
+        group.push(format!("G{g}"));
+    }
+    df!("y" => y, "x" => x, "group" => group).unwrap()
+}
+
 fn generate_large_crossed_df(n_obs: usize, n_plates: usize, n_samples: usize) -> DataFrame {
     let mut rng = StdRng::seed_from_u64(1337);
     let normal = Normal::new(0.0, 1.0).unwrap();
@@ -346,6 +374,11 @@ fn cmd_generate(args: &[String]) -> anyhow::Result<()> {
             let n_obs = parse_usize(args, "--n-obs")?;
             let n_groups = parse_usize(args, "--n-groups")?;
             generate_large_synthetic_df(n_obs, n_groups)
+        }
+        "random_slopes" => {
+            let n_obs = parse_usize(args, "--n-obs")?;
+            let n_groups = parse_usize(args, "--n-groups")?;
+            generate_large_random_slopes_df(n_obs, n_groups)
         }
         "crossed" => {
             let n_obs = parse_usize(args, "--n-obs")?;
