@@ -104,6 +104,15 @@ def _assert_coefs(case_id: str, fit, checks: list[dict]) -> None:
                 reml=False,
             ),
         ),
+        (
+            "sspower_synthetic_self_start",
+            lambda: lme_python.nlmer(
+                "y ~ SSpower(x, a, b, c) ~ c|id",
+                data=pl.read_csv(REPO_ROOT / "tests/data/sspower_synthetic.csv"),
+                start=None,
+                reml=False,
+            ),
+        ),
     ],
 )
 def test_golden_coefficient_parity(case_id: str, fitter) -> None:

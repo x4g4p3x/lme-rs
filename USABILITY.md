@@ -4,7 +4,7 @@ This document answers **“can I use this for my problem?”** — a different q
 
 For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md). That file tracks **coverage** (what is implemented). This file tracks **usability** (what is safe and practical to rely on).
 
-**Last assessed:** 2026-07-08 · `lme-rs` / `lme_python` **0.1.9**
+**Last assessed:** 2026-07-09 · `lme-rs` / `lme_python` **0.1.9**
 
 ---
 
@@ -100,8 +100,10 @@ Statuses are **practical**, not formal support tiers.
 | Random-slopes LMM (e.g. `(Days \| Subject)`) | Supported; less optimization work than intercept-only paths | Compare to R; benchmark if fitting many models |
 | Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
 | GLMM non-canonical links, weights | Implemented; narrower test matrix | Golden checks where listed; validate otherwise |
-| `nlmer` built-in `SS*` means | Subset of R `stats::SS*`; one grouping factor | Orange / synthetic parity cases; not general `nlme` |
-| `nlmer_with_mean` (custom μ) | No R `selfStart` for custom means; defaults are naive | Supply `start`; verify predictions |
+| `nlmer` built-in `SS*` means | Subset of R `stats::SS*` plus **`SSpower`** (MATLAB `power2`); one grouping factor | Orange / synthetic parity cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
+| Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; **not** lmfit/MATLAB bounded single-curve NLS | Requires **x > 0**; no coefficient bounds; pool sensors with `~ c\|sensor` (or RE on other parameters). See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
+| Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
+| `nlmer_with_mean` (custom μ) | No R `selfStart` for arbitrary custom means; defaults are naive | Supply `start`; verify predictions |
 | Scalar AGQ (`n_agq ≥ 2`) | Applied at final θ, not inside optimizer | Same pattern as `glmer`; compare Laplace vs AGQ |
 | Python bindings | Polars, pandas, or PyArrow `Table` accepted; Polars canonical internally | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 
@@ -111,7 +113,7 @@ Statuses are **practical**, not formal support tiers.
 |:------------|:--------|
 | Drop-in replacement for all of `lme4` + `lmerTest` + `car` + `nlme` | Intentionally partial API |
 | Arbitrary R formula edge cases | Wilkinson coverage is broad but not universal |
-| Full `stats::SS*` / general nonlinear mixed modeling | Five built-ins + custom means |
+| Full `stats::SS*` / general nonlinear mixed modeling | Six built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
 | Identical GLMM AIC/BIC / log-likelihood to R | Deviance omits data-dependent constants |
 | “Proven in production” without your own validation | 0.1.x; limited public field track record |
 | Competitive cold `lmer()` on every RE layout vs MixedModels.jl | Improving; see [OPTIMIZATION.md](OPTIMIZATION.md) row in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) |
@@ -169,6 +171,7 @@ Before committing to a hot path, read [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE
 | [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) | What is regression-tested vs manual |
 | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | Internal coverage map (not a usability score) |
 | [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) / [BENCHMARKS.md](BENCHMARKS.md) / [OPTIMIZATION.md](OPTIMIZATION.md) | Tier-A cases, fit timing scope, engineering notes |
+| [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) | Sensor calibration: independent batch NLS vs pooled `nlmer`; CUDA / lightcurve-fitting |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ---

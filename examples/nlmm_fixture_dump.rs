@@ -37,4 +37,15 @@ fn main() {
         gom.theta.as_ref().unwrap().as_slice().unwrap()
     );
     println!("GOMP sigma2: {:?}", gom.sigma2);
+
+    let pwr = fit_csv(
+        "tests/data/sspower_synthetic.csv",
+        "y ~ SSpower(x, a, b, c) ~ c|id",
+    );
+    println!("POWER coef: {:?}", pwr.coefficients.as_slice().unwrap());
+    println!(
+        "POWER theta: {:?}",
+        pwr.theta.as_ref().unwrap().as_slice().unwrap()
+    );
+    println!("POWER sigma2: {:?}", pwr.sigma2);
 }

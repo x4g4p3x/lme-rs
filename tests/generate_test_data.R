@@ -418,6 +418,66 @@ out_gompertz <- list(
   )
 )
 
+# SSpower (MATLAB power2: a * x^b + c). Not in R stats::SS*; custom selfStart for lme4 parity.
+initPower2 <- function(mCall, data, LHS, ...) {
+  xy <- sortedXyData(mCall[["x"]], LHS, data)
+  xv <- xy[, "x"]
+  yv <- xy[, "y"]
+  ok <- xv > 0 & is.finite(xv) & is.finite(yv)
+  xv <- xv[ok]
+  yv <- yv[ok]
+  if (length(xv) < 3) {
+    return(c(a = 1, b = 1, c = 0))
+  }
+  c_est <- min(yv) - 0.05 * max(abs(min(yv)), 1)
+  ok2 <- (yv - c_est) > 0
+  if (sum(ok2) < 2) {
+    return(c(a = 1, b = 1, c = c_est))
+  }
+  fit <- lm(I(log(yv[ok2] - c_est)) ~ I(log(xv[ok2])))
+  c(
+    a = max(exp(unname(coef(fit)[1])), 1e-8),
+    b = unname(coef(fit)[2]),
+    c = c_est
+  )
+}
+SSpower <- function(x, a, b, c) {
+  xb <- x^b
+  val <- a * xb + c
+  grad <- cbind(a = xb, b = a * xb * log(x), c = 1)
+  attr(val, "gradient") <- grad
+  val
+}
+attr(SSpower, "initial") <- initPower2
+attr(SSpower, "pnames") <- c("a", "b", "c")
+class(SSpower) <- "selfStart"
+
+set.seed(2027)
+m_pwr <- 5
+n_pwr <- 12
+id_pwr <- factor(rep(1:m_pwr, each = n_pwr))
+x_pwr <- rep(seq(0.5, 5, length.out = n_pwr), m_pwr)
+b_pwr <- rnorm(m_pwr, 0, 0.15)
+y_pwr <- 2 * x_pwr^0.5 + 1 + b_pwr[as.integer(id_pwr)] + rnorm(length(x_pwr), 0, 0.15)
+df_power <- data.frame(y = y_pwr, x = x_pwr, id = id_pwr)
+write.csv(df_power, "tests/data/sspower_synthetic.csv", row.names = FALSE)
+fm_power <- nlmer(
+  y ~ SSpower(x, a, b, c) ~ c | id,
+  data = df_power,
+  start = getInitial(y ~ SSpower(x, a, b, c), data = df_power)
+)
+power_vc_sd <- as.numeric(attr(VarCorr(fm_power)$id, "stddev")["c"])
+out_power <- list(
+  model = jsonlite::unbox("y ~ SSpower(x, a, b, c) ~ c|id"),
+  outputs = list(
+    beta = as.numeric(fixef(fm_power)),
+    theta = as.numeric(getME(fm_power, "theta")),
+    re_sd = jsonlite::unbox(power_vc_sd),
+    sigma2 = jsonlite::unbox(as.numeric(sigma(fm_power))^2),
+    logLik = jsonlite::unbox(as.numeric(logLik(fm_power)))
+  )
+)
+
 sleepstudy_pop_newdata <- data.frame(Days = c(0, 1, 5, 10), Subject = factor(rep("308", 4), levels = levels(sleepstudy$Subject)))
 sleepstudy_cond_newdata <- data.frame(Days = c(0, 1, 5), Subject = factor(rep("308", 3), levels = levels(sleepstudy$Subject)))
 
@@ -864,6 +924,29 @@ build_golden_manifest <- function() {
             scalar_check("id.Asym", gompertz_vc_sd, 2.0)
           )
         )
+      ),
+      list(
+        id = jsonlite::unbox("sspower_synthetic_self_start"),
+        description = jsonlite::unbox("Synthetic grouped nlmer with SSpower mean (a*x^b+c); selfStart (no explicit start). R reference uses custom selfStart SSpower."),
+        kind = jsonlite::unbox("nlmm"),
+        data_path = jsonlite::unbox("tests/data/sspower_synthetic.csv"),
+        formula = jsonlite::unbox("y ~ SSpower(x, a, b, c) ~ c|id"),
+        nlmm_reml = jsonlite::unbox(FALSE),
+        reference = list(
+          engine = jsonlite::unbox("lme4::nlmer"),
+          call = jsonlite::unbox("nlmer(y ~ SSpower(x, a, b, c) ~ c|id, data, start=getInitial(y ~ SSpower(x, a, b, c), data))"),
+          source_fixture = jsonlite::unbox("tests/data/sspower_nlmer.json")
+        ),
+        expected = list(
+          coefficients = list(
+            scalar_check("a", out_power$outputs$beta[1], 0.5),
+            scalar_check("b", out_power$outputs$beta[2], 0.25),
+            scalar_check("c", out_power$outputs$beta[3], 0.5)
+          ),
+          theta = list(
+            scalar_check("id.c", out_power$outputs$theta[1], 0.5)
+          )
+        )
       )
     )
   )
@@ -886,6 +969,7 @@ write_json(out_orange, "tests/data/orange_nlmer.json", pretty = TRUE, auto_unbox
 write_json(out_ssfol, "tests/data/ssfol_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_micmen, "tests/data/ssmicmen_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(out_gompertz, "tests/data/ssgompertz_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
+write_json(out_power, "tests/data/sspower_nlmer.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write_json(build_golden_manifest(), "tests/data/golden_parity_manifest.json", pretty = TRUE, auto_unbox = FALSE, digits = NA)
 write.csv(sleepstudy, "tests/data/sleepstudy.csv", row.names = FALSE)
 write.csv(Penicillin, "tests/data/penicillin.csv", row.names = FALSE)

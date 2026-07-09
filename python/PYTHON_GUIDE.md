@@ -45,7 +45,7 @@ Top-level functions:
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
-- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`)
+- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`)
 - `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
@@ -186,9 +186,9 @@ Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer
 
 ### Nonlinear mixed models
 
-Built-in means match R `stats::SS*` functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`.
+Built-in means match R `stats::SS*` where available, plus `SSpower` (`a * x^b + c`, MATLAB Curve Fitter `power2`): `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`.
 
-When `start=None` (or an empty dict), the fitter uses R-style **`selfStart`** heuristics on `(covariate, response)` with multistart fallback to static defaults — the same path as omitting `start` in R `nlmer()`.
+When `start=None` (or an empty dict), the fitter uses R-style **`selfStart`** heuristics on `(covariate, response)` with multistart fallback to static defaults; validate against R `nlmer()` when your workflow depends on exact starting behavior.
 
 ```python
 df = pl.read_csv("tests/data/orange.csv")
@@ -205,7 +205,18 @@ fit_auto = lme_python.nlmer(
     data=df,
     start=None,
 )
+
+# Grouped calibration (MATLAB power2): random effect on offset c per unit
+cal = pl.read_csv("tests/data/sspower_synthetic.csv")
+fit_power = lme_python.nlmer(
+    "y ~ SSpower(x, a, b, c) ~ c|id",
+    data=cal,
+    start=None,
+    reml=False,
+)
 ```
+
+Requires **x > 0**. `SSpower` is not in R `stats::SS*`; lme4 parity uses a custom R `selfStart` (see [`comparisons/nlmm_sspower.R`](../comparisons/nlmm_sspower.R)). Not a substitute for lmfit/MATLAB bounded single-curve fitting.
 
 Explicit `start` overrides `selfStart`; partial dicts merge with defaults for missing parameter names.
 

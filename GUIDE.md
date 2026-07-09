@@ -145,6 +145,7 @@ y ~ SSasymp(x, Asym, R0, lrc) ~ Asym|id
 y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id
 y ~ SSmicmen(x, Vmax, K) ~ Vmax|id
 y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id
+y ~ SSpower(x, a, b, c) ~ c|id   # MATLAB Curve Fitter power2: a*x^b + c
 ```
 
 ```rust
@@ -171,9 +172,10 @@ Custom mean functions implement [`NlmmMeanEval`](src/nlmm/mean_fn.rs) or wrap a 
 
 Current limitations:
 
-- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz` (not the full R `stats::SS*` catalog). User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust, or `lme_python.nlmer_with_mean` in Python.
+- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower` (`a * x^b + c`, MATLAB `power2`; not in R `stats::SS*`). User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust, or `lme_python.nlmer_with_mean` in Python.
 - Starting values: pass an empty `NlmmStart` / `start=None` in Python to use R-style `selfStart` heuristics (`stats::getInitial`); the fitter also tries static defaults and keeps the lowest-deviance result.
-- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz`, are covered by lme4 parity tests.
+- Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / **`SSpower`**, are covered by lme4 parity tests (`SSpower` via custom R `selfStart`; see [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md)).
+- **`SSpower`:** μ = `a * x^b + c` (MATLAB Curve Fitter `power2`). Requires **covariate x > 0**. Not in R `stats::SS*`; grouped calibration only — not bounded single-curve NLS (lmfit / MATLAB Curve Fitter). For **independent per-sensor fits** vs **pooled** `nlmer`, and why CUDA batch fitters are a different lane, see [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md).
 - `predict()` evaluates the mean at fixed parameters only (`re.form = NA`); `predict_conditional()` adds stored random effects (`re.form = NULL`).
 - Scalar AGQ (`n_agq ≥ 2`, `k = 1` RE) is applied in the final profile evaluation at the optimized θ, not inside the θ search (same pattern as `glmer`). Default `n_agq = 1` is Laplace / penalized Gauss–Newton (`nAGQ = 0` style).
 
@@ -470,7 +472,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
-| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`; multivariate RE; empty `start` → `selfStart`) |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
 | `nlmer_with_mean(parsed, mean, data, formula_label, opts)` | `nlmer` with a custom [`NlmmMeanEval`](src/nlmm/mean_fn.rs) |
 | `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |

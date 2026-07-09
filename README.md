@@ -12,7 +12,7 @@
 - `lm()` for fixed-effects-only linear models
 - `lmer()` and `lmer_weighted()` for linear mixed models
 - `prepare_lmer()` / `fit_prepared()` to amortize design-matrix setup when fitting the same formula and data repeatedly (see [OPTIMIZATION.md](OPTIMIZATION.md))
-- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` means; optional scalar AGQ; `nlmer_with_mean` for custom μ in Rust and Python; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
+- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / `SSpower` means; optional scalar AGQ; `nlmer_with_mean` for custom μ in Rust and Python; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
@@ -83,6 +83,7 @@ On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` +
 - Approximate **coverage** by repository area (not usability): [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
 - Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md); **coverage map** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)
 - LMM fit optimization (engineering notes): [OPTIMIZATION.md](OPTIMIZATION.md)
+- **Calo / sensor calibration** (MATLAB `power2` vs `nlmer`, CUDA batch fitting): [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md)
 - Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 - Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md) (also lists security audit and crate publish dry-run workflows)

@@ -32,14 +32,15 @@ pub enum NlmmMeanKind {
     Ssmicmen,
     /// `SSgompertz(covariate, Asym, b2, b3)` — `Asym * exp(-b2 * b3^x)`
     Ssgompertz,
+    /// `SSpower(covariate, a, b, c)` — `a * x^b + c` (MATLAB Curve Fitter `power2`)
+    Sspower,
 }
 
 impl NlmmMeanKind {
     pub(crate) fn n_params(self) -> usize {
         match self {
             Self::Ssmicmen => 2,
-            Self::Sslogis | Self::Ssasymp | Self::Ssfol => 3,
-            Self::Ssgompertz => 3,
+            Self::Sslogis | Self::Ssasymp | Self::Ssfol | Self::Ssgompertz | Self::Sspower => 3,
         }
     }
 
@@ -146,10 +147,11 @@ fn parse_nonlinear_part(s: &str) -> crate::Result<(NlmmMeanKind, String, Vec<Str
         "SSfol" => NlmmMeanKind::Ssfol,
         "SSmicmen" => NlmmMeanKind::Ssmicmen,
         "SSgompertz" => NlmmMeanKind::Ssgompertz,
+        "SSpower" => NlmmMeanKind::Sspower,
         other => {
             return Err(LmeError::NotImplemented {
                 feature: format!(
-                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz)"
+                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz, SSpower)"
                 ),
             });
         }
@@ -269,6 +271,14 @@ mod tests {
         let (f, kind) = parse_nlmer_formula("y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id").unwrap();
         assert_eq!(kind, NlmmMeanKind::Ssgompertz);
         assert_eq!(f.fixed_param_names, vec!["Asym", "b2", "b3"]);
+    }
+
+    #[test]
+    fn parses_sspower_formula() {
+        let (f, kind) = parse_nlmer_formula("y ~ SSpower(x, a, b, c) ~ c|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Sspower);
+        assert_eq!(f.fixed_param_names, vec!["a", "b", "c"]);
+        assert_eq!(f.re_params, vec!["c".to_string()]);
     }
 
     #[test]

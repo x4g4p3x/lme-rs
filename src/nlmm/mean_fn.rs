@@ -9,6 +9,7 @@ use crate::nlmm::ssasymp::ssasymp_eval;
 use crate::nlmm::ssgompertz::ssgompertz_eval;
 use crate::nlmm::sslogis::sslogis_eval;
 use crate::nlmm::ssmicmen::ssmicmen_eval;
+use crate::nlmm::sspower::sspower_eval;
 use ndarray::Array1;
 
 type NlmmMeanClosure = dyn Fn(f64, &[f64]) -> (f64, Vec<f64>) + Send + Sync;
@@ -55,6 +56,10 @@ impl NlmmMeanEval for NlmmMeanKind {
             NlmmMeanKind::Ssgompertz => {
                 let (mu, grads) = ssgompertz_eval(params[0], params[1], params[2], x);
                 (mu, grads)
+            }
+            NlmmMeanKind::Sspower => {
+                let (mu, da, db, dc) = sspower_eval(params[0], params[1], params[2], x);
+                (mu, vec![da, db, dc])
             }
         }
     }

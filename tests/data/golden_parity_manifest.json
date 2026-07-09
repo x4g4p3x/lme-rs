@@ -799,6 +799,45 @@
           }
         ]
       }
+    },
+    {
+      "id": "sspower_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSpower mean (a*x^b+c, MATLAB power2); selfStart (no explicit start). R reference uses custom selfStart SSpower (not in stats::SS*).",
+      "kind": "nlmm",
+      "data_path": "tests/data/sspower_synthetic.csv",
+      "formula": "y ~ SSpower(x, a, b, c) ~ c|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSpower(x, a, b, c) ~ c|id, data, start=getInitial(y ~ SSpower(x, a, b, c), data)) with custom R selfStart SSpower (see tests/generate_nlmm_fixtures.R)",
+        "source_fixture": "tests/data/sspower_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "a",
+            "value": 2.2673043880442,
+            "tolerance": 0.5
+          },
+          {
+            "name": "b",
+            "value": 0.455475338357398,
+            "tolerance": 0.25
+          },
+          {
+            "name": "c",
+            "value": 0.754933725402219,
+            "tolerance": 0.5
+          }
+        ],
+        "theta": [
+          {
+            "name": "id.c",
+            "value": 0.945985754783105,
+            "tolerance": 0.5
+          }
+        ]
+      }
     }
   ]
 }

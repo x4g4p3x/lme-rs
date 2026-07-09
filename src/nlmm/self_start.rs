@@ -1,4 +1,4 @@
-//! Data-driven starting values (`selfStart` / `getInitial` heuristics from R `stats`).
+//! Data-driven starting values inspired by `selfStart` / `getInitial` workflows.
 
 use crate::nlmm::fit::NlmmStart;
 use crate::nlmm::formula::NlmmMeanKind;
@@ -6,7 +6,7 @@ use ndarray::Array1;
 
 /// Compute starting values from `(x, y)` when the user omits `start`.
 ///
-/// Mirrors R `stats::selfStart` for built-in means.
+/// Compute R-compatible starting values for built-in means using local heuristics.
 pub(crate) fn self_start(
     kind: NlmmMeanKind,
     x: &Array1<f64>,
@@ -19,6 +19,7 @@ pub(crate) fn self_start(
         NlmmMeanKind::Ssasymp | NlmmMeanKind::Ssfol => self_start_ssasymp(&xy).to_vec(),
         NlmmMeanKind::Ssmicmen => self_start_ssmicmen(&xy),
         NlmmMeanKind::Ssgompertz => self_start_ssgompertz(&xy),
+        NlmmMeanKind::Sspower => self_start_sspower(&xy),
     };
     let mut start = NlmmStart::new();
     for (name, value) in param_names.iter().zip(values.iter()) {
@@ -154,6 +155,50 @@ fn self_start_ssgompertz(xy: &[(f64, f64)]) -> Vec<f64> {
     vec![asym, b2, b3]
 }
 
+/// Log-linear heuristic for `y ≈ a * x^b + c` on positive `x` (MATLAB `power2` / grouped calibration).
+fn self_start_sspower(xy: &[(f64, f64)]) -> Vec<f64> {
+    let pos: Vec<(f64, f64)> = xy
+        .iter()
+        .copied()
+        .filter(|(x, y)| x.is_finite() && y.is_finite() && *x > 0.0)
+        .collect();
+    if pos.len() < 3 {
+        return vec![1.0, 1.0, 0.0];
+    }
+    let y_min = pos.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
+    let c = y_min - 0.05 * y_min.abs().max(1.0);
+    let mut sum_x = 0.0;
+    let mut sum_y = 0.0;
+    let mut sum_xx = 0.0;
+    let mut sum_xy = 0.0;
+    let mut n = 0.0;
+    for (x, y) in &pos {
+        let resid = y - c;
+        if resid <= 0.0 {
+            continue;
+        }
+        let lx = x.ln();
+        let ly = resid.ln();
+        sum_x += lx;
+        sum_y += ly;
+        sum_xx += lx * lx;
+        sum_xy += lx * ly;
+        n += 1.0;
+    }
+    if n < 2.0 {
+        return vec![1.0, 1.0, c];
+    }
+    let denom = n * sum_xx - sum_x * sum_x;
+    let b = if denom.abs() < 1e-12 {
+        1.0
+    } else {
+        (n * sum_xy - sum_x * sum_y) / denom
+    };
+    let log_a = (sum_y - b * sum_x) / n;
+    let a = log_a.exp().max(1e-8);
+    vec![a, b, c]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +255,20 @@ mod tests {
         );
         assert!(start["Asym"] >= 90.0);
         assert!(start["R0"] <= 15.0);
+    }
+
+    #[test]
+    fn sspower_start_on_power_curve() {
+        let x = arr1(&[1.0, 2.0, 4.0, 8.0, 16.0]);
+        let y = arr1(&[3.0, 3.83, 5.0, 6.66, 9.0]); // 2*x^0.5 + 1
+        let start = self_start(
+            NlmmMeanKind::Sspower,
+            &x,
+            &y,
+            &["a".into(), "b".into(), "c".into()],
+        );
+        assert!(start["a"] > 0.0 && start["a"] < 10.0, "{:?}", start);
+        assert!(start["b"] > 0.0 && start["b"] < 2.0, "{:?}", start);
+        assert!(start["c"].is_finite(), "{:?}", start);
     }
 }

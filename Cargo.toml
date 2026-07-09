@@ -3,7 +3,7 @@ name = "lme-rs"
 version = "0.1.9"
 edition = "2021"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
-description = "Rust port of R's lme4: linear mixed-effects models with 1:1 numerical compatibility"
+description = "Rust port of R's lme4: linear, generalized, and nonlinear mixed-effects models"
 license = "MIT"
 repository = "https://github.com/x4g4p3x/lme-rs"
 homepage = "https://docs.rs/lme-rs/latest/lme_rs/"
@@ -108,6 +108,10 @@ path = "comparisons/bench_perf_breakdown.rs"
 [[example]]
 name = "parity_export"
 path = "comparisons/parity_export.rs"
+
+[[example]]
+name = "batch_sspower_cpu"
+path = "examples/batch_sspower_cpu.rs"
 
 # x86_64 (Linux, Windows, macOS x86_64 wheels via cross-compile): static Intel MKL.
 [target.'cfg(target_arch = "x86_64")'.dependencies]

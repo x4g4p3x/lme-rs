@@ -11,6 +11,7 @@ mod ssasymp;
 mod ssgompertz;
 mod sslogis;
 mod ssmicmen;
+mod sspower;
 pub use re_cov::sigma_from_theta;
 pub use ssasymp::ssasymp_eval;
 /// Alias for [`ssasymp_eval`] (`stats::SSfol` uses the same mean function).
@@ -18,6 +19,7 @@ pub use ssasymp::ssasymp_eval as ssfol_eval;
 pub use ssgompertz::ssgompertz_eval;
 pub use sslogis::sslogis_eval;
 pub use ssmicmen::ssmicmen_eval;
+pub use sspower::sspower_eval;
 
 pub use fit::{fit_nlmer, NlmerOptions, NlmmStart};
 pub use formula::{parse_nlmer_custom_formula, parse_nlmer_formula, NlmerFormula, NlmmMeanKind};
@@ -40,11 +42,12 @@ use crate::LmeFit;
 /// response ~ SSfol(covariate, Asym, R0, lrc) ~ Asym|group
 /// response ~ SSmicmen(covariate, Vmax, K) ~ Vmax|group
 /// response ~ SSgompertz(covariate, Asym, b2, b3) ~ Asym|group
+/// response ~ SSpower(covariate, a, b, c) ~ c|group
 /// ```
 ///
-/// Supported means: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`.
-/// When `start` is empty, data-driven `selfStart` heuristics (R `stats::getInitial`)
-/// are used with multistart fallback to static defaults.
+/// Supported means: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`.
+/// When `start` is empty, R-style data-driven starting heuristics are used with
+/// multistart fallback to static defaults.
 /// Random effects are additive on the named nonlinear parameters (one or more
 /// per grouping factor).
 pub fn nlmer(
