@@ -35,9 +35,16 @@ cargo test --doc
 cargo fmt --check
 cargo clippy -- -D warnings
 cargo bench --no-run
+python scripts/ci/check_legal_compliance.py
 ```
 
 `clippy` should be part of the release checklist. It is already enforced in CI, and releasing with known lint failures is unnecessary self-inflicted risk.
+
+### Licensing and notices
+
+Run `task legal` before tagging. Source releases include [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), fixture provenance, and the required GPL/LGPL/Intel license texts. The Python release workflow injects these files into every wheel's `*.dist-info/licenses/` directory.
+
+The x86_64 wheel statically links Intel MKL and all wheels use `sprs-ldl` (LGPL-2.1). Keep [`RELINKING.md`](RELINKING.md) with any redistributed binary and review the target-specific dependency graph and third-party terms before publishing.
 
 ### Python validation
 
@@ -56,17 +63,17 @@ Update all user-visible versioned surfaces together.
 
 | Surface | Registry | On `v*` tag push | Maintainer action after tag |
 |---------|----------|------------------|----------------------------|
-| Rust crate `lme-rs` | [crates.io](https://crates.io/crates/lme-rs) | [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) runs `cargo publish --dry-run` only | **Manual** `cargo publish` (see below) |
+| Rust crate `lme-rs` | [crates.io](https://crates.io/crates/lme-rs) | [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) publishes with the `CARGO_REGISTRY_TOKEN` repository secret | Verify the workflow and crates.io listing |
 | Python `lme_python` | PyPI | [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) builds wheels and **publishes** | Wait for the workflow; no local publish step |
 | API docs | [docs.rs](https://docs.rs/lme-rs) | Builds after the version appears on crates.io | Run `cargo publish` first |
 
-Pushing a tag does **not** upload the Rust crate. If you only tag and push, PyPI will update but crates.io and docs.rs will not until someone runs `cargo publish`.
+Pushing a `v*` tag publishes both PyPI wheels and the Rust crate, provided the repository has a valid `CARGO_REGISTRY_TOKEN` secret. docs.rs builds after the crate reaches crates.io.
 
 ### Rust crate
 
 - bump `version` in `Cargo.toml`
 - run `cargo check` or `cargo build` to refresh `Cargo.lock` if needed
-- after the tag is pushed: `cargo publish --dry-run --locked`, then `cargo publish` (requires [crates.io token](https://crates.io/settings/tokens) / `cargo login`)
+- before tagging: optionally run `cargo publish --dry-run --locked`; the tag workflow performs the actual publish with the repository secret
 
 ### Python package
 
@@ -113,16 +120,7 @@ git push origin master
 git push origin v0.1.3
 ```
 
-1. **Publish the Rust crate to crates.io** (manual; not done by CI):
-
-```bash
-cargo publish --dry-run --locked
-cargo publish
-```
-
-`cargo publish` requires a [crates.io API token](https://crates.io/settings/tokens) (`cargo login` once per machine). Tag pushes already run the same dry-run in [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml); the local step confirms your tree before upload.
-
-1. Wait for GitHub Actions (PyPI publish, dry-run, benchmarks) and verify post-release checks below.
+1. Wait for GitHub Actions (PyPI publish, Rust crate publish, benchmarks) and verify post-release checks below.
 
 ## GitHub Actions behavior
 
@@ -140,8 +138,8 @@ cargo publish
 ### Rust crate (crates.io)
 
 - `.github/workflows/crate-publish-dry-run.yml` runs on tags matching `v*` (and on manual dispatch).
-- It runs `cargo publish --dry-run --locked` to validate packaging (README, metadata, excluded files).
-- It does **not** upload to crates.io — a maintainer must run `cargo publish` locally after the tag push (see [Publishing the Rust crate to crates.io](#publishing-the-rust-crate-to-cratesio)).
+- It runs `cargo publish --locked` using the `CARGO_REGISTRY_TOKEN` repository secret.
+- It fails clearly if that secret is missing; rotate the token and re-run the workflow rather than publishing from a different tree.
 
 ### Repository metadata sync
 
@@ -162,14 +160,7 @@ If a release changes the crate description, homepage, keywords, or categories, v
 
 ## Publishing the Rust crate to crates.io
 
-This step is **required** for every release and is **not** automated. Run from the repository root after pushing the release tag (and after CI / the dry-run workflow look green):
-
-```bash
-cargo publish --dry-run --locked
-cargo publish
-```
-
-`cargo publish` requires a [crates.io API token](https://crates.io/settings/tokens) (`cargo login` once per machine). The `--dry-run` step validates the package without uploading; [docs.rs](https://docs.rs/lme-rs) will not build the new version until the crate is on crates.io.
+Publishing is automated for `v*` tags by [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml). The repository must have a valid `CARGO_REGISTRY_TOKEN` Actions secret. Before tagging, maintainers may run `cargo publish --dry-run --locked` locally to validate the package; [docs.rs](https://docs.rs/lme-rs) builds after the workflow publishes the crate.
 
 ## Post-release verification
 
@@ -228,9 +219,9 @@ If the release tag is pushed without validating the Python package locally first
 
 If `Cargo.toml` changes but the metadata sync workflow fails, the GitHub About box can become stale even when the crate metadata is correct. Common cause: expired **`REPO_ADMIN_TOKEN`** (401). Rotate the secret and re-run the workflow.
 
-### Forgotten `cargo publish`
+### Missing crates.io publish
 
-Tagging updates PyPI automatically but **not** crates.io. Symptoms: PyPI and GitHub Release show the new version, but [crates.io/crates/lme-rs](https://crates.io/crates/lme-rs) and docs.rs still list the previous version. Fix: run `cargo publish` from the tagged commit.
+If PyPI/GitHub Release show the new version but [crates.io/crates/lme-rs](https://crates.io/crates/lme-rs) does not, inspect the **Publish Rust crate** workflow. The usual cause is a missing or expired `CARGO_REGISTRY_TOKEN` repository secret; fix the secret and re-run the workflow from the tagged commit.
 
 ## Minimal release checklist
 
@@ -242,6 +233,5 @@ Tagging updates PyPI automatically but **not** crates.io. Symptoms: PyPI and Git
 - commit
 - tag (`v*`)
 - push branch and tag
-- **`cargo publish --dry-run --locked` then `cargo publish`** (crates.io — manual; tag push alone is not enough)
-- verify CI, [crate-publish dry-run](.github/workflows/crate-publish-dry-run.yml), PyPI / GitHub Release wheels, [crates.io](https://crates.io/crates/lme-rs), [docs.rs](https://docs.rs/lme-rs), and metadata sync
+- optionally run **`cargo publish --dry-run --locked`** before tagging; verify the [Publish Rust crate workflow](.github/workflows/crate-publish-dry-run.yml), PyPI / GitHub Release wheels, [crates.io](https://crates.io/crates/lme-rs), [docs.rs](https://docs.rs/lme-rs), and metadata sync
 - verify benchmark artifacts if the release includes performance-sensitive changes

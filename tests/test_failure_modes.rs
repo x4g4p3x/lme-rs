@@ -132,22 +132,21 @@ fn lm_df_rank_deficient_fixed_effects_returns_error() {
 }
 
 #[test]
-fn lmer_rank_deficient_fixed_effects_currently_panics() {
-    // `math::LmmData::evaluate` uses `.expect` on the downdated Cholesky; collinear fixed columns
-    // are not turned into a structured error yet.
+fn lmer_rank_deficient_fixed_effects_does_not_panic() {
     let outcome = std::panic::catch_unwind(|| {
         let df = df!(
             "y" => &[1.0_f64, 2.0, 3.0],
             "x" => &[1.0_f64, 2.0, 3.0],
             "z" => &[1.0_f64, 2.0, 3.0],
-            "subj" => &["s1", "s2", "s3"],
+            "g" => &["s1", "s2", "s3"],
         )
         .unwrap();
-        let _ = lmer("y ~ x + z + (1 | subj)", &df, true);
+        lmer("y ~ x + z + (1 | g)", &df, true)
     });
+    let result = outcome.expect("rank-deficient fixed effects must not panic");
     assert!(
-        outcome.is_err(),
-        "expected panic from singular downdated X'WX until a Result path exists"
+        result.is_ok(),
+        "rank-deficient fixed effects must not panic or fail unexpectedly"
     );
 }
 

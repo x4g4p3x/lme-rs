@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-07-10
+
 ### Added
 
 - **Parallel parametric simulation** — [`simulate_with`](src/lib.rs) / [`simulate_batched`](src/lib.rs) with `n_jobs` and optional `seed` ([`src/simulate.rs`](src/simulate.rs)); Python `simulate(n_jobs=..., seed=...)` and `simulate_batches` iterator. Draws from fixed fitted means only (not full `bootMer` refit loop).
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Release compliance** — bundled third-party notices, dataset provenance, GPL/LGPL/Intel/Apache/OpenBLAS license texts, and relinking instructions. `task legal` validates the locked Rust dependency graph and fixture records; release wheels include the material under `*.dist-info/licenses/`. Tag releases publish the Rust crate through the credential-gated crates.io workflow.
 - **Random-slopes LMM throughput (`sleepstudy_reml`)** — single-factor models with `k > 1` (e.g. `(Days | Subject)`) use a **block-diagonal ΛᵀZᵀZΛ fast path** in [`src/math.rs`](src/math.rs) (`SingleFactorSlopesCache`): per-group `k × k` blocks from `ZᵀZ`, reused sparse LDL on the assembled `q × q` system, and **deviance-only** evaluations during θ search (no full profile solve per Nelder–Mead step). Golden parity unchanged. Fair harness on Windows AMD64: cold `lmer()` **~0.65 ms** vs Julia **~0.81 ms** (**~0.8×**); `fit_prepared` **~0.74×** Julia (was **~3.5×** on the [2026-07-06 reference](benchmarks/fair-rust-julia-reference-2026-07-06.json)). Reference: [benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json); documented in [BENCHMARKS.md § 2026-07-09 random slopes](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes) and [OPTIMIZATION.md](OPTIMIZATION.md).
 - **`confint()`** on [`LmeFit`](src/lib.rs) uses **t** critical values with Kenward–Roger or Satterthwaite denominator df when those approximations are stored on the fit; otherwise the normal approximation applies.
 - Fair-harness **axis (3) cold-fit target** tightened from **2×** to **1.5×** Julia median on `cold_fit` (default `--target-ratio 1.5` in [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py)); synthetic tier-A medians are now ~1.0–1.5×. See [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md).

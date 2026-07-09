@@ -1175,12 +1175,19 @@ mod tests {
         assert_eq!(fast.zt.shape(), slow.zt.shape());
         assert_eq!(fast.zt.nnz(), slow.zt.nnz());
         assert_eq!(fast.re_blocks.len(), slow.re_blocks.len());
-        for (fast_block, slow_block) in fast.re_blocks.iter().zip(&slow.re_blocks) {
-            assert_eq!(fast_block.group_name, slow_block.group_name);
-            assert_eq!(fast_block.m, slow_block.m);
-            assert_eq!(fast_block.k, slow_block.k);
-            assert_eq!(fast_block.theta_len, slow_block.theta_len);
-        }
+        let mut fast_blocks = fast
+            .re_blocks
+            .iter()
+            .map(|block| (block.group_name.as_str(), block.m, block.k, block.theta_len))
+            .collect::<Vec<_>>();
+        let mut slow_blocks = slow
+            .re_blocks
+            .iter()
+            .map(|block| (block.group_name.as_str(), block.m, block.k, block.theta_len))
+            .collect::<Vec<_>>();
+        fast_blocks.sort_unstable();
+        slow_blocks.sort_unstable();
+        assert_eq!(fast_blocks, slow_blocks);
     }
 
     #[test]

@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "policy": "Third-party fixtures remain separate test assets; their listed licenses do not relicense lme-rs source code.",
+  "fixtures": [
+    {
+      "paths": [
+        "tests/data/cbpp_binary.csv",
+        "tests/data/cbpp_binary_weighted.csv",
+        "tests/data/dyestuff.csv",
+        "tests/data/grouseticks.csv",
+        "tests/data/pastes.csv",
+        "tests/data/penicillin.csv",
+        "tests/data/sleepstudy.csv"
+      ],
+      "origin": "lme4 R package datasets (exports or format-preserving derivatives)",
+      "upstream": "https://cran.r-project.org/package=lme4",
+      "version": "1.1.38",
+      "license": "GPL-2.0-or-later",
+      "license_text": "LICENSES/GPL-2.0-or-later.txt"
+    },
+    {
+      "paths": ["tests/data/orange.csv"],
+      "origin": "R datasets package: Orange",
+      "upstream": "https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/Orange.html",
+      "license": "GPL-2.0-or-later",
+      "license_text": "LICENSES/GPL-2.0-or-later.txt"
+    },
+    {
+      "paths": [
+        "tests/data/ssasymp_synthetic.csv",
+        "tests/data/ssgompertz_synthetic.csv",
+        "tests/data/ssmicmen_synthetic.csv",
+        "tests/data/sspower_synthetic.csv"
+      ],
+      "origin": "Project-generated synthetic data",
+      "generator": "tests/generate_nlmm_fixtures.R",
+      "license": "MIT"
+    }
+  ]
+}

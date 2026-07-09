@@ -180,6 +180,11 @@ def repo_metadata() -> None:
     repo_metadata_verify()
 
 
+def legal_compliance() -> None:
+    """Validate fixture provenance and third-party license records."""
+    run([sys.executable, "scripts/ci/check_legal_compliance.py"])
+
+
 def benchmarks_smoke() -> None:
     """Fast Rust-only cross-language benchmark smoke (release examples)."""
     run(["cargo", "build", "--release", "--locked", "--examples"])
@@ -301,10 +306,11 @@ def preflight() -> None:
     lint()
     cargo_check()
     cargo_audit()
+    legal_compliance()
     repo_metadata_dry_run()
     repo_metadata_verify()
     print(
-        "lme_ci.py preflight: OK (lint + check + cargo audit + repo metadata). "
+        "lme_ci.py preflight: OK (lint + check + cargo audit + legal + repo metadata). "
         "Run `task ci` before large changes; macOS aarch64 BLAS is CI-only.",
         flush=True,
     )
@@ -551,6 +557,7 @@ def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool 
         python_bindings(reuse_venv=reuse_venv, skip_wheel=skip_wheel)
     lint()
     cargo_check()
+    legal_compliance()
     cargo_doctest()
     cargo_doc()
     print(
@@ -603,9 +610,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("audit", help="cargo audit (root + python/) + pip-audit").set_defaults(
         fn=lambda _: audit()
     )
+    sub.add_parser("legal", help="validate third-party notices and provenance").set_defaults(
+        fn=lambda _: legal_compliance()
+    )
     sub.add_parser(
         "preflight",
-        help="Pre-push gate: lint + cargo check --all-targets + cargo audit",
+        help="Pre-push gate: lint + cargo check --all-targets + cargo audit + legal",
     ).set_defaults(fn=lambda _: preflight())
     sub.add_parser(
         "repo-metadata",

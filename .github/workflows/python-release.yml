@@ -21,6 +21,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate legal notices
+        run: python scripts/ci/check_legal_compliance.py
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -37,6 +40,11 @@ jobs:
         env:
           CFLAGS: "-std=gnu99"
           CFLAGS_aarch64_unknown_linux_gnu: "-std=gnu99"
+      - name: Add third-party notices to wheels
+        run: |
+          for wheel in dist/*.whl; do
+            python scripts/ci/package_wheel_notices.py "$wheel"
+          done
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -54,12 +62,17 @@ jobs:
         with:
           python-version: '3.10'
           architecture: ${{ matrix.target }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate legal notices
+        run: python scripts/ci/check_legal_compliance.py
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --manifest-path python/Cargo.toml
           sccache: 'true'
+      - name: Add third-party notices to wheels
+        run: Get-ChildItem dist/*.whl | ForEach-Object { python scripts/ci/package_wheel_notices.py $_.FullName }
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -76,6 +89,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate legal notices
+        run: python scripts/ci/check_legal_compliance.py
       - name: Set OpenBLAS target (Apple Silicon wheel)
         if: matrix.target == 'aarch64'
         run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
@@ -85,6 +101,11 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist --manifest-path python/Cargo.toml
           sccache: 'true'
+      - name: Add third-party notices to wheels
+        run: |
+          for wheel in dist/*.whl; do
+            python scripts/ci/package_wheel_notices.py "$wheel"
+          done
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -95,6 +116,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate legal notices
+        run: python scripts/ci/check_legal_compliance.py
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:

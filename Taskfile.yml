@@ -26,7 +26,7 @@ tasks:
       - '{{.RUN}} lint'
 
   preflight:
-    desc: Pre-push gate (lint + cargo check --all-targets + cargo audit)
+    desc: Pre-push gate (lint + cargo check --all-targets + cargo audit + legal)
     cmds:
       - '{{.RUN}} preflight'
 
@@ -34,6 +34,11 @@ tasks:
     desc: cargo audit (root + python/) and pip-audit
     cmds:
       - '{{.RUN}} audit'
+
+  legal:
+    desc: Validate third-party notices, fixture provenance, and Rust license metadata
+    cmds:
+      - '{{.RUN}} legal'
 
   repo-metadata:
     desc: Dry-run GitHub metadata sync; verify REPO_ADMIN_TOKEN if set

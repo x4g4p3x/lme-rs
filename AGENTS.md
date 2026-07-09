@@ -84,7 +84,8 @@ Runs **`preflight`** in parallel with itself as one command:
 1. `lint` — Rust fmt/clippy + Ruff
 2. `cargo check --workspace --all-targets --locked` — compile graph including tests/examples
 3. `cargo audit` — root crate + `python/` (same as GHA audit job, without `pip-audit`)
-4. `repo-metadata` — dry-run from `Cargo.toml`; **`--verify-token`** when `REPO_ADMIN_TOKEN` is in the environment
+4. `legal` — fixture provenance plus third-party license metadata and bundled notices
+5. `repo-metadata` — dry-run from `Cargo.toml`; **`--verify-token`** when `REPO_ADMIN_TOKEN` is in the environment
 
 Install `cargo-audit` once: `cargo install cargo-audit` (pinned in GHA as 0.22.1).
 
@@ -114,6 +115,7 @@ task lint
 task test:fast   # unit tests only (~seconds after compile)
 task preflight   # same as pre-push hook (without pip-audit)
 task audit       # full security audit incl. pip-audit
+task legal       # provenance and third-party license records
 ```
 
 Full integration tests: `task test` or `cargo test --locked` (uses `[profile.test] opt-level = 2` in [`Cargo.toml`](Cargo.toml)).
@@ -170,6 +172,7 @@ python scripts/ci/lme_ci.py ci --reuse-venv --skip-wheel-reinstall
 | `lint` | Rust + Python static checks |
 | `preflight` | Pre-push: lint + check + cargo audit + repo metadata |
 | `audit` | cargo audit + pip-audit (GHA mirror) |
+| `legal` | Third-party notices, fixture provenance, and Rust license metadata |
 | `repo-metadata` | Dry-run GitHub About sync; verify token if `REPO_ADMIN_TOKEN` set |
 | `benchmarks-smoke` | Release examples + one Rust cross-language benchmark |
 | `benchmarks-preflight` | `benchmarks-smoke` + optional `sleepstudy.R` when R/lme4 present |

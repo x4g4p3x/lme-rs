@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "exceptions": [
+    {
+      "name": "intel-mkl-src",
+      "version": "0.8.1",
+      "reason": "The crate metadata omits SPDX. Its wrapper code is MIT; the statically bundled Intel MKL runtime is covered by the Intel Simplified Software License bundled in LICENSES/.",
+      "notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "name": "polars-arrow-format",
+      "version": "0.1.0",
+      "reason": "The crate metadata uses license-file rather than SPDX. Its packaged LICENSE is Apache-2.0; this was verified for the locked version and is bundled in LICENSES/Apache-2.0.txt.",
+      "notice": "THIRD_PARTY_NOTICES.md"
+    }
+  ]
+}

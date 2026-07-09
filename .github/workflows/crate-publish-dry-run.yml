@@ -1,6 +1,6 @@
-name: Crate publish (dry-run)
+name: Publish Rust crate
 
-# Verifies `cargo publish` packaging (metadata, README, excluded files) without uploading.
+# Publishes only from v* tags; the token is deliberately unavailable to ordinary CI.
 
 on:
   push:
@@ -12,17 +12,21 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-dry-run-${{ github.workflow }}-${{ github.ref }}
+  group: publish-crate-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  dry-run:
-    name: cargo publish --dry-run
+  publish:
+    name: cargo publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Dry-run publish (root crate)
-        run: cargo publish --dry-run --locked
+      - name: Publish root crate
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          test -n "$CARGO_REGISTRY_TOKEN" || { echo "CARGO_REGISTRY_TOKEN repository secret is required" >&2; exit 1; }
+          cargo publish --locked
