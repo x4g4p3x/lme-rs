@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import polars as pl
-
 from lme_python import lmer
 
 SLEEPSTUDY = Path(__file__).resolve().parents[2] / "tests" / "data" / "sleepstudy.csv"

@@ -2,10 +2,9 @@
 
 from pathlib import Path
 
+import lme_python
 import polars as pl
 import pytest
-
-import lme_python
 
 SLEEPSTUDY = Path(__file__).resolve().parents[2] / "tests" / "data" / "sleepstudy.csv"
 
