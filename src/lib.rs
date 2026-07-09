@@ -41,8 +41,11 @@ pub(crate) mod quadrature;
 pub mod robust;
 /// Satterthwaite denominator degrees of freedom approximation.
 pub mod satterthwaite;
+/// Group-structure-preserving cross-validation for LMMs.
+pub mod cv;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
+pub use cv::{cv_grouped, refit_lmer, CvFoldMetric, CvGroupedResult};
 pub use anova_contrasts::AnovaType;
 pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
@@ -384,8 +387,9 @@ impl LmeFit {
 
     /// Compute Wald confidence intervals for fixed-effect coefficients.
     ///
-    /// Uses the normal approximation: β̂ ± z_{α/2} × SE(β̂).
-    /// Default level is 0.95 (95% CI).
+    /// Uses t critical values with Kenward–Roger or Satterthwaite denominator df when
+    /// those approximations are stored on the fit (via [`with_kenward_roger`](Self::with_kenward_roger)
+    /// or [`with_satterthwaite`](Self::with_satterthwaite)); otherwise the normal approximation.
     ///
     /// # Arguments
     /// * `level` - Confidence level (e.g., 0.95 for 95% CI). Must be in (0, 1).
@@ -404,17 +408,30 @@ impl LmeFit {
         })?;
 
         let alpha = 1.0 - level;
-        use statrs::distribution::{ContinuousCDF, Normal};
-        let norm = Normal::new(0.0, 1.0).unwrap();
-        let z = norm.inverse_cdf(1.0 - alpha / 2.0);
+        let tail = 1.0 - alpha / 2.0;
+        use statrs::distribution::{ContinuousCDF, Normal, StudentsT};
 
         let p = self.coefficients.len();
         let mut lower = ndarray::Array1::<f64>::zeros(p);
         let mut upper = ndarray::Array1::<f64>::zeros(p);
 
+        let dfs = self
+            .kenward_roger
+            .as_ref()
+            .map(|kr| kr.dfs.clone())
+            .or_else(|| self.satterthwaite.as_ref().map(|st| st.dfs.clone()));
+
         for i in 0..p {
-            lower[i] = self.coefficients[i] - z * se[i];
-            upper[i] = self.coefficients[i] + z * se[i];
+            let margin = if let Some(ref df_vec) = dfs {
+                let df = df_vec[i].max(1.0);
+                let t = StudentsT::new(0.0, 1.0, df).unwrap();
+                t.inverse_cdf(tail) * se[i]
+            } else {
+                let norm = Normal::new(0.0, 1.0).unwrap();
+                norm.inverse_cdf(tail) * se[i]
+            };
+            lower[i] = self.coefficients[i] - margin;
+            upper[i] = self.coefficients[i] + margin;
         }
 
         let names = self
@@ -986,6 +1003,7 @@ pub fn lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<LmeFit> {
 ///
 /// Build once with [`prepare_lmer`] or [`prepare_lmer_weighted`], then call [`fit_prepared`]
 /// for each REML/ML fit (amortizes formula parse, design-matrix construction, and LDL setup).
+#[derive(Clone)]
 pub struct LmerPrepared {
     lmm: Arc<math::LmmData>,
     matrices: model_matrix::DesignMatrices,

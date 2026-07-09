@@ -77,6 +77,30 @@ fn test_confint_99_wider_than_95() {
 }
 
 #[test]
+fn test_confint_uses_satterthwaite_df_when_available() {
+    let df = load_sleepstudy();
+    let mut fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+    let ci_z = fit.confint(0.95).unwrap();
+
+    fit.with_satterthwaite(&df).unwrap();
+    let ci_t = fit.confint(0.95).unwrap();
+
+    // Satterthwaite dfs are finite and smaller than ∞, so t intervals should differ from z.
+    for i in 0..ci_z.lower.len() {
+        assert!(
+            (ci_t.lower[i] - ci_z.lower[i]).abs() > 1e-6
+                || (ci_t.upper[i] - ci_z.upper[i]).abs() > 1e-6,
+            "Satterthwaite confint should differ from normal confint for {}",
+            ci_z.names[i]
+        );
+        assert!(
+            fit.coefficients[i] >= ci_t.lower[i] && fit.coefficients[i] <= ci_t.upper[i],
+            "Beta should remain inside Satterthwaite CI"
+        );
+    }
+}
+
+#[test]
 fn test_confint_invalid_level() {
     let df = load_sleepstudy();
     let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();

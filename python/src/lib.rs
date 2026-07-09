@@ -6,7 +6,7 @@ use std::sync::Arc;
 use lme_rs::contrast::contrast_matrix;
 use lme_rs::family::Family;
 use lme_rs::nlmm::{parse_nlmer_custom_formula, NlmmMeanEval, NlmmStart};
-use lme_rs::{AnovaType, DdfMethod, LmeFit};
+use lme_rs::{AnovaType, DdfMethod, LmeFit, LmerPrepared};
 use ndarray::Array2;
 
 #[pyclass]
@@ -14,8 +14,73 @@ pub struct PyLmeFit {
     inner: LmeFit,
 }
 
-type RanefRow = (String, String, String, f64);
 type VarCorrRow = (String, String, String, f64, f64);
+
+/// Cached design matrices for repeated LMM fits (`prepare_lmer`).
+#[pyclass]
+#[derive(Clone)]
+pub struct PyLmerPrepared {
+    inner: LmerPrepared,
+}
+
+#[pymethods]
+impl PyLmerPrepared {
+    #[getter]
+    fn blocked_kernel(&self) -> bool {
+        self.inner.blocked_kernel
+    }
+
+    #[getter]
+    fn blocked_kernel_detail(&self) -> &'static str {
+        self.inner.blocked_kernel_detail
+    }
+}
+
+/// Per-fold metrics from grouped cross-validation.
+#[pyclass]
+#[derive(Clone)]
+pub struct PyCvFoldMetric {
+    #[pyo3(get)]
+    pub fold: usize,
+    #[pyo3(get)]
+    pub n_train_groups: usize,
+    #[pyo3(get)]
+    pub n_test_groups: usize,
+    #[pyo3(get)]
+    pub n_train_obs: usize,
+    #[pyo3(get)]
+    pub n_test_obs: usize,
+    #[pyo3(get)]
+    pub rmse: f64,
+    #[pyo3(get)]
+    pub mae: f64,
+    #[pyo3(get)]
+    pub converged: bool,
+}
+
+/// Out-of-fold predictions and metrics from grouped cross-validation.
+#[pyclass]
+#[derive(Clone)]
+pub struct PyCvGroupedResult {
+    #[pyo3(get)]
+    pub oof_predictions: Vec<f64>,
+    #[pyo3(get)]
+    pub test_fold: Vec<i32>,
+    #[pyo3(get)]
+    pub rmse: f64,
+    #[pyo3(get)]
+    pub mae: f64,
+    #[pyo3(get)]
+    pub folds: Vec<PyCvFoldMetric>,
+    #[pyo3(get)]
+    pub all_converged: bool,
+    #[pyo3(get)]
+    pub n_splits: usize,
+    #[pyo3(get)]
+    pub group_col: String,
+}
+
+type RanefRow = (String, String, String, f64);
 
 /// Wald confidence intervals (`LmeFit::confint`).
 #[pyclass]
@@ -1188,6 +1253,82 @@ pub fn lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml:
     }
 }
 
+/// Prepare an LMM for repeated fits on the same formula and data.
+#[pyfunction]
+#[pyo3(signature = (formula, data))]
+pub fn prepare_lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>) -> PyResult<PyLmerPrepared> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    match lme_rs::prepare_lmer(formula, &df) {
+        Ok(prepared) => Ok(PyLmerPrepared { inner: prepared }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("prepare_lmer failed: {e}"))),
+    }
+}
+
+/// Fit a prepared LMM (amortized hot path after [`prepare_lmer`]).
+#[pyfunction]
+#[pyo3(signature = (prepared, reml=true))]
+pub fn fit_prepared(prepared: &PyLmerPrepared, reml: bool) -> PyResult<PyLmeFit> {
+    match lme_rs::fit_prepared(&prepared.inner, reml) {
+        Ok(fit) => Ok(PyLmeFit { inner: fit }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("fit_prepared failed: {e}"))),
+    }
+}
+
+/// Refit an LMM on the same formula and data (prepare + fit).
+#[pyfunction]
+#[pyo3(signature = (formula, data, reml=true))]
+pub fn refit_lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml: bool) -> PyResult<PyLmeFit> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    match lme_rs::refit_lmer(formula, &df, reml) {
+        Ok(fit) => Ok(PyLmeFit { inner: fit }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("refit_lmer failed: {e}"))),
+    }
+}
+
+/// Group-structure-preserving k-fold cross-validation for LMMs.
+#[pyfunction]
+#[pyo3(signature = (formula, data, group, n_splits=5, reml=true, seed=None))]
+pub fn cv_grouped<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    group: &str,
+    n_splits: usize,
+    reml: bool,
+    seed: Option<u64>,
+) -> PyResult<PyCvGroupedResult> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    match lme_rs::cv_grouped(formula, &df, group, n_splits, reml, seed) {
+        Ok(res) => Ok(PyCvGroupedResult {
+            oof_predictions: res.oof_predictions.to_vec(),
+            test_fold: res.test_fold.to_vec(),
+            rmse: res.rmse,
+            mae: res.mae,
+            folds: res
+                .folds
+                .into_iter()
+                .map(|f| PyCvFoldMetric {
+                    fold: f.fold,
+                    n_train_groups: f.n_train_groups,
+                    n_test_groups: f.n_test_groups,
+                    n_train_obs: f.n_train_obs,
+                    n_test_obs: f.n_test_obs,
+                    rmse: f.rmse,
+                    mae: f.mae,
+                    converged: f.converged,
+                })
+                .collect(),
+            all_converged: res.all_converged,
+            n_splits: res.n_splits,
+            group_col: res.group_col,
+        }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("cv_grouped failed: {e}"))),
+    }
+}
+
 /// Fit a fixed-effects-only linear model from a Wilkinson formula string.
 ///
 /// Parameters
@@ -1448,6 +1589,9 @@ pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<PyLikelihoodRatioAn
 #[pymodule]
 fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLmeFit>()?;
+    m.add_class::<PyLmerPrepared>()?;
+    m.add_class::<PyCvFoldMetric>()?;
+    m.add_class::<PyCvGroupedResult>()?;
     m.add_class::<PyConfintResult>()?;
     m.add_class::<PySimulateResult>()?;
     m.add_class::<PyFixedEffectsAnova>()?;
@@ -1457,6 +1601,10 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lm, m)?)?;
     m.add_function(wrap_pyfunction!(lm_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(lmer, m)?)?;
+    m.add_function(wrap_pyfunction!(prepare_lmer, m)?)?;
+    m.add_function(wrap_pyfunction!(fit_prepared, m)?)?;
+    m.add_function(wrap_pyfunction!(refit_lmer, m)?)?;
+    m.add_function(wrap_pyfunction!(cv_grouped, m)?)?;
     m.add_function(wrap_pyfunction!(lmer_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
     m.add_function(wrap_pyfunction!(glmer_weighted, m)?)?;
@@ -1469,6 +1617,9 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "__all__",
         [
             "PyLmeFit",
+            "PyLmerPrepared",
+            "PyCvFoldMetric",
+            "PyCvGroupedResult",
             "PyConfintResult",
             "PySimulateResult",
             "PyFixedEffectsAnova",
@@ -1478,6 +1629,10 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "lm",
             "lm_matrix",
             "lmer",
+            "prepare_lmer",
+            "fit_prepared",
+            "refit_lmer",
+            "cv_grouped",
             "lmer_weighted",
             "glmer",
             "glmer_weighted",

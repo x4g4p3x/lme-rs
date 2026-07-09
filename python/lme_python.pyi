@@ -127,9 +127,44 @@ class PyLmeFit:
     def with_satterthwaite(self, data: DataFrameInput) -> None: ...
     def with_kenward_roger(self, data: DataFrameInput) -> None: ...
 
+class PyLmerPrepared:
+    blocked_kernel: bool
+    blocked_kernel_detail: str
+
+class PyCvFoldMetric:
+    fold: int
+    n_train_groups: int
+    n_test_groups: int
+    n_train_obs: int
+    n_test_obs: int
+    rmse: float
+    mae: float
+    converged: bool
+
+class PyCvGroupedResult:
+    oof_predictions: list[float]
+    test_fold: list[int]
+    rmse: float
+    mae: float
+    folds: list[PyCvFoldMetric]
+    all_converged: bool
+    n_splits: int
+    group_col: str
+
 def lm(formula: str, data: DataFrameInput) -> PyLmeFit: ...
 def lm_matrix(y: list[float], x: list[list[float]]) -> PyLmeFit: ...
 def lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
+def prepare_lmer(formula: str, data: DataFrameInput) -> PyLmerPrepared: ...
+def fit_prepared(prepared: PyLmerPrepared, reml: bool = True) -> PyLmeFit: ...
+def refit_lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
+def cv_grouped(
+    formula: str,
+    data: DataFrameInput,
+    group: str,
+    n_splits: int = 5,
+    reml: bool = True,
+    seed: Optional[int] = None,
+) -> PyCvGroupedResult: ...
 def lmer_weighted(
     formula: str,
     data: DataFrameInput,

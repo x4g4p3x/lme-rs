@@ -10,6 +10,7 @@ This guide covers the practical Rust workflow for fitting linear and generalized
 - [Predictions](#predictions)
 - [Inference and Diagnostics](#inference-and-diagnostics)
 - [Model Comparison](#model-comparison)
+- [Repeated Fits and Cross-Validation](#repeated-fits-and-cross-validation)
 - [Limitations and Compatibility Notes](#limitations-and-compatibility-notes)
 - [Troubleshooting](#troubleshooting)
 - [Performance Notes](#performance-notes)
@@ -320,9 +321,11 @@ let mu_cond = poisson_fit.predict_conditional_response(&newdata, true)?;
 
 ### Confidence intervals
 
-`confint()` returns Wald intervals for the fixed effects.
+`confint()` returns Wald intervals for the fixed effects. When Kenward–Roger or Satterthwaite denominator degrees of freedom are stored on the fit (via `with_kenward_roger()` or `with_satterthwaite()`), intervals use **t** critical values with those dfs; otherwise the normal approximation is used.
 
 ```rust
+let mut fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
+fit.with_satterthwaite(&df)?;
 let ci = fit.confint(0.95)?;
 println!("{}", ci);
 ```
@@ -401,6 +404,50 @@ let lrt = anova(&fit0, &fit1)?;
 println!("{}", lrt);
 ```
 
+## Repeated Fits and Cross-Validation
+
+### Amortized fitting (`prepare_lmer` / `fit_prepared`)
+
+When you fit the **same formula and data** many times (grid search over REML vs ML, hyperparameter tuning, bootstrap replicates on fixed data), build the design matrices once and reuse them:
+
+```rust
+use lme_rs::{fit_prepared, prepare_lmer};
+
+let prepared = prepare_lmer("Reaction ~ Days + (1 | Subject)", &df)?;
+let fit_reml = fit_prepared(&prepared, true)?;
+let fit_ml = fit_prepared(&prepared, false)?;
+```
+
+[`LmerPrepared`](src/lib.rs) caches `LmmData`, the fixed/random design matrices, and blocked-kernel metadata. Hot `fit_prepared` wall time on fair tier-A crossed fixtures matches or beats MixedModels.jl; see [OPTIMIZATION.md](OPTIMIZATION.md).
+
+[`refit_lmer`](src/cv.rs) is a convenience wrapper that calls `prepare_lmer` followed by `fit_prepared` when you do not need to hold the prepared object.
+
+### Group-structure-preserving CV (`cv_grouped`)
+
+[`cv_grouped`](src/cv.rs) performs k-fold cross-validation that **splits by grouping units** (e.g. all rows for one `Subject` stay in train or test). This avoids the common mistake of row-wise k-fold on clustered data, which leaks information across folds.
+
+```rust
+use lme_rs::cv_grouped;
+
+let cv = cv_grouped(
+    "Reaction ~ Days + (1 | Subject)",
+    &df,
+    "Subject",   // column whose levels define folds
+    5,           // n_splits (must be ≤ number of unique groups)
+    true,        // reml
+    Some(42),    // optional seed for reproducible group shuffling
+)?;
+
+println!("OOF RMSE: {:.2}", cv.rmse);
+// cv.oof_predictions — one population-level prediction per observation
+// cv.test_fold       — which fold each row was held out in (0 .. n_splits-1)
+// cv.folds           — per-fold RMSE, MAE, convergence, group/obs counts
+```
+
+**Prediction semantics on held-out groups:** test subjects were not in the training fold, so each out-of-fold prediction uses population-level fixed-effects prediction (`LmeFit::predict`), i.e. no subject-specific random effect.
+
+**Scope:** LMMs only (not GLMM/NLMM). Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`. Each training fold is fit via `prepare_lmer` + `fit_prepared`.
+
 ## Limitations and Compatibility Notes
 
 ### Numerical comparisons with R
@@ -423,7 +470,7 @@ Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type
 
 ### Python bindings
 
-The Python package is intentionally smaller than the Rust crate. If you need the full inference surface, use the Rust API directly.
+The Python package mirrors most of the Rust formula API, including `prepare_lmer`, `fit_prepared`, `refit_lmer`, and `cv_grouped`. Matrix-only `lm(y, x)` without a DataFrame remains Rust-only. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
 
 ## Troubleshooting
 
@@ -471,6 +518,10 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | :------- | :---------- |
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
+| `prepare_lmer(formula, data)` | cache design matrices for repeated fits |
+| `fit_prepared(prepared, reml)` | fit from a prior `prepare_lmer` call |
+| `refit_lmer(formula, data, reml)` | `prepare_lmer` + `fit_prepared` convenience |
+| `cv_grouped(formula, data, group_col, n_splits, reml, seed)` | group-preserving k-fold CV (LMM) |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
@@ -488,7 +539,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `predict_conditional(newdata, allow_new_levels)` | prediction with stored random effects |
 | `predict_response(newdata)` | GLMM response-scale prediction |
 | `predict_conditional_response(newdata, allow_new_levels)` | conditional response-scale GLMM prediction |
-| `confint(level)` | Wald confidence intervals |
+| `confint(level)` | Wald CIs; uses t with KR/Satterthwaite dfs when stored on fit |
 | `simulate(nsim)` | parametric simulation |
 | `with_satterthwaite(data)` | Satterthwaite degrees of freedom and p-values |
 | `with_kenward_roger(data)` | Kenward-Roger denominator degrees of freedom and p-values |

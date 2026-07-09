@@ -4,7 +4,7 @@ This document answers **“can I use this for my problem?”** — a different q
 
 For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md). That file tracks **coverage** (what is implemented). This file tracks **usability** (what is safe and practical to rely on).
 
-**Last assessed:** 2026-07-09 · `lme-rs` / `lme_python` **0.1.9**
+**Last assessed:** 2026-07-09 · `lme-rs` / `lme_python` **0.1.9** (CV/refit APIs added; bump version on next release)
 
 ---
 
@@ -88,6 +88,7 @@ Statuses are **practical**, not formal support tiers.
 | REML / ML, population & conditional predict | ✓ | ✓ | |
 | Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts | ✓ | ✓ | Scoped to tested LMM shapes; see golden `pastes_cask` |
 | Nested model LRT (`anova`) | ✓ | ✓ | |
+| Group-preserving CV (`cv_grouped`) | ✓ | ✓ | LMM only; population OOF predictions on held-out groups |
 | GLMM: binomial / Poisson / gamma (canonical links) | ✓ | ✓ | Coefficients & variance params; Laplace default |
 | `confint`, `simulate`, robust SE | ✓ | ✓ | LMM-focused; not every GLMM edge case |
 
@@ -141,7 +142,7 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 | API breadth | Full formula + matrix paths | Formula mirror + `lm_matrix`; matrix `lm(y, x)` Rust-only |
 | Data | `polars::DataFrame` | Polars / pandas / PyArrow `Table` (normalized to Polars IPC) |
 | Maturity | Same engine | Same engine; stubs in [`python/lme_python.pyi`](python/lme_python.pyi) |
-| When to prefer | Native pipelines, amortized `fit_prepared`, embedding in Rust services | Notebooks, Polars-centric Python stacks, quick parity with Rust |
+| When to prefer | Native pipelines, amortized `fit_prepared`, `cv_grouped`, embedding in Rust services | Notebooks, Polars-centric Python stacks; `prepare_lmer` / `cv_grouped` now exposed |
 
 ---
 
@@ -153,7 +154,7 @@ There is no sharp line between “analysis” and “throughput” use — only 
 |:-------------|:----------------|:----------------------------------------|
 | **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
 | **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
-| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Prefer `prepare_lmer` + `fit_prepared`; see [OPTIMIZATION.md](OPTIMIZATION.md) |
+| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, or `cv_grouped` for grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation) |
 | **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; crossed cold `lmer()` may still be yellow/red |
 
 **Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.

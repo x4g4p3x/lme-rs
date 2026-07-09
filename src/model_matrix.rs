@@ -24,6 +24,7 @@ pub struct ReBlock {
 }
 
 /// Container encompassing the finalized design matrices and mapping arrays extracted from input DataFrames.
+#[derive(Clone)]
 pub struct DesignMatrices {
     /// The Wilkinson formula string that generated the matrices.
     pub formula: String,

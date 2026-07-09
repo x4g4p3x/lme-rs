@@ -42,6 +42,10 @@ Top-level functions:
 - `lme_python.lm(formula, data)`
 - `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
 - `lme_python.lmer(formula, data, reml=True)`
+- `lme_python.prepare_lmer(formula, data)` → `PyLmerPrepared`
+- `lme_python.fit_prepared(prepared, reml=True)`
+- `lme_python.refit_lmer(formula, data, reml=True)`
+- `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None)` → `PyCvGroupedResult`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
@@ -51,7 +55,7 @@ Top-level functions:
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
 
-Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`.
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`.
 
 Available `PyLmeFit` methods:
 
@@ -60,7 +64,7 @@ Available `PyLmeFit` methods:
 - `predict_conditional(newdata, allow_new_levels=False)`
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
-- `confint(level=0.95)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`)
+- `confint(level=0.95)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit
 - `simulate(nsim)` → `PySimulateResult` (use `.simulations` for the draw list)
 - `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
 - `with_satterthwaite(data)`  # denominator df and p-values
@@ -291,6 +295,41 @@ print(model.std_errors)
 print(model.confint(level=0.95))
 ```
 
+Call `with_satterthwaite(data)` or `with_kenward_roger(data)` before `confint()` to use t-based intervals with the corresponding denominator degrees of freedom.
+
+## Repeated fits and cross-validation
+
+### Amortized fitting
+
+When fitting the same formula and data repeatedly (REML vs ML, grid search, bootstrap on fixed data), prepare once and refit:
+
+```python
+prep = lme_python.prepare_lmer("Reaction ~ Days + (1 | Subject)", data=df)
+fit_reml = lme_python.fit_prepared(prep, reml=True)
+fit_ml = lme_python.fit_prepared(prep, reml=False)
+```
+
+`refit_lmer(formula, data, reml=True)` combines prepare + fit when you do not need to hold the prepared object.
+
+### Group-structure-preserving CV
+
+`cv_grouped` performs k-fold cross-validation that keeps grouping units intact (e.g. all rows for one `Subject` stay in train or test):
+
+```python
+cv = lme_python.cv_grouped(
+    "Reaction ~ Days + (1 | Subject)",
+    data=df,
+    group="Subject",
+    n_splits=5,
+    reml=True,
+    seed=42,  # optional, for reproducible group shuffling
+)
+print(cv.rmse, cv.mae, cv.all_converged)
+# cv.oof_predictions, cv.test_fold, cv.folds
+```
+
+Held-out groups are predicted with population-level fixed effects only (no subject-specific random effect). **LMM only**; `n_splits` must be between 2 and the number of unique groups. See [GUIDE.md § Repeated fits and cross-validation](../GUIDE.md#repeated-fits-and-cross-validation).
+
 ## Data expectations
 
 Formula entry points accept **Polars**, **pandas**, or **PyArrow** tabular data. Internally everything is converted to a Polars `DataFrame` via IPC before the Rust engine runs — Polars remains the canonical representation.
@@ -333,10 +372,10 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 
 ## Current limitations
 
-- The Python binding is not yet a full mirror of the Rust crate.
+- Matrix-only `lm(y, x)` without a DataFrame is Rust-only.
+- `cv_grouped` supports LMMs only (not GLMM/NLMM).
 - Some advanced inference helpers are still not exposed in the Python binding (for example, detailed simulation helpers and some additional model comparison wrappers).
 - `glmer()` currently exposes only the string family selector described above.
-- The most reliable path for advanced inference remains the Rust API.
 
 ## Troubleshooting
 
