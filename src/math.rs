@@ -166,7 +166,8 @@ impl LmmData {
             None => {
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
                 let zt_z = if intercept_only_re && should_build_zt_z_intercept_fast(&zt) {
-                    build_zt_z_intercept_from_zt(&zt)
+                    build_zt_z_intercept_from_re_blocks(&zt, &re_blocks)
+                        .unwrap_or_else(|| build_zt_z_intercept_from_zt(&zt))
                 } else {
                     (&zt * &zt.transpose_view()).to_csr()
                 };
@@ -1835,6 +1836,68 @@ fn build_zt_z_intercept_from_zt(zt: &CsMat<f64>) -> CsMat<f64> {
     tri.to_csr()
 }
 
+/// Direct ZᵀZ construction for up to two unweighted intercept-only factors.
+///
+/// The fair crossed/nested layouts have exactly one unit-valued row from each
+/// factor per observation. Reconstructing that known layout avoids allocating
+/// one sparse bucket per observation before accumulating Gram entries.
+fn build_zt_z_intercept_from_re_blocks(
+    zt: &CsMat<f64>,
+    re_blocks: &[crate::model_matrix::ReBlock],
+) -> Option<CsMat<f64>> {
+    if !(1..=2).contains(&re_blocks.len()) || re_blocks.iter().any(|block| block.k != 1) {
+        return None;
+    }
+    let n = zt.cols();
+    let q = zt.rows();
+    let mut memberships = vec![vec![usize::MAX; n]; re_blocks.len()];
+    let mut offset = 0usize;
+    for (block_idx, block) in re_blocks.iter().enumerate() {
+        for level in 0..block.m {
+            let row = zt.outer_view(offset + level)?;
+            for (obs, &value) in row.iter() {
+                if value != 1.0 || memberships[block_idx][obs] != usize::MAX {
+                    return None;
+                }
+                memberships[block_idx][obs] = level;
+            }
+        }
+        if memberships[block_idx].contains(&usize::MAX) {
+            return None;
+        }
+        offset += block.m;
+    }
+    if offset != q {
+        return None;
+    }
+
+    let mut tri = TriMat::new((q, q));
+    let mut offset = 0usize;
+    for (block_idx, block) in re_blocks.iter().enumerate() {
+        let mut counts = vec![0usize; block.m];
+        for &level in &memberships[block_idx] {
+            counts[level] += 1;
+        }
+        for (level, count) in counts.into_iter().enumerate() {
+            tri.add_triplet(offset + level, offset + level, count as f64);
+        }
+        offset += block.m;
+    }
+    if re_blocks.len() == 2 {
+        let second_offset = re_blocks[0].m;
+        let mut cross = HashMap::<(usize, usize), usize>::new();
+        for (&left, &right) in memberships[0].iter().zip(&memberships[1]) {
+            *cross.entry((left, right)).or_default() += 1;
+        }
+        for ((left, right), count) in cross {
+            let right = second_offset + right;
+            tri.add_triplet(left, right, count as f64);
+            tri.add_triplet(right, left, count as f64);
+        }
+    }
+    Some(tri.to_csr())
+}
+
 /// Build ZᵀZ directly when every observation belongs to one intercept-only row.
 ///
 /// A single grouping factor has this shape; avoiding observation buckets and a
@@ -2137,6 +2200,39 @@ mod tests {
                 "({i},{j}): fast={v_fast} ref={v_ref}"
             );
         }
+    }
+
+    #[test]
+    fn test_zt_z_direct_two_factor_matches_sparse_mul() {
+        let mut tri = TriMat::new((7, 12));
+        for obs in 0..12 {
+            tri.add_triplet(obs % 3, obs, 1.0);
+            tri.add_triplet(3 + (obs % 4), obs, 1.0);
+        }
+        let zt = tri.to_csr();
+        let re_blocks = vec![
+            ReBlock {
+                m: 3,
+                k: 1,
+                theta_len: 1,
+                group_name: "plate".to_string(),
+                effect_names: vec!["(Intercept)".to_string()],
+                group_map: HashMap::new(),
+            },
+            ReBlock {
+                m: 4,
+                k: 1,
+                theta_len: 1,
+                group_name: "sample".to_string(),
+                effect_names: vec!["(Intercept)".to_string()],
+                group_map: HashMap::new(),
+            },
+        ];
+        let fast = build_zt_z_intercept_from_re_blocks(&zt, &re_blocks).expect("direct gram");
+        let slow = (&zt * &zt.transpose_view()).to_csr();
+        assert_eq!(fast.indptr().raw_storage(), slow.indptr().raw_storage());
+        assert_eq!(fast.indices(), slow.indices());
+        assert_eq!(fast.data(), slow.data());
     }
 
     #[test]

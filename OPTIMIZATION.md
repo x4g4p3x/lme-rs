@@ -20,9 +20,10 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
 | `sleepstudy_reml` | **~0.8×** (Rust faster) | `fit_prepared` **~0.60 ms** (Julia ~0.81 ms) |
-| `crossed_20k` | **~1.29×** | `fit_prepared` **~10.2 ms** (Julia ~15.0 ms) |
+| `large_random_slopes_100k` | **~0.83×** (Rust faster) | `fit_prepared` **~45.1 ms** (Julia ~69.5 ms) |
+| `crossed_20k` | **~1.09×** | `fit_prepared` **~10.5 ms** (Julia ~14.3 ms) |
 | `random_intercept_10k` | **~1.02×** | `fit_prepared` **~0.31 ms** |
-| `nested_10k` | **~1.51×** (stretch) | `fit_prepared` **~3.7 ms** (Julia ~6.5 ms) |
+| `nested_10k` | **~1.25×** | `fit_prepared` **~3.5 ms** (Julia ~6.8 ms) |
 
 Cold `lmer()` medians: synthetics in [2026-07-09 reference](benchmarks/fair-rust-julia-reference-2026-07-09.json); **`sleepstudy_reml`** in [2026-07-09 sleepstudy-slopes reference](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on all four tier-A LMM cases above.
 
@@ -73,7 +74,24 @@ When `re_blocks.len() == 1`, `k > 1`, and `ZᵀZ` is block-diagonal across group
 
 θ search remains **Nelder–Mead** (same eval budget as before); the win is **cheaper deviance evals** (~sub-ms on `sleepstudy_reml` vs ~2.7 ms before). Do **not** use `ndarray_linalg` Cholesky for these block solves — it disagrees with `sprs_ldl` on the same `A` (verified in unit tests).
 
-Fair harness: [sleepstudy_reml reference](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json).
+Fair harness: [sleepstudy_reml reference](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json); [100k random-slopes reference](benchmarks/fair-rust-julia-reference-2026-07-09-large-slopes-linear-cache.json).
+
+#### Large random-slopes setup pass (2026-07-09)
+
+`large_random_slopes_100k` is the fair-harness showcase: 100,000 observations, 2,000 groups, and `y ~ x + (1 + x | group)`. Its first measurement exposed a cold-fit gap despite a prepared-fit win: **82.12 ms Rust vs 69.53 ms Julia**, with Rust setup taking ~36.23 ms.
+
+Two setup changes closed that gap without altering θ search:
+
+1. [`try_build_fair_lmm_design`](src/model_matrix.rs) now accepts one numeric random slope and writes the two rows per group of `Zᵀ` directly as CSR.
+2. `SingleFactorSlopesCache::try_new_from_lmm` fills all `k × k` `ZᵀZ` blocks in **one pass**. The previous implementation scanned all nonzeros once *per group* (O(groups × nnz)), which dominated setup at scale.
+
+With 2 warmups and 10 samples, setup fell to **11.79 ms** and cold `lmer()` to **58.00 ms vs 69.54 ms Julia** (**0.83×**, Rust faster); prepared Rust is **45.14 ms** (**0.65×** Julia). Baseline and final snapshots: [baseline](benchmarks/fair-rust-julia-reference-2026-07-09-large-slopes.json), [linear-cache pass](benchmarks/fair-rust-julia-reference-2026-07-09-large-slopes-linear-cache.json).
+
+#### Two-factor intercept-only Gram setup pass (2026-07-09)
+
+For unweighted one- or two-factor intercept-only models, `build_zt_z_intercept_from_re_blocks` now uses the known `ReBlock` layout to assemble diagonal counts and two-factor crosses directly. This replaces the generic per-observation sparse-bucket reconstruction and falls back to it whenever the shape or values are not the unit-valued membership pattern.
+
+On the fair harness, `crossed_20k` preparation fell from ~6.7 ms to **4.32 ms**, bringing cold `lmer()` to **15.55 ms vs 14.29 ms Julia** (**1.09×**). `nested_10k` preparation is **4.25 ms** and cold fit is **8.55 ms vs 6.82 ms** (**1.25×**); its **3.53 ms** prepared fit remains much faster than Julia. Reference: [direct-intercept-Gram snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-direct-intercept-gram.json).
 
 ### θ search ([`src/optimizer.rs`](src/optimizer.rs))
 
@@ -471,7 +489,7 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Next experiments (priority order)
 
-1. ~~**`sleepstudy_reml` random-slopes throughput**~~ — **done (2026-07-09):** `SingleFactorSlopesCache`; fair harness **~0.8×** Julia cold `lmer()`, **~0.74×** `fit_prepared`. See [BENCHMARKS.md § 2026-07-09 random slopes](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes).
+1. ~~**Single-factor random-slopes throughput**~~ — **done (2026-07-09):** `SingleFactorSlopesCache` plus linear block extraction; `sleepstudy_reml` is **~0.8×** Julia cold, and `large_random_slopes_100k` is **~0.83×** cold / **~0.65×** prepared. See [BENCHMARKS.md](BENCHMARKS.md#large-random-slopes-showcase).
 2. **Nested blocked path (row-grouped ColumnBlocks)** — **partial (2026-07-08):** nested `batch/cask` now uses `ReFactor::Diagonal` + `trisolve_single_row_cols` on the batch block (`columns_single_row` sparse gate). Fair harness: `nested_10k` cold **~1.7×** Julia, **`fit_prepared` ~0.56×** Julia. Remaining: row-grouped **10×10 cask** ColumnBlocks on block 0 if `prepare_lmer` needs it.
 3. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
 4. ~~**Large random-intercept setup**~~ — **done (2026-07-09):** direct single-factor `Zᵀ` CSR, diagonal single-membership `ZᵀZ`, and no-op cast avoidance make cold 50k/100k fits **~0.47× / ~0.51×** Julia; see [setup reference](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json).

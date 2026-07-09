@@ -1,0 +1,24 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-09-direct-intercept-gram",
+  "generated_at": "2026-07-09T22:55:00+02:00",
+  "git_sha": "54495aa",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "rust_engine": "lme-rs lmer; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 10,
+    "cases_run": "crossed_20k,nested_10k",
+    "cold_fit_target_ratio": 1.5,
+    "note": "Measured with the uncommitted direct two-factor intercept-only ZtZ construction."
+  },
+  "comparisons": [
+    {"case":"crossed_20k","rust_median_seconds":0.0155508,"julia_median_seconds":0.01429035,"rust_over_julia_median":1.0882028781660351,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.0105319,"fit_prepared_rust_over_julia_median":0.7369938454971362,"prepare_lmer_rust_median_seconds":0.00432295},
+    {"case":"nested_10k","rust_median_seconds":0.00855415,"julia_median_seconds":0.0068232,"rust_over_julia_median":1.2536859538046665,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.0035277,"fit_prepared_rust_over_julia_median":0.5170154766092157,"prepare_lmer_rust_median_seconds":0.0042481}
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "interpretation": "Direct intercept-only Gram construction reduces crossed prepare from ~6.7 ms to ~4.3 ms and brings crossed cold fit to within 9% of Julia. Nested remains 25% slower cold but is nearly twice as fast prepared."
+  }
+}

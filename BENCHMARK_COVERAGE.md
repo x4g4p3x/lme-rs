@@ -45,8 +45,8 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 | `random_intercept_50k` | LMM | Synthetic | MixedModels.jl | **~0.47×** (Jul 2026; Rust faster) | **~0.13×** hot | Single-factor setup fast path |
 | `random_intercept_100k` | LMM | Synthetic | MixedModels.jl | **~0.51×** (Jul 2026; Rust faster) | **~0.14×** hot | Single-factor setup fast path |
 | `large_random_slopes_100k` | LMM | Synthetic (100k obs; 2k groups) | MixedModels.jl | **~0.83×** (Jul 2026; Rust faster) | **~0.65×** hot | Showcase: correlated intercept/slope, 3 θ; linear cache setup |
-| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~1.3×** (Jul 2026) | **~0.68×** hot | Primary optimization case |
-| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~1.5×** (Jul 2026) | **~0.56×** hot | At cold-fit target; stretch case |
+| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~1.09×** (Jul 2026) | **~0.74×** hot | Direct two-factor Gram setup |
+| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~1.25×** (Jul 2026) | **~0.52×** hot | Direct two-factor Gram setup; remaining cold gap |
 | `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **~0.83×** (Jul 2026) | N/A | Laplace; not R `nAGQ`-in-θ |
 | `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **~0.04×** (Jul 2026) | N/A | Laplace |
 
