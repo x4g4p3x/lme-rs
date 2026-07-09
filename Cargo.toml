@@ -32,6 +32,7 @@ sprs-ldl = "0.10.0"
 log = "0.4"
 rand = "0.9.3"
 rand_distr = "0.5"
+rayon = "1.11"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

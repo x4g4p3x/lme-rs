@@ -252,3 +252,50 @@ fn test_simulate_binomial_stays_binary() {
         }
     }
 }
+
+#[test]
+fn test_simulate_parallel_matches_sequential_with_seed() {
+    let df = load_sleepstudy();
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+
+    let seq = fit.simulate_with(50, Some(1), Some(99)).unwrap();
+    let par = fit.simulate_with(50, Some(4), Some(99)).unwrap();
+
+    assert_eq!(seq.simulations.len(), par.simulations.len());
+    for (a, b) in seq.simulations.iter().zip(par.simulations.iter()) {
+        assert_eq!(a.len(), b.len());
+        for i in 0..a.len() {
+            assert!(
+                (a[i] - b[i]).abs() < 1e-12,
+                "parallel and sequential draws should match with seed"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_simulate_batched_collects_all_draws() {
+    let df = load_sleepstudy();
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+
+    let nsim = 37;
+    let batch_size = 10;
+    let mut collected = Vec::new();
+    fit.simulate_batched(nsim, batch_size, Some(2), Some(7), |_, batch| {
+        collected.extend(batch.iter().cloned());
+        Ok(())
+    })
+    .unwrap();
+
+    assert_eq!(collected.len(), nsim);
+    for s in &collected {
+        assert_eq!(s.len(), fit.num_obs);
+    }
+}
+
+#[test]
+fn test_simulate_n_jobs_zero_errors() {
+    let df = load_sleepstudy();
+    let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+    assert!(fit.simulate_with(5, Some(0), None).is_err());
+}

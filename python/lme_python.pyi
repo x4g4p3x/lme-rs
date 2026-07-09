@@ -23,6 +23,10 @@ class PySimulateResult:
     simulations: list[list[float]]
     def __len__(self) -> int: ...
 
+class PySimulateBatches:
+    def __iter__(self) -> PySimulateBatches: ...
+    def __next__(self) -> PySimulateResult: ...
+
 class PyFixedEffectsAnova:
     anova_type: str
     method: str
@@ -120,7 +124,19 @@ class PyLmeFit:
         beta_h: list[float],
         ddf_method: str = "satterthwaite",
     ) -> PyContrastTest: ...
-    def simulate(self, nsim: int) -> PySimulateResult: ...
+    def simulate(
+        self,
+        nsim: int,
+        n_jobs: Optional[int] = None,
+        seed: Optional[int] = None,
+    ) -> PySimulateResult: ...
+    def simulate_batches(
+        self,
+        nsim: int,
+        batch_size: int,
+        n_jobs: Optional[int] = None,
+        seed: Optional[int] = None,
+    ) -> PySimulateBatches: ...
     def with_robust_se(
         self, data: DataFrameInput, cluster_col: Optional[str] = None
     ) -> None: ...
@@ -164,6 +180,7 @@ def cv_grouped(
     n_splits: int = 5,
     reml: bool = True,
     seed: Optional[int] = None,
+    n_jobs: Optional[int] = None,
 ) -> PyCvGroupedResult: ...
 def lmer_weighted(
     formula: str,

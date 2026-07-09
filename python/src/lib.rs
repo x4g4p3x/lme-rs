@@ -148,6 +148,49 @@ impl PySimulateResult {
     }
 }
 
+/// Iterator over batched parametric simulations (`LmeFit::simulate_batches`).
+#[pyclass]
+pub struct PySimulateBatches {
+    fit: LmeFit,
+    remaining: usize,
+    batch_size: usize,
+    n_jobs: Option<usize>,
+    seed: Option<u64>,
+    next_index: usize,
+}
+
+#[pymethods]
+impl PySimulateBatches {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PySimulateResult>> {
+        if slf.remaining == 0 {
+            return Ok(None);
+        }
+        let count = slf.remaining.min(slf.batch_size);
+        match lme_rs::simulate::simulate_range(
+            &slf.fit,
+            slf.next_index,
+            count,
+            slf.n_jobs,
+            slf.seed,
+        ) {
+            Ok(batch) => {
+                slf.next_index += count;
+                slf.remaining -= count;
+                Ok(Some(PySimulateResult {
+                    simulations: batch.into_iter().map(|arr| arr.to_vec()).collect(),
+                }))
+            }
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "simulate_batches failed: {e}"
+            ))),
+        }
+    }
+}
+
 /// Fixed-effects ANOVA table (`LmeFit::anova_typed`).
 #[pyclass]
 #[derive(Clone)]
@@ -1127,10 +1170,18 @@ impl PyLmeFit {
         self.run_test_contrast(&l, Some(&h), method)
     }
 
-    /// Parametric simulation (bootstrap) from the fitted model.
+    /// Parametric simulation from the fitted model (fixed means; does not refit).
     ///
-    pub fn simulate(&self, nsim: usize) -> PyResult<PySimulateResult> {
-        match self.inner.simulate(nsim) {
+    /// When `seed` is set, draw `i` uses `seed + i` so results are reproducible
+    /// regardless of `n_jobs`.
+    #[pyo3(signature = (nsim, n_jobs=None, seed=None))]
+    pub fn simulate(
+        &self,
+        nsim: usize,
+        n_jobs: Option<usize>,
+        seed: Option<u64>,
+    ) -> PyResult<PySimulateResult> {
+        match self.inner.simulate_with(nsim, n_jobs, seed) {
             Ok(res) => Ok(PySimulateResult {
                 simulations: res
                     .simulations
@@ -1138,7 +1189,28 @@ impl PyLmeFit {
                     .map(|arr| arr.to_vec())
                     .collect(),
             }),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("simulate failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "simulate failed: {e}"
+            ))),
+        }
+    }
+
+    /// Iterate over simulation batches without materializing all draws at once.
+    #[pyo3(signature = (nsim, batch_size, n_jobs=None, seed=None))]
+    pub fn simulate_batches(
+        &self,
+        nsim: usize,
+        batch_size: usize,
+        n_jobs: Option<usize>,
+        seed: Option<u64>,
+    ) -> PySimulateBatches {
+        PySimulateBatches {
+            fit: self.inner.clone(),
+            remaining: nsim,
+            batch_size,
+            n_jobs,
+            seed,
+            next_index: 0,
         }
     }
 
@@ -1289,7 +1361,7 @@ pub fn refit_lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>,
 
 /// Group-structure-preserving k-fold cross-validation for LMMs.
 #[pyfunction]
-#[pyo3(signature = (formula, data, group, n_splits=5, reml=true, seed=None))]
+#[pyo3(signature = (formula, data, group, n_splits=5, reml=true, seed=None, n_jobs=None))]
 pub fn cv_grouped<'py>(
     py: Python<'py>,
     formula: &str,
@@ -1298,10 +1370,11 @@ pub fn cv_grouped<'py>(
     n_splits: usize,
     reml: bool,
     seed: Option<u64>,
+    n_jobs: Option<usize>,
 ) -> PyResult<PyCvGroupedResult> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
-    match lme_rs::cv_grouped(formula, &df, group, n_splits, reml, seed) {
+    match lme_rs::cv_grouped(formula, &df, group, n_splits, reml, seed, n_jobs) {
         Ok(res) => Ok(PyCvGroupedResult {
             oof_predictions: res.oof_predictions.to_vec(),
             test_fold: res.test_fold.to_vec(),
@@ -1594,6 +1667,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCvGroupedResult>()?;
     m.add_class::<PyConfintResult>()?;
     m.add_class::<PySimulateResult>()?;
+    m.add_class::<PySimulateBatches>()?;
     m.add_class::<PyFixedEffectsAnova>()?;
     m.add_class::<PyContrastTest>()?;
     m.add_class::<PyLikelihoodRatioAnova>()?;
@@ -1622,6 +1696,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "PyCvGroupedResult",
             "PyConfintResult",
             "PySimulateResult",
+            "PySimulateBatches",
             "PyFixedEffectsAnova",
             "PyContrastTest",
             "PyLikelihoodRatioAnova",

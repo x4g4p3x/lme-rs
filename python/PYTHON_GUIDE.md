@@ -45,7 +45,7 @@ Top-level functions:
 - `lme_python.prepare_lmer(formula, data)` → `PyLmerPrepared`
 - `lme_python.fit_prepared(prepared, reml=True)`
 - `lme_python.refit_lmer(formula, data, reml=True)`
-- `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None)` → `PyCvGroupedResult`
+- `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
@@ -65,7 +65,8 @@ Available `PyLmeFit` methods:
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
 - `confint(level=0.95)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit
-- `simulate(nsim)` → `PySimulateResult` (use `.simulations` for the draw list)
+- `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
+- `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
 - `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
 - `with_satterthwaite(data)`  # denominator df and p-values
 - `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
@@ -323,12 +324,30 @@ cv = lme_python.cv_grouped(
     n_splits=5,
     reml=True,
     seed=42,  # optional, for reproducible group shuffling
+    n_jobs=4,  # optional; None = all CPUs, 1 = sequential
 )
 print(cv.rmse, cv.mae, cv.all_converged)
 # cv.oof_predictions, cv.test_fold, cv.folds
 ```
 
-Held-out groups are predicted with population-level fixed effects only (no subject-specific random effect). **LMM only**; `n_splits` must be between 2 and the number of unique groups. See [GUIDE.md § Repeated fits and cross-validation](../GUIDE.md#repeated-fits-and-cross-validation).
+Held-out groups are predicted with population-level fixed effects only (no subject-specific random effect). **LMM only**; `n_splits` must be between 2 and the number of unique groups.
+
+When `n_jobs > 1`, folds run in parallel via Rayon and BLAS/OpenMP backends are pinned to one thread per worker to avoid oversubscription.
+
+For **custom parallel loops** (bootstrap, hyperparameter grids on fixed data), use `prepare_lmer` + `fit_prepared` in your own thread pool or `rayon` — see [GUIDE.md § Repeated fits and cross-validation](../GUIDE.md#repeated-fits-and-cross-validation).
+
+## Parametric simulation at scale
+
+`simulate()` draws new response vectors from **fixed** fitted means (not R's full `bootMer` resample-and-refit loop). For large `nsim`, pass `n_jobs` and/or stream batches:
+
+```python
+# Reproducible parallel draws
+sims = fit.simulate(10_000, n_jobs=4, seed=42)
+
+# Stream without holding all draws in RAM
+for batch in fit.simulate_batches(50_000, batch_size=1_000, n_jobs=4, seed=42):
+    process(batch.simulations)  # list of response vectors for this chunk
+```
 
 ## Data expectations
 

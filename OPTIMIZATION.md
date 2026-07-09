@@ -186,7 +186,7 @@ let fit = fit_prepared(&prepared, false)?;  // ~12–14 ms on crossed_20k
 
 `LmerPrepared` exposes `blocked_kernel` and `blocked_kernel_detail` (`blocked_active`, `blocked_unavailable_*`) for diagnostics.
 
-For **grouped k-fold CV** on different train subsets (not the same data), use [`cv_grouped`](../src/cv.rs) — it splits by grouping unit, fits each train fold with `prepare_lmer` + `fit_prepared`, and assembles out-of-fold population predictions. See [GUIDE.md § Repeated fits and cross-validation](GUIDE.md#repeated-fits-and-cross-validation).
+For **grouped k-fold CV** on different train subsets (not the same data), use [`cv_grouped`](../src/cv.rs) — it splits by grouping unit, fits each train fold with `prepare_lmer` + `fit_prepared` (folds in parallel when `n_jobs > 1`), and assembles out-of-fold population predictions. See [GUIDE.md § Repeated fits and cross-validation](GUIDE.md#repeated-fits-and-cross-validation).
 
 **Post-fit fix:** `fit_prepared` reuses `coefs.fitted` and `coefs.reml_crit` from a single `evaluate()` — removed duplicate `log_reml_deviance` and redundant `Z*b` assembly (~5 ms → ~2 ms post-fit).
 

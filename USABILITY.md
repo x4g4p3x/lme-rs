@@ -154,7 +154,7 @@ There is no sharp line between “analysis” and “throughput” use — only 
 |:-------------|:----------------|:----------------------------------------|
 | **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
 | **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
-| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, or `cv_grouped` for grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation) |
+| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, or `cv_grouped(..., n_jobs=…)` for parallel grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation) |
 | **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; crossed cold `lmer()` may still be yellow/red |
 
 **Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.

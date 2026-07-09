@@ -55,5 +55,29 @@ def test_cv_grouped(sleepstudy: pl.DataFrame) -> None:
         n_splits=5,
         reml=True,
         seed=42,
+        n_jobs=1,
     )
     assert cv.oof_predictions == cv2.oof_predictions
+
+
+def test_cv_grouped_parallel_matches_sequential(sleepstudy: pl.DataFrame) -> None:
+    sequential = lme_python.cv_grouped(
+        "Reaction ~ Days + (1 | Subject)",
+        data=sleepstudy,
+        group="Subject",
+        n_splits=5,
+        reml=True,
+        seed=99,
+        n_jobs=1,
+    )
+    parallel = lme_python.cv_grouped(
+        "Reaction ~ Days + (1 | Subject)",
+        data=sleepstudy,
+        group="Subject",
+        n_splits=5,
+        reml=True,
+        seed=99,
+        n_jobs=4,
+    )
+    assert sequential.oof_predictions == parallel.oof_predictions
+    assert sequential.rmse == parallel.rmse

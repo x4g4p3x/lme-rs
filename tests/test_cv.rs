@@ -17,6 +17,7 @@ fn test_cv_grouped_sleepstudy() {
         5,
         true,
         Some(42),
+        Some(1),
     )
     .unwrap();
 
@@ -49,6 +50,7 @@ fn test_cv_grouped_reproducible_with_seed() {
         3,
         true,
         Some(7),
+        Some(1),
     )
     .unwrap();
     let b = cv_grouped(
@@ -58,10 +60,47 @@ fn test_cv_grouped_reproducible_with_seed() {
         3,
         true,
         Some(7),
+        Some(1),
     )
     .unwrap();
     assert_eq!(a.oof_predictions, b.oof_predictions);
     assert_eq!(a.test_fold, b.test_fold);
+}
+
+#[test]
+fn test_cv_grouped_parallel_matches_sequential() {
+    let df = load_sleepstudy();
+    let sequential = cv_grouped(
+        "Reaction ~ Days + (1 | Subject)",
+        &df,
+        "Subject",
+        5,
+        true,
+        Some(99),
+        Some(1),
+    )
+    .unwrap();
+    let parallel = cv_grouped(
+        "Reaction ~ Days + (1 | Subject)",
+        &df,
+        "Subject",
+        5,
+        true,
+        Some(99),
+        Some(4),
+    )
+    .unwrap();
+
+    assert_eq!(sequential.oof_predictions, parallel.oof_predictions);
+    assert_eq!(sequential.test_fold, parallel.test_fold);
+    assert_eq!(sequential.rmse, parallel.rmse);
+    assert_eq!(sequential.mae, parallel.mae);
+    assert_eq!(sequential.folds.len(), parallel.folds.len());
+    for (a, b) in sequential.folds.iter().zip(parallel.folds.iter()) {
+        assert_eq!(a.fold, b.fold);
+        assert!((a.rmse - b.rmse).abs() < 1e-10);
+        assert_eq!(a.converged, b.converged);
+    }
 }
 
 #[test]
@@ -74,11 +113,31 @@ fn test_cv_grouped_too_many_splits() {
         100,
         true,
         None,
+        None,
     )
     .unwrap_err();
     assert!(
         err.to_string().contains("n_splits"),
         "expected n_splits error, got: {err}"
+    );
+}
+
+#[test]
+fn test_cv_grouped_invalid_n_jobs() {
+    let df = load_sleepstudy();
+    let err = cv_grouped(
+        "Reaction ~ Days + (1 | Subject)",
+        &df,
+        "Subject",
+        3,
+        true,
+        Some(1),
+        Some(0),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("n_jobs"),
+        "expected n_jobs error, got: {err}"
     );
 }
 

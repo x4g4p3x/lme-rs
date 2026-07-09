@@ -332,11 +332,18 @@ println!("{}", ci);
 
 ### Parametric simulation
 
-`simulate()` draws new response vectors from the fitted model.
+`simulate()` draws new response vectors from the fitted conditional means. It does **not** resample coefficients or refit (unlike R's full `bootMer` loop); for bootstrap inference, refit on each draw with [`prepare_lmer`](#repeated-fits-and-cross-validation) + a loop.
 
 ```rust
-let sims = fit.simulate(100)?;
+// All logical CPUs by default when n_jobs is None
+let sims = fit.simulate_with(10_000, None, Some(42))?;
 println!("generated {} simulations", sims.simulations.len());
+
+// Stream batches without holding all draws in memory
+fit.simulate_batched(50_000, 1_000, Some(4), Some(42), |batch_idx, batch| {
+    println!("batch {batch_idx}: {} draws", batch.len());
+    Ok(())
+})?;
 ```
 
 ### Satterthwaite degrees of freedom
@@ -436,6 +443,7 @@ let cv = cv_grouped(
     5,           // n_splits (must be ≤ number of unique groups)
     true,        // reml
     Some(42),    // optional seed for reproducible group shuffling
+    None,        // n_jobs: None = all CPUs, Some(1) = sequential
 )?;
 
 println!("OOF RMSE: {:.2}", cv.rmse);
@@ -446,7 +454,26 @@ println!("OOF RMSE: {:.2}", cv.rmse);
 
 **Prediction semantics on held-out groups:** test subjects were not in the training fold, so each out-of-fold prediction uses population-level fixed-effects prediction (`LmeFit::predict`), i.e. no subject-specific random effect.
 
+**Parallelism:** pass `n_jobs: Some(k)` to fit up to `k` folds concurrently (`None` uses all logical CPUs, capped at fold count). When `n_jobs > 1`, OpenBLAS/MKL/OpenMP are pinned to one thread per worker to avoid CPU oversubscription.
+
 **Scope:** LMMs only (not GLMM/NLMM). Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`. Each training fold is fit via `prepare_lmer` + `fit_prepared`.
+
+### Custom parallel refits (bootstrap, grids)
+
+For many refits on the **same** formula and data (not CV), amortize setup with `prepare_lmer` and parallelize across replicates with `rayon` or a thread pool:
+
+```rust
+use lme_rs::{fit_prepared, prepare_lmer};
+use rayon::prelude::*;
+
+let prepared = prepare_lmer("Reaction ~ Days + (1 | Subject)", &df)?;
+let fits: Vec<_> = (0..100)
+    .into_par_iter()
+    .map(|_| fit_prepared(&prepared, true))
+    .collect::<Result<_, _>>()?;
+```
+
+Set `OPENBLAS_NUM_THREADS=1` / `MKL_NUM_THREADS=1` when combining outer parallelism with BLAS-backed linear algebra.
 
 ## Limitations and Compatibility Notes
 
@@ -521,7 +548,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `prepare_lmer(formula, data)` | cache design matrices for repeated fits |
 | `fit_prepared(prepared, reml)` | fit from a prior `prepare_lmer` call |
 | `refit_lmer(formula, data, reml)` | `prepare_lmer` + `fit_prepared` convenience |
-| `cv_grouped(formula, data, group_col, n_splits, reml, seed)` | group-preserving k-fold CV (LMM) |
+| `cv_grouped(formula, data, group_col, n_splits, reml, seed, n_jobs)` | group-preserving k-fold CV (LMM); parallel folds when `n_jobs > 1` |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
@@ -540,7 +567,9 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `predict_response(newdata)` | GLMM response-scale prediction |
 | `predict_conditional_response(newdata, allow_new_levels)` | conditional response-scale GLMM prediction |
 | `confint(level)` | Wald CIs; uses t with KR/Satterthwaite dfs when stored on fit |
-| `simulate(nsim)` | parametric simulation |
+| `simulate(nsim)` | parametric simulation (sequential; use `simulate_with` for parallel) |
+| `simulate_with(nsim, n_jobs, seed)` | parallel parametric simulation |
+| `simulate_batched(nsim, batch_size, n_jobs, seed, on_batch)` | stream simulation batches |
 | `with_satterthwaite(data)` | Satterthwaite degrees of freedom and p-values |
 | `with_kenward_roger(data)` | Kenward-Roger denominator degrees of freedom and p-values |
 | `with_robust_se(data, cluster_col)` | robust or cluster-robust standard errors |

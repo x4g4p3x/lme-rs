@@ -43,6 +43,7 @@ pub mod robust;
 pub mod satterthwaite;
 /// Group-structure-preserving cross-validation for LMMs.
 pub mod cv;
+pub mod simulate;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
 pub use cv::{cv_grouped, refit_lmer, CvFoldMetric, CvGroupedResult};
@@ -454,64 +455,42 @@ impl LmeFit {
     /// - Bernoulli outcomes for binomial models
     /// - Poisson counts for Poisson models
     /// - Gamma responses using the fitted mean plus dispersion for Gamma models
+    ///
+    /// This draws responses given the **fixed** fitted means; it does not resample
+    /// coefficients or refit (unlike R's full parametric `bootMer` loop).
     pub fn simulate(&self, nsim: usize) -> anyhow::Result<SimulateResult> {
-        use rand::Rng;
-        use rand_distr::{Bernoulli, Gamma, Poisson, StandardNormal};
+        simulate::simulate_fit(self, nsim, None, None)
+    }
 
-        let n = self.num_obs;
-        let sigma2 = self.sigma2.unwrap_or(1.0);
-        let sigma = sigma2.sqrt();
+    /// Like [`simulate`](Self::simulate) with parallel workers and an optional seed.
+    ///
+    /// When `seed` is set, draw `i` uses `seed.wrapping_add(i)` so results match
+    /// regardless of `n_jobs`.
+    pub fn simulate_with(
+        &self,
+        nsim: usize,
+        n_jobs: Option<usize>,
+        seed: Option<u64>,
+    ) -> anyhow::Result<SimulateResult> {
+        simulate::simulate_fit(self, nsim, n_jobs, seed)
+    }
 
-        let mut rng = rand::rng();
-        let mut simulations = Vec::with_capacity(nsim);
-
-        for _ in 0..nsim {
-            let mut y_sim = self.fitted.clone();
-
-            match self.family {
-                None | Some(crate::family::Family::Gaussian) => {
-                    // Gaussian / LMM path: y = fitted + ε, ε ~ N(0, σ²)
-                    for i in 0..n {
-                        let eps: f64 = rng.sample(StandardNormal);
-                        y_sim[i] += sigma * eps;
-                    }
-                }
-                Some(crate::family::Family::Binomial) => {
-                    // Bernoulli draws from the fitted probabilities.
-                    for i in 0..n {
-                        let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
-                        let bern = Bernoulli::new(p)
-                            .map_err(|e| anyhow::anyhow!("Invalid binomial probability: {}", e))?;
-                        y_sim[i] = if rng.sample(bern) { 1.0 } else { 0.0 };
-                    }
-                }
-                Some(crate::family::Family::Poisson) => {
-                    // Count draws from the fitted mean.
-                    for i in 0..n {
-                        let lambda = y_sim[i].max(f64::EPSILON);
-                        let pois = Poisson::new(lambda)
-                            .map_err(|e| anyhow::anyhow!("Invalid Poisson mean: {}", e))?;
-                        y_sim[i] = rng.sample(pois);
-                    }
-                }
-                Some(crate::family::Family::Gamma) => {
-                    // Match E[Y]=mu and Var[Y]=sigma2 * mu^2 using shape/scale parameterization.
-                    let dispersion = sigma2.max(f64::EPSILON);
-                    let shape = (1.0 / dispersion).max(f64::EPSILON);
-                    for i in 0..n {
-                        let mu = y_sim[i].max(f64::EPSILON);
-                        let scale = (mu * dispersion).max(f64::EPSILON);
-                        let gamma = Gamma::new(shape, scale)
-                            .map_err(|e| anyhow::anyhow!("Invalid Gamma parameters: {}", e))?;
-                        y_sim[i] = rng.sample(gamma);
-                    }
-                }
-            }
-
-            simulations.push(y_sim);
-        }
-
-        Ok(SimulateResult { simulations })
+    /// Stream simulations in batches without holding all `nsim` draws in memory.
+    ///
+    /// `on_batch` receives `(batch_index, simulations)` for each chunk of at most
+    /// `batch_size` draws.
+    pub fn simulate_batched<F>(
+        &self,
+        nsim: usize,
+        batch_size: usize,
+        n_jobs: Option<usize>,
+        seed: Option<u64>,
+        on_batch: F,
+    ) -> anyhow::Result<()>
+    where
+        F: FnMut(usize, &[Array1<f64>]) -> anyhow::Result<()>,
+    {
+        simulate::simulate_batched(self, nsim, batch_size, n_jobs, seed, on_batch)
     }
 
     /// Compute Satterthwaite degrees of freedom and p-values for fixed effects.
