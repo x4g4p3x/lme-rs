@@ -12,6 +12,8 @@ pub mod anova;
 pub mod anova_contrasts;
 /// User-defined fixed-effects contrast tests (Wald F-tests).
 pub mod contrast;
+/// Group-structure-preserving cross-validation for LMMs.
+pub mod cv;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
 pub(crate) mod ddf;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
@@ -41,16 +43,14 @@ pub(crate) mod quadrature;
 pub mod robust;
 /// Satterthwaite denominator degrees of freedom approximation.
 pub mod satterthwaite;
-/// Group-structure-preserving cross-validation for LMMs.
-pub mod cv;
 pub mod simulate;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
-pub use cv::{cv_grouped, refit_lmer, CvFoldMetric, CvGroupedResult};
 pub use anova_contrasts::AnovaType;
 pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
+pub use cv::{cv_grouped, refit_lmer, CvFoldMetric, CvGroupedResult};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmStart};

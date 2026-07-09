@@ -9,9 +9,9 @@ use std::sync::Arc;
 
 use ndarray::Array1;
 use polars::prelude::*;
+use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rayon::prelude::*;
 
 use crate::formula::parse;
@@ -133,11 +133,13 @@ pub fn cv_grouped(
     groups.shuffle(&mut rng);
 
     let n_obs = data.height();
-    let y_all = column_to_f64_vec(data.column(&response_col).map_err(|e| {
-        LmeError::NotImplemented {
-            feature: format!("Response column '{response_col}' not found: {e}"),
-        }
-    })?)?;
+    let y_all =
+        column_to_f64_vec(
+            data.column(&response_col)
+                .map_err(|e| LmeError::NotImplemented {
+                    feature: format!("Response column '{response_col}' not found: {e}"),
+                })?,
+        )?;
 
     let chunk = groups.len().div_ceil(n_splits);
     let mut fold_specs = Vec::with_capacity(n_splits);
@@ -159,17 +161,7 @@ pub fn cv_grouped(
     let fold_results = if workers == 1 {
         fold_specs
             .iter()
-            .map(|spec| {
-                run_fold(
-                    spec,
-                    &data,
-                    &formula,
-                    &group_col,
-                    &groups,
-                    reml,
-                    &y_all,
-                )
-            })
+            .map(|spec| run_fold(spec, &data, &formula, &group_col, &groups, reml, &y_all))
             .collect::<Result<Vec<_>>>()?
     } else {
         pin_competing_threadpools_single_thread();
@@ -182,17 +174,7 @@ pub fn cv_grouped(
         pool.install(|| {
             fold_specs
                 .par_iter()
-                .map(|spec| {
-                    run_fold(
-                        spec,
-                        &data,
-                        &formula,
-                        &group_col,
-                        &groups,
-                        reml,
-                        &y_all,
-                    )
-                })
+                .map(|spec| run_fold(spec, &data, &formula, &group_col, &groups, reml, &y_all))
                 .collect::<Result<Vec<_>>>()
         })?
     };
@@ -292,9 +274,11 @@ fn run_fold(
 
     let prepared = prepare_lmer(formula_str, &train_df)?;
     let fit = fit_prepared(&prepared, reml)?;
-    let preds = fit.predict(&test_df).map_err(|e| LmeError::NotImplemented {
-        feature: format!("cv_grouped prediction failed on fold {}: {e}", spec.fold),
-    })?;
+    let preds = fit
+        .predict(&test_df)
+        .map_err(|e| LmeError::NotImplemented {
+            feature: format!("cv_grouped prediction failed on fold {}: {e}", spec.fold),
+        })?;
 
     let test_indices = row_indices_for_groups(data, group_col, &spec.test_groups)?;
     let mut fold_sq = 0.0;

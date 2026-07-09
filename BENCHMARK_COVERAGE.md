@@ -37,7 +37,7 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 
 | Case | Model | Fixture | Reference | `cold_fit` vs Julia | `fit_prepared` vs Julia | Notes |
 |:-----|:------|:--------|:----------|:--------------------|:------------------------|:------|
-| `sleepstudy_reml` | LMM | Real (180 obs, random slopes) | MixedModels.jl | **~2×** (Jul 2026 harness) | ~2.4× hot vs Julia `fit` | Canonical real-world LMM; re-run after major optimizer changes |
+| `sleepstudy_reml` | LMM | Real (180 obs, random slopes) | MixedModels.jl | **~0.8×** (Jul 2026; [sleepstudy-slopes ref](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json)) | **~0.74×** hot vs Julia `fit` | Canonical real-world LMM; block LDL fast path |
 | `sleepstudy_weighted_reml` | LMM weighted | Real | MixedModels.jl `wts` | **Measured** | Optional phases | Same weights as [`benches/bench_math.rs`](benches/bench_math.rs) |
 | `penicillin_crossed_reml` | LMM | Real crossed intercept | MixedModels.jl | **Rust faster** (Jul 2026) | Rust faster | Smaller *n* than `crossed_20k` |
 | `pastes_nested_reml` | LMM | Real nested intercept | MixedModels.jl | **Rust faster** (Jul 2026) | Rust faster | |

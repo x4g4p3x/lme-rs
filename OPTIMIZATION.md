@@ -7,7 +7,7 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 | [BENCHMARKS.md](BENCHMARKS.md) | Harness methodology and versioned timings |
 | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13 | Completion goals |
 
-**Read this before changing** [`src/math.rs`](src/math.rs) intercept-only paths or [`src/optimizer.rs`](src/optimizer.rs) θ search.
+**Read this before changing** [`src/math.rs`](src/math.rs) intercept-only paths, **`SingleFactorSlopesCache`** (single-factor random slopes), or [`src/optimizer.rs`](src/optimizer.rs) θ search.
 
 ---
 
@@ -15,15 +15,16 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 **Goal:** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), reach **within ~1.5× of MixedModels.jl** on tier-A `cold_fit` cases **without breaking** golden parity. (Legacy bar: **2×**, through 2026-07-08.)
 
-**Hardest case:** `nested_10k` — borderline at the **1.5×** bar (~**1.51×**); then `crossed_20k` (~**1.29×**).
+**Hardest synthetic case:** `nested_10k` — borderline at the **1.5×** bar (~**1.51×**); then `crossed_20k` (~**1.29×**).
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
+| `sleepstudy_reml` | **~0.8×** (Rust faster) | `fit_prepared` **~0.60 ms** (Julia ~0.81 ms) |
 | `crossed_20k` | **~1.29×** | `fit_prepared` **~10.2 ms** (Julia ~15.0 ms) |
 | `random_intercept_10k` | **~1.02×** | `fit_prepared` **~0.31 ms** |
 | `nested_10k` | **~1.51×** (stretch) | `fit_prepared` **~3.7 ms** (Julia ~6.5 ms) |
 
-Cold `lmer()` medians: [2026-07-09 reference](benchmarks/fair-rust-julia-reference-2026-07-09.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on all three synthetic tier-A cases.
+Cold `lmer()` medians: synthetics in [2026-07-09 reference](benchmarks/fair-rust-julia-reference-2026-07-09.json); **`sleepstudy_reml`** in [2026-07-09 sleepstudy-slopes reference](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on all four tier-A LMM cases above.
 
 ---
 
@@ -37,7 +38,8 @@ Cold `lmer()` medians: [2026-07-09 reference](benchmarks/fair-rust-julia-referen
 |:-----|:------|:---------|:-----|
 | **Optimizer hot** | `profile_deviance` → `profile_deviance_diagonal` → `InterceptLdlCache::profile_deviance` | θ search cost | Fast; return `f64::MAX` on infeasible θ (no panic) |
 | **Blocked hot (crossed)** | `InterceptBlockedChol::profile_deviance` when cross blocks fit in memory | θ search on intercept-only crossed models | Same deviance as slow path; gated by cross-block size |
-| **Full profile** | `solve_profile` → blocked `solve_profile_blocked` or cached sparse `InterceptLdlCache::solve_profile` | `evaluate()`, SEs, fitted values | Correct; blocked models reuse `updateL!` factor (no sparse LDL on post-fit) |
+| **Random-slopes hot (single factor)** | `SingleFactorSlopesCache::profile_deviance` when `ZᵀZ` is block-diagonal (`k > 1`, one RE term) | θ search on e.g. `(Days \| Subject)` | Block-assembled `A = ΛᵀZᵀZΛ + I` + reused sparse LDL; deviance-only during Nelder–Mead |
+| **Full profile** | `solve_profile` → blocked `solve_profile_blocked`, slopes cache, or cached sparse `InterceptLdlCache::solve_profile` / `solve_profile_general` | `evaluate()`, SEs, fitted values | Correct; blocked models reuse `updateL!` factor (no sparse LDL on post-fit) |
 
 > **Invariant:** the θ optimizer hot path must not panic on infeasible θ. Post-fit `evaluate()` on blocked intercept-only models uses **`InterceptBlockedChol::solve_profile_blocked`** (reusing the same `updateL!` factor as θ search), with sparse LDL fallback only if the blocked backsolve fails — golden parity passes on all fixtures including `penicillin_crossed_reml`.
 
@@ -56,7 +58,22 @@ Key pieces in [`src/math.rs`](src/math.rs):
 | **`profile_deviance_p1`** | Hand-unrolled 1×1 β solve when p = 1 (random intercept, nested) |
 | **`nz_theta_i` / `nz_theta_j`** | Precomputed θ block indices per `A` nonzero in `InterceptSparseLdl::factor_blocks` |
 
-General random-slopes / nested correlated blocks still use `solve_profile_general` (no intercept fast path).
+General random-slopes / nested correlated blocks still use `solve_profile_general` when the slopes cache is inactive (multiple RE terms or non-block-diagonal `ZᵀZ`).
+
+### Single-factor random-slopes fast path (2026-07-09)
+
+When `re_blocks.len() == 1`, `k > 1`, and `ZᵀZ` is block-diagonal across groups, [`finish_lmm_data`](src/math.rs) installs **`SingleFactorSlopesCache`**:
+
+| Piece | Role |
+|:------|:-----|
+| **`s_blocks`** | Precomputed `k × k` diagonal blocks of `ZᵀZ` per group |
+| **`a_indptr` / `a_indices` / `a_values`** | Fixed CSR layout for block-diagonal `A = ΛᵀZᵀZΛ + I` |
+| **`full_ldl`** | Reused `sprs_ldl` numeric update + solve on full `q × q` system |
+| **`profile_deviance`** | Deviance-only finish (no `u` / `b` / `l_x` on the θ hot path) |
+
+θ search remains **Nelder–Mead** (same eval budget as before); the win is **cheaper deviance evals** (~sub-ms on `sleepstudy_reml` vs ~2.7 ms before). Do **not** use `ndarray_linalg` Cholesky for these block solves — it disagrees with `sprs_ldl` on the same `A` (verified in unit tests).
+
+Fair harness: [sleepstudy_reml reference](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json).
 
 ### θ search ([`src/optimizer.rs`](src/optimizer.rs))
 
@@ -441,7 +458,7 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Contributor checklist
 
-1. **Golden parity** — `cargo test --release --test test_golden_parity` after any `src/math.rs` / optimizer change.
+1. **Golden parity** — `cargo test --release --test test_golden_parity` after any `src/math.rs` / optimizer change (including `SingleFactorSlopesCache`).
 2. **Fast vs slow deviance** — `tests/test_crossed_mock.rs` compares `log_reml_deviance` to `evaluate().reml_crit` on a θ grid for crossed intercept-only models.
 3. **Infeasible θ** — hot path returns `f64::MAX` on Cholesky / SPD failure; do not `.expect()` on the optimizer path.
 4. **Fair harness** — after meaningful changes:
@@ -454,12 +471,13 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Next experiments (priority order)
 
-1. **Nested blocked path (row-grouped ColumnBlocks)** — **partial (2026-07-08):** nested `batch/cask` now uses `ReFactor::Diagonal` + `trisolve_single_row_cols` on the batch block (`columns_single_row` sparse gate). Fair harness: `nested_10k` cold **~1.7×** Julia, **`fit_prepared` ~0.56×** Julia. Remaining: row-grouped **10×10 cask** ColumnBlocks on block 0 if `prepare_lmer` needs it.
-2. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
-3. **`build_x_matrix` numeric fast path** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
-4. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
-5. **Fair harness reference JSON** — refresh `benchmarks/fair-rust-julia-reference-*.json` after next tagged release.
-6. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
+1. ~~**`sleepstudy_reml` random-slopes throughput**~~ — **done (2026-07-09):** `SingleFactorSlopesCache`; fair harness **~0.8×** Julia cold `lmer()`, **~0.74×** `fit_prepared`. See [BENCHMARKS.md § 2026-07-09 random slopes](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes).
+2. **Nested blocked path (row-grouped ColumnBlocks)** — **partial (2026-07-08):** nested `batch/cask` now uses `ReFactor::Diagonal` + `trisolve_single_row_cols` on the batch block (`columns_single_row` sparse gate). Fair harness: `nested_10k` cold **~1.7×** Julia, **`fit_prepared` ~0.56×** Julia. Remaining: row-grouped **10×10 cask** ColumnBlocks on block 0 if `prepare_lmer` needs it.
+3. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
+4. **`build_x_matrix` numeric fast path** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
+5. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
+6. **Fair harness reference JSON** — refresh combined tier-A snapshot after next tagged release (`sleepstudy_reml` logged in [fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json)).
+7. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
 
 ---
 
@@ -467,7 +485,7 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 | File | Role |
 |:-----|:-----|
-| [`src/math.rs`](src/math.rs) | `LmmData`, `InterceptLdlCache`, `InterceptSparseLdl`, `profile_deviance_p2` |
+| [`src/math.rs`](src/math.rs) | `LmmData`, `InterceptLdlCache`, `SingleFactorSlopesCache`, `InterceptSparseLdl`, `profile_deviance_p2` |
 | [`src/intercept_blocked.rs`](src/intercept_blocked.rs) | Blocked augmented Cholesky (`updateL!`) for intercept-only crossed models |
 | [`src/optimizer.rs`](src/optimizer.rs) | `optimize_theta_lmm`, intercept golden-section (|θ|=1), 2D log-grid (|θ|=2) |
 | [`src/lib.rs`](src/lib.rs) | `lmer`, `prepare_lmer`, `fit_prepared`, `LmerPrepared` |

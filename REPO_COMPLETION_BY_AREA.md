@@ -48,7 +48,7 @@ Until axis (3) closes, overall completion percentages are capped in practice eve
 Simple mean of the thirteen percentages:  
 (94 + 88 + 87 + 86 + 92 + 99 + 93 + 84 + 98 + 92 + 76 + 35 + 84) ÷ 13 = 1108 ÷ 13 ≈ **85.2%**.
 
-Synthetic fair-harness LMM throughput (intercept / crossed / nested) is **~1.0–1.5× Julia** on cold `lmer()` and **`fit_prepared` beats Julia** on the 2026-07-09 reference workstation ([OPTIMIZATION.md](OPTIMIZATION.md)). Axis (3) is **not fully closed**: **`nested_10k`** is borderline at the **1.5×** bar (~1.51×); **`sleepstudy_reml`** (random slopes) and larger **`random_intercept_50k`/`100k`** cases were not re-benchmarked after the Jul 9 pass — benchmark on your RE layout before hot-path adoption ([USABILITY.md](USABILITY.md)).
+Synthetic fair-harness LMM throughput (intercept / crossed / nested / **sleepstudy random slopes**) is **~0.8–1.5× Julia** on cold `lmer()` and **`fit_prepared` beats Julia** on the 2026-07-09 reference workstation ([OPTIMIZATION.md](OPTIMIZATION.md)). Axis (3) is **not fully closed**: **`nested_10k`** is borderline at the **1.5×** bar (~1.51×); larger **`random_intercept_50k`/`100k`** cases were not re-benchmarked after the Jul 9 passes — benchmark on your RE layout before hot-path adoption ([USABILITY.md](USABILITY.md)).
 
 ## Evidence pointers (verified)
 

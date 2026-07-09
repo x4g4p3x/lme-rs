@@ -79,9 +79,21 @@ fn sspower_nlmer_self_start_matches_lme4_fixture() {
     let idx = |n: &str| names.iter().position(|x| x == n).unwrap();
 
     // Reference: tests/data/sspower_nlmer.json (lme4::nlmer + R custom selfStart SSpower)
-    assert!((coef[idx("a")] - 2.2673043880442).abs() < 0.5, "a = {}", coef[idx("a")]);
-    assert!((coef[idx("b")] - 0.455475338357398).abs() < 0.25, "b = {}", coef[idx("b")]);
-    assert!((coef[idx("c")] - 0.754933725402219).abs() < 0.5, "c = {}", coef[idx("c")]);
+    assert!(
+        (coef[idx("a")] - 2.2673043880442).abs() < 0.5,
+        "a = {}",
+        coef[idx("a")]
+    );
+    assert!(
+        (coef[idx("b")] - 0.455475338357398).abs() < 0.25,
+        "b = {}",
+        coef[idx("b")]
+    );
+    assert!(
+        (coef[idx("c")] - 0.754933725402219).abs() < 0.5,
+        "c = {}",
+        coef[idx("c")]
+    );
     let tau = fit.theta.as_ref().unwrap()[0];
     assert!((tau - 0.945985754783105).abs() < 0.5, "theta = {tau}");
 }

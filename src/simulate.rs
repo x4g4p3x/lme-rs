@@ -5,9 +5,9 @@
 //! simulate → refit); use [`crate::prepare_lmer`] + repeated fits for that workflow.
 
 use ndarray::Array1;
+use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rand_distr::{Bernoulli, Gamma, Poisson, StandardNormal};
 use rayon::prelude::*;
 
@@ -25,8 +25,7 @@ pub fn simulate_fit(
     n_jobs: Option<usize>,
     seed: Option<u64>,
 ) -> anyhow::Result<SimulateResult> {
-    simulate_range(fit, 0, nsim, n_jobs, seed)
-        .map(|simulations| SimulateResult { simulations })
+    simulate_range(fit, 0, nsim, n_jobs, seed).map(|simulations| SimulateResult { simulations })
 }
 
 /// Simulate `count` draws starting at global index `start_index`.

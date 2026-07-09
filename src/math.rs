@@ -75,6 +75,8 @@ pub struct LmmData {
     intercept_only_re: bool,
     /// Reused symbolic/numeric LDLT for intercept-only A = diag(θ) Z^T Z diag(θ) + I.
     intercept_ldl: Option<Mutex<InterceptLdlCache>>,
+    /// Block-diagonal ΛᵀZᵀZΛ fast path for one grouping factor with k > 1 (random slopes).
+    single_factor_slopes: Option<Mutex<SingleFactorSlopesCache>>,
     /// Cached ‖y_eff‖² for profile deviance (independent of θ).
     y_norm2: f64,
 }
@@ -157,6 +159,7 @@ impl LmmData {
                     eye_q,
                     intercept_only_re,
                     intercept_ldl: None,
+                    single_factor_slopes: None,
                     y_norm2,
                 })
             }
@@ -192,10 +195,16 @@ impl LmmData {
                     eye_q,
                     intercept_only_re,
                     intercept_ldl: None,
+                    single_factor_slopes: None,
                     y_norm2,
                 })
             }
         }
+    }
+
+    /// True when a single-factor random-slopes block solver is active (`k > 1`, one RE term).
+    pub fn single_factor_slopes_re(&self) -> bool {
+        self.single_factor_slopes.is_some()
     }
 
     /// True when intercept-only blocked Cholesky is available for this model.
@@ -225,6 +234,8 @@ fn finish_lmm_data(mut data: LmmData) -> LmmData {
     if data.intercept_only_re {
         let cache = InterceptLdlCache::new_from_lmm(&data).expect("intercept LDL setup failed");
         data.intercept_ldl = Some(Mutex::new(cache));
+    } else if let Some(cache) = SingleFactorSlopesCache::try_new_from_lmm(&data) {
+        data.single_factor_slopes = Some(Mutex::new(cache));
     }
     data
 }
@@ -280,14 +291,24 @@ impl LmmData {
     fn profile_deviance(&self, theta: &[f64], reml: bool) -> f64 {
         if self.intercept_only_re {
             self.profile_deviance_diagonal(theta, reml)
+        } else if let Some(cache_mutex) = &self.single_factor_slopes {
+            let mut cache = cache_mutex
+                .lock()
+                .expect("single-factor slopes lock poisoned");
+            cache.profile_deviance(self, theta, reml)
         } else {
-            self.solve_profile(theta, reml).reml_crit
+            self.solve_profile_general(theta, reml).reml_crit
         }
     }
 
     fn solve_profile(&self, theta: &[f64], reml: bool) -> ProfileSolution {
         if self.intercept_only_re {
             self.solve_profile_diagonal(theta, reml)
+        } else if let Some(cache_mutex) = &self.single_factor_slopes {
+            let mut cache = cache_mutex
+                .lock()
+                .expect("single-factor slopes lock poisoned");
+            cache.solve_profile(self, theta, reml)
         } else {
             self.solve_profile_general(theta, reml)
         }
@@ -376,7 +397,7 @@ impl LmmData {
         cache.profile_deviance(self, theta, reml)
     }
 
-    fn solve_profile_general(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+    pub(crate) fn solve_profile_general(&self, theta: &[f64], reml: bool) -> ProfileSolution {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
         let q = self.zt.rows();
@@ -671,6 +692,321 @@ pub(crate) struct ProfileSolution {
     b: Array1<f64>,
     u: Array1<f64>,
     l_x: Array2<f64>,
+}
+
+/// Block-diagonal ΛᵀZᵀZΛ solver for one grouping factor with correlated random effects (`k > 1`).
+///
+/// When `ZᵀZ` is block-diagonal across groups (single RE term), each `k × k` block is factored
+/// independently instead of a full `q × q` sparse LDL rebuild on every θ evaluation.
+struct SingleFactorSlopesCache {
+    k: usize,
+    m: usize,
+    q: usize,
+    p_usize: usize,
+    s_blocks: Vec<Array2<f64>>,
+    lambda: CsMat<f64>,
+    w_y_buf: Vec<f64>,
+    v_y_buf: Vec<f64>,
+    w_col_bufs: Vec<Vec<f64>>,
+    v_col_bufs: Vec<Vec<f64>>,
+    a_block: Array2<f64>,
+    sl_scratch: Array2<f64>,
+    a_indptr: Vec<usize>,
+    a_indices: Vec<usize>,
+    a_values: Vec<f64>,
+    full_ldl: Option<sprs_ldl::LdlNumeric<f64, usize>>,
+}
+
+impl SingleFactorSlopesCache {
+    fn try_new_from_lmm(lmm: &LmmData) -> Option<Self> {
+        if lmm.re_blocks.len() != 1 {
+            return None;
+        }
+        let block = &lmm.re_blocks[0];
+        let k = block.k;
+        if k <= 1 {
+            return None;
+        }
+        let m = block.m;
+        let q = m * k;
+        if lmm.zt_z.rows() != q || !zt_z_is_block_diagonal(&lmm.zt_z, k, m) {
+            return None;
+        }
+
+        let mut s_blocks = Vec::with_capacity(m);
+        for g in 0..m {
+            let o = g * k;
+            let mut s = Array2::<f64>::zeros((k, k));
+            for (val, (i, j)) in lmm.zt_z.iter() {
+                if i / k == g && j / k == g {
+                    s[[i - o, j - o]] += *val;
+                }
+            }
+            for i in 0..k {
+                for j in (i + 1)..k {
+                    let sym = 0.5 * (s[[i, j]] + s[[j, i]]);
+                    s[[i, j]] = sym;
+                    s[[j, i]] = sym;
+                }
+            }
+            s_blocks.push(s);
+        }
+
+        let p_usize = lmm.x.ncols();
+        let mut w_col_bufs = Vec::with_capacity(p_usize);
+        let mut v_col_bufs = Vec::with_capacity(p_usize);
+        for _ in 0..p_usize {
+            w_col_bufs.push(vec![0.0; q]);
+            v_col_bufs.push(vec![0.0; q]);
+        }
+
+        let mut a_indptr = Vec::with_capacity(q + 1);
+        let mut a_indices = Vec::with_capacity(m * k * k);
+        a_indptr.push(0);
+        for r in 0..q {
+            let o = (r / k) * k;
+            for j in 0..k {
+                a_indices.push(o + j);
+            }
+            a_indptr.push(a_indices.len());
+        }
+        let a_values = vec![0.0; m * k * k];
+
+        Some(Self {
+            k,
+            m,
+            q,
+            p_usize,
+            s_blocks,
+            lambda: build_lambda(&vec![1.0; block.theta_len], q, &lmm.re_blocks),
+            w_y_buf: vec![0.0; q],
+            v_y_buf: vec![0.0; q],
+            w_col_bufs,
+            v_col_bufs,
+            a_block: Array2::zeros((k, k)),
+            sl_scratch: Array2::zeros((k, k)),
+            a_indptr,
+            a_indices,
+            a_values,
+            full_ldl: None,
+        })
+    }
+
+    fn profile_deviance(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> f64 {
+        match self.factor_and_collect(lmm, theta) {
+            Ok(log_det_a) => self.deviance_from_workspaces(lmm, reml, log_det_a),
+            Err(_) => f64::MAX,
+        }
+    }
+
+    fn deviance_from_workspaces(&self, lmm: &LmmData, reml: bool, log_det_a: f64) -> f64 {
+        let n = lmm.y.len() as f64;
+        let p = lmm.x.ncols() as f64;
+        let p_usize = self.p_usize;
+
+        let mut rzx_t_rzx = Array2::<f64>::zeros((p_usize, p_usize));
+        for i in 0..p_usize {
+            for j in 0..p_usize {
+                rzx_t_rzx[[i, j]] = self.v_col_bufs[i]
+                    .iter()
+                    .zip(self.w_col_bufs[j].iter())
+                    .map(|(a, b)| a * b)
+                    .sum();
+            }
+        }
+
+        let mut rzx_t_cu = Array1::<f64>::zeros(p_usize);
+        for i in 0..p_usize {
+            rzx_t_cu[i] = self.v_col_bufs[i]
+                .iter()
+                .zip(self.w_y_buf.iter())
+                .map(|(a, b)| a * b)
+                .sum();
+        }
+
+        let a_x = &lmm.xt_x - &rzx_t_rzx;
+        let l_x = match a_x.cholesky(UPLO::Lower) {
+            Ok(f) => f,
+            Err(_) => return f64::MAX,
+        };
+
+        let rhs_beta = &lmm.xt_y - &rzx_t_cu;
+        let c_beta = match l_x.solve(&rhs_beta) {
+            Ok(v) => v,
+            Err(_) => return f64::MAX,
+        };
+        let beta = match l_x.t().solve(&c_beta) {
+            Ok(v) => v,
+            Err(_) => return f64::MAX,
+        };
+
+        let mut cu_norm2 = 0.0;
+        for (vy, wy) in self.v_y_buf.iter().zip(self.w_y_buf.iter()) {
+            cu_norm2 += vy * wy;
+        }
+
+        let mut c_beta_norm2 = 0.0;
+        for i in 0..beta.len() {
+            c_beta_norm2 += beta[i] * rhs_beta[i];
+        }
+
+        let r2 = lmm.y_norm2 - cu_norm2 - c_beta_norm2;
+        let reml_df = if reml { n - p } else { n };
+        let sigma2 = r2 / reml_df;
+        if sigma2 <= 0.0 {
+            return f64::MAX;
+        }
+
+        let twopi = std::f64::consts::PI * 2.0;
+        let mut deviance = reml_df * (twopi * sigma2).ln() + log_det_a + reml_df;
+
+        if reml {
+            let mut log_det_l_x = 0.0;
+            for i in 0..l_x.nrows() {
+                log_det_l_x += l_x[[i, i]].ln();
+            }
+            deviance += 2.0 * log_det_l_x;
+        }
+
+        deviance
+    }
+
+    fn solve_profile(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> ProfileSolution {
+        let log_det_a = self
+            .factor_and_collect(lmm, theta)
+            .expect("single-factor slopes factorization failed");
+        let n = lmm.y.len() as f64;
+        let p = lmm.x.ncols() as f64;
+        let p_usize = self.p_usize;
+        let q = self.m * self.k;
+        self.lambda = build_lambda(theta, q, &lmm.re_blocks);
+        let v_y = Array1::from_vec(self.v_y_buf.clone());
+        let v_cols: Vec<Array1<f64>> = self
+            .v_col_bufs
+            .iter()
+            .map(|v| Array1::from_vec(v.clone()))
+            .collect();
+        let w_col_slices: Vec<&[f64]> = self.w_col_bufs.iter().map(|v| v.as_slice()).collect();
+        solve_profile_finish(
+            lmm,
+            ProfileFinishInput {
+                reml,
+                n,
+                p,
+                p_usize,
+                q,
+                log_det_a,
+                v_y: &v_y,
+                w_y: &self.w_y_buf,
+                v_cols: &v_cols,
+                w_cols: &w_col_slices,
+            },
+            |u| apply_lambda(&self.lambda, u),
+        )
+        .expect("single-factor slopes profile finish failed")
+    }
+
+    fn factor_and_collect(&mut self, lmm: &LmmData, theta: &[f64]) -> Result<f64, ()> {
+        let k = self.k;
+        let q = self.q;
+        let l = build_lambda_block(theta, k);
+        for g in 0..self.m {
+            build_a_block(
+                &l,
+                &self.s_blocks[g],
+                &mut self.sl_scratch,
+                &mut self.a_block,
+            );
+            for i in 0..k {
+                let base = self.a_indptr[g * k + i];
+                for j in 0..k {
+                    self.a_values[base + j] = self.a_block[[i, j]];
+                }
+            }
+        }
+
+        use sprs::{CsMatView, SymmetryCheck};
+        let a = CsMatView::new((q, q), &self.a_indptr, &self.a_indices, &self.a_values);
+        match &mut self.full_ldl {
+            Some(ldl) => ldl.update(a).map_err(|_| ())?,
+            slot @ None => {
+                *slot = Some(
+                    sprs_ldl::Ldl::new()
+                        .check_symmetry(SymmetryCheck::DontCheckSymmetry)
+                        .numeric(a)
+                        .map_err(|_| ())?,
+                );
+            }
+        }
+        let ldl = self.full_ldl.as_ref().expect("full LDL");
+        let mut log_det_a = 0.0;
+        for &diag in ldl.d() {
+            log_det_a += diag.ln();
+        }
+
+        self.lambda = build_lambda(theta, q, &lmm.re_blocks);
+        let v_y = sparse_transpose_matvec(&self.lambda, lmm.zt_y.view());
+        self.v_y_buf.copy_from_slice(v_y.as_slice().unwrap());
+        let w_y = ldl.solve(v_y.to_vec());
+        self.w_y_buf.copy_from_slice(&w_y);
+
+        for j in 0..self.p_usize {
+            let v_j = sparse_transpose_matvec(&self.lambda, lmm.zt_x.column(j));
+            self.v_col_bufs[j].copy_from_slice(v_j.as_slice().unwrap());
+            let w_j = ldl.solve(v_j.to_vec());
+            self.w_col_bufs[j].copy_from_slice(&w_j);
+        }
+
+        Ok(log_det_a)
+    }
+}
+
+fn zt_z_is_block_diagonal(zt_z: &CsMat<f64>, k: usize, m: usize) -> bool {
+    let q = m * k;
+    if zt_z.rows() != q || zt_z.cols() != q {
+        return false;
+    }
+    for (val, (i, j)) in zt_z.iter() {
+        if i / k != j / k && val.abs() > 1e-15 {
+            return false;
+        }
+    }
+    true
+}
+
+fn build_lambda_block(theta: &[f64], k: usize) -> Array2<f64> {
+    let mut l = Array2::<f64>::zeros((k, k));
+    let mut idx = 0;
+    for j in 0..k {
+        for i in j..k {
+            l[[i, j]] = theta[idx];
+            idx += 1;
+        }
+    }
+    l
+}
+
+fn build_a_block(l: &Array2<f64>, s: &Array2<f64>, sl: &mut Array2<f64>, a: &mut Array2<f64>) {
+    let k = l.nrows();
+    for i in 0..k {
+        for j in 0..k {
+            let mut sum = 0.0;
+            for p in 0..k {
+                sum += s[[i, p]] * l[[p, j]];
+            }
+            sl[[i, j]] = sum;
+        }
+    }
+    for i in 0..k {
+        for j in 0..k {
+            let mut sum = 0.0;
+            for p in 0..k {
+                sum += l[[p, i]] * sl[[p, j]];
+            }
+            a[[i, j]] = sum;
+        }
+        a[[i, i]] += 1.0;
+    }
 }
 
 /// Use dense Cholesky when q is modest (crossed 20k → q=350); sparse LDL for larger q.
@@ -1660,6 +1996,84 @@ mod tests {
     use crate::model_matrix::ReBlock;
     use ndarray::array;
     use sprs::TriMat;
+    use std::fs::File;
+    use std::io::BufReader;
+
+    #[derive(serde::Deserialize)]
+    struct RandomSlopesFixture {
+        inputs: RandomSlopesInputs,
+        outputs: RandomSlopesOutputs,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct RandomSlopesInputs {
+        #[serde(rename = "X")]
+        x: Vec<Vec<f64>>,
+        #[serde(rename = "Zt")]
+        zt: Vec<Vec<f64>>,
+        y: Vec<f64>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct RandomSlopesOutputs {
+        theta: Vec<f64>,
+        reml_crit: f64,
+    }
+
+    fn random_slopes_lmm() -> (LmmData, Vec<f64>, f64) {
+        let file = File::open("tests/data/random_slopes.json").expect("random_slopes.json");
+        let data: RandomSlopesFixture =
+            serde_json::from_reader(BufReader::new(file)).expect("parse random_slopes.json");
+        let x = Array2::from_shape_vec(
+            (data.inputs.x.len(), data.inputs.x[0].len()),
+            data.inputs.x.into_iter().flatten().collect(),
+        )
+        .unwrap();
+        let mut zt_tri = TriMat::new((data.inputs.zt.len(), data.inputs.zt[0].len()));
+        for (i, row) in data.inputs.zt.iter().enumerate() {
+            for (j, &val) in row.iter().enumerate() {
+                if val != 0.0 {
+                    zt_tri.add_triplet(i, j, val);
+                }
+            }
+        }
+        let zt = zt_tri.to_csr();
+        let y = Array1::from_vec(data.inputs.y);
+        let re_blocks = vec![ReBlock {
+            m: 18,
+            k: 2,
+            theta_len: 3,
+            group_name: "Subject".to_string(),
+            effect_names: vec!["(Intercept)".to_string(), "Days".to_string()],
+            group_map: HashMap::new(),
+        }];
+        (
+            LmmData::new(x, zt, y, re_blocks),
+            data.outputs.theta,
+            data.outputs.reml_crit,
+        )
+    }
+
+    #[test]
+    fn single_factor_slopes_cache_matches_general_profile() {
+        let (lmm, theta, reml_crit) = random_slopes_lmm();
+        assert!(lmm.single_factor_slopes_re());
+        let general = lmm.solve_profile_general(&theta, true);
+        let mut cache = lmm.single_factor_slopes.as_ref().unwrap().lock().unwrap();
+        let dev_fast = cache.profile_deviance(&lmm, &theta, true);
+        assert!(
+            (general.reml_crit - dev_fast).abs() < 1e-6,
+            "profile deviance mismatch: general={} fast={} lme4={}",
+            general.reml_crit,
+            dev_fast,
+            reml_crit
+        );
+        let fast = cache.solve_profile(&lmm, &theta, true);
+        assert!((general.reml_crit - fast.reml_crit).abs() < 1e-6);
+        for i in 0..general.beta.len() {
+            assert!((general.beta[i] - fast.beta[i]).abs() < 1e-5);
+        }
+    }
 
     #[test]
     fn test_zt_z_fast_matches_sparse_mul() {

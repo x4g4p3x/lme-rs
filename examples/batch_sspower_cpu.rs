@@ -207,9 +207,7 @@ fn main() -> anyhow::Result<()> {
     println!();
     println!("Lane A — independent Gauss–Newton (std::thread::scope):");
     println!("  wall: {:.2?}", batch_wall);
-    println!(
-        "  mean fitted (a, b, c): ({mean_a:.4}, {mean_b:.4}, {mean_c:.4})"
-    );
+    println!("  mean fitted (a, b, c): ({mean_a:.4}, {mean_b:.4}, {mean_c:.4})");
     println!();
     println!("Lane B — pooled nlmer SSpower ~ c|sensor_id:");
     println!("  wall: {:.2?}", nlmer_wall);

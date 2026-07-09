@@ -83,7 +83,7 @@ Statuses are **practical**, not formal support tiers.
 | Workflow | Rust | Python | Notes |
 |:---------|:----:|:------:|:------|
 | OLS / `lm` from formula | ✓ | ✓ | [`lm_df`](src/lib.rs) / `lm()` |
-| Standard LMM (`lmer`): random intercept, nested, crossed | ✓ | ✓ | sleepstudy, dyestuff, pastes, penicillin patterns |
+| Standard LMM (`lmer`): random intercept, **random slopes**, nested, crossed | ✓ | ✓ | sleepstudy, dyestuff, pastes, penicillin patterns |
 | LMM with weights, offset | ✓ | ✓ | Tested; compare to R on your data |
 | REML / ML, population & conditional predict | ✓ | ✓ | |
 | Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts | ✓ | ✓ | Scoped to tested LMM shapes; see golden `pastes_cask` |
@@ -98,7 +98,7 @@ Statuses are **practical**, not formal support tiers.
 
 | Workflow | Issue | What to do |
 |:---------|:------|:-----------|
-| Random-slopes LMM (e.g. `(Days \| Subject)`) | Supported; less optimization work than intercept-only paths | Compare to R; benchmark if fitting many models |
+| Random-slopes LMM (e.g. `(Days \| Subject)`) | Fair-harness competitive on sleepstudy (~0.8× Julia cold `lmer()`); validate on your data | Compare to R; use `prepare_lmer` + `fit_prepared` for repeated fits — [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes) |
 | Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
 | GLMM non-canonical links, weights | Implemented; narrower test matrix | Golden checks where listed; validate otherwise |
 | `nlmer` built-in `SS*` means | Subset of R `stats::SS*` plus **`SSpower`** (MATLAB `power2`); one grouping factor | Orange / synthetic parity cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
@@ -150,12 +150,12 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 
 There is no sharp line between “analysis” and “throughput” use — only **how often you pay the fit cost** and **whether that cost fits your budget**.
 
-| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-08) |
+| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-09) |
 |:-------------|:----------------|:----------------------------------------|
 | **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
 | **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
 | **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, or `cv_grouped(..., n_jobs=…)` for parallel grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation) |
-| **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; crossed cold `lmer()` may still be yellow/red |
+| **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; random-slopes sleepstudy pattern is ~sub-ms hot fit on the reference workstation |
 
 **Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.
 

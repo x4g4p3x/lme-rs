@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). For **whether your workflow is in scope** — and the distinction between repository test coverage and real-world field experience — see **[USABILITY.md](USABILITY.md)**.
 
-On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` + `fit_prepared`) are **~10 ms** — faster than Julia on the same fixture — while one-shot `lmer()` is **~1.3×** Julia because setup and post-fit work are included in wall time. Axis (3) cold-fit target: **≤1.5×** Julia ([BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)). See [OPTIMIZATION.md](OPTIMIZATION.md) and [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-prepare-fast-path).
+On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` + `fit_prepared`) are **~10 ms** — faster than Julia on the same fixture — while one-shot `lmer()` is **~1.3×** Julia because setup and post-fit work are included in wall time. **`sleepstudy_reml`** (random slopes) is **~0.8×** Julia on cold `lmer()` after the block LDL fast path ([BENCHMARKS.md § 2026-07-09 random slopes](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes)). Axis (3) cold-fit target: **≤1.5×** Julia ([BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)). See [OPTIMIZATION.md](OPTIMIZATION.md) and [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-prepare-fast-path).
 
 [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) is an internal **coverage** map (how much of the intended API exists), not a usability score.
 

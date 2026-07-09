@@ -1,0 +1,54 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-09-sleepstudy-slopes",
+  "generated_at": "2026-07-09T19:49:57.077229+00:00",
+  "git_sha": "ae3380648959d862c307de8f140d0b2d4247b31c",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "data_fixture": "tests/data/sleepstudy.csv",
+    "rust_engine": "lme-rs lmer(); optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 10,
+    "cases_run": "sleepstudy_reml",
+    "cold_fit_target_ratio": 1.5,
+    "note": "Single-factor random-slopes fast path (SingleFactorSlopesCache in src/math.rs): block-diagonal ΛᵀZᵀZΛ assembly + reused sparse LDL on the full q×q system; deviance-only θ evaluations. Measured with uncommitted slopes cache atop git_sha. Prior sleepstudy_reml cold median was ~2.7 ms Rust vs ~0.77 ms Julia (~3.5×) on the 2026-07-06 reference."
+  },
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "julia": "julia version 1.12.6"
+  },
+  "comparisons": [
+    {
+      "case": "sleepstudy_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "reml": true,
+      "n_obs": 180,
+      "rust_median_seconds": 0.0006451,
+      "julia_median_seconds": 0.00080775,
+      "rust_over_julia_median": 0.8,
+      "faster_implementation": "rust",
+      "meets_cold_fit_target": true,
+      "fit_prepared_rust_median_seconds": 0.00060165,
+      "fit_prepared_rust_over_julia_median": 0.74,
+      "prepare_lmer_rust_median_seconds": 0.0000323,
+      "notes": "First tier-A re-benchmark after random-slopes block LDL path; Rust faster than Julia on cold lmer() and fit_prepared. Down from ~3.5× Julia (2026-07-06 table)."
+    }
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "sleepstudy_reml_meets_cold_fit_target": true,
+    "prior_reference": "benchmarks/fair-rust-julia-reference-2026-07-06.json",
+    "synthetic_reference": "benchmarks/fair-rust-julia-reference-2026-07-09.json",
+    "interpretation": "sleepstudy_reml (canonical random-slopes LMM) is now within the 1.5× cold-fit bar and faster than MixedModels.jl on this workstation (~0.8× cold lmer(), ~0.74× fit_prepared vs Julia fit). Synthetic tier-A status unchanged in fair-rust-julia-reference-2026-07-09.json."
+  }
+}
