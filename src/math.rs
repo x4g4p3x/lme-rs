@@ -210,7 +210,12 @@ impl LmmData {
 
     /// True when intercept-only blocked Cholesky is available for this model.
     pub fn blocked_kernel_available(&self) -> bool {
-        self.intercept_only_re() && intercept_blocked::blocked_gate_failure(self).is_none()
+        self.intercept_ldl.as_ref().is_some_and(|cache| {
+            cache
+                .lock()
+                .expect("intercept LDL lock poisoned")
+                .blocked_gate
+        })
     }
 
     /// Perf-diag label for blocked kernel availability.

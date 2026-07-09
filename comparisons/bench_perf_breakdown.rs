@@ -25,6 +25,8 @@ struct BreakdownReport {
     fit_wall_seconds: f64,
     /// One-time `prepare_lmer` wall time.
     prepare_wall_seconds: f64,
+    /// Phase timing collected while building the prepared model.
+    prepare_perf: lme_rs::perf_diag::PerfReport,
     /// `fit_prepared` wall time after prepare (amortized hot path).
     fit_prepared_wall_seconds: f64,
     /// Blocked Cholesky active after [`prepare_lmer`].
@@ -101,9 +103,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         lme_rs::perf_diag::reset();
     }
 
+    lme_rs::perf_diag::reset();
     let prepare_started = Instant::now();
     let prepared = lme_rs::prepare_lmer(&formula, &df)?;
     let prepare_wall = prepare_started.elapsed();
+    lme_rs::perf_diag::set_fit_wall(prepare_wall);
+    let prepare_perf = lme_rs::perf_diag::take_report().ok_or("prepare produced no diagnostics")?;
 
     for _ in 0..warmups {
         let _ = lme_rs::fit_prepared(&prepared, reml)?;
@@ -131,6 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         optimizer_iterations: fit.iterations.unwrap_or(0),
         fit_wall_seconds: fit_wall.as_secs_f64(),
         prepare_wall_seconds: prepare_wall.as_secs_f64(),
+        prepare_perf,
         fit_prepared_wall_seconds: fit_prepared_wall.as_secs_f64(),
         blocked_kernel: prepared.blocked_kernel,
         blocked_kernel_detail: prepared.blocked_kernel_detail.to_string(),

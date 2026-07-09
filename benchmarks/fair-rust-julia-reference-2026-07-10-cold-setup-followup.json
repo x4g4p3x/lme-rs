@@ -1,0 +1,24 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-10-cold-setup-followup",
+  "generated_at": "2026-07-10T09:30:00+02:00",
+  "git_sha": "29247b1",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "rust_engine": "lme-rs lmer; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 10,
+    "cases_run": "crossed_20k,nested_10k",
+    "cold_fit_target_ratio": 1.5,
+    "note": "Measured with nested slash fair-design expansion and cached blocked-kernel gate."
+  },
+  "comparisons": [
+    {"case":"crossed_20k","rust_median_seconds":0.01541015,"julia_median_seconds":0.01438645,"rust_over_julia_median":1.0711572347590963,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.01044295,"fit_prepared_rust_over_julia_median":0.7258879014628348,"prepare_lmer_rust_median_seconds":0.00424485},
+    {"case":"nested_10k","rust_median_seconds":0.00818655,"julia_median_seconds":0.00659135,"rust_over_julia_median":1.242014154915154,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.00355255,"fit_prepared_rust_over_julia_median":0.5389715308700038,"prepare_lmer_rust_median_seconds":0.00407365}
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "interpretation": "Both cases meet the cold-fit target. Rust remains 7% / 24% slower cold, but is 27% / 46% faster prepared. The remaining gap is one-time setup."
+  }
+}

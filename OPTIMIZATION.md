@@ -93,6 +93,12 @@ For unweighted one- or two-factor intercept-only models, `build_zt_z_intercept_f
 
 On the fair harness, `crossed_20k` preparation fell from ~6.7 ms to **4.32 ms**, bringing cold `lmer()` to **15.55 ms vs 14.29 ms Julia** (**1.09×**). `nested_10k` preparation is **4.25 ms** and cold fit is **8.55 ms vs 6.82 ms** (**1.25×**); its **3.53 ms** prepared fit remains much faster than Julia. Reference: [direct-intercept-Gram snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-direct-intercept-gram.json).
 
+#### Cold-setup follow-up (2026-07-10)
+
+`bench_perf_breakdown` now retains a nested `prepare_perf` report rather than discarding setup phases before the prepared-fit measurement. It confirmed that crossed setup is mainly `LmmData` construction, while nested setup was dominated by generic design-matrix construction. The fair path now expands the standard intercept-only slash form (`(1 | batch/cask)`) directly, with a unit test covering the equivalent matrix shape and RE-block structure; row-level ordering is intentionally not treated as an invariant. `blocked_kernel_available()` also reuses the gate computed while constructing `InterceptLdlCache` instead of scanning the cross block again for diagnostics.
+
+The 10-repeat follow-up is **15.41 ms vs 14.39 ms Julia** on `crossed_20k` (**1.07×**) and **8.19 ms vs 6.59 ms** on `nested_10k` (**1.24×**). Both meet the 1.5× cold target; prepared Rust remains faster (**0.73×** / **0.54×** Julia). The remaining cold deficit is setup, not θ algebra. Reference: [cold-setup follow-up](benchmarks/fair-rust-julia-reference-2026-07-10-cold-setup-followup.json).
+
 ### θ search ([`src/optimizer.rs`](src/optimizer.rs))
 
 When `LmmData::intercept_only_re()` is true, `optimize_theta_lmm` dispatches by |θ|:

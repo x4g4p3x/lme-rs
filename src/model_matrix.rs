@@ -884,7 +884,7 @@ struct FairLmmFormula<'a> {
 }
 
 struct FairReTerm<'a> {
-    group: &'a str,
+    group: String,
     slope: Option<&'a str>,
 }
 
@@ -931,10 +931,29 @@ fn parse_fair_lmm_formula(formula: &str) -> Option<FairLmmFormula<'_>> {
                 Some(slope.trim())
             };
             let group = group.trim();
-            if group.is_empty() || group.contains('/') {
+            if group.is_empty() {
                 return None;
             }
-            re_terms.push(FairReTerm { group, slope });
+            if let Some((outer, inner)) = group.split_once('/') {
+                if slope.is_some() || outer.trim().is_empty() || inner.trim().is_empty() {
+                    return None;
+                }
+                let outer = outer.trim();
+                let inner = inner.trim();
+                re_terms.push(FairReTerm {
+                    group: format!("{outer}:{inner}"),
+                    slope: None,
+                });
+                re_terms.push(FairReTerm {
+                    group: outer.to_string(),
+                    slope: None,
+                });
+            } else {
+                re_terms.push(FairReTerm {
+                    group: group.to_string(),
+                    slope,
+                });
+            }
         } else if term == "1" {
             continue;
         } else if term.contains('|')
@@ -1019,7 +1038,7 @@ pub fn try_build_fair_lmm_design(
     let mut single_factor_zt = None;
 
     for re_term in parsed.re_terms {
-        let g_var = re_term.group;
+        let g_var = re_term.group.as_str();
         let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
             let parts: Vec<&str> = g_var.split(':').collect();
             if let Some(groups) = try_build_interaction_groups(data, &parts, n_obs)? {
@@ -1139,30 +1158,29 @@ mod tests {
     }
 
     #[test]
-    fn nested_slash_formula_skips_fast_path() {
-        use std::path::Path;
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/benchmark-results/fair-rust-julia-data/nested_10k.csv"
-        );
-        if !Path::new(path).exists() {
-            return;
-        }
-        let mut file = std::fs::File::open(path).unwrap();
-        let df = CsvReadOptions::default()
-            .with_has_header(true)
-            .into_reader_with_file_handle(&mut file)
-            .finish()
-            .unwrap();
-        assert!(try_build_fair_lmm_design("y ~ x + (1 | batch/cask)", &df)
+    fn nested_slash_formula_matches_generic_fast_path() {
+        let df = df!(
+            "y" => &[1.0, 2.0, 3.0, 4.0],
+            "x" => &[0.1, 0.2, 0.3, 0.4],
+            "batch" => &["B1", "B1", "B2", "B2"],
+            "cask" => &["C1", "C2", "C1", "C2"]
+        )
+        .unwrap();
+        let formula = "y ~ x + (1 | batch/cask)";
+        let fast = try_build_fair_lmm_design(formula, &df)
             .unwrap()
-            .is_none());
-        let prep = crate::prepare_lmer("y ~ x + (1 | batch/cask)", &df).unwrap();
-        assert!(
-            prep.blocked_kernel,
-            "detail: {}",
-            prep.blocked_kernel_detail
-        );
+            .expect("fair nested fast path");
+        let ast = crate::formula::parse(formula).unwrap();
+        let slow = build_design_matrices(&ast, &df).unwrap();
+        assert_eq!(fast.zt.shape(), slow.zt.shape());
+        assert_eq!(fast.zt.nnz(), slow.zt.nnz());
+        assert_eq!(fast.re_blocks.len(), slow.re_blocks.len());
+        for (fast_block, slow_block) in fast.re_blocks.iter().zip(&slow.re_blocks) {
+            assert_eq!(fast_block.group_name, slow_block.group_name);
+            assert_eq!(fast_block.m, slow_block.m);
+            assert_eq!(fast_block.k, slow_block.k);
+            assert_eq!(fast_block.theta_len, slow_block.theta_len);
+        }
     }
 
     #[test]
