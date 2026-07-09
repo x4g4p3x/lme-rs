@@ -151,7 +151,7 @@ For **where time goes** inside a fit (Rust phase breakdown + Julia `optsum.feval
 
 ### Fair Rust vs Julia reference results
 
-Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json) (synthetics); [benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json) (`sleepstudy_reml` random slopes); prior datapoints [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json), [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json), [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).  
+Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json) (full LMM suite at HEAD); [benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) (GLMM suite at HEAD); [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json) (prior synthetic subset); [benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json) (prior `sleepstudy_reml` slopes run); prior datapoints [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json), [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json), [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).
 Full per-sample JSON from the same run can be reproduced locally as `benchmark-results/fair-rust-julia-benchmarks.json`.
 
 **Recorded:** 2026-07-06 on a Windows 10 AMD64 workstation (12 logical CPUs).  
@@ -353,6 +353,12 @@ Single-factor models with correlated random effects (`k > 1`, e.g. `Reaction ~ D
 | `sleepstudy_reml` | **0.65 ms** | 0.81 ms | **0.80×** (Rust faster) | **0.60 ms** | **0.74×** | **~3.5×** (2.71 ms / 0.77 ms) |
 
 **Takeaway:** the canonical **random-slopes** tier-A case now **beats MixedModels.jl** on cold `lmer()` and `fit_prepared` on this workstation — down from the largest real-fixture gap in the 2026-07-06 table. Synthetics unchanged in [fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json).
+
+### 2026-07-09 full LMM validation at HEAD
+
+The complete LMM tier-A suite (real, weighted, random-slopes, random-intercept 10k/50k/100k, crossed, and nested) was re-run with 2 warmups and 10 samples per implementation: [full LMM reference](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json). The random-slopes path remains **~0.79×** Julia on cold `lmer()`; real intercept fixtures and 10k/crossed/nested synthetics are at **~0.38–1.31×**. However, one-shot `random_intercept_50k` and `random_intercept_100k` are **~1.74×** and **~1.94×** Julia, respectively, missing the 1.5× cold-fit target. Every measured LMM `fit_prepared` median beats Julia.
+
+The accompanying [GLMM snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) has both Laplace cases within target: CBPP binomial is **~0.83×** Julia and grouseticks Poisson is **~0.04×**. The Julia timing runner now uses `LogitLink()` from GLM.jl for CBPP.
 
 **How to read this:**
 

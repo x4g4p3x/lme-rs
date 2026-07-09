@@ -4,7 +4,7 @@ This file gives **approximate completion percentages** for major parts of the `l
 
 **This is a coverage map, not a usability guide.** For “can I use this on my problem?” (workflows, validation posture, limited field experience), see **[USABILITY.md](USABILITY.md)**.
 
-**Last assessed:** 2026-07-08.
+**Last assessed:** 2026-07-09.
 
 **Versions checked:** `lme-rs` **0.1.9** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.1.9** ([`python/Cargo.toml`](python/Cargo.toml)).
 
@@ -41,14 +41,14 @@ Until axis (3) closes, overall completion percentages are capped in practice eve
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`USABILITY.md`](USABILITY.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md), [`OPTIMIZATION.md`](OPTIMIZATION.md) | **92%** | README documentation map is accurate; [USABILITY.md](USABILITY.md) separates workflow scope from [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) coverage. Some release links (e.g. benchmark artifacts version on README) may lag the current crate version—prefer [`CHANGELOG.md`](CHANGELOG.md) for history. |
 | 11 | **Examples & optional demos** — Cargo `[[example]]` entries in [`Cargo.toml`](Cargo.toml) under `comparisons/`, [`python/examples/`](python/examples/), [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | **76%** | Comparison binaries are first-class; plotting and cross-language scripts are useful but partly manual or environment-dependent. |
 | 12 | **Experimental / exploratory code** — [`scripts/ast_explorations/`](scripts/ast_explorations/) | **35%** | Standalone Rust snippets; not wired into the crate or CI. Other `scripts/` helpers (benchmark drivers, R dumps) are **tooling**, not “library completion.” |
-| 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **~86%** | **Tier-A cases:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md). **History:** `76fdb61` (~2–3× / ~8× / ~19×) → Jul 8 blocked Cholesky → Jul 9 prepare fast path (**~1.3–1.5×** cold `lmer()` on synthetics; **`fit_prepared` beats Julia**). **Re-run required** after harness expansion (`sleepstudy`, 50k/100k, real fixtures, GLMM). **Target:** `cold_fit` ≤ **~1.5×** Julia per case (`--target-ratio 1.5`; legacy **2×**). |
+| 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **~78%** | **Tier-A cases:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md). Jul 9 LMM re-run at HEAD: **7/9** cases meet the 1.5× cold-fit target; `sleepstudy_reml` is **~0.79×** Julia after the slopes cache, while cold `random_intercept_50k` / `100k` are **~1.74× / ~1.94×**. **`fit_prepared` beats Julia on every measured LMM case.** Both tier-A GLMM cases meet the cold-fit target (~0.83× / ~0.04×). |
 
 ## Weighted “overall” (illustrative only)
 
 Simple mean of the thirteen percentages:  
-(94 + 88 + 87 + 86 + 92 + 99 + 93 + 84 + 98 + 92 + 76 + 35 + 84) ÷ 13 = 1108 ÷ 13 ≈ **85.2%**.
+(94 + 88 + 87 + 86 + 92 + 99 + 93 + 88 + 98 + 92 + 76 + 35 + 78) ÷ 13 = 1106 ÷ 13 ≈ **85.1%**.
 
-Synthetic fair-harness LMM throughput (intercept / crossed / nested / **sleepstudy random slopes**) is **~0.8–1.5× Julia** on cold `lmer()` and **`fit_prepared` beats Julia** on the 2026-07-09 reference workstation ([OPTIMIZATION.md](OPTIMIZATION.md)). Axis (3) is **not fully closed**: **`nested_10k`** is borderline at the **1.5×** bar (~1.51×); larger **`random_intercept_50k`/`100k`** cases were not re-benchmarked after the Jul 9 passes — benchmark on your RE layout before hot-path adoption ([USABILITY.md](USABILITY.md)).
+The Jul 9 full-LMM reference shows **~0.38–1.31× Julia** cold fits on the real, crossed, nested, 10k-intercept, and random-slopes cases, but **~1.74× / ~1.94×** on cold 50k/100k random-intercept fits. `fit_prepared` beats Julia on every measured LMM case. Axis (3) is therefore not fully closed; prioritize one-shot large random-intercept setup before further hot-path work.
 
 ## Evidence pointers (verified)
 

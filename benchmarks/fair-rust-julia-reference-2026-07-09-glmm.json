@@ -1,0 +1,26 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-09-glmm",
+  "generated_at": "2026-07-09T22:04:10+02:00",
+  "git_sha": "a7a6146f2aa4d02e4d960f098da013e1759b1f89",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "rust_engine": "lme-rs glmer (Laplace)",
+    "julia_engine": "MixedModels.jl GeneralizedLinearMixedModel (Laplace)",
+    "warmups": 2,
+    "repeats": 10,
+    "cases_run": "cbpp_binomial_ml,grouseticks_poisson_ml",
+    "cold_fit_target_ratio": 1.5,
+    "note": "The Julia runner uses GLM.jl's LogitLink() for the binomial case."
+  },
+  "comparisons": [
+    {"case":"cbpp_binomial_ml","rust_median_seconds":0.00972245,"julia_median_seconds":0.01165245,"rust_over_julia_median":0.8343695960935255,"meets_cold_fit_target":true},
+    {"case":"grouseticks_poisson_ml","rust_median_seconds":0.00534345,"julia_median_seconds":0.1480269,"rust_over_julia_median":0.0360978308672275,"meets_cold_fit_target":true}
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "glmm_cases_meeting_cold_fit_target": 2,
+    "glmm_cases_run": 2,
+    "interpretation": "Both measured Laplace GLMM cases meet the cold-fit target on this workstation."
+  }
+}

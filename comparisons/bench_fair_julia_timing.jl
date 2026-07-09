@@ -87,7 +87,7 @@ end
 function fit_model(form, df, opts)
     if opts.model == "glmm_binomial"
         ensure_glm!()
-        return fit(GeneralizedLinearMixedModel, form, df, Bernoulli(), Logit())
+        return fit(GeneralizedLinearMixedModel, form, df, Bernoulli(), LogitLink())
     elseif opts.model == "glmm_poisson"
         ensure_glm!()
         return fit(GeneralizedLinearMixedModel, form, df, Poisson(), LogLink())

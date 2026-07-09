@@ -476,7 +476,7 @@ Do not reintroduce these without re-validating parity and benchmarks.
 3. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
 4. **`build_x_matrix` numeric fast path** — remaining `prepare_lmer` time on `y ~ x + (1|g)` fixtures; profile `setup_design_matrix` vs `setup_lmm_data`.
 5. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
-6. **Fair harness reference JSON** — refresh combined tier-A snapshot after next tagged release (`sleepstudy_reml` logged in [fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json)).
+6. ~~**Fair harness reference JSON**~~ — **refreshed (2026-07-09):** [full LMM snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json) re-ran the real fixtures plus 10k/50k/100k intercept, crossed, and nested cases at HEAD; [GLMM snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) covers CBPP and grouseticks.
 7. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
 
 ---
