@@ -152,6 +152,8 @@ For **where time goes** inside a fit (Rust phase breakdown + Julia `optsum.feval
 ### Fair Rust vs Julia reference results
 
 Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json) (full LMM suite at HEAD); [benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) (GLMM suite at HEAD); [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json) (prior synthetic subset); [benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json) (prior `sleepstudy_reml` slopes run); prior datapoints [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json), [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json), [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).
+
+Large random-intercept update: [benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json) records the setup fast path at 50k/100k observations.
 Full per-sample JSON from the same run can be reproduced locally as `benchmark-results/fair-rust-julia-benchmarks.json`.
 
 **Recorded:** 2026-07-06 on a Windows 10 AMD64 workstation (12 logical CPUs).  
@@ -359,6 +361,12 @@ Single-factor models with correlated random effects (`k > 1`, e.g. `Reaction ~ D
 The complete LMM tier-A suite (real, weighted, random-slopes, random-intercept 10k/50k/100k, crossed, and nested) was re-run with 2 warmups and 10 samples per implementation: [full LMM reference](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json). The random-slopes path remains **~0.79×** Julia on cold `lmer()`; real intercept fixtures and 10k/crossed/nested synthetics are at **~0.38–1.31×**. However, one-shot `random_intercept_50k` and `random_intercept_100k` are **~1.74×** and **~1.94×** Julia, respectively, missing the 1.5× cold-fit target. Every measured LMM `fit_prepared` median beats Julia.
 
 The accompanying [GLMM snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) has both Laplace cases within target: CBPP binomial is **~0.83×** Julia and grouseticks Poisson is **~0.04×**. The Julia timing runner now uses `LogitLink()` from GLM.jl for CBPP.
+
+### 2026-07-09 large random-intercept setup fast path
+
+For a single intercept-only grouping factor, the fair design path now avoids no-op Polars casts, writes `Zᵀ` directly as CSR instead of building triplets, and recognizes the single-membership `ZᵀZ` as diagonal rather than using the general observation-bucket accumulator. With 2 warmups and 10 samples per implementation, cold one-shot `lmer()` is **3.05 ms vs 6.44 ms Julia** at 50k observations (**0.47×**) and **6.64 ms vs 12.92 ms** at 100k (**0.51×**). See the [reference JSON](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json).
+
+The gain is preparation only: `fit_prepared` stays at ~0.83 ms / ~1.81 ms, while `prepare_lmer` falls to ~2.08 ms / ~4.75 ms. This closes the previous large one-shot cold-fit gap without changing the θ optimizer.
 
 **How to read this:**
 

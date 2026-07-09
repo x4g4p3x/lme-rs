@@ -140,14 +140,14 @@ fn test_orange_nlmer_predict_new_level_errors() -> Result<(), Box<dyn std::error
     let new_df = df_clone.with_column(Column::new("Tree".into(), &trees))?;
 
     let err = fit
-        .predict_conditional(&new_df, false)
+        .predict_conditional(new_df, false)
         .expect_err("expected error for unseen Tree level");
     assert!(
         err.to_string().contains("New level"),
         "unexpected error: {err}"
     );
 
-    let ok = fit.predict_conditional(&new_df, true)?;
+    let ok = fit.predict_conditional(new_df, true)?;
     assert_eq!(ok.len(), df.height());
 
     Ok(())

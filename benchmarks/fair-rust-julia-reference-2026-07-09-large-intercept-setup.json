@@ -1,0 +1,26 @@
+{
+  "reference_label": "fair-rust-julia-windows-amd64-2026-07-09-large-intercept-setup",
+  "generated_at": "2026-07-09T22:17:00+02:00",
+  "git_sha": "9a69256",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; only model fit timed; Julia JIT warmed up before samples.",
+    "harness": "scripts/run_fair_rust_julia_benchmark.py",
+    "rust_engine": "lme-rs lmer; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit(MixedModel, ...)",
+    "warmups": 2,
+    "repeats": 10,
+    "cases_run": "random_intercept_50k,random_intercept_100k",
+    "cold_fit_target_ratio": 1.5,
+    "note": "Measured on uncommitted setup fast path: no-op casts are avoided, a single-factor Zt is built directly as CSR, and single-membership ZtZ is assembled as a diagonal CSR matrix."
+  },
+  "comparisons": [
+    {"case":"random_intercept_50k","rust_median_seconds":0.0030505,"julia_median_seconds":0.0064437,"rust_over_julia_median":0.4734081350776728,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.00082555,"fit_prepared_rust_over_julia_median":0.128117385973897,"prepare_lmer_rust_median_seconds":0.00208335},
+    {"case":"random_intercept_100k","rust_median_seconds":0.006637,"julia_median_seconds":0.01292365,"rust_over_julia_median":0.5135546072510475,"meets_cold_fit_target":true,"fit_prepared_rust_median_seconds":0.0018072,"fit_prepared_rust_over_julia_median":0.13983665605305,"prepare_lmer_rust_median_seconds":0.00474505}
+  ],
+  "summary": {
+    "cold_fit_target_ratio": 1.5,
+    "large_random_intercept_cases_meeting_cold_fit_target": 2,
+    "large_random_intercept_cases_run": 2,
+    "interpretation": "Cold one-shot random-intercept fits now beat Julia by about 2.1x at 50k observations and 1.95x at 100k; setup, not the optimizer, delivered the gain."
+  }
+}

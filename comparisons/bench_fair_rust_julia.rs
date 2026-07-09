@@ -165,16 +165,12 @@ fn generate_large_nested_df(
     let mut batch = Vec::with_capacity(total);
     let mut cask = Vec::with_capacity(total);
 
-    for batch_idx in 0..n_batches {
-        for cask_idx in 0..casks_per_batch {
+    for (batch_idx, casks) in cask_effects.iter().enumerate().take(n_batches) {
+        for (cask_idx, &cask_effect) in casks.iter().enumerate().take(casks_per_batch) {
             for _ in 0..reps_per_cask {
                 let x_i = normal.sample(&mut rng);
                 let noise = 0.2 * normal.sample(&mut rng);
-                let y_i = 2.0
-                    + 1.25 * x_i
-                    + batch_effects[batch_idx]
-                    + cask_effects[batch_idx][cask_idx]
-                    + noise;
+                let y_i = 2.0 + 1.25 * x_i + batch_effects[batch_idx] + cask_effect + noise;
 
                 y.push(y_i);
                 x.push(x_i);
@@ -213,7 +209,7 @@ fn load_csv(path: &PathBuf) -> anyhow::Result<DataFrame> {
         .with_has_header(true)
         .into_reader_with_file_handle(&mut file)
         .finish()?;
-    Ok(normalize_fixture_df(df)?)
+    normalize_fixture_df(df)
 }
 
 /// Cast common grouping columns to strings (matches comparison examples).
@@ -242,7 +238,7 @@ fn summarize(samples: &[f64]) -> TimingSummary {
     let n = sorted.len();
     let median_seconds = if n == 0 {
         0.0
-    } else if n % 2 == 0 {
+    } else if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
     } else {
         sorted[n / 2]

@@ -180,7 +180,7 @@ fn fixed_effect_standard_errors_are_positive_and_finite() {
     let sleepstudy = sleepstudy_df();
     let cbpp = cbpp_df();
     let grouseticks = grouseticks_df();
-    let fits = vec![
+    let fits = [
         lmer("Reaction ~ Days + (Days | Subject)", &sleepstudy, true).expect("lmer"),
         glmer(
             "y ~ period2 + period3 + period4 + (1 | herd)",

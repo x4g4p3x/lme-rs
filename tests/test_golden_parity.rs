@@ -605,8 +605,5 @@ fn golden_parity_manifest_is_well_formed() {
 #[test]
 fn golden_parity_against_reference_fixtures() {
     let manifest = load_manifest();
-    manifest
-        .cases
-        .par_iter()
-        .for_each(|case| assert_golden_case(case));
+    manifest.cases.par_iter().for_each(assert_golden_case);
 }

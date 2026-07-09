@@ -116,16 +116,17 @@ fn solve_3x3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
         if div.abs() < 1e-14 {
             return [0.0; 3];
         }
-        for j in col..4 {
-            m[col][j] /= div;
+        for value in m[col].iter_mut().skip(col) {
+            *value /= div;
         }
-        for row in 0..3 {
-            if row == col {
+        let pivot_row = m[col];
+        for (row_idx, row) in m.iter_mut().enumerate() {
+            if row_idx == col {
                 continue;
             }
-            let factor = m[row][col];
-            for j in col..4 {
-                m[row][j] -= factor * m[col][j];
+            let factor = row[col];
+            for (value, pivot_value) in row.iter_mut().skip(col).zip(pivot_row.iter().skip(col)) {
+                *value -= factor * pivot_value;
             }
         }
     }

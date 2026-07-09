@@ -41,14 +41,14 @@ Until axis (3) closes, overall completion percentages are capped in practice eve
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`USABILITY.md`](USABILITY.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md), [`OPTIMIZATION.md`](OPTIMIZATION.md) | **92%** | README documentation map is accurate; [USABILITY.md](USABILITY.md) separates workflow scope from [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) coverage. Some release links (e.g. benchmark artifacts version on README) may lag the current crate version—prefer [`CHANGELOG.md`](CHANGELOG.md) for history. |
 | 11 | **Examples & optional demos** — Cargo `[[example]]` entries in [`Cargo.toml`](Cargo.toml) under `comparisons/`, [`python/examples/`](python/examples/), [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | **76%** | Comparison binaries are first-class; plotting and cross-language scripts are useful but partly manual or environment-dependent. |
 | 12 | **Experimental / exploratory code** — [`scripts/ast_explorations/`](scripts/ast_explorations/) | **35%** | Standalone Rust snippets; not wired into the crate or CI. Other `scripts/` helpers (benchmark drivers, R dumps) are **tooling**, not “library completion.” |
-| 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **~78%** | **Tier-A cases:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md). Jul 9 LMM re-run at HEAD: **7/9** cases meet the 1.5× cold-fit target; `sleepstudy_reml` is **~0.79×** Julia after the slopes cache, while cold `random_intercept_50k` / `100k` are **~1.74× / ~1.94×**. **`fit_prepared` beats Julia on every measured LMM case.** Both tier-A GLMM cases meet the cold-fit target (~0.83× / ~0.04×). |
+| 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **~94%** | **Tier-A cases:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md). Jul 9 setup pass brings the full measured LMM suite to the 1.5× cold-fit target: `sleepstudy_reml` is **~0.79×** Julia, and 50k/100k one-shot random-intercept fits are **~0.47× / ~0.51×**. **`fit_prepared` beats Julia on every measured LMM case.** Both tier-A GLMM cases meet the cold-fit target (~0.83× / ~0.04×). |
 
 ## Weighted “overall” (illustrative only)
 
 Simple mean of the thirteen percentages:  
-(94 + 88 + 87 + 86 + 92 + 99 + 93 + 88 + 98 + 92 + 76 + 35 + 78) ÷ 13 = 1106 ÷ 13 ≈ **85.1%**.
+(94 + 88 + 87 + 86 + 92 + 99 + 93 + 88 + 98 + 92 + 76 + 35 + 94) ÷ 13 = 1122 ÷ 13 ≈ **86.3%**.
 
-The Jul 9 full-LMM reference shows **~0.38–1.31× Julia** cold fits on the real, crossed, nested, 10k-intercept, and random-slopes cases, but **~1.74× / ~1.94×** on cold 50k/100k random-intercept fits. `fit_prepared` beats Julia on every measured LMM case. Axis (3) is therefore not fully closed; prioritize one-shot large random-intercept setup before further hot-path work.
+The Jul 9 setup pass shows **~0.38–1.31× Julia** cold fits on the real, crossed, nested, 10k-intercept, and random-slopes cases, plus **~0.47× / ~0.51×** at 50k/100k random-intercept scale. `fit_prepared` beats Julia on every measured LMM case. Axis (3) now meets its current tier-A throughput criterion; retain the fair harness as a regression guard.
 
 ## Evidence pointers (verified)
 

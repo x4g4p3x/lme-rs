@@ -290,6 +290,30 @@ fn build_zt_csr(
     sprs::CsMat::new((q, n_obs), indptr, indices, data)
 }
 
+/// Direct CSR construction for a single intercept-only grouping factor.
+///
+/// `obs_group_idx` has exactly one random-effect row per observation, so this
+/// avoids the three triplet buffers used by the general multi-factor builder.
+fn build_intercept_zt_csr(obs_group_idx: &[usize], n_groups: usize) -> sprs::CsMat<f64> {
+    let n_obs = obs_group_idx.len();
+    let mut row_counts = vec![0usize; n_groups];
+    for &group in obs_group_idx {
+        row_counts[group] += 1;
+    }
+    let mut indptr = vec![0usize; n_groups + 1];
+    for row in 0..n_groups {
+        indptr[row + 1] = indptr[row] + row_counts[row];
+    }
+    let mut indices = vec![0usize; n_obs];
+    let mut cursor = indptr.clone();
+    for (obs, &group) in obs_group_idx.iter().enumerate() {
+        let pos = cursor[group];
+        indices[pos] = obs;
+        cursor[group] += 1;
+    }
+    sprs::CsMat::new((n_groups, n_obs), indptr, indices, vec![1.0; n_obs])
+}
+
 /// Fast path for `y ~ 1`, `y ~ x`, and `y ~ 1 + x` without interactions or categorical fixed effects.
 #[allow(clippy::type_complexity)]
 fn try_build_simple_x_matrix(
@@ -387,19 +411,25 @@ fn is_native_numeric_dtype(dtype: &DataType) -> bool {
 }
 
 fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<f64>> {
-    let s = data
+    let column = data
         .column(col_name)
         .map_err(|_| crate::LmeError::NotImplemented {
             feature: format!("Missing or invalid column: {}", col_name),
-        })?
-        .cast(&DataType::Float64)
-        .map_err(|_| crate::LmeError::NotImplemented {
-            feature: format!("Missing or invalid column: {}", col_name),
         })?;
-    let s_f64 = s.f64().map_err(|_| crate::LmeError::NotImplemented {
-        feature: format!("Missing or invalid column: {}", col_name),
-    })?;
-    Ok(Array1::from_vec(s_f64.into_no_null_iter().collect()))
+    let cast;
+    let s = if let Ok(values) = column.f64() {
+        values
+    } else {
+        cast = column
+            .cast(&DataType::Float64)
+            .map_err(|_| crate::LmeError::NotImplemented {
+                feature: format!("Missing or invalid column: {}", col_name),
+            })?;
+        cast.f64().map_err(|_| crate::LmeError::NotImplemented {
+            feature: format!("Missing or invalid column: {}", col_name),
+        })?
+    };
+    Ok(Array1::from_vec(s.into_no_null_iter().collect()))
 }
 
 fn is_fixed_effect_column(
@@ -695,11 +725,15 @@ fn build_grouping_from_string_column(
     g_var: &str,
     n_obs: usize,
 ) -> Result<GroupingIndices, crate::LmeError> {
-    let g_series = data
+    let column = data
         .column(g_var)
         .map_err(|e| crate::LmeError::NotImplemented {
             feature: format!("Grouping column '{}' not found: {}", g_var, e),
-        })?
+        })?;
+    if let Ok(values) = column.str() {
+        return build_grouping_from_utf8(values, n_obs);
+    }
+    let g_series = column
         .cast(&DataType::String)
         .map_err(|e| crate::LmeError::NotImplemented {
             feature: format!(
@@ -707,8 +741,13 @@ fn build_grouping_from_string_column(
                 g_var, e
             ),
         })?;
-    let g_str = g_series.str().unwrap();
+    build_grouping_from_utf8(g_series.str().unwrap(), n_obs)
+}
 
+fn build_grouping_from_utf8(
+    g_str: &StringChunked,
+    n_obs: usize,
+) -> Result<GroupingIndices, crate::LmeError> {
     let mut unique_groups: Vec<String> = Vec::new();
     let mut group_map_str: HashMap<&str, usize> = HashMap::new();
     let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
@@ -883,21 +922,17 @@ pub fn try_build_fair_lmm_design(
         return Ok(None);
     }
 
-    let y_series = data
+    let y_column = data
         .column(parsed.response)
         .map_err(|e| crate::LmeError::NotImplemented {
             feature: format!("Missing response column '{}': {}", parsed.response, e),
-        })?
-        .cast(&DataType::Float64)
-        .map_err(|e| crate::LmeError::NotImplemented {
-            feature: format!("Response must be float: {}", e),
         })?;
-    if y_series.null_count() > 0 {
+    if y_column.null_count() > 0 {
         return Err(crate::LmeError::NotImplemented {
             feature: "Response column contains nulls".to_string(),
         });
     }
-    let y = Array1::from_vec(y_series.f64().unwrap().into_no_null_iter().collect());
+    let y = numeric_column_f64(data, parsed.response)?;
 
     let (x, fixed_names, fixed_term_assign) = if let Some(x_name) = parsed.fixed_x {
         let series = data
@@ -930,6 +965,8 @@ pub fn try_build_fair_lmm_design(
     let mut triplet_vals = Vec::new();
     let mut re_blocks = Vec::new();
     let mut current_q_offset = 0usize;
+    let single_factor = parsed.re_groups.len() == 1;
+    let mut single_factor_zt = None;
 
     for g_var in parsed.re_groups {
         let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
@@ -944,13 +981,17 @@ pub fn try_build_fair_lmm_design(
         };
 
         let m = unique_groups.len();
-        triplet_rows.reserve(n_obs);
-        triplet_cols.reserve(n_obs);
-        triplet_vals.reserve(n_obs);
-        for (obs, &g_idx) in obs_group_idx.iter().enumerate() {
-            triplet_rows.push(current_q_offset + g_idx);
-            triplet_cols.push(obs);
-            triplet_vals.push(1.0);
+        if single_factor {
+            single_factor_zt = Some(build_intercept_zt_csr(&obs_group_idx, m));
+        } else {
+            triplet_rows.reserve(n_obs);
+            triplet_cols.reserve(n_obs);
+            triplet_vals.reserve(n_obs);
+            for (obs, &g_idx) in obs_group_idx.iter().enumerate() {
+                triplet_rows.push(current_q_offset + g_idx);
+                triplet_cols.push(obs);
+                triplet_vals.push(1.0);
+            }
         }
 
         re_blocks.push(ReBlock {
@@ -964,7 +1005,9 @@ pub fn try_build_fair_lmm_design(
         current_q_offset += m;
     }
 
-    let zt = if current_q_offset > 0 {
+    let zt = if let Some(zt) = single_factor_zt {
+        zt
+    } else if current_q_offset > 0 {
         build_zt_csr(
             &triplet_rows,
             &triplet_cols,
@@ -1067,6 +1110,29 @@ mod tests {
         for (a, b) in fast.x.iter().zip(slow.x.iter()) {
             assert!((a - b).abs() < 1e-12);
         }
+    }
+
+    #[test]
+    fn test_fair_lmm_design_matches_generic_for_single_factor_formula() {
+        let df = df!(
+            "y" => &[1.0, 2.0, 3.0, 4.0],
+            "x" => &[0.1, 0.2, 0.3, 0.4],
+            "group" => &["G1", "G1", "G2", "G2"]
+        )
+        .unwrap();
+        let formula = "y ~ x + (1 | group)";
+        let fast = try_build_fair_lmm_design(formula, &df)
+            .unwrap()
+            .expect("fair fast path");
+        let ast = crate::formula::parse(formula).unwrap();
+        let slow = build_design_matrices(&ast, &df).unwrap();
+        assert_eq!(
+            fast.zt.indptr().raw_storage(),
+            slow.zt.indptr().raw_storage()
+        );
+        assert_eq!(fast.zt.indices(), slow.zt.indices());
+        assert_eq!(fast.zt.data(), slow.zt.data());
+        assert_eq!(fast.re_blocks[0].group_map, slow.re_blocks[0].group_map);
     }
 
     #[test]

@@ -935,6 +935,39 @@ fn build_ranef_df(rows: &[(String, String, String, f64)]) -> polars::prelude::Da
     .unwrap_or_default()
 }
 
+fn build_nlmm_varcorr(
+    group: &str,
+    re_params: &[String],
+    theta: &[f64],
+    k_re: usize,
+    sigma2: f64,
+) -> polars::prelude::DataFrame {
+    use polars::prelude::*;
+    let sigma_re = sigma_from_theta(k_re, theta).mapv(|v| v * sigma2);
+    let mut grps = Vec::new();
+    let mut var1 = Vec::new();
+    let mut vcov = Vec::new();
+    let mut sdcor = Vec::new();
+    for (i, name) in re_params.iter().enumerate() {
+        let var = sigma_re[[i, i]];
+        grps.push(group.to_string());
+        var1.push(name.clone());
+        vcov.push(var);
+        sdcor.push(var.sqrt());
+    }
+    grps.push("Residual".to_string());
+    var1.push(String::new());
+    vcov.push(sigma2);
+    sdcor.push(sigma2.sqrt());
+    DataFrame::new(vec![
+        Column::new("grp".into(), &grps),
+        Column::new("var1".into(), &var1),
+        Column::new("vcov".into(), &vcov),
+        Column::new("sdcor".into(), &sdcor),
+    ])
+    .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod orange_inner {
     use super::*;
@@ -1039,37 +1072,4 @@ mod orange_inner {
         assert!((params[1] - 717.5343).abs() < 8.0, "xmid={}", params[1]);
         assert!((params[2] - 346.8667).abs() < 8.0, "scal={}", params[2]);
     }
-}
-
-fn build_nlmm_varcorr(
-    group: &str,
-    re_params: &[String],
-    theta: &[f64],
-    k_re: usize,
-    sigma2: f64,
-) -> polars::prelude::DataFrame {
-    use polars::prelude::*;
-    let sigma_re = sigma_from_theta(k_re, theta).mapv(|v| v * sigma2);
-    let mut grps = Vec::new();
-    let mut var1 = Vec::new();
-    let mut vcov = Vec::new();
-    let mut sdcor = Vec::new();
-    for (i, name) in re_params.iter().enumerate() {
-        let var = sigma_re[[i, i]];
-        grps.push(group.to_string());
-        var1.push(name.clone());
-        vcov.push(var);
-        sdcor.push(var.sqrt());
-    }
-    grps.push("Residual".to_string());
-    var1.push(String::new());
-    vcov.push(sigma2);
-    sdcor.push(sigma2.sqrt());
-    DataFrame::new(vec![
-        Column::new("grp".into(), &grps),
-        Column::new("var1".into(), &var1),
-        Column::new("vcov".into(), &vcov),
-        Column::new("sdcor".into(), &sdcor),
-    ])
-    .unwrap_or_default()
 }

@@ -1799,6 +1799,9 @@ fn should_build_zt_z_intercept_fast(zt: &CsMat<f64>) -> bool {
 fn build_zt_z_intercept_from_zt(zt: &CsMat<f64>) -> CsMat<f64> {
     let q = zt.rows();
     let n = zt.cols();
+    if let Some(diagonal) = build_zt_z_single_membership(zt) {
+        return diagonal;
+    }
     let mut buckets: Vec<Vec<(usize, f64)>> = vec![Vec::with_capacity(2); n];
     for (re_idx, row_vec) in zt.outer_iterator().enumerate() {
         for (obs_col, &v) in row_vec.iter() {
@@ -1833,6 +1836,40 @@ fn build_zt_z_intercept_from_zt(zt: &CsMat<f64>) -> CsMat<f64> {
         }
     }
     tri.to_csr()
+}
+
+/// Build ZᵀZ directly when every observation belongs to one intercept-only row.
+///
+/// A single grouping factor has this shape; avoiding observation buckets and a
+/// hash map is particularly important for large random-intercept setup.
+fn build_zt_z_single_membership(zt: &CsMat<f64>) -> Option<CsMat<f64>> {
+    let n = zt.cols();
+    if zt.nnz() != n {
+        return None;
+    }
+    let mut seen = vec![false; n];
+    let mut diagonal = Vec::with_capacity(zt.rows());
+    for row in zt.outer_iterator() {
+        let mut sum = 0.0;
+        for (col, &value) in row.iter() {
+            if seen[col] {
+                return None;
+            }
+            seen[col] = true;
+            sum += value * value;
+        }
+        diagonal.push(sum);
+    }
+    if seen.iter().any(|&present| !present) {
+        return None;
+    }
+    let q = zt.rows();
+    Some(CsMat::new(
+        (q, q),
+        (0..=q).collect(),
+        (0..q).collect(),
+        diagonal,
+    ))
 }
 
 fn build_intercept_a_template(zt_z: &CsMat<f64>, q: usize) -> InterceptATemplate {
@@ -2103,6 +2140,20 @@ mod tests {
                 "({i},{j}): fast={v_fast} ref={v_ref}"
             );
         }
+    }
+
+    #[test]
+    fn test_zt_z_single_membership_matches_sparse_mul() {
+        let mut tri = TriMat::new((4, 12));
+        for obs in 0..12 {
+            tri.add_triplet(obs % 4, obs, 1.0);
+        }
+        let zt = tri.to_csr();
+        let fast = build_zt_z_intercept_from_zt(&zt);
+        let slow = (&zt * &zt.transpose_view()).to_csr();
+        assert_eq!(fast.indptr().raw_storage(), slow.indptr().raw_storage());
+        assert_eq!(fast.indices(), slow.indices());
+        assert_eq!(fast.data(), slow.data());
     }
 
     #[test]

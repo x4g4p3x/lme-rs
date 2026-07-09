@@ -236,16 +236,12 @@ fn generate_large_nested_df(
     let mut batch = Vec::with_capacity(total);
     let mut cask = Vec::with_capacity(total);
 
-    for batch_idx in 0..n_batches {
-        for cask_idx in 0..casks_per_batch {
+    for (batch_idx, casks) in cask_effects.iter().enumerate().take(n_batches) {
+        for (cask_idx, &cask_effect) in casks.iter().enumerate().take(casks_per_batch) {
             for _ in 0..reps_per_cask {
                 let x_i = normal.sample(&mut rng);
                 let noise = 0.2 * normal.sample(&mut rng);
-                let y_i = 2.0
-                    + 1.25 * x_i
-                    + batch_effects[batch_idx]
-                    + cask_effects[batch_idx][cask_idx]
-                    + noise;
+                let y_i = 2.0 + 1.25 * x_i + batch_effects[batch_idx] + cask_effect + noise;
 
                 y.push(y_i);
                 x.push(x_i);
