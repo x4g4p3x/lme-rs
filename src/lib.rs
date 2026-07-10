@@ -1076,10 +1076,14 @@ pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
     let best_theta = opt_result.theta.clone();
     let total_theta_len = init_theta.len();
     let offset_arr = matrices.offset.clone();
+    let coefs = lmm
+        .try_evaluate(best_theta.as_slice().unwrap(), reml)
+        .map_err(|_| LmeError::LinearAlgebra {
+            message: "profile solve failed for ill-conditioned or rank-deficient fixed effects"
+                .into(),
+        })?;
 
     Ok(perf_diag::scope(perf_diag::Phase::LmerPostFit, || {
-        let best_th_slice = best_theta.as_slice().unwrap();
-        let coefs = lmm.evaluate(best_th_slice, reml);
         let reml_eval = coefs.reml_crit;
 
         let mut fitted = coefs.fitted;
@@ -1094,7 +1098,8 @@ pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
         let residuals = y_obs - &fitted;
 
         let ranef_df = build_ranef_dataframe(&coefs.b, &lmm.re_blocks);
-        let var_corr_df = build_var_corr_dataframe(best_th_slice, &lmm.re_blocks, coefs.sigma2);
+        let var_corr_df =
+            build_var_corr_dataframe(best_theta.as_slice().unwrap(), &lmm.re_blocks, coefs.sigma2);
 
         let deviance_val = reml_eval;
         let log_lik = -deviance_val / 2.0;

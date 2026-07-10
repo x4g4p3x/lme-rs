@@ -247,16 +247,16 @@ fn finish_lmm_data(mut data: LmmData) -> LmmData {
 }
 
 impl LmmData {
-    /// Computes the complete profiled analytical output for a specific parameter vector `theta`,
-    /// including coefficient values (fixed β, random $u$/$b$), deviance limits and scaling components.
-    pub fn evaluate(&self, theta: &[f64], reml: bool) -> ModelCoefficients {
-        let solved = self.solve_profile(theta, reml);
+    /// Fallible variant of [`Self::evaluate`] for ill-conditioned fixed-effect solves.
+    #[allow(clippy::result_unit_err)]
+    pub fn try_evaluate(&self, theta: &[f64], reml: bool) -> Result<ModelCoefficients, ()> {
+        let solved = self.try_solve_profile(theta, reml)?;
 
         let p_usize = self.x.ncols();
         let mut beta_se = Array1::<f64>::zeros(p_usize);
         let mut beta_t = Array1::<f64>::zeros(p_usize);
 
-        let inv_lx = solved.l_x.inv().expect("Inverse of L_x failed");
+        let inv_lx = solved.l_x.inv().map_err(|_| ())?;
         let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
 
         for i in 0..p_usize {
@@ -278,7 +278,7 @@ impl LmmData {
         let fitted = &x_beta + &z_b;
         let residuals = &self.y - &fitted;
 
-        ModelCoefficients {
+        Ok(ModelCoefficients {
             reml_crit: solved.reml_crit,
             sigma2: solved.sigma2,
             beta: solved.beta,
@@ -290,7 +290,13 @@ impl LmmData {
             residuals,
             l_x: solved.l_x,
             v_beta_unscaled,
-        }
+        })
+    }
+
+    /// Computes the complete profiled analytical output for a specific parameter vector `theta`,
+    /// including coefficient values (fixed β, random $u$/$b$), deviance limits and scaling components.
+    pub fn evaluate(&self, theta: &[f64], reml: bool) -> ModelCoefficients {
+        self.try_evaluate(theta, reml).expect("evaluate failed")
     }
 
     /// Profiled REML/ML deviance only — skips SEs, fitted values, and matrix inverses.
@@ -307,31 +313,31 @@ impl LmmData {
         }
     }
 
-    fn solve_profile(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+    fn try_solve_profile(&self, theta: &[f64], reml: bool) -> Result<ProfileSolution, ()> {
         if self.intercept_only_re {
             self.solve_profile_diagonal(theta, reml)
         } else if let Some(cache_mutex) = &self.single_factor_slopes {
-            let mut cache = cache_mutex
-                .lock()
-                .expect("single-factor slopes lock poisoned");
-            cache.solve_profile(self, theta, reml)
+            let mut cache = cache_mutex.lock().map_err(|_| ())?;
+            cache.try_solve_profile(self, theta, reml)
         } else {
-            self.solve_profile_general(theta, reml)
+            self.try_solve_profile_general(theta, reml)
         }
     }
 
-    fn solve_profile_diagonal(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+    fn solve_profile_diagonal(&self, theta: &[f64], reml: bool) -> Result<ProfileSolution, ()> {
         if let Some(cache_mutex) = &self.intercept_ldl {
             if let Ok(mut cache) = cache_mutex.lock() {
-                if let Ok(solved) = cache.solve_profile(self, theta, reml) {
-                    return solved;
-                }
+                return cache.solve_profile(self, theta, reml).map_err(|_| ());
             }
         }
         self.solve_profile_diagonal_fresh(theta, reml)
     }
 
-    fn solve_profile_diagonal_fresh(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+    fn solve_profile_diagonal_fresh(
+        &self,
+        theta: &[f64],
+        reml: bool,
+    ) -> Result<ProfileSolution, ()> {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
         let q = self.zt.rows();
@@ -346,7 +352,7 @@ impl LmmData {
         let ldl = Ldl::new()
             .check_symmetry(SymmetryCheck::DontCheckSymmetry)
             .numeric(a.view())
-            .expect("LDLT of A failed");
+            .map_err(|_| ())?;
 
         let v_y = &self.zt_y * &d;
         let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
@@ -385,7 +391,6 @@ impl LmmData {
             },
             |u| &d * u,
         )
-        .expect("profile finish failed")
     }
 
     /// Optimizer hot path: deviance without building u, b, or v_cols.
@@ -403,7 +408,7 @@ impl LmmData {
         cache.profile_deviance(self, theta, reml)
     }
 
-    pub(crate) fn solve_profile_general(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+    fn try_solve_profile_general(&self, theta: &[f64], reml: bool) -> Result<ProfileSolution, ()> {
         let n = self.y.len() as f64;
         let p = self.x.ncols() as f64;
         let q = self.zt.rows();
@@ -423,7 +428,7 @@ impl LmmData {
         let ldl = Ldl::new()
             .check_symmetry(SymmetryCheck::DontCheckSymmetry)
             .numeric(a.view())
-            .expect("LDLT of A failed");
+            .map_err(|_| ())?;
 
         let v_y = sparse_transpose_matvec(&lambda, self.zt_y.view());
         let w_y_vec: Vec<f64> = ldl.solve(v_y.to_vec());
@@ -462,7 +467,11 @@ impl LmmData {
             },
             |u| apply_lambda(&lambda, u),
         )
-        .expect("profile finish failed")
+    }
+
+    pub(crate) fn solve_profile_general(&self, theta: &[f64], reml: bool) -> ProfileSolution {
+        self.try_solve_profile_general(theta, reml)
+            .expect("profile solve failed")
     }
 }
 
@@ -874,10 +883,13 @@ impl SingleFactorSlopesCache {
         deviance
     }
 
-    fn solve_profile(&mut self, lmm: &LmmData, theta: &[f64], reml: bool) -> ProfileSolution {
-        let log_det_a = self
-            .factor_and_collect(lmm, theta)
-            .expect("single-factor slopes factorization failed");
+    fn try_solve_profile(
+        &mut self,
+        lmm: &LmmData,
+        theta: &[f64],
+        reml: bool,
+    ) -> Result<ProfileSolution, ()> {
+        let log_det_a = self.factor_and_collect(lmm, theta).map_err(|_| ())?;
         let n = lmm.y.len() as f64;
         let p = lmm.x.ncols() as f64;
         let p_usize = self.p_usize;
@@ -906,7 +918,6 @@ impl SingleFactorSlopesCache {
             },
             |u| apply_lambda(&self.lambda, u),
         )
-        .expect("single-factor slopes profile finish failed")
     }
 
     fn factor_and_collect(&mut self, lmm: &LmmData, theta: &[f64]) -> Result<f64, ()> {
@@ -2170,7 +2181,9 @@ mod tests {
             dev_fast,
             reml_crit
         );
-        let fast = cache.solve_profile(&lmm, &theta, true);
+        let fast = cache
+            .try_solve_profile(&lmm, &theta, true)
+            .expect("single-factor slopes profile solve");
         assert!((general.reml_crit - fast.reml_crit).abs() < 1e-6);
         for i in 0..general.beta.len() {
             assert!((general.beta[i] - fast.beta[i]).abs() < 1e-5);

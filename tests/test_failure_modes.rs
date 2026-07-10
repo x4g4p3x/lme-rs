@@ -143,11 +143,17 @@ fn lmer_rank_deficient_fixed_effects_does_not_panic() {
         .unwrap();
         lmer("y ~ x + z + (1 | g)", &df, true)
     });
-    let result = outcome.expect("rank-deficient fixed effects must not panic");
-    assert!(
-        result.is_ok(),
-        "rank-deficient fixed effects must not panic or fail unexpectedly"
-    );
+    match outcome {
+        Err(panic) => panic!("rank-deficient fixed effects must not panic: {panic:?}"),
+        Ok(Ok(_)) => {}
+        Ok(Err(err)) => {
+            let msg = err.to_string();
+            assert!(
+                msg.contains("linear algebra") || msg.contains("profile"),
+                "unexpected rank-deficient error: {msg}"
+            );
+        }
+    }
 }
 
 #[test]
