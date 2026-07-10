@@ -78,7 +78,7 @@ jobs:
         run: cargo test --verbose --locked
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v8
         with:
           python-version: "3.11"
           enable-cache: true
@@ -193,7 +193,7 @@ jobs:
           key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ubuntu-cargo-
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v8
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
