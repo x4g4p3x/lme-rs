@@ -1,5 +1,7 @@
 name: Security audit
 
+# Automatic runs: v* release tags only. Use workflow_dispatch for an on-demand audit.
+
 on:
   workflow_dispatch:
   push:

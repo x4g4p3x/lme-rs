@@ -1,6 +1,7 @@
 name: Publish Rust crate
 
-# Publishes only from v* tags; the token is deliberately unavailable to ordinary CI.
+# Publishes to crates.io only on v* tag pushes. Manual dispatch validates with
+# cargo publish --dry-run (no registry token required).
 
 on:
   push:
@@ -24,7 +25,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Validate crate package (dry run)
+        if: github.event_name == 'workflow_dispatch'
+        run: cargo publish --dry-run --locked
+
       - name: Publish root crate
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |

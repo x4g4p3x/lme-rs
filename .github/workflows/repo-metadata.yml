@@ -1,5 +1,8 @@
 name: Sync Repository Metadata
 
+# Automatic runs: v* release tags only. Use workflow_dispatch to sync the About
+# box from Cargo.toml without tagging.
+
 on:
   push:
     tags:

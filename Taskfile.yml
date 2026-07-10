@@ -157,3 +157,38 @@ tasks:
     cmds:
       - mise install
       - task: hooks:install
+
+  gha:ci:
+    desc: Manually dispatch CI workflow (v* tag jobs on chosen ref)
+    cmds:
+      - gh workflow run ci.yml --ref {{.REF | default "master"}}
+
+  gha:audit:
+    desc: Manually dispatch security audit workflow
+    cmds:
+      - gh workflow run audit.yml --ref {{.REF | default "master"}}
+
+  gha:benchmarks:
+    desc: Manually dispatch benchmarks workflow
+    cmds:
+      - gh workflow run benchmarks.yml --ref {{.REF | default "master"}} -f warmups={{.WARMUPS | default "1"}} -f repeats={{.REPEATS | default "3"}}
+
+  gha:python-release:
+    desc: Manually dispatch Python wheel build (no PyPI publish)
+    cmds:
+      - gh workflow run python-release.yml --ref {{.REF | default "master"}}
+
+  gha:crate-publish:
+    desc: Manually dispatch crate publish dry-run (no crates.io publish)
+    cmds:
+      - gh workflow run crate-publish-dry-run.yml --ref {{.REF | default "master"}}
+
+  gha:repo-metadata:
+    desc: Manually dispatch GitHub About metadata sync
+    cmds:
+      - gh workflow run repo-metadata.yml --ref {{.REF | default "master"}}
+
+  gha:fuzz:
+    desc: Manually dispatch libFuzzer smoke workflow
+    cmds:
+      - gh workflow run fuzz-smoke.yml --ref {{.REF | default "master"}}

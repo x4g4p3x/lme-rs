@@ -124,27 +124,31 @@ git push origin v0.1.3
 
 ## GitHub Actions behavior
 
+**No workflow runs automatically on ordinary branch pushes or pull requests.** Automatic runs are limited to **`v*` release tag pushes**. For pre-release validation on any branch, use **manual dispatch** (GitHub **Actions** tab → pick a workflow → **Run workflow**, or `gh workflow run` — see [CONTRIBUTING.md](CONTRIBUTING.md)).
+
 ### CI
 
-- `.github/workflows/ci.yml` runs on pushes to `master` and pull requests.
-- This validates build, tests, formatting, and `clippy`.
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `v*` tags and manual dispatch.
+- Validates build, tests, formatting, and `clippy` across the release matrix.
 
 ### Python release workflow
 
-- `.github/workflows/python-release.yml` builds wheels on pushes to `master` and on tags matching `v*`.
-- The `publish` job only runs on tag pushes.
+- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) builds wheels on `v*` tags and manual dispatch.
+- The `publish` job runs **only on tag pushes** (`if: startsWith(github.ref, 'refs/tags/')`).
 - On a tag push, the workflow **automatically publishes to PyPI** and uploads artifacts to the GitHub Release.
+- Manual dispatch builds and uploads wheel artifacts only (no PyPI publish).
 
 ### Rust crate (crates.io)
 
-- `.github/workflows/crate-publish-dry-run.yml` runs on tags matching `v*` (and on manual dispatch).
-- It runs `cargo publish --locked` using the `CARGO_REGISTRY_TOKEN` repository secret.
-- It fails clearly if that secret is missing; rotate the token and re-run the workflow rather than publishing from a different tree.
+- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) runs on `v*` tags and manual dispatch.
+- **Tag push:** `cargo publish --locked` using the `CARGO_REGISTRY_TOKEN` repository secret.
+- **Manual dispatch:** `cargo publish --dry-run --locked` only (validates the package without publishing).
+- It fails clearly if the token is missing on tag pushes; rotate the token and re-run the workflow rather than publishing from a different tree.
 
 ### Repository metadata sync
 
-- `.github/workflows/repo-metadata.yml` updates the GitHub About description, topics, and website from `Cargo.toml`.
-- It runs when `Cargo.toml`, the metadata sync script, or the workflow file changes.
+- [`.github/workflows/repo-metadata.yml`](.github/workflows/repo-metadata.yml) updates the GitHub About description, topics, and website from `Cargo.toml`.
+- Runs on `v*` tags and manual dispatch (not on ordinary pushes).
 - The workflow dry-runs the payload, verifies `REPO_ADMIN_TOKEN`, then PATCHes the repository.
 
 Preflight locally: `task repo-metadata` (dry-run; add `REPO_ADMIN_TOKEN` to verify the PAT before push).
@@ -155,7 +159,8 @@ If a release changes the crate description, homepage, keywords, or categories, v
 
 ### Benchmark workflow
 
-- `.github/workflows/benchmarks.yml` runs Criterion benchmarks and cross-language timing runs.
+- [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) runs Criterion benchmarks and cross-language timing on `v*` tags and manual dispatch.
+- Manual dispatch accepts `warmups` and `repeats` inputs.
 - It uploads benchmark artifacts in CI and attaches them to GitHub Releases on tag pushes.
 
 ## Publishing the Rust crate to crates.io

@@ -1,5 +1,8 @@
 name: CI
 
+# Automatic runs: v* release tags only. Use workflow_dispatch for an intentional
+# pre-release check on any branch (Actions → CI → Run workflow).
+
 on:
   push:
     tags:

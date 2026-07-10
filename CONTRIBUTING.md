@@ -162,6 +162,27 @@ Do not describe a feature as supported unless it is exposed by the public API an
 
 No GitHub Actions workflow runs automatically for ordinary branch pushes or pull requests. Use Lefthook and Task locally before pushing; use manual dispatch when a remote check is useful before tagging.
 
+### Manual dispatch (intentional remote runs)
+
+In the GitHub UI: **Actions** → select a workflow → **Run workflow** → choose the branch (defaults to the default branch).
+
+From the CLI (requires [`gh`](https://cli.github.com/) authenticated against this repository):
+
+```powershell
+# Core CI matrix (same jobs as a release tag run)
+task gha:ci
+# or: gh workflow run ci.yml --ref master
+
+task gha:audit
+task gha:benchmarks              # optional: WARMUPS=2 REPEATS=5 task gha:benchmarks
+task gha:python-release          # build wheels only; no PyPI publish
+task gha:crate-publish           # cargo publish --dry-run --locked
+task gha:repo-metadata           # sync About box from Cargo.toml
+task gha:fuzz                    # short libFuzzer smoke (manual-only workflow)
+```
+
+Pass a branch with `REF=my-branch task gha:ci`. Watch runs with `gh run list` or `gh run watch`.
+
 ## Repository metadata sync
 
 The GitHub About box is synced from `Cargo.toml` using:
