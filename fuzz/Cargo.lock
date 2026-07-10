@@ -1250,7 +1250,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "lme-rs"
-version = "0.1.6"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "argmin",
@@ -1262,6 +1262,7 @@ dependencies = [
  "polars",
  "rand 0.9.4",
  "rand_distr 0.5.1",
+ "rayon",
  "serde",
  "serde_json",
  "sprs",
