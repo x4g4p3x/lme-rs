@@ -38,6 +38,29 @@ def _license_file_headers(metadata_text: str) -> list[str]:
     return headers
 
 
+def _metadata_version(metadata_text: str) -> tuple[int, int]:
+    for line in metadata_text.splitlines():
+        if line.startswith("Metadata-Version:"):
+            major, _, minor = line.split(":", 1)[1].strip().partition(".")
+            return int(major), int(minor or 0)
+    return 2, 1
+
+
+def _license_file_entry(filename: str, metadata_version: tuple[int, int]) -> str:
+    # PEP 639 (Metadata 2.4+): paths are relative to the dist-info licenses/ dir.
+    if metadata_version >= (2, 4):
+        return filename
+    return f"licenses/{filename}"
+
+
+def _license_file_wheel_path(metadata_prefix: str, header: str, metadata_version: tuple[int, int]) -> str:
+    if metadata_version >= (2, 4):
+        if header.startswith("licenses/"):
+            header = header.removeprefix("licenses/")
+        return f"{metadata_prefix}licenses/{header}"
+    return f"{metadata_prefix}{header}"
+
+
 def _rewrite_metadata_without_license_files(metadata: Path) -> None:
     lines = metadata.read_text(encoding="utf-8").splitlines()
     kept = [line for line in lines if not line.startswith("License-File:")]
@@ -51,8 +74,9 @@ def verify_wheel_licenses(wheel: Path) -> None:
         metadata_name = next(name for name in names if name.endswith("/METADATA"))
         metadata_prefix = metadata_name[: -len("METADATA")]
         metadata_text = archive.read(metadata_name).decode("utf-8")
+        metadata_version = _metadata_version(metadata_text)
         for header in _license_file_headers(metadata_text):
-            expected = f"{metadata_prefix}{header}"
+            expected = _license_file_wheel_path(metadata_prefix, header, metadata_version)
             if expected not in names:
                 matches = sorted(name for name in names if name.endswith("/" + header.split("/")[-1]))
                 raise SystemExit(
@@ -87,7 +111,10 @@ def package_wheel(wheel: Path) -> None:
             shutil.copy2(source, licenses / source.name)
 
         metadata_text = metadata.read_text(encoding="utf-8").rstrip()
-        license_headers = [f"License-File: licenses/{path.name}" for path in NOTICE_FILES]
+        metadata_version = _metadata_version(metadata_text)
+        license_headers = [
+            f"License-File: {_license_file_entry(path.name, metadata_version)}" for path in NOTICE_FILES
+        ]
         metadata.write_text(
             metadata_text + "\n" + "\n".join(license_headers) + "\n",
             encoding="utf-8",

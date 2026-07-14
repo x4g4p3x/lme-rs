@@ -11,6 +11,27 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "ci" / "package_wheel_notices.py"
+sys.path.insert(0, str(ROOT / "scripts" / "ci"))
+from package_wheel_notices import (  # noqa: E402
+    _license_file_entry,
+    _license_file_wheel_path,
+    _metadata_version,
+)
+
+
+def test_metadata_24_license_paths_are_relative_to_licenses_dir() -> None:
+    metadata = "Metadata-Version: 2.4\nName: example\n"
+    version = _metadata_version(metadata)
+    assert version == (2, 4)
+    assert _license_file_entry("THIRD_PARTY_NOTICES.md", version) == "THIRD_PARTY_NOTICES.md"
+    assert (
+        _license_file_wheel_path("pkg-1.0.dist-info/", "THIRD_PARTY_NOTICES.md", version)
+        == "pkg-1.0.dist-info/licenses/THIRD_PARTY_NOTICES.md"
+    )
+    assert (
+        _license_file_wheel_path("pkg-1.0.dist-info/", "licenses/THIRD_PARTY_NOTICES.md", version)
+        == "pkg-1.0.dist-info/licenses/THIRD_PARTY_NOTICES.md"
+    )
 
 
 def _find_built_wheel() -> Path | None:
@@ -55,7 +76,11 @@ def test_package_wheel_notices_idempotent_and_verifiable(tmp_path: Path) -> None
 
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
+        meta = next(name for name in names if name.endswith("/METADATA"))
+        metadata = archive.read(meta).decode("utf-8")
         assert any(name.endswith("/licenses/THIRD_PARTY_NOTICES.md") for name in names)
         assert not any("/licenses/licenses/" in name for name in names)
+        assert "License-File: THIRD_PARTY_NOTICES.md" in metadata
+        assert "License-File: licenses/THIRD_PARTY_NOTICES.md" not in metadata
 
     subprocess.check_call([sys.executable, str(SCRIPT), "--verify-only", str(wheel)])

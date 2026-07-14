@@ -17,12 +17,20 @@ initPower2 <- function(mCall, data, LHS, ...) {
   ok <- xv > 0 & is.finite(xv) & is.finite(yv)
   xv <- xv[ok]
   yv <- yv[ok]
-  if (length(xv) < 3) return(c(a = 1, b = 1, c = 0))
+  if (length(xv) < 3) {
+    return(c(a = 1, b = 1, c = 0))
+  }
   c_est <- min(yv) - 0.05 * max(abs(min(yv)), 1)
   ok2 <- (yv - c_est) > 0
-  if (sum(ok2) < 2) return(c(a = 1, b = 1, c = c_est))
+  if (sum(ok2) < 2) {
+    return(c(a = 1, b = 1, c = c_est))
+  }
   fit <- lm(I(log(yv[ok2] - c_est)) ~ I(log(xv[ok2])))
-  c(a = max(exp(unname(coef(fit)[1])), 1e-8), b = unname(coef(fit)[2]), c = c_est)
+  c(
+    a = max(exp(unname(coef(fit)[1])), 1e-8),
+    b = unname(coef(fit)[2]),
+    c = c_est
+  )
 }
 
 SSpower <- function(x, a, b, c) {
@@ -38,7 +46,11 @@ class(SSpower) <- "selfStart"
 
 df <- read.csv("tests/data/sspower_synthetic.csv")
 start <- getInitial(y ~ SSpower(x, a, b, c), data = df)
-fm <- nlmer(y ~ SSpower(x, a, b, c) ~ c | id, data = df, start = start)
+fm <- nlmer(
+  y ~ SSpower(x, a, b, c) ~ c | id,
+  data = df,
+  start = start
+)
 
 cat("lme4::nlmer SSpower (custom selfStart)\n")
 cat("fixef:\n")
