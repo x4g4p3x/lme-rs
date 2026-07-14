@@ -141,11 +141,24 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
       contents: write  # needed to create GitHub Release
     steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
       - uses: actions/download-artifact@v7
         with:
           path: dist
           pattern: wheels-*
           merge-multiple: true
+
+      - name: Normalize and verify wheel licenses
+        run: |
+          set -euo pipefail
+          for wheel in dist/*.whl; do
+            python scripts/ci/package_wheel_notices.py "$wheel"
+          done
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
