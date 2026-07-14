@@ -160,6 +160,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: cross-language-${{ github.sha }}
+          if-no-files-found: ignore
           path: |
             benchmark-results/cross-language-${{ github.sha }}.json
             benchmark-results/fair-rust-julia-${{ github.sha }}.json
@@ -176,9 +177,13 @@ jobs:
               gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
             fi
           }
-          gh release upload "${GITHUB_REF_NAME}" "benchmark-results/cross-language-${{ github.sha }}.json" --clobber
-          if [ -f "benchmark-results/fair-rust-julia-${{ github.sha }}.json" ]; then
-            gh release upload "${GITHUB_REF_NAME}" "benchmark-results/fair-rust-julia-${{ github.sha }}.json" --clobber
+          cross_json="benchmark-results/cross-language-${{ github.sha }}.json"
+          fair_json="benchmark-results/fair-rust-julia-${{ github.sha }}.json"
+          if [ -f "$cross_json" ]; then
+            gh release upload "${GITHUB_REF_NAME}" "$cross_json" --clobber
+          fi
+          if [ -f "$fair_json" ]; then
+            gh release upload "${GITHUB_REF_NAME}" "$fair_json" --clobber
           fi
 
       - name: Fail if cross-language benchmarks failed

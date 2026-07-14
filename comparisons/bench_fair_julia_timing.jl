@@ -59,7 +59,8 @@ end
 function summarize(samples::Vector{Float64})
     sorted = sort(samples)
     n = length(sorted)
-    median_seconds = n % 2 == 0 ? (sorted[n ÷ 2] + sorted[n ÷ 2 + 1]) / 2 : sorted[(n + 1) ÷ 2]
+    median_seconds =
+        n % 2 == 0 ? (sorted[n ÷ 2] + sorted[n ÷ 2 + 1]) / 2 : sorted[(n + 1) ÷ 2]
     mean_seconds = mean(sorted)
     stdev_seconds = n > 1 ? std(sorted) : nothing
     return Dict(
