@@ -17,7 +17,7 @@ pub struct PyLmeFit {
 type VarCorrRow = (String, String, String, f64, f64);
 
 /// Cached design matrices for repeated LMM fits (`prepare_lmer`).
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct PyLmerPrepared {
     inner: LmerPrepared,
@@ -37,7 +37,7 @@ impl PyLmerPrepared {
 }
 
 /// Per-fold metrics from grouped cross-validation.
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyCvFoldMetric {
     #[pyo3(get)]
@@ -59,7 +59,7 @@ pub struct PyCvFoldMetric {
 }
 
 /// Out-of-fold predictions and metrics from grouped cross-validation.
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyCvGroupedResult {
     #[pyo3(get)]
@@ -81,7 +81,7 @@ pub struct PyCvGroupedResult {
 }
 
 /// One bootstrap refit from [`boot_lmer`].
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyBootReplicate {
     #[pyo3(get)]
@@ -168,7 +168,7 @@ impl PyBootLmerResult {
 }
 
 /// Percentile bootstrap confidence intervals.
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyBootConfintResult {
     #[pyo3(get)]
@@ -202,7 +202,7 @@ impl PyBootConfintResult {
 type RanefRow = (String, String, String, f64);
 
 /// Wald confidence intervals (`LmeFit::confint`).
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyConfintResult {
     #[pyo3(get)]
@@ -253,7 +253,7 @@ impl PyConfintResult {
 }
 
 /// Parametric simulation draws (`LmeFit::simulate`).
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PySimulateResult {
     #[pyo3(get)]
@@ -311,7 +311,7 @@ impl PySimulateBatches {
 }
 
 /// Fixed-effects ANOVA table (`LmeFit::anova_typed`).
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyFixedEffectsAnova {
     #[pyo3(get)]
@@ -341,7 +341,7 @@ impl PyFixedEffectsAnova {
 }
 
 /// Wald contrast test (`LmeFit::test_contrast`).
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyContrastTest {
     #[pyo3(get)]
@@ -367,7 +367,7 @@ impl PyContrastTest {
 }
 
 /// Likelihood-ratio test between nested models (`lme_rs::anova`).
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyLikelihoodRatioAnova {
     #[pyo3(get)]
@@ -408,7 +408,7 @@ impl PyLikelihoodRatioAnova {
 }
 
 /// GLMM / LMM family selector (mirrors [`lme_rs::family::Family`]).
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, skip_from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PyFamily {
     Binomial,
