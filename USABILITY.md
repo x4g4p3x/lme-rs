@@ -89,6 +89,7 @@ Statuses are **practical**, not formal support tiers.
 | Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts | ✓ | ✓ | Scoped to tested LMM shapes; see golden `pastes_cask` |
 | Nested model LRT (`anova`) | ✓ | ✓ | |
 | Group-preserving CV (`cv_grouped`) | ✓ | ✓ | LMM only; population OOF predictions on held-out groups |
+| Bootstrap refits (`boot_lmer` / `fit.boot`) | ✓ | ✓ | LMM only; parametric & residual; percentile CIs |
 | GLMM: binomial / Poisson / gamma (canonical links) | ✓ | ✓ | Coefficients & variance params; Laplace default |
 | `confint`, `simulate`, robust SE | ✓ | ✓ | LMM-focused; not every GLMM edge case |
 
@@ -154,7 +155,7 @@ There is no sharp line between “analysis” and “throughput” use — only 
 |:-------------|:----------------|:----------------------------------------|
 | **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
 | **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
-| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, or `cv_grouped(..., n_jobs=…)` for parallel grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation) |
+| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, `boot_lmer(..., n_jobs=…)` for standard bootstrap, or `cv_grouped(..., n_jobs=…)` for grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer) |
 | **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; random-slopes sleepstudy pattern is ~sub-ms hot fit on the reference workstation |
 
 **Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.

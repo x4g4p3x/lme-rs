@@ -54,6 +54,31 @@ class PyLikelihoodRatioAnova:
     formula_0: str
     formula_1: str
 
+class PyBootReplicate:
+    index: int
+    coefficients: list[float]
+    theta: Optional[list[float]]
+    sigma2: Optional[float]
+    converged: bool
+
+class PyBootLmerResult:
+    method: str
+    nsim: int
+    fixed_names: list[str]
+    t0: list[float]
+    t0_sigma2: Optional[float]
+    replicates: list[PyBootReplicate]
+    prop_converged: float
+    def confint(self, level: float = 0.95) -> PyBootConfintResult: ...
+
+class PyBootConfintResult:
+    names: list[str]
+    estimate: list[float]
+    lower: list[float]
+    upper: list[float]
+    level: float
+    def __str__(self) -> str: ...
+
 class PyFamily:
     Binomial: int
     Poisson: int
@@ -137,6 +162,16 @@ class PyLmeFit:
         n_jobs: Optional[int] = None,
         seed: Optional[int] = None,
     ) -> PySimulateBatches: ...
+    def boot(
+        self,
+        formula: str,
+        data: DataFrameInput,
+        nsim: int = 200,
+        method: str = "parametric",
+        reml: bool = True,
+        seed: Optional[int] = None,
+        n_jobs: Optional[int] = None,
+    ) -> PyBootLmerResult: ...
     def with_robust_se(
         self, data: DataFrameInput, cluster_col: Optional[str] = None
     ) -> None: ...
@@ -182,6 +217,16 @@ def cv_grouped(
     seed: Optional[int] = None,
     n_jobs: Optional[int] = None,
 ) -> PyCvGroupedResult: ...
+def boot_lmer(
+    formula: str,
+    data: DataFrameInput,
+    fit: PyLmeFit,
+    nsim: int = 200,
+    method: str = "parametric",
+    reml: bool = True,
+    seed: Optional[int] = None,
+    n_jobs: Optional[int] = None,
+) -> PyBootLmerResult: ...
 def lmer_weighted(
     formula: str,
     data: DataFrameInput,

@@ -10,6 +10,8 @@
 pub mod anova;
 /// Type II / III contrast construction for fixed-effects ANOVA.
 pub mod anova_contrasts;
+/// Parametric and residual bootstrap refits for LMMs (`bootMer`-style).
+pub mod bootstrap;
 /// User-defined fixed-effects contrast tests (Wald F-tests).
 pub mod contrast;
 /// Group-structure-preserving cross-validation for LMMs.
@@ -47,6 +49,7 @@ pub mod simulate;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
 pub use anova_contrasts::AnovaType;
+pub use bootstrap::{boot_lmer, BootConfintResult, BootLmerMethod, BootLmerResult, BootReplicate};
 pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
@@ -491,6 +494,23 @@ impl LmeFit {
         F: FnMut(usize, &[Array1<f64>]) -> anyhow::Result<()>,
     {
         simulate::simulate_batched(self, nsim, batch_size, n_jobs, seed, on_batch)
+    }
+
+    /// Parametric or residual bootstrap refits (`bootMer`-style).
+    ///
+    /// Requires the original `DataFrame` and formula used to obtain this fit.
+    #[allow(clippy::too_many_arguments)]
+    pub fn boot(
+        &self,
+        formula_str: &str,
+        data: &DataFrame,
+        nsim: usize,
+        method: bootstrap::BootLmerMethod,
+        reml: bool,
+        seed: Option<u64>,
+        n_jobs: Option<usize>,
+    ) -> Result<bootstrap::BootLmerResult> {
+        bootstrap::boot_lmer(formula_str, data, self, nsim, method, reml, seed, n_jobs)
     }
 
     /// Compute Satterthwaite degrees of freedom and p-values for fixed effects.
@@ -1060,6 +1080,17 @@ pub fn prepare_lmer_weighted(
 
 /// Fit θ and assemble an [`LmeFit`] from a prior [`prepare_lmer`] call.
 pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
+    fit_prepared_with_response(prepared, None, reml)
+}
+
+/// Like [`fit_prepared`] but replaces the response vector before optimizing θ.
+///
+/// `y_response` is on the **response scale** (including any formula `offset()`).
+pub fn fit_prepared_with_response(
+    prepared: &LmerPrepared,
+    y_response: Option<Array1<f64>>,
+    reml: bool,
+) -> Result<LmeFit> {
     let LmerPrepared {
         lmm,
         matrices,
@@ -1068,13 +1099,51 @@ pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
         blocked_kernel_detail: _,
     } = prepared;
 
-    let opt_result = optimizer::optimize_theta_lmm(Arc::clone(lmm), init_theta.clone(), reml)
-        .map_err(|e| LmeError::NotImplemented {
-            feature: format!("Optimizer failed: {}", e),
+    let (lmm, y_obs) = if let Some(y_resp) = y_response {
+        let n = lmm.y.len();
+        if y_resp.len() != n {
+            return Err(LmeError::NotImplemented {
+                feature: format!(
+                    "fit_prepared_with_response: expected {} observations, got {}",
+                    n,
+                    y_resp.len()
+                ),
+            });
+        }
+        let y_for_lmm = if let Some(off) = &matrices.offset {
+            &y_resp - off
+        } else {
+            y_resp.clone()
+        };
+        (Arc::new(lmm.with_response(y_for_lmm)), y_resp)
+    } else {
+        let y_obs = if matrices.y.is_empty() {
+            lmm.y.clone()
+        } else {
+            matrices.y.clone()
+        };
+        (Arc::clone(lmm), y_obs)
+    };
+
+    let opt_result =
+        optimizer::optimize_theta_lmm(lmm.clone(), init_theta.clone(), reml).map_err(|e| {
+            LmeError::NotImplemented {
+                feature: format!("Optimizer failed: {}", e),
+            }
         })?;
 
+    assemble_lme_fit(&lmm, matrices, opt_result, reml, &y_obs)
+}
+
+fn assemble_lme_fit(
+    lmm: &Arc<math::LmmData>,
+    matrices: &model_matrix::DesignMatrices,
+    opt_result: optimizer::OptimizeResult,
+    reml: bool,
+    y_obs: &Array1<f64>,
+) -> Result<LmeFit> {
     let best_theta = opt_result.theta.clone();
-    let total_theta_len = init_theta.len();
+    let total_theta_len = best_theta.len();
     let offset_arr = matrices.offset.clone();
     let coefs = lmm
         .try_evaluate(best_theta.as_slice().unwrap(), reml)
@@ -1090,11 +1159,6 @@ pub fn fit_prepared(prepared: &LmerPrepared, reml: bool) -> Result<LmeFit> {
         if let Some(off) = &offset_arr {
             fitted += off;
         }
-        let y_obs = if matrices.y.is_empty() {
-            &lmm.y
-        } else {
-            &matrices.y
-        };
         let residuals = y_obs - &fitted;
 
         let ranef_df = build_ranef_dataframe(&coefs.b, &lmm.re_blocks);

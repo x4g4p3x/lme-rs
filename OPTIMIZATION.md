@@ -229,6 +229,8 @@ let fit = fit_prepared(&prepared, false)?;  // ~12–14 ms on crossed_20k
 
 For **grouped k-fold CV** on different train subsets (not the same data), use [`cv_grouped`](../src/cv.rs) — it splits by grouping unit, fits each train fold with `prepare_lmer` + `fit_prepared` (folds in parallel when `n_jobs > 1`), and assembles out-of-fold population predictions. See [GUIDE.md § Repeated fits and cross-validation](GUIDE.md#repeated-fits-and-cross-validation).
 
+For **bootstrap refits** on the same formula and data, use [`boot_lmer`](../src/bootstrap.rs) — it amortizes `prepare_lmer`, swaps bootstrap responses via `fit_prepared_with_response`, and refits replicates in parallel. See [GUIDE.md § Bootstrap refits](GUIDE.md#bootstrap-refits-boot_lmer).
+
 **Post-fit fix:** `fit_prepared` reuses `coefs.fitted` and `coefs.reml_crit` from a single `evaluate()` — removed duplicate `log_reml_deviance` and redundant `Z*b` assembly (~5 ms → ~2 ms post-fit).
 
 ### BLAS A/B (`ndarray` `blas` feature)

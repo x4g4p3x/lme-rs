@@ -203,6 +203,67 @@ impl LmmData {
         }
     }
 
+    /// Replace the response vector and refresh cross-products that depend on `y`.
+    ///
+    /// Reuses fixed design matrices and `Z^T Z`; rebuilds intercept / slopes caches.
+    pub fn with_response(&self, y: Array1<f64>) -> Self {
+        assert_eq!(y.len(), self.y.len(), "with_response: length mismatch");
+        match &self.weights {
+            Some(w) => {
+                let sqrt_w = w.mapv(|wi| wi.sqrt());
+                let y_w = &y * &sqrt_w;
+                let xt_y = self.x_eff.t().dot(&y_w);
+                let (zt_x, zt_y) = precompute_zt_products(&self.zt_eff, &self.x_eff, &y_w);
+                let y_norm2: f64 = y_w.iter().map(|&xi| xi * xi).sum();
+                finish_lmm_data(LmmData {
+                    x: self.x.clone(),
+                    zt: self.zt.clone(),
+                    y,
+                    re_blocks: self.re_blocks.clone(),
+                    weights: self.weights.clone(),
+                    x_eff: self.x_eff.clone(),
+                    zt_eff: self.zt_eff.clone(),
+                    y_eff: y_w,
+                    zt_z: self.zt_z.clone(),
+                    xt_x: self.xt_x.clone(),
+                    xt_y,
+                    zt_x,
+                    zt_y,
+                    eye_q: self.eye_q.clone(),
+                    intercept_only_re: self.intercept_only_re,
+                    intercept_ldl: None,
+                    single_factor_slopes: None,
+                    y_norm2,
+                })
+            }
+            None => {
+                let xt_y = self.x.t().dot(&y);
+                let (zt_x, zt_y) = precompute_zt_products(&self.zt, &self.x, &y);
+                let y_norm2: f64 = y.iter().map(|&xi| xi * xi).sum();
+                finish_lmm_data(LmmData {
+                    x: self.x.clone(),
+                    zt: self.zt.clone(),
+                    y,
+                    re_blocks: self.re_blocks.clone(),
+                    weights: None,
+                    x_eff: Array2::zeros((0, 0)),
+                    zt_eff: CsMat::zero((0, 0)),
+                    y_eff: Array1::zeros(0),
+                    zt_z: self.zt_z.clone(),
+                    xt_x: self.xt_x.clone(),
+                    xt_y,
+                    zt_x,
+                    zt_y,
+                    eye_q: self.eye_q.clone(),
+                    intercept_only_re: self.intercept_only_re,
+                    intercept_ldl: None,
+                    single_factor_slopes: None,
+                    y_norm2,
+                })
+            }
+        }
+    }
+
     /// True when a single-factor random-slopes block solver is active (`k > 1`, one RE term).
     pub fn single_factor_slopes_re(&self) -> bool {
         self.single_factor_slopes.is_some()

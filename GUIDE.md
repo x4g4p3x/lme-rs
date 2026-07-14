@@ -332,7 +332,7 @@ println!("{}", ci);
 
 ### Parametric simulation
 
-`simulate()` draws new response vectors from the fitted conditional means. It does **not** resample coefficients or refit (unlike R's full `bootMer` loop); for bootstrap inference, refit on each draw with [`prepare_lmer`](#repeated-fits-and-cross-validation) + a loop.
+`simulate()` draws new response vectors from the fitted conditional means. It does **not** refit the model. For bootstrap inference (simulate or resample → refit → summarize), use [`boot_lmer`](#bootstrap-refits-boot_lmer) instead.
 
 ```rust
 // All logical CPUs by default when n_jobs is None
@@ -345,6 +345,46 @@ fit.simulate_batched(50_000, 1_000, Some(4), Some(42), |batch_idx, batch| {
     Ok(())
 })?;
 ```
+
+### Bootstrap refits (`boot_lmer`)
+
+[`boot_lmer`](src/bootstrap.rs) mirrors R's `lme4::bootMer` workflow for **Gaussian LMMs**: draw bootstrap responses, refit on each replicate, and summarize fixed-effect (and variance-component) draws. Design-matrix setup is amortized with [`prepare_lmer`](#amortized-fitting-prepare_lmer--fit_prepared); each replicate calls [`fit_prepared_with_response`](src/lib.rs) to swap the response vector without rebuilding `X` / `Z`.
+
+```rust
+use lme_rs::{boot_lmer, lmer, BootLmerMethod};
+
+let formula = "Reaction ~ Days + (1 | Subject)";
+let fit = lmer(formula, &df, true)?;
+
+let boot = boot_lmer(
+    formula,
+    &df,
+    &fit,
+    500,
+    BootLmerMethod::Parametric, // or BootLmerMethod::Residual
+    true,                       // reml for each refit
+    Some(42),                   // optional seed (reproducible across n_jobs)
+    None,                       // n_jobs: None = all CPUs, Some(1) = sequential
+)?;
+
+println!("converged: {:.1}%", 100.0 * boot.prop_converged);
+let ci = boot.confint_percentile(0.95)?;
+println!("{}", ci);
+
+// Convenience on the fit:
+let boot = fit.boot(formula, &df, 500, BootLmerMethod::Parametric, true, Some(42), None)?;
+```
+
+| Method | Resampling | R analogue |
+|:-------|:-----------|:-----------|
+| `BootLmerMethod::Parametric` | New Gaussian responses from fitted conditional means + σ² | `bootMer(..., type = "parametric")` |
+| `BootLmerMethod::Residual` | Fitted values + resampled residuals (with replacement) | `bootMer(..., type = "residual")` |
+
+**Result fields:** `t0` (original fixed effects), `replicates` (per-draw `coefficients`, `theta`, `sigma2`, `converged`), `prop_converged`, and `confint_percentile(level)` for percentile intervals on converged draws.
+
+**Scope:** LMMs only (not GLMM/NLMM). Requires the same `formula` and `DataFrame` used for the reference fit. Does not resample fixed-effect or variance-component parameters directly (parametric draws are on the **response** scale, then the model is refit). Validate against R `bootMer` on publication-critical workflows.
+
+**Parallelism:** same `n_jobs` semantics as [`cv_grouped`](#group-structure-preserving-cv-cv_grouped); BLAS/OpenMP pinned to one thread per worker when `n_jobs > 1`.
 
 ### Satterthwaite degrees of freedom
 
@@ -458,9 +498,20 @@ println!("OOF RMSE: {:.2}", cv.rmse);
 
 **Scope:** LMMs only (not GLMM/NLMM). Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`. Each training fold is fit via `prepare_lmer` + `fit_prepared`.
 
-### Custom parallel refits (bootstrap, grids)
+### Custom parallel refits (grids, manual bootstrap)
 
-For many refits on the **same** formula and data (not CV), amortize setup with `prepare_lmer` and parallelize across replicates with `rayon` or a thread pool:
+For refits that **do not** follow the standard `bootMer` response-resampling pattern, amortize setup with `prepare_lmer` and parallelize across replicates with `rayon` or a thread pool. To swap only the response vector on prepared data, use [`fit_prepared_with_response`](src/lib.rs):
+
+```rust
+use lme_rs::{fit_prepared, fit_prepared_with_response, prepare_lmer};
+use rayon::prelude::*;
+
+let prepared = prepare_lmer("Reaction ~ Days + (1 | Subject)", &df)?;
+let y_boot = /* custom response vector */;
+let fit = fit_prepared_with_response(&prepared, Some(y_boot), true)?;
+```
+
+For identical refits (e.g. REML vs ML grid on fixed data):
 
 ```rust
 use lme_rs::{fit_prepared, prepare_lmer};
@@ -497,7 +548,7 @@ Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type
 
 ### Python bindings
 
-The Python package mirrors most of the Rust formula API, including `prepare_lmer`, `fit_prepared`, `refit_lmer`, and `cv_grouped`. Matrix-only `lm(y, x)` without a DataFrame remains Rust-only. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
+The Python package mirrors most of the Rust formula API, including `prepare_lmer`, `fit_prepared`, `refit_lmer`, `cv_grouped`, and `boot_lmer`. Matrix-only `lm(y, x)` without a DataFrame remains Rust-only. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
 
 ## Troubleshooting
 
@@ -549,6 +600,8 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `fit_prepared(prepared, reml)` | fit from a prior `prepare_lmer` call |
 | `refit_lmer(formula, data, reml)` | `prepare_lmer` + `fit_prepared` convenience |
 | `cv_grouped(formula, data, group_col, n_splits, reml, seed, n_jobs)` | group-preserving k-fold CV (LMM); parallel folds when `n_jobs > 1` |
+| `boot_lmer(formula, data, fit, nsim, method, reml, seed, n_jobs)` | parametric/residual bootstrap refits (LMM); percentile CIs on `BootLmerResult` |
+| `fit_prepared_with_response(prepared, y_response, reml)` | refit from prepared design with a new response vector |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
@@ -570,6 +623,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `simulate(nsim)` | parametric simulation (sequential; use `simulate_with` for parallel) |
 | `simulate_with(nsim, n_jobs, seed)` | parallel parametric simulation |
 | `simulate_batched(nsim, batch_size, n_jobs, seed, on_batch)` | stream simulation batches |
+| `boot(formula, data, nsim, method, reml, seed, n_jobs)` | parametric/residual bootstrap refits (`bootMer`-style; LMM only) |
 | `with_satterthwaite(data)` | Satterthwaite degrees of freedom and p-values |
 | `with_kenward_roger(data)` | Kenward-Roger denominator degrees of freedom and p-values |
 | `with_robust_se(data, cluster_col)` | robust or cluster-robust standard errors |

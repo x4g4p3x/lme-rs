@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-07-14
+
+### Added
+
+- **Bootstrap refits for LMMs (`bootMer`-style)** — [`boot_lmer`](src/bootstrap.rs) and [`LmeFit::boot`](src/lib.rs) simulate or resample responses, refit with amortized [`prepare_lmer`](src/lib.rs) + [`fit_prepared_with_response`](src/lib.rs), and expose percentile CIs via [`BootLmerResult::confint_percentile`](src/bootstrap.rs). Methods: **parametric** (Gaussian draws from fitted conditional means) and **residual** (resampled residuals added to fitted values). Parallel replicates via `n_jobs` (Rayon). **Gaussian LMMs only** (not GLMM/NLMM). Rust tests in [`tests/test_bootstrap.rs`](tests/test_bootstrap.rs). Python: `boot_lmer(...)`, `fit.boot(...)`, `PyBootLmerResult`, `PyBootConfintResult`. Documented in [GUIDE.md § Bootstrap refits](GUIDE.md#bootstrap-refits-boot_lmer) and [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
+
 ## [0.1.10] - 2026-07-10
 
 ### Added

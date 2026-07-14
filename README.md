@@ -13,11 +13,12 @@
 - `lmer()` and `lmer_weighted()` for linear mixed models
 - `prepare_lmer()` / `fit_prepared()` to amortize design-matrix setup when fitting the same formula and data repeatedly (see [OPTIMIZATION.md](OPTIMIZATION.md))
 - `cv_grouped()` for group-structure-preserving k-fold cross-validation on LMMs (see [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation))
+- `boot_lmer()` for parametric or residual bootstrap refits on LMMs with percentile CIs (see [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer))
 - `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / `SSpower` means; optional scalar AGQ; `nlmer_with_mean` for custom μ in Rust and Python; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs
-- Wald confidence intervals (t-based when Kenward–Roger or Satterthwaite dfs are on the fit), parametric simulation, robust standard errors, Satterthwaite degrees of freedom, and Kenward-Roger denominator degrees of freedom
+- Wald confidence intervals (t-based when Kenward–Roger or Satterthwaite dfs are on the fit), parametric simulation, **`boot_lmer()`** parametric/residual bootstrap refits (`bootMer`-style), robust standard errors, Satterthwaite degrees of freedom, and Kenward-Roger denominator degrees of freedom
 - Likelihood ratio tests between nested models and Type I / II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)
 
 ## Quick start
@@ -71,7 +72,7 @@ On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` +
 - `glmer()` uses a Laplace approximation. Absolute AIC, BIC, and log-likelihood values can differ from R because `lme-rs` optimizes a deviance expression that omits data-dependent constants. Coefficients and variance parameters are the quantities to compare.
 - Fixed-effects ANOVA supports **Type I**, **II**, and **III** (`anova_typed` / `AnovaType`). Continuous fixed effects use 1-DoF tests where applicable; categorical predictors encoded as multiple dummies use **joint multi-DoF Wald F-tests**, with multi-DoF Satterthwaite denominator df following **`lmerTest::contestMD()`** (see [GUIDE.md](GUIDE.md) and [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) §4). Arbitrary user-defined **q × p** contrast matrices are supported via `test_contrast()` (Rust) / `fit.test_contrast()` (Python); named-term tests via `linear_hypothesis()` / `fit.linear_hypothesis()`.
 - `with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` to within the precision of numerical differentiation on the covered LMM models.
-- The Python bindings mirror the Rust API (`lm`, `lm_matrix`, `lmer`, `prepare_lmer`, `fit_prepared`, `cv_grouped`, `glmer`, `nlmer`, contrasts, ANOVA, prediction, simulation) with structured result types and [`lme_python.pyi`](python/lme_python.pyi) stubs.
+- The Python bindings mirror the Rust API (`lm`, `lm_matrix`, `lmer`, `prepare_lmer`, `fit_prepared`, `cv_grouped`, `boot_lmer`, `glmer`, `nlmer`, contrasts, ANOVA, prediction, simulation) with structured result types and [`lme_python.pyi`](python/lme_python.pyi) stubs.
 - Built-in GLMM families cover binomial, Poisson, Gaussian, and gamma with canonical links; non-canonical links are selectable via `glmer_with_link` / `link_name=` ([`GUIDE.md`](GUIDE.md)).
 
 ## Documentation map
@@ -87,7 +88,7 @@ On the fair MixedModels.jl harness, **`crossed_20k` hot fits** (`prepare_lmer` +
 - **Calo / sensor calibration** (MATLAB `power2` vs `nlmer`, CUDA batch fitting): [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md)
 - Benchmark CI artifacts (uploaded on version tags): [GitHub Releases](https://github.com/x4g4p3x/lme-rs/releases/latest) (see [CHANGELOG.md](CHANGELOG.md) for what each release ships)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
-- Contributor setup: [CONTRIBUTING.md](CONTRIBUTING.md) (also lists security audit and crate publish dry-run workflows)
+- **MCP server (agents / Cursor):** optional companion repo [lme-rs-mcp](https://github.com/x4g4p3x/lme-rs-mcp) — stdio tools for `lme_fit`, ANOVA, and bootstrap on local CSVs ([GUIDE](https://github.com/x4g4p3x/lme-rs-mcp/blob/main/GUIDE.md))
 - Release workflow: [RELEASING.md](RELEASING.md)
 
 ## Examples

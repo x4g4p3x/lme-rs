@@ -80,6 +80,125 @@ pub struct PyCvGroupedResult {
     pub group_col: String,
 }
 
+/// One bootstrap refit from [`boot_lmer`].
+#[pyclass]
+#[derive(Clone)]
+pub struct PyBootReplicate {
+    #[pyo3(get)]
+    pub index: usize,
+    #[pyo3(get)]
+    pub coefficients: Vec<f64>,
+    #[pyo3(get)]
+    pub theta: Option<Vec<f64>>,
+    #[pyo3(get)]
+    pub sigma2: Option<f64>,
+    #[pyo3(get)]
+    pub converged: bool,
+}
+
+/// Bootstrap refit summary (`bootMer`-style).
+#[pyclass]
+pub struct PyBootLmerResult {
+    inner: lme_rs::BootLmerResult,
+}
+
+#[pymethods]
+impl PyBootLmerResult {
+    #[getter]
+    fn method(&self) -> String {
+        format!("{:?}", self.inner.method)
+    }
+
+    #[getter]
+    fn nsim(&self) -> usize {
+        self.inner.nsim
+    }
+
+    #[getter]
+    fn fixed_names(&self) -> Vec<String> {
+        self.inner.fixed_names.clone()
+    }
+
+    #[getter]
+    fn t0(&self) -> Vec<f64> {
+        self.inner.t0.to_vec()
+    }
+
+    #[getter]
+    fn t0_sigma2(&self) -> Option<f64> {
+        self.inner.t0_sigma2
+    }
+
+    #[getter]
+    fn prop_converged(&self) -> f64 {
+        self.inner.prop_converged
+    }
+
+    #[getter]
+    fn replicates(&self) -> Vec<PyBootReplicate> {
+        self.inner
+            .replicates
+            .iter()
+            .map(|r| PyBootReplicate {
+                index: r.index,
+                coefficients: r.coefficients.to_vec(),
+                theta: r.theta.as_ref().map(|t| t.to_vec()),
+                sigma2: r.sigma2,
+                converged: r.converged,
+            })
+            .collect()
+    }
+
+    /// Percentile bootstrap confidence intervals for fixed effects.
+    #[pyo3(signature = (level=0.95))]
+    fn confint(&self, level: f64) -> PyResult<PyBootConfintResult> {
+        match self.inner.confint_percentile(level) {
+            Ok(ci) => Ok(PyBootConfintResult {
+                names: ci.names,
+                estimate: ci.estimate.to_vec(),
+                lower: ci.lower.to_vec(),
+                upper: ci.upper.to_vec(),
+                level: ci.level,
+            }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "boot confint failed: {e}"
+            ))),
+        }
+    }
+}
+
+/// Percentile bootstrap confidence intervals.
+#[pyclass]
+#[derive(Clone)]
+pub struct PyBootConfintResult {
+    #[pyo3(get)]
+    pub names: Vec<String>,
+    #[pyo3(get)]
+    pub estimate: Vec<f64>,
+    #[pyo3(get)]
+    pub lower: Vec<f64>,
+    #[pyo3(get)]
+    pub upper: Vec<f64>,
+    #[pyo3(get)]
+    pub level: f64,
+}
+
+#[pymethods]
+impl PyBootConfintResult {
+    fn __str__(&self) -> String {
+        format!(
+            "{}",
+            lme_rs::BootConfintResult {
+                names: self.names.clone(),
+                estimate: ndarray::Array1::from_vec(self.estimate.clone()),
+                lower: ndarray::Array1::from_vec(self.lower.clone()),
+                upper: ndarray::Array1::from_vec(self.upper.clone()),
+                level: self.level,
+            }
+        )
+    }
+}
+
 type RanefRow = (String, String, String, f64);
 
 /// Wald confidence intervals (`LmeFit::confint`).
@@ -338,6 +457,16 @@ fn parse_anova_type(anova_type: &str) -> PyResult<AnovaType> {
         "I" | "1" | "TYPE1" | "TYPE I" => Ok(AnovaType::Type1),
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Unsupported anova_type '{other}'"
+        ))),
+    }
+}
+
+fn parse_boot_method(method: &str) -> PyResult<lme_rs::BootLmerMethod> {
+    match method.to_lowercase().as_str() {
+        "parametric" | "param" | "p" => Ok(lme_rs::BootLmerMethod::Parametric),
+        "residual" | "res" | "r" => Ok(lme_rs::BootLmerMethod::Residual),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Unsupported boot method '{other}' (use 'parametric' or 'residual')"
         ))),
     }
 }
@@ -1214,6 +1343,39 @@ impl PyLmeFit {
         }
     }
 
+    /// Parametric or residual bootstrap refits (`bootMer`-style).
+    #[pyo3(signature = (formula, data, nsim=200, method="parametric", reml=true, seed=None, n_jobs=None))]
+    pub fn boot<'py>(
+        &self,
+        py: Python<'py>,
+        formula: &str,
+        data: &Bound<'py, PyAny>,
+        nsim: usize,
+        method: &str,
+        reml: bool,
+        seed: Option<u64>,
+        n_jobs: Option<usize>,
+    ) -> PyResult<PyBootLmerResult> {
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        let boot_method = parse_boot_method(method)?;
+        match lme_rs::boot_lmer(
+            formula,
+            &df,
+            &self.inner,
+            nsim,
+            boot_method,
+            reml,
+            seed,
+            n_jobs,
+        ) {
+            Ok(res) => Ok(PyBootLmerResult { inner: res }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "boot failed: {e}"
+            ))),
+        }
+    }
+
     /// Compute robust (Sandwich) standard errors and p-values.
     ///
     /// If `cluster_col` is provided, computes cluster-robust standard errors.
@@ -1399,6 +1561,40 @@ pub fn cv_grouped<'py>(
             group_col: res.group_col,
         }),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("cv_grouped failed: {e}"))),
+    }
+}
+
+/// Parametric or residual bootstrap refits for LMMs (`bootMer`-style).
+#[pyfunction]
+#[pyo3(signature = (formula, data, fit, nsim=200, method="parametric", reml=true, seed=None, n_jobs=None))]
+pub fn boot_lmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    fit: &PyLmeFit,
+    nsim: usize,
+    method: &str,
+    reml: bool,
+    seed: Option<u64>,
+    n_jobs: Option<usize>,
+) -> PyResult<PyBootLmerResult> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    let boot_method = parse_boot_method(method)?;
+    match lme_rs::boot_lmer(
+        formula,
+        &df,
+        &fit.inner,
+        nsim,
+        boot_method,
+        reml,
+        seed,
+        n_jobs,
+    ) {
+        Ok(res) => Ok(PyBootLmerResult { inner: res }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "boot_lmer failed: {e}"
+        ))),
     }
 }
 
@@ -1665,6 +1861,9 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLmerPrepared>()?;
     m.add_class::<PyCvFoldMetric>()?;
     m.add_class::<PyCvGroupedResult>()?;
+    m.add_class::<PyBootReplicate>()?;
+    m.add_class::<PyBootLmerResult>()?;
+    m.add_class::<PyBootConfintResult>()?;
     m.add_class::<PyConfintResult>()?;
     m.add_class::<PySimulateResult>()?;
     m.add_class::<PySimulateBatches>()?;
@@ -1679,6 +1878,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fit_prepared, m)?)?;
     m.add_function(wrap_pyfunction!(refit_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(cv_grouped, m)?)?;
+    m.add_function(wrap_pyfunction!(boot_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(lmer_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
     m.add_function(wrap_pyfunction!(glmer_weighted, m)?)?;
@@ -1694,6 +1894,9 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "PyLmerPrepared",
             "PyCvFoldMetric",
             "PyCvGroupedResult",
+            "PyBootReplicate",
+            "PyBootLmerResult",
+            "PyBootConfintResult",
             "PyConfintResult",
             "PySimulateResult",
             "PySimulateBatches",
@@ -1708,6 +1911,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "fit_prepared",
             "refit_lmer",
             "cv_grouped",
+            "boot_lmer",
             "lmer_weighted",
             "glmer",
             "glmer_weighted",

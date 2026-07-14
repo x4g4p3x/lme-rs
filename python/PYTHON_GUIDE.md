@@ -46,6 +46,7 @@ Top-level functions:
 - `lme_python.fit_prepared(prepared, reml=True)`
 - `lme_python.refit_lmer(formula, data, reml=True)`
 - `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
+- `lme_python.boot_lmer(formula, data, fit, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
@@ -55,7 +56,7 @@ Top-level functions:
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
 
-Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`.
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
 
 Available `PyLmeFit` methods:
 
@@ -67,6 +68,7 @@ Available `PyLmeFit` methods:
 - `confint(level=0.95)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit
 - `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
 - `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
+- `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM only)
 - `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
 - `with_satterthwaite(data)`  # denominator df and p-values
 - `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
@@ -334,11 +336,39 @@ Held-out groups are predicted with population-level fixed effects only (no subje
 
 When `n_jobs > 1`, folds run in parallel via Rayon and BLAS/OpenMP backends are pinned to one thread per worker to avoid oversubscription.
 
-For **custom parallel loops** (bootstrap, hyperparameter grids on fixed data), use `prepare_lmer` + `fit_prepared` in your own thread pool or `rayon` — see [GUIDE.md § Repeated fits and cross-validation](../GUIDE.md#repeated-fits-and-cross-validation).
+### Bootstrap refits (`boot_lmer`)
+
+For **Gaussian LMMs**, `boot_lmer` (or `fit.boot`) mirrors R's `bootMer`: resample responses, refit on each replicate, and summarize draws. Use **`parametric`** (default) for new Gaussian responses from fitted conditional means, or **`residual`** for fitted values plus resampled residuals.
+
+```python
+fit = lme_python.lmer("Reaction ~ Days + (1 | Subject)", data=df, reml=True)
+
+boot = fit.boot(
+    "Reaction ~ Days + (1 | Subject)",
+    data=df,
+    nsim=500,
+    method="parametric",  # or "residual"
+    reml=True,
+    seed=42,
+    n_jobs=4,  # None = all CPUs, 1 = sequential
+)
+print(boot.prop_converged, boot.t0, boot.fixed_names)
+# boot.replicates[i].coefficients, .theta, .sigma2, .converged
+
+ci = boot.confint(0.95)
+print(ci.names, ci.estimate, ci.lower, ci.upper)
+
+# Module-level call:
+boot = lme_python.boot_lmer("Reaction ~ Days + (1 | Subject)", df, fit, nsim=500, seed=42)
+```
+
+**Scope:** LMM only (not GLMM/NLMM). Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only. Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
+
+For **custom** response-resampling loops (not the standard parametric/residual paths), use `prepare_lmer` + `fit_prepared` or the Rust `fit_prepared_with_response` path — see [GUIDE.md § Custom parallel refits](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
 
 ## Parametric simulation at scale
 
-`simulate()` draws new response vectors from **fixed** fitted means (not R's full `bootMer` resample-and-refit loop). For large `nsim`, pass `n_jobs` and/or stream batches:
+`simulate()` draws new response vectors from **fixed** fitted means and does **not** refit. For bootstrap inference, use [`boot_lmer`](#bootstrap-refits-boot_lmer) above. For large `nsim`, pass `n_jobs` and/or stream batches:
 
 ```python
 # Reproducible parallel draws
@@ -392,8 +422,8 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 ## Current limitations
 
 - Matrix-only `lm(y, x)` without a DataFrame is Rust-only.
-- `cv_grouped` supports LMMs only (not GLMM/NLMM).
-- Some advanced inference helpers are still not exposed in the Python binding (for example, detailed simulation helpers and some additional model comparison wrappers).
+- `cv_grouped` and `boot_lmer` support LMMs only (not GLMM/NLMM).
+- `boot_lmer` implements parametric and residual response bootstrap with percentile CIs; it does not cover every `bootMer` option (e.g. semiparametric, case bootstrap, BCa intervals).
 - `glmer()` currently exposes only the string family selector described above.
 
 ## Troubleshooting

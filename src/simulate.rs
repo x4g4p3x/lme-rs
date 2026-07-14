@@ -1,8 +1,8 @@
 //! Parametric response simulation from fitted models.
 //!
 //! Draws new response vectors from fitted conditional means (and residual dispersion
-//! for Gaussian models). This is **not** R's full `bootMer` loop (resample β/θ →
-//! simulate → refit); use [`crate::prepare_lmer`] + repeated fits for that workflow.
+//! for Gaussian models). This is **not** R's full `bootMer` loop (resample → refit);
+//! use [`crate::boot_lmer`] for parametric/residual bootstrap refits.
 
 use ndarray::Array1;
 use rand::rngs::StdRng;
