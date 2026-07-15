@@ -49,7 +49,9 @@ pub mod simulate;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
 pub use anova_contrasts::AnovaType;
-pub use bootstrap::{boot_lmer, BootConfintResult, BootLmerMethod, BootLmerResult, BootReplicate};
+pub use bootstrap::{
+    boot_glmer, boot_lmer, BootConfintResult, BootLmerMethod, BootLmerResult, BootReplicate,
+};
 pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
@@ -511,6 +513,22 @@ impl LmeFit {
         n_jobs: Option<usize>,
     ) -> Result<bootstrap::BootLmerResult> {
         bootstrap::boot_lmer(formula_str, data, self, nsim, method, reml, seed, n_jobs)
+    }
+
+    /// Parametric bootstrap refits for GLMMs (`bootMer`-style).
+    ///
+    /// Residual bootstrap is not supported. See [`bootstrap::boot_glmer`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn boot_glmer(
+        &self,
+        formula_str: &str,
+        data: &DataFrame,
+        nsim: usize,
+        method: bootstrap::BootLmerMethod,
+        seed: Option<u64>,
+        n_jobs: Option<usize>,
+    ) -> Result<bootstrap::BootLmerResult> {
+        bootstrap::boot_glmer(formula_str, data, self, nsim, method, seed, n_jobs)
     }
 
     /// Compute Satterthwaite degrees of freedom and p-values for fixed effects.
@@ -1053,12 +1071,13 @@ pub fn prepare_lmer_weighted(
     };
 
     let lmm = Arc::new(perf_diag::scope(perf_diag::Phase::SetupLmmData, || {
-        math::LmmData::new_weighted(
+        math::LmmData::new_weighted_with_zt_z(
             std::mem::take(&mut matrices.x),
             std::mem::replace(&mut matrices.zt, sprs::CsMat::zero((0, 0))),
             y_for_lmm,
             std::mem::take(&mut matrices.re_blocks),
             weights,
+            matrices.precomputed_zt_z.take(),
         )
     }));
 
@@ -1384,6 +1403,229 @@ pub fn glmer_weighted(
     )
 }
 
+/// Cached design matrices and GLMM structural maps for repeated fits / bootstrap.
+///
+/// Build once with [`prepare_glmer`] or [`prepare_glmer_weighted_with_link`], then call
+/// [`fit_prepared_glmer`] (optionally with a new response).
+#[derive(Clone)]
+pub struct GlmerPrepared {
+    matrices: model_matrix::DesignMatrices,
+    family: family::Family,
+    link: family::Link,
+    n_agq: usize,
+    weights: Option<Array1<f64>>,
+    init_theta: Array1<f64>,
+    zt_z: sprs::CsMat<f64>,
+    zt_w_z_map: Vec<(usize, usize, f64)>,
+}
+
+/// Prepare an unweighted GLMM (design matrices + structural maps) without optimizing θ.
+pub fn prepare_glmer(
+    formula_str: &str,
+    data: &DataFrame,
+    family_enum: family::Family,
+    n_agq: usize,
+) -> Result<GlmerPrepared> {
+    prepare_glmer_weighted_with_link(
+        formula_str,
+        data,
+        family_enum,
+        family::Link::default_for(family_enum),
+        n_agq,
+        None,
+    )
+}
+
+/// Prepare a GLMM with optional weights and an explicit link.
+pub fn prepare_glmer_weighted_with_link(
+    formula_str: &str,
+    data: &DataFrame,
+    family_enum: family::Family,
+    link: family::Link,
+    n_agq: usize,
+    weights: Option<Array1<f64>>,
+) -> Result<GlmerPrepared> {
+    if formula_str.trim().is_empty() {
+        return Err(LmeError::EmptyFormula);
+    }
+    if !link.valid_for(family_enum) {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "link '{}' is not valid for family '{}'",
+                link.name(),
+                family_enum
+            ),
+        });
+    }
+    if family_enum == family::Family::Gaussian && link == family::Link::Identity {
+        return Err(LmeError::NotImplemented {
+            feature: "prepare_glmer: Gaussian identity is handled by lmer; use prepare_lmer"
+                .to_string(),
+        });
+    }
+
+    let ast = formula::parse(formula_str)?;
+    let matrices = model_matrix::build_design_matrices(&ast, data)?;
+    validate_observation_weights(weights.as_ref(), matrices.y.len())?;
+    validate_glmm_response(&matrices.y, family_enum)?;
+
+    let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
+    let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
+    let (zt_z, zt_w_z_map) = glmm_math::build_glmm_structural_maps(&matrices.zt);
+
+    Ok(GlmerPrepared {
+        matrices,
+        family: family_enum,
+        link,
+        n_agq,
+        weights,
+        init_theta,
+        zt_z,
+        zt_w_z_map,
+    })
+}
+
+/// Fit θ and assemble an [`LmeFit`] from a prior [`prepare_glmer`] call.
+pub fn fit_prepared_glmer(prepared: &GlmerPrepared) -> Result<LmeFit> {
+    fit_prepared_glmer_with_response(prepared, None)
+}
+
+/// Fit a prepared GLMM, optionally replacing the response (bootstrap).
+pub fn fit_prepared_glmer_with_response(
+    prepared: &GlmerPrepared,
+    y_override: Option<Array1<f64>>,
+) -> Result<LmeFit> {
+    let family_enum = prepared.family;
+    let link = prepared.link;
+    let n_agq = prepared.n_agq;
+    let fam = family_enum.build_with_link(link)?;
+    let fam_name = fam.name().to_string();
+    let link_name = link.name().to_string();
+
+    let y = match y_override {
+        Some(y) => {
+            if y.len() != prepared.matrices.y.len() {
+                return Err(LmeError::NotImplemented {
+                    feature: format!(
+                        "fit_prepared_glmer_with_response: expected {} observations, got {}",
+                        prepared.matrices.y.len(),
+                        y.len()
+                    ),
+                });
+            }
+            validate_glmm_response(&y, family_enum)?;
+            y
+        }
+        None => prepared.matrices.y.clone(),
+    };
+
+    let fam_for_opt = family_enum.build_with_link(link)?;
+    let opt_result = optimizer::optimize_theta_glmm_with_maps(
+        prepared.matrices.x.clone(),
+        prepared.matrices.zt.clone(),
+        y.clone(),
+        prepared.matrices.re_blocks.clone(),
+        prepared.init_theta.clone(),
+        fam_for_opt,
+        prepared.matrices.offset.clone(),
+        prepared.weights.clone(),
+        prepared.zt_z.clone(),
+        prepared.zt_w_z_map.clone(),
+    )
+    .map_err(|e| LmeError::NotImplemented {
+        feature: format!("GLMM optimizer failed: {}", e),
+    })?;
+
+    let best_theta = &opt_result.theta;
+    let fam_for_eval = family_enum.build_with_link(link)?;
+    let mut glmm = glmm_math::GlmmData::from_structural_parts(
+        prepared.matrices.x.clone(),
+        prepared.matrices.zt.clone(),
+        y,
+        prepared.matrices.re_blocks.clone(),
+        fam_for_eval,
+        prepared.weights.clone(),
+        prepared.zt_z.clone(),
+        prepared.zt_w_z_map.clone(),
+    );
+    let coefs = glmm
+        .pirls(
+            best_theta.as_slice().unwrap(),
+            prepared.matrices.offset.as_ref(),
+            n_agq,
+        )
+        .ok_or_else(|| LmeError::NotImplemented {
+            feature: "PIRLS failed to converge at optimal theta".to_string(),
+        })?;
+
+    let ranef_df = build_ranef_dataframe(&coefs.b, &prepared.matrices.re_blocks);
+    let uses_disp = fam.uses_dispersion();
+    let sigma2_val = if uses_disp {
+        let n = prepared.matrices.y.len() as f64;
+        let p = prepared.matrices.x.ncols() as f64;
+        let var_mu = fam.variance(&coefs.fitted);
+        let mut pearson_sum = 0.0;
+        for i in 0..coefs.residuals.len() {
+            pearson_sum += (coefs.residuals[i] * coefs.residuals[i]) / var_mu[i].max(f64::EPSILON);
+        }
+        pearson_sum / (n - p)
+    } else {
+        1.0
+    };
+
+    let var_corr_df = build_var_corr_dataframe(
+        best_theta.as_slice().unwrap(),
+        &prepared.matrices.re_blocks,
+        sigma2_val,
+    );
+
+    let deviance_val = coefs.deviance;
+    let log_lik = -deviance_val / 2.0;
+    let p = prepared.matrices.x.ncols();
+    let total_theta_len = prepared.init_theta.len();
+    let n_params = (total_theta_len + p) as f64;
+    let n = prepared.matrices.y.len() as f64;
+    let aic = deviance_val + 2.0 * n_params;
+    let bic = deviance_val + n_params * n.ln();
+
+    Ok(LmeFit {
+        coefficients: coefs.beta,
+        residuals: coefs.residuals,
+        fitted: coefs.fitted,
+        ranef: Some(ranef_df),
+        var_corr: Some(var_corr_df),
+        theta: Some(opt_result.theta),
+        sigma2: if uses_disp { Some(sigma2_val) } else { None },
+        reml: None,
+        log_likelihood: Some(log_lik),
+        aic: Some(aic),
+        bic: Some(bic),
+        deviance: Some(deviance_val),
+        b: Some(coefs.b),
+        u: Some(coefs.u),
+        beta_se: Some(coefs.beta_se),
+        beta_t: Some(coefs.beta_z),
+        formula: Some(prepared.matrices.formula.clone()),
+        fixed_names: Some(prepared.matrices.fixed_names.clone()),
+        fixed_term_assign: Some(prepared.matrices.fixed_term_assign.clone()),
+        fixed_design_x: Some(prepared.matrices.x.clone()),
+        re_blocks: Some(prepared.matrices.re_blocks.clone()),
+        num_obs: prepared.matrices.y.len(),
+        converged: Some(opt_result.converged),
+        iterations: Some(opt_result.iterations),
+        family_name: Some(fam_name),
+        link_name: Some(link_name),
+        family: Some(family_enum),
+        satterthwaite: None,
+        kenward_roger: None,
+        v_beta_unscaled: Some(coefs.v_beta_unscaled),
+        robust: None,
+        categorical_levels: Some(prepared.matrices.categorical_levels.clone()),
+        nlmm_mean: None,
+        nlmm_formula: None,
+    })
+}
+
 /// [`glmer_weighted`] with an explicit link function.
 pub fn glmer_weighted_with_link(
     formula_str: &str,
@@ -1419,141 +1661,9 @@ pub fn glmer_weighted_with_link(
         return Ok(fit);
     }
 
-    let fam = family_enum.build_with_link(link)?;
-    let fam_name = fam.name().to_string();
-    let link_name = link.name().to_string();
-
-    // 1. Parse Wilkinson formula into AST
-    let ast = formula::parse(formula_str)?;
-
-    // 2. Build design matrices X, Zt, y from DataFrame and AST
-    let matrices = model_matrix::build_design_matrices(&ast, data)?;
-    validate_observation_weights(weights.as_ref(), matrices.y.len())?;
-    validate_glmm_response(&matrices.y, family_enum)?;
-
-    // 3. Setup initial theta vector
-    let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
-    let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
-
-    log::debug!(
-        "GLMM Zt shape: {}x{}, nnz: {}, theta_len: {}, family: {}",
-        matrices.zt.rows(),
-        matrices.zt.cols(),
-        matrices.zt.nnz(),
-        total_theta_len,
-        fam_name
-    );
-
-    // 4. Optimize theta using Nelder-Mead on Laplace deviance (AGQ applies in final PIRLS when n_agq > 1)
-    let fam_for_opt = family_enum.build_with_link(link)?;
-    let opt_result = optimizer::optimize_theta_glmm(
-        matrices.x.clone(),
-        matrices.zt.clone(),
-        matrices.y.clone(),
-        matrices.re_blocks.clone(),
-        init_theta,
-        fam_for_opt,
-        matrices.offset.clone(),
-        weights.clone(),
-    )
-    .map_err(|e| LmeError::NotImplemented {
-        feature: format!("GLMM optimizer failed: {}", e),
-    })?;
-
-    let best_theta = &opt_result.theta;
-
-    // 5. Re-evaluate PIRLS at optimal theta to get coefficients
-    let fam_for_eval = family_enum.build_with_link(link)?;
-    let mut glmm = glmm_math::GlmmData::new_weighted(
-        matrices.x.clone(),
-        matrices.zt.clone(),
-        matrices.y.clone(),
-        matrices.re_blocks.clone(),
-        fam_for_eval,
-        n_agq,
-        weights,
-    );
-    let coefs = glmm
-        .pirls(
-            best_theta.as_slice().unwrap(),
-            matrices.offset.as_ref(),
-            n_agq,
-        )
-        .ok_or_else(|| LmeError::NotImplemented {
-            feature: "PIRLS failed to converge at optimal theta".to_string(),
-        })?;
-
-    // 6. Build ranef DataFrame
-    let ranef_df = build_ranef_dataframe(&coefs.b, &matrices.re_blocks);
-
-    // For GLMMs without dispersion, sigma2 = 1 (not estimated)
-    let uses_disp = fam.uses_dispersion();
-    let sigma2_val = if uses_disp {
-        // Estimate dispersion from Pearson residuals. For Gaussian this reduces
-        // to the usual residual variance because V(mu) = 1.
-        let n = matrices.y.len() as f64;
-        let p = matrices.x.ncols() as f64;
-        let var_mu = fam.variance(&coefs.fitted);
-        let mut pearson_sum = 0.0;
-        for i in 0..coefs.residuals.len() {
-            pearson_sum += (coefs.residuals[i] * coefs.residuals[i]) / var_mu[i].max(f64::EPSILON);
-        }
-        pearson_sum / (n - p)
-    } else {
-        1.0
-    };
-
-    let var_corr_df = build_var_corr_dataframe(
-        best_theta.as_slice().unwrap(),
-        &matrices.re_blocks,
-        sigma2_val,
-    );
-
-    // 7. Compute log-likelihood, AIC, BIC
-    let deviance_val = coefs.deviance;
-    let log_lik = -deviance_val / 2.0;
-    let p = matrices.x.ncols();
-    let n_params = (total_theta_len + p) as f64; // theta + beta (no sigma for binom/poisson)
-    let n = matrices.y.len() as f64;
-    let aic = deviance_val + 2.0 * n_params;
-    let bic = deviance_val + n_params * n.ln();
-
-    Ok(LmeFit {
-        coefficients: coefs.beta,
-        residuals: coefs.residuals,
-        fitted: coefs.fitted,
-        ranef: Some(ranef_df),
-        var_corr: Some(var_corr_df),
-        theta: Some(opt_result.theta),
-        sigma2: if uses_disp { Some(sigma2_val) } else { None },
-        reml: None, // GLMMs don't use REML
-        log_likelihood: Some(log_lik),
-        aic: Some(aic),
-        bic: Some(bic),
-        deviance: Some(deviance_val),
-        b: Some(coefs.b),
-        u: Some(coefs.u),
-        beta_se: Some(coefs.beta_se),
-        beta_t: Some(coefs.beta_z), // z-values for GLMM, stored in beta_t field
-        formula: Some(matrices.formula),
-        fixed_names: Some(matrices.fixed_names),
-        fixed_term_assign: Some(matrices.fixed_term_assign),
-        fixed_design_x: Some(matrices.x),
-        re_blocks: Some(matrices.re_blocks),
-        num_obs: matrices.y.len(),
-        converged: Some(opt_result.converged),
-        iterations: Some(opt_result.iterations),
-        family_name: Some(fam_name),
-        link_name: Some(link_name),
-        family: Some(family_enum),
-        satterthwaite: None,
-        kenward_roger: None,
-        v_beta_unscaled: Some(coefs.v_beta_unscaled),
-        robust: None,
-        categorical_levels: Some(matrices.categorical_levels),
-        nlmm_mean: None,
-        nlmm_formula: None,
-    })
+    let prepared =
+        prepare_glmer_weighted_with_link(formula_str, data, family_enum, link, n_agq, weights)?;
+    fit_prepared_glmer(&prepared)
 }
 
 fn validate_observation_weights(weights: Option<&Array1<f64>>, n_obs: usize) -> Result<()> {
@@ -1647,12 +1757,23 @@ fn build_ranef_dataframe(b: &Array1<f64>, re_blocks: &[model_matrix::ReBlock]) -
             }
         }
 
-        for group_idx in 0..block.m {
-            for (eff_idx, eff_name) in block.effect_names.iter().enumerate() {
-                group_col.push(group_labels[group_idx].clone());
-                group_name_col.push(block.group_name.clone());
-                effect_col.push(eff_name.clone());
-                value_col.push(b[offset + group_idx * block.k + eff_idx]);
+        let n_block_rows = block.m * block.k;
+        group_name_col.extend(std::iter::repeat_n(block.group_name.clone(), n_block_rows));
+
+        if block.k == 1 {
+            // Move labels into the frame (no second clone per group).
+            for (group_idx, label) in group_labels.into_iter().enumerate() {
+                group_col.push(label);
+                effect_col.push(block.effect_names[0].clone());
+                value_col.push(b[offset + group_idx]);
+            }
+        } else {
+            for group_idx in 0..block.m {
+                for (eff_idx, eff_name) in block.effect_names.iter().enumerate() {
+                    group_col.push(group_labels[group_idx].clone());
+                    effect_col.push(eff_name.clone());
+                    value_col.push(b[offset + group_idx * block.k + eff_idx]);
+                }
             }
         }
         offset += block.m * block.k;

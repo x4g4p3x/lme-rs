@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`nlmer` coefficient box bounds** — optional named `lower` / `upper` on [`NlmerOptions`](src/nlmm/fit.rs) (population nonlinear parameters); projected after each Gauss–Newton trial. Python `nlmer(..., lower=..., upper=...)`.
+- **Parametric GLMM bootstrap (`boot_glmer`)** — amortized [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer`](src/lib.rs) with structural-map reuse in the θ objective; Python `boot_glmer` / `fit.boot_glmer`. Residual bootstrap rejected for discrete families; weighted binomial trials unsupported until simulate grows a trials path.
+- **`prepare_glmer` / `fit_prepared_glmer`** — GLMM design-matrix + \(Z^TWZ\) map amortization for repeated fits / bootstrap.
+
+### Changed
+
+- Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` (default `--target-ratio 1.0`). `crossed_20k` / `nested_10k` cold fits are **~0.91× / ~0.93×** after prepare Gram + allocation-free blocked gate ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
+
 ## [0.1.11] - 2026-07-14
 
 ### Added

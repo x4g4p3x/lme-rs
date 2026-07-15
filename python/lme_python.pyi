@@ -172,6 +172,15 @@ class PyLmeFit:
         seed: Optional[int] = None,
         n_jobs: Optional[int] = None,
     ) -> PyBootLmerResult: ...
+    def boot_glmer(
+        self,
+        formula: str,
+        data: DataFrameInput,
+        nsim: int = 200,
+        method: str = "parametric",
+        seed: Optional[int] = None,
+        n_jobs: Optional[int] = None,
+    ) -> PyBootLmerResult: ...
     def with_robust_se(
         self, data: DataFrameInput, cluster_col: Optional[str] = None
     ) -> None: ...
@@ -227,6 +236,15 @@ def boot_lmer(
     seed: Optional[int] = None,
     n_jobs: Optional[int] = None,
 ) -> PyBootLmerResult: ...
+def boot_glmer(
+    formula: str,
+    data: DataFrameInput,
+    fit: PyLmeFit,
+    nsim: int = 200,
+    method: str = "parametric",
+    seed: Optional[int] = None,
+    n_jobs: Optional[int] = None,
+) -> PyBootLmerResult: ...
 def lmer_weighted(
     formula: str,
     data: DataFrameInput,
@@ -254,6 +272,8 @@ def nlmer(
     start: Optional[dict[str, float]] = None,
     reml: bool = False,
     n_agq: int = 1,
+    lower: Optional[dict[str, float]] = None,
+    upper: Optional[dict[str, float]] = None,
 ) -> PyLmeFit: ...
 def nlmer_with_mean(
     formula: str,
@@ -263,6 +283,8 @@ def nlmer_with_mean(
     start: Optional[dict[str, float]] = None,
     reml: bool = False,
     n_agq: int = 1,
+    lower: Optional[dict[str, float]] = None,
+    upper: Optional[dict[str, float]] = None,
 ) -> PyLmeFit: ...
 def anova(fit_a: PyLmeFit, fit_b: PyLmeFit) -> PyLikelihoodRatioAnova: ...
 def contrast_matrix(p: int, rows: list[list[tuple[int, float]]]) -> list[list[float]]: ...

@@ -108,6 +108,18 @@ impl LmmData {
         re_blocks: Vec<crate::model_matrix::ReBlock>,
         weights: Option<Array1<f64>>,
     ) -> Self {
+        Self::new_weighted_with_zt_z(x, zt, y, re_blocks, weights, None)
+    }
+
+    /// Like [`Self::new_weighted`], but accepts a precomputed unweighted \(Z^T Z\).
+    pub fn new_weighted_with_zt_z(
+        x: Array2<f64>,
+        zt: CsMat<f64>,
+        y: Array1<f64>,
+        re_blocks: Vec<crate::model_matrix::ReBlock>,
+        weights: Option<Array1<f64>>,
+        precomputed_zt_z: Option<CsMat<f64>>,
+    ) -> Self {
         match &weights {
             Some(w) => {
                 // Weighted cross-products: scale X and y by sqrt(w)
@@ -136,9 +148,7 @@ impl LmmData {
                 };
                 let xt_x = x_w.t().dot(&x_w);
                 let xt_y = x_w.t().dot(&y_w);
-                let q = zt_w.rows();
                 let (zt_x, zt_y) = precompute_zt_products(&zt_w, &x_w, &y_w);
-                let eye_q = identity_sparse(q);
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
                 let y_norm2: f64 = y_w.iter().map(|&xi| xi * xi).sum();
 
@@ -156,7 +166,7 @@ impl LmmData {
                     xt_y,
                     zt_x,
                     zt_y,
-                    eye_q,
+                    eye_q: CsMat::zero((0, 0)),
                     intercept_only_re,
                     intercept_ldl: None,
                     single_factor_slopes: None,
@@ -165,7 +175,9 @@ impl LmmData {
             }
             None => {
                 let intercept_only_re = re_blocks.iter().all(|b| b.k == 1);
-                let zt_z = if intercept_only_re && should_build_zt_z_intercept_fast(&zt) {
+                let zt_z = if let Some(zt_z) = precomputed_zt_z {
+                    zt_z
+                } else if intercept_only_re && should_build_zt_z_intercept_fast(&zt) {
                     build_zt_z_intercept_from_re_blocks(&zt, &re_blocks)
                         .unwrap_or_else(|| build_zt_z_intercept_from_zt(&zt))
                 } else {
@@ -173,9 +185,7 @@ impl LmmData {
                 };
                 let xt_x = x.t().dot(&x);
                 let xt_y = x.t().dot(&y);
-                let q = zt.rows();
                 let (zt_x, zt_y) = precompute_zt_products(&zt, &x, &y);
-                let eye_q = identity_sparse(q);
                 let y_norm2: f64 = y.iter().map(|&xi| xi * xi).sum();
 
                 finish_lmm_data(LmmData {
@@ -193,7 +203,7 @@ impl LmmData {
                     xt_y,
                     zt_x,
                     zt_y,
-                    eye_q,
+                    eye_q: CsMat::zero((0, 0)),
                     intercept_only_re,
                     intercept_ldl: None,
                     single_factor_slopes: None,
@@ -300,9 +310,20 @@ impl LmmData {
 fn finish_lmm_data(mut data: LmmData) -> LmmData {
     if data.intercept_only_re {
         let cache = InterceptLdlCache::new_from_lmm(&data).expect("intercept LDL setup failed");
+        if cache.blocked_gate {
+            // Blocked θ-search / profile solve do not use `eye_q`; skip the q×q identity.
+            data.eye_q = CsMat::zero((0, 0));
+        } else if data.eye_q.rows() == 0 {
+            data.eye_q = identity_sparse(data.zt.rows());
+        }
         data.intercept_ldl = Some(Mutex::new(cache));
-    } else if let Some(cache) = SingleFactorSlopesCache::try_new_from_lmm(&data) {
-        data.single_factor_slopes = Some(Mutex::new(cache));
+    } else {
+        if data.eye_q.rows() == 0 {
+            data.eye_q = identity_sparse(data.zt.rows());
+        }
+        if let Some(cache) = SingleFactorSlopesCache::try_new_from_lmm(&data) {
+            data.single_factor_slopes = Some(Mutex::new(cache));
+        }
     }
     data
 }
@@ -317,8 +338,21 @@ impl LmmData {
         let mut beta_se = Array1::<f64>::zeros(p_usize);
         let mut beta_t = Array1::<f64>::zeros(p_usize);
 
-        let inv_lx = solved.l_x.inv().map_err(|_| ())?;
-        let v_beta_unscaled = inv_lx.t().dot(&inv_lx);
+        // V_β ∝ (L Lᵀ)⁻¹ = L⁻ᵀ L⁻¹. Prefer triangular solves over an explicit inverse
+        // when p is small (fair-harness LMM fixed effects are p ≤ 2).
+        let v_beta_unscaled = if p_usize <= 4 {
+            let mut inv_cols = Array2::<f64>::zeros((p_usize, p_usize));
+            for i in 0..p_usize {
+                let mut e = Array1::<f64>::zeros(p_usize);
+                e[i] = 1.0;
+                let col = solved.l_x.solve_into(e).map_err(|_| ())?;
+                inv_cols.column_mut(i).assign(&col);
+            }
+            inv_cols.t().dot(&inv_cols)
+        } else {
+            let inv_lx = solved.l_x.inv().map_err(|_| ())?;
+            inv_lx.t().dot(&inv_lx)
+        };
 
         for i in 0..p_usize {
             let var_i = solved.sigma2 * v_beta_unscaled[[i, i]];
@@ -1408,10 +1442,16 @@ impl InterceptLdlCache {
             max_q if q <= max_q => Some(InterceptDenseChol::new(&lmm.zt_z, q, p, &row_block)),
             _ => None,
         };
-        let mut w_col_bufs = Vec::with_capacity(p);
-        for _ in 0..p {
-            w_col_bufs.push(vec![0.0; q]);
-        }
+        let w_col_bufs = if blocked_gate {
+            // θ-search uses blocked workspaces; allocate column buffers lazily on profile solve.
+            Vec::new()
+        } else {
+            let mut bufs = Vec::with_capacity(p);
+            for _ in 0..p {
+                bufs.push(vec![0.0; q]);
+            }
+            bufs
+        };
         if lmm.intercept_only_re() {
             if blocked_gate {
                 crate::perf_diag::set_kernel_detail("blocked_active");
@@ -1420,6 +1460,11 @@ impl InterceptLdlCache {
                 crate::perf_diag::set_kernel_detail(detail);
             }
         }
+        let (solve_out, scaled_rhs, w_y_buf) = if blocked_gate {
+            (Vec::new(), Vec::new(), vec![0.0; q])
+        } else {
+            (vec![0.0; q], vec![0.0; q], vec![0.0; q])
+        };
         Ok(Self {
             blocked: None,
             blocked_gate,
@@ -1427,16 +1472,28 @@ impl InterceptLdlCache {
             sparse,
             p,
             row_block,
-            solve_out: vec![0.0; q],
-            scaled_rhs: vec![0.0; q],
-            w_y_buf: vec![0.0; q],
+            solve_out,
+            scaled_rhs,
+            w_y_buf,
             w_col_bufs,
         })
     }
 
     fn ensure_blocked(&mut self, lmm: &LmmData) {
         if self.blocked_gate && self.blocked.is_none() {
-            self.blocked = intercept_blocked::InterceptBlockedChol::try_new(lmm);
+            // Gate already passed in `new_from_lmm`; skip a second cross-block scan.
+            self.blocked = intercept_blocked::InterceptBlockedChol::try_new_inner(lmm);
+        }
+    }
+
+    fn ensure_w_col_bufs(&mut self, q: usize) {
+        if self.w_col_bufs.len() == self.p && self.w_col_bufs.iter().all(|b| b.len() == q) {
+            return;
+        }
+        self.w_col_bufs.clear();
+        self.w_col_bufs.reserve(self.p);
+        for _ in 0..self.p {
+            self.w_col_bufs.push(vec![0.0; q]);
         }
     }
 
@@ -1461,17 +1518,20 @@ impl InterceptLdlCache {
         reml: bool,
     ) -> Result<ProfileSolution, sprs::errors::LinalgError> {
         self.ensure_blocked(lmm);
-        if let Some(blocked) = &mut self.blocked {
+        if self.blocked.is_some() {
             crate::perf_diag::set_kernel("blocked");
-            if let Ok(solved) = blocked.solve_profile_blocked(
-                lmm,
-                theta,
-                reml,
-                &self.row_block,
-                &mut self.w_y_buf,
-                &mut self.w_col_bufs,
-            ) {
-                return Ok(solved);
+            self.ensure_w_col_bufs(lmm.zt_z.rows());
+            if let Some(blocked) = &mut self.blocked {
+                if let Ok(solved) = blocked.solve_profile_blocked(
+                    lmm,
+                    theta,
+                    reml,
+                    &self.row_block,
+                    &mut self.w_y_buf,
+                    &mut self.w_col_bufs,
+                ) {
+                    return Ok(solved);
+                }
             }
         }
         self.ensure_sparse(lmm)?;
@@ -2136,11 +2196,7 @@ fn precompute_zt_products(
 }
 
 fn identity_sparse(n: usize) -> CsMat<f64> {
-    let mut tri = TriMat::new((n, n));
-    for i in 0..n {
-        tri.add_triplet(i, i, 1.0);
-    }
-    tri.to_csr()
+    CsMat::new((n, n), (0..=n).collect(), (0..n).collect(), vec![1.0; n])
 }
 
 /// Multiply Λᵀ by a dense vector (Λ stored in CSR).

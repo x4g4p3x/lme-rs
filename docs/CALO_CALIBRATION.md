@@ -38,7 +38,7 @@ flowchart LR
 Answer these before choosing a stack:
 
 1. **Random effects?** If each sensor should share population `(a, b, c)` with per-unit variation, use **`nlmer`**. If each sensor is its own fit, use **batch NLS**.
-2. **Coefficient bounds?** MATLAB / lmfit support box constraints on `(a, b, c)`. **`nlmer` does not** bound nonlinear parameters today.
+2. **Coefficient bounds?** MATLAB / lmfit support box constraints on `(a, b, c)`. **`nlmer` supports optional population box bounds** via [`NlmerOptions::lower` / `upper`](../src/nlmm/fit.rs) (projected in the inner Gauss–Newton). Bounds apply to **population** nonlinear coefficients, not group-level `β + b`. Independent per-curve bounds remain the batch-NLS lane.
 3. **How many sensors?** Hundreds to thousands of **independent** fits → CPU parallelism (`rayon`, `std::thread`) or a **dedicated batch GPU** crate. A **single** pooled `nlmer` on tens of sensors → **CPU `lme-rs`** is appropriate; GPU launch overhead usually loses.
 4. **Covariate domain?** `SSpower` requires **x > 0** (same as log transforms in MATLAB `power2` heuristics).
 
@@ -95,7 +95,7 @@ CUDA batch fitting (e.g. lightcurve-fitting) targets **massively parallel indepe
 - **`selfStart`** when `start` is omitted (Rust / Python).
 - Golden parity: `sspower_synthetic_self_start` in [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json); R reference via custom `selfStart` in [`comparisons/nlmm_sspower.R`](../comparisons/nlmm_sspower.R).
 
-**Not supported:** coefficient bounds, robust loss, per-sensor independent fits inside `nlmer`.
+**Not supported:** robust loss, per-sensor independent fits inside `nlmer`. Population coefficient box bounds are available via `NlmerOptions::{lower,upper}` (not per-curve lmfit bounds).
 
 See also [comparisons/COMPARISONS.md § SSpower](../comparisons/COMPARISONS.md) and [USABILITY.md](../USABILITY.md) (yellow workflow row).
 

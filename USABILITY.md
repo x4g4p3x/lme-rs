@@ -103,7 +103,7 @@ Statuses are **practical**, not formal support tiers.
 | Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
 | GLMM non-canonical links, weights | Implemented; narrower test matrix | Golden checks where listed; validate otherwise |
 | `nlmer` built-in `SS*` means | Subset of R `stats::SS*` plus **`SSpower`** (MATLAB `power2`); one grouping factor | Orange / synthetic parity cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
-| Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; **not** lmfit/MATLAB bounded single-curve NLS | Requires **x > 0**; no coefficient bounds; pool sensors with `~ c\|sensor` (or RE on other parameters). See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
+| Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population `lower`/`upper` bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. Bounds are population-level only. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | `nlmer_with_mean` (custom μ) | No R `selfStart` for arbitrary custom means; defaults are naive | Supply `start`; verify predictions |
 | Scalar AGQ (`n_agq ≥ 2`) | Applied at final θ, not inside optimizer | Same pattern as `glmer`; compare Laplace vs AGQ |

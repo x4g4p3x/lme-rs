@@ -819,6 +819,7 @@ pub(crate) fn blocked_unavailable_reason(lmm: &super::LmmData) -> &'static str {
     blocked_gate_failure(lmm).unwrap_or("blocked_unavailable_unknown")
 }
 
+/// Cheap gate: avoids allocating dense cross blocks (those are built once in `try_new_inner`).
 pub(crate) fn blocked_gate_failure(lmm: &super::LmmData) -> Option<&'static str> {
     if !lmm.intercept_only_re() {
         return Some("blocked_unavailable_not_intercept_only");
@@ -853,8 +854,7 @@ pub(crate) fn blocked_gate_failure(lmm: &super::LmmData) -> Option<&'static str>
     }
     for j in 1..order.len() {
         for jj in 0..j {
-            let block = CrossBlock::from_submatrix(&lmm.zt_z, ranges[j], ranges[jj]);
-            if !block.fits_blocked_gate() {
+            if !cross_submatrix_fits_blocked_gate(&lmm.zt_z, ranges[j], ranges[jj]) {
                 return Some("blocked_unavailable_cross_gate");
             }
         }
@@ -862,7 +862,46 @@ pub(crate) fn blocked_gate_failure(lmm: &super::LmmData) -> Option<&'static str>
     None
 }
 
+/// Gate check without allocating a [`CrossBlock`].
+fn cross_submatrix_fits_blocked_gate(
+    zt_z: &CsMat<f64>,
+    row_range: (usize, usize),
+    col_range: (usize, usize),
+) -> bool {
+    let (r0, r1) = row_range;
+    let (c0, c1) = col_range;
+    let nrows = r1 - r0;
+    let ncols = c1 - c0;
+    let elems = nrows.saturating_mul(ncols);
+    // Dense path is allowed up to 100k elements (matches `CrossBlock::fits_blocked_gate`).
+    if elems <= 100_000 {
+        return true;
+    }
+    // Sparse path: density must stay low and each column must touch exactly one row.
+    let mut nnz = 0usize;
+    for local_col in 0..ncols {
+        let global_col = c0 + local_col;
+        let row_view = match zt_z.outer_view(global_col) {
+            Some(v) => v,
+            None => return false,
+        };
+        let mut count = 0usize;
+        for (global_row, &val) in row_view.iter() {
+            if val != 0.0 && (r0..r1).contains(&global_row) {
+                count += 1;
+                nnz += 1;
+            }
+        }
+        if count != 1 {
+            return false;
+        }
+    }
+    let density = nnz as f64 / (nrows as f64 * ncols as f64);
+    density <= SPARSE_CROSS_MAX_DENSITY
+}
+
 impl InterceptBlockedChol {
+    #[allow(dead_code)] // public entry; hot path uses `try_new_inner` after a prior gate
     pub fn try_new(lmm: &super::LmmData) -> Option<Self> {
         if blocked_gate_failure(lmm).is_some() {
             return None;
@@ -870,7 +909,8 @@ impl InterceptBlockedChol {
         Self::try_new_inner(lmm)
     }
 
-    fn try_new_inner(lmm: &super::LmmData) -> Option<Self> {
+    /// Build the blocked factor after [`blocked_gate_failure`] has already succeeded.
+    pub(crate) fn try_new_inner(lmm: &super::LmmData) -> Option<Self> {
         let re_blocks = &lmm.re_blocks;
         let p = lmm.x.ncols();
         let mut order: Vec<usize> = (0..re_blocks.len()).collect();

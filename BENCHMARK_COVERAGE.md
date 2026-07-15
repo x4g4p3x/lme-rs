@@ -21,15 +21,15 @@ This file maps **which parts of `lme-rs` have external performance references** 
 
 ## Axis (3) threshold
 
-Default target: **Rust median ≤ 1.5× Julia median** on `cold_fit` for tier-A cases on the reference workstation.
+Default target: **Rust median &lt; 1.0× Julia median** on `cold_fit` for tier-A LMM cases on the reference workstation (strictly faster than MixedModels.jl).
 
-Prior milestone (2026-07-04 → 2026-07-08): **≤ 2×** while crossed/nested were still multi× slower. The large random-intercept setup pass puts 50k/100k cold fits at **~0.47× / ~0.51×** Julia ([2026-07-09 setup reference](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json)); the 1.5× bar remains the target.
+Prior milestones: **≤ 2×** (through 2026-07-08) while crossed/nested were multi× slower; **≤ 1.5×** (2026-07-09–15). The 2026-07-16 prepare/gate pass puts `crossed_20k` and `nested_10k` under **1.0×** ([cold-fit &lt;1 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 
 ```powershell
 python scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases --repeats 10
 ```
 
-Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--with-phases` is set (LMM only). Override cold threshold: `--target-ratio 2.0` (legacy bar).
+Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--with-phases` is set (LMM only). Override cold threshold: `--target-ratio 1.5` (legacy bar).
 
 ---
 
@@ -45,8 +45,8 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 | `random_intercept_50k` | LMM | Synthetic | MixedModels.jl | **~0.47×** (Jul 2026; Rust faster) | **~0.13×** hot | Single-factor setup fast path |
 | `random_intercept_100k` | LMM | Synthetic | MixedModels.jl | **~0.51×** (Jul 2026; Rust faster) | **~0.14×** hot | Single-factor setup fast path |
 | `large_random_slopes_100k` | LMM | Synthetic (100k obs; 2k groups) | MixedModels.jl | **~0.83×** (Jul 2026; Rust faster) | **~0.65×** hot | Showcase: correlated intercept/slope, 3 θ; linear cache setup |
-| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~1.07×** (Jul 2026) | **~0.73×** hot | Direct two-factor Gram + cached gate |
-| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~1.24×** (Jul 2026) | **~0.54×** hot | Direct slash design; remaining cold setup gap |
+| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~0.91×** (Jul 2026) | **~0.64×** hot | Direct two-factor Gram + allocation-free blocked gate |
+| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~0.93×** (Jul 2026) | **~0.49×** hot | Direct slash design + membership Gram; cold &lt;1× Julia |
 | `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **~0.83×** (Jul 2026) | N/A | Laplace; not R `nAGQ`-in-θ |
 | `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **~0.04×** (Jul 2026) | N/A | Laplace |
 

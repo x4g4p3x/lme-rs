@@ -50,6 +50,46 @@ fn csr_dense_block(a: &CsMat<f64>, start: usize, k: usize) -> Array2<f64> {
     mat
 }
 
+/// Precompute \(Z^T Z\) and the PIRLS \(Z^T W Z\) update map (independent of \(y\) and weights scale).
+pub fn build_glmm_structural_maps(zt: &CsMat<f64>) -> (CsMat<f64>, Vec<(usize, usize, f64)>) {
+    let zt_z = (zt * &zt.transpose_view()).to_csr();
+
+    let z_csc = zt.to_csc();
+    let mut zt_w_z_map = Vec::new();
+    let n = zt.cols();
+    for k in 0..n {
+        if let Some(col_k) = z_csc.outer_view(k) {
+            let indices = col_k.indices();
+            let data = col_k.data();
+            for i in 0..indices.len() {
+                for j in 0..indices.len() {
+                    let row_a = indices[i];
+                    let row_b = indices[j];
+                    let val = data[i] * data[j];
+
+                    let row_view = zt_z.outer_view(row_a).unwrap();
+                    let mut data_idx = None;
+
+                    let base_ptr = zt_z.data().as_ptr() as usize;
+                    let row_ptr = row_view.data().as_ptr() as usize;
+                    let start_idx = (row_ptr - base_ptr) / std::mem::size_of::<f64>();
+
+                    for (offset, &col) in row_view.indices().iter().enumerate() {
+                        if col == row_b {
+                            data_idx = Some(start_idx + offset);
+                            break;
+                        }
+                    }
+                    if let Some(idx) = data_idx {
+                        zt_w_z_map.push((k, idx, val));
+                    }
+                }
+            }
+        }
+    }
+    (zt_z, zt_w_z_map)
+}
+
 /// Encapsulates the design matrices and family for a GLMM evaluation.
 pub struct GlmmData {
     /// Dense fixed-effects design matrix ($X$).
@@ -121,43 +161,22 @@ impl GlmmData {
         _n_agq: usize,
         weights: Option<Array1<f64>>,
     ) -> Self {
-        let zt_z = &zt * &zt.transpose_view();
+        let (zt_z, zt_w_z_map) = build_glmm_structural_maps(&zt);
+        Self::from_structural_parts(x, zt, y, re_blocks, family, weights, zt_z, zt_w_z_map)
+    }
 
-        let z_csc = zt.to_csc();
-        let mut zt_w_z_map = Vec::new();
-        let n = zt.cols();
-        for k in 0..n {
-            if let Some(col_k) = z_csc.outer_view(k) {
-                let indices = col_k.indices();
-                let data = col_k.data();
-                for i in 0..indices.len() {
-                    for j in 0..indices.len() {
-                        let row_a = indices[i];
-                        let row_b = indices[j];
-                        let val = data[i] * data[j];
-
-                        // find data index in zt_z for (row_a, row_b)
-                        let row_view = zt_z.outer_view(row_a).unwrap();
-                        let mut data_idx = None;
-
-                        let base_ptr = zt_z.data().as_ptr() as usize;
-                        let row_ptr = row_view.data().as_ptr() as usize;
-                        let start_idx = (row_ptr - base_ptr) / std::mem::size_of::<f64>();
-
-                        for (offset, &col) in row_view.indices().iter().enumerate() {
-                            if col == row_b {
-                                data_idx = Some(start_idx + offset);
-                                break;
-                            }
-                        }
-                        if let Some(idx) = data_idx {
-                            zt_w_z_map.push((k, idx, val));
-                        }
-                    }
-                }
-            }
-        }
-
+    /// Construct using precomputed \(Z^T Z\) and PIRLS weight-update maps (amortized θ search / bootstrap).
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_structural_parts(
+        x: Array2<f64>,
+        zt: CsMat<f64>,
+        y: Array1<f64>,
+        re_blocks: Vec<ReBlock>,
+        family: Box<dyn GlmFamily>,
+        weights: Option<Array1<f64>>,
+        zt_z: CsMat<f64>,
+        zt_w_z_map: Vec<(usize, usize, f64)>,
+    ) -> Self {
         GlmmData {
             x,
             zt,
@@ -167,6 +186,25 @@ impl GlmmData {
             weights,
             zt_z,
             zt_w_z_map,
+        }
+    }
+
+    /// Replace the response while keeping structural maps (for bootstrap refits).
+    pub fn with_response(&self, y: Array1<f64>, family: Box<dyn GlmFamily>) -> Self {
+        assert_eq!(
+            y.len(),
+            self.y.len(),
+            "GlmmData::with_response length mismatch"
+        );
+        Self {
+            x: self.x.clone(),
+            zt: self.zt.clone(),
+            y,
+            re_blocks: self.re_blocks.clone(),
+            family,
+            weights: self.weights.clone(),
+            zt_z: self.zt_z.clone(),
+            zt_w_z_map: self.zt_w_z_map.clone(),
         }
     }
 

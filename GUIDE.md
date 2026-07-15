@@ -169,6 +169,8 @@ let fit = nlmer(
 
 For scalar adaptive quadrature on a single random effect (`k = 1`), use [`nlmer_with_options`](src/nlmm/mod.rs) and set [`NlmerOptions::n_agq`](src/nlmm/fit.rs) to a value `≥ 2` (default `1` is Laplace only). Python: `nlmer(..., n_agq=7)`.
 
+Optional **population** box bounds on nonlinear coefficients: set [`NlmerOptions::lower` / `upper`](src/nlmm/fit.rs) (named maps). Bounds are projected in the inner Gauss–Newton and do **not** constrain group-level `β + b`. Python: `nlmer(..., lower={"a": 0.1}, upper={"a": 5.0})`.
+
 Custom mean functions implement [`NlmmMeanEval`](src/nlmm/mean_fn.rs) or wrap a closure with [`CustomNlmmMean`](src/nlmm/mean_fn.rs), then call [`nlmer_with_mean`](src/nlmm/mod.rs). In Python, pass a callable to [`nlmer_with_mean`](python/src/lib.rs) with the `response ~ covariate ~ re | group` formula layout (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 Current limitations:
@@ -346,9 +348,11 @@ fit.simulate_batched(50_000, 1_000, Some(4), Some(42), |batch_idx, batch| {
 })?;
 ```
 
-### Bootstrap refits (`boot_lmer`)
+### Bootstrap refits (`boot_lmer` / `boot_glmer`)
 
 [`boot_lmer`](src/bootstrap.rs) mirrors R's `lme4::bootMer` workflow for **Gaussian LMMs**: draw bootstrap responses, refit on each replicate, and summarize fixed-effect (and variance-component) draws. Design-matrix setup is amortized with [`prepare_lmer`](#amortized-fitting-prepare_lmer--fit_prepared); each replicate calls [`fit_prepared_with_response`](src/lib.rs) to swap the response vector without rebuilding `X` / `Z`.
+
+[`boot_glmer`](src/bootstrap.rs) provides the same parametric workflow for **GLMMs**, amortized with [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer_with_response`](src/lib.rs). Residual bootstrap is not supported for discrete families. Weighted binomial (proportion + trials) is rejected until simulation grows an explicit trials path.
 
 ```rust
 use lme_rs::{boot_lmer, lmer, BootLmerMethod};
@@ -601,6 +605,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `refit_lmer(formula, data, reml)` | `prepare_lmer` + `fit_prepared` convenience |
 | `cv_grouped(formula, data, group_col, n_splits, reml, seed, n_jobs)` | group-preserving k-fold CV (LMM); parallel folds when `n_jobs > 1` |
 | `boot_lmer(formula, data, fit, nsim, method, reml, seed, n_jobs)` | parametric/residual bootstrap refits (LMM); percentile CIs on `BootLmerResult` |
+| `boot_glmer(formula, data, fit, nsim, method, seed, n_jobs)` | parametric bootstrap refits (GLMM); residual rejected |
 | `fit_prepared_with_response(prepared, y_response, reml)` | refit from prepared design with a new response vector |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`; multivariate RE; empty `start` → `selfStart`) |

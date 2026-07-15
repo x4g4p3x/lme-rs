@@ -14,8 +14,12 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use std::fmt;
 
+use crate::family::{Family, Link};
 use crate::simulate;
-use crate::{fit_prepared_with_response, prepare_lmer, LmeError, LmeFit, LmerPrepared, Result};
+use crate::{
+    fit_prepared_glmer_with_response, fit_prepared_with_response, prepare_glmer_weighted_with_link,
+    prepare_lmer, GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
+};
 
 /// Bootstrap resampling strategy for [`boot_lmer`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -236,6 +240,164 @@ pub fn boot_lmer(
         prop_converged: n_conv as f64 / nsim as f64,
         replicates,
     })
+}
+
+/// Parametric bootstrap for a fitted GLMM (`bootMer`-style).
+///
+/// Residual bootstrap is rejected for discrete families (support-breaking). Gaussian GLMMs
+/// should use [`boot_lmer`] via the LMM path. Weighted binomial (proportion + trials) is
+/// rejected until simulation grows an explicit trials path.
+#[allow(clippy::too_many_arguments)]
+pub fn boot_glmer(
+    formula_str: &str,
+    data: &DataFrame,
+    fit: &LmeFit,
+    nsim: usize,
+    method: BootLmerMethod,
+    seed: Option<u64>,
+    n_jobs: Option<usize>,
+) -> Result<BootLmerResult> {
+    if formula_str.trim().is_empty() {
+        return Err(LmeError::EmptyFormula);
+    }
+    if nsim == 0 {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer requires nsim >= 1".to_string(),
+        });
+    }
+    if matches!(n_jobs, Some(0)) {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer requires n_jobs >= 1".to_string(),
+        });
+    }
+    let family = fit.family.ok_or_else(|| LmeError::NotImplemented {
+        feature: "boot_glmer requires a GLMM reference fit (family is set)".to_string(),
+    })?;
+    if fit.nlmm_mean.is_some() {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer does not support nlmer fits".to_string(),
+        });
+    }
+    if matches!(method, BootLmerMethod::Residual) {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer residual bootstrap is not supported for GLMMs (use parametric)"
+                .to_string(),
+        });
+    }
+    if family == Family::Gaussian {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer: use boot_lmer for Gaussian LMMs".to_string(),
+        });
+    }
+    if family == Family::Binomial {
+        let y_obs_binary = fit.residuals.iter().zip(fit.fitted.iter()).all(|(&r, &m)| {
+            let y = r + m;
+            (y - 0.0).abs() < 1e-9 || (y - 1.0).abs() < 1e-9
+        });
+        if !y_obs_binary {
+            return Err(LmeError::NotImplemented {
+                feature: "boot_glmer parametric binomial currently supports 0/1 responses only (not weighted trials)"
+                    .to_string(),
+            });
+        }
+    }
+
+    let link = match fit.link_name.as_deref() {
+        Some(name) => Link::parse(name)?,
+        None => Link::default_for(family),
+    };
+    let fixed_names = fit.fixed_names.clone().unwrap_or_default();
+    if fixed_names.is_empty() {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer requires fixed-effect names on the reference fit".to_string(),
+        });
+    }
+    let p = fit.coefficients.len();
+    if p != fixed_names.len() {
+        return Err(LmeError::NotImplemented {
+            feature: "boot_glmer: coefficient length does not match fixed_names".to_string(),
+        });
+    }
+
+    let prepared = prepare_glmer_weighted_with_link(formula_str, data, family, link, 1, None)?;
+    if prepared.matrices.y.len() != fit.num_obs {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "boot_glmer: data has {} observations but fit has {}",
+                prepared.matrices.y.len(),
+                fit.num_obs
+            ),
+        });
+    }
+
+    let bootstrap_y = generate_bootstrap_responses(fit, BootLmerMethod::Parametric, nsim, seed)?;
+    let prepared = Arc::new(prepared);
+    let workers = resolve_n_jobs(n_jobs, nsim);
+
+    let replicates = if workers == 1 {
+        run_glmm_bootstrap_sequential(&prepared, &bootstrap_y)
+    } else {
+        pin_competing_threadpools_single_thread();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(workers)
+            .build()
+            .map_err(|e| LmeError::NotImplemented {
+                feature: format!("boot_glmer failed to build thread pool: {e}"),
+            })?;
+        pool.install(|| run_glmm_bootstrap_parallel(&prepared, &bootstrap_y))
+    };
+
+    let n_conv = replicates.iter().filter(|r| r.converged).count();
+    Ok(BootLmerResult {
+        method: BootLmerMethod::Parametric,
+        nsim,
+        fixed_names,
+        t0: fit.coefficients.clone(),
+        t0_sigma2: fit.sigma2,
+        prop_converged: n_conv as f64 / nsim as f64,
+        replicates,
+    })
+}
+
+fn run_glmm_bootstrap_sequential(
+    prepared: &GlmerPrepared,
+    bootstrap_y: &[Array1<f64>],
+) -> Vec<BootReplicate> {
+    bootstrap_y
+        .iter()
+        .enumerate()
+        .map(|(index, y)| run_one_glmm_replicate(prepared, index, y.clone()))
+        .collect()
+}
+
+fn run_glmm_bootstrap_parallel(
+    prepared: &Arc<GlmerPrepared>,
+    bootstrap_y: &[Array1<f64>],
+) -> Vec<BootReplicate> {
+    bootstrap_y
+        .par_iter()
+        .enumerate()
+        .map(|(index, y)| run_one_glmm_replicate(prepared.as_ref(), index, y.clone()))
+        .collect()
+}
+
+fn run_one_glmm_replicate(prepared: &GlmerPrepared, index: usize, y: Array1<f64>) -> BootReplicate {
+    match fit_prepared_glmer_with_response(prepared, Some(y)) {
+        Ok(fit) => BootReplicate {
+            index,
+            coefficients: fit.coefficients,
+            theta: fit.theta,
+            sigma2: fit.sigma2,
+            converged: fit.converged.unwrap_or(false),
+        },
+        Err(_) => BootReplicate {
+            index,
+            coefficients: Array1::zeros(prepared.matrices.fixed_names.len()),
+            theta: None,
+            sigma2: None,
+            converged: false,
+        },
+    }
 }
 
 fn generate_bootstrap_responses(

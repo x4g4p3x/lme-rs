@@ -50,7 +50,8 @@ Top-level functions:
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
-- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`)
+- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`); optional population box bounds
+- `lme_python.boot_lmer(...)` / `fit.boot(...)` — LMM bootstrap; `lme_python.boot_glmer(...)` / `fit.boot_glmer(...)` — parametric GLMM bootstrap
 - `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names

@@ -475,7 +475,7 @@ where
 // ─── GLMM Optimizer ───────────────────────────────────────────────────────────
 
 use crate::family::GlmFamily;
-use crate::glmm_math::GlmmData;
+use crate::glmm_math::{self, GlmmData};
 
 /// Wrapper for the GLMM Laplace deviance function to be used by argmin.
 struct GlmmObjective {
@@ -487,6 +487,8 @@ struct GlmmObjective {
     offset: Option<Array1<f64>>,
     weights: Option<Array1<f64>>,
     lower_bounds: Vec<f64>,
+    zt_z: CsMat<f64>,
+    zt_w_z_map: Vec<(usize, usize, f64)>,
 }
 
 impl CostFunction for GlmmObjective {
@@ -501,14 +503,15 @@ impl CostFunction for GlmmObjective {
         // Always use Laplace (n_agq = 1) for θ: AGQ marginal deviance is expensive and can be
         // poorly behaved for derivative-free search on θ; AGQ is applied in the final `pirls`
         // pass when the user requests `n_agq > 1`.
-        let mut glmm = GlmmData::new_weighted(
+        let mut glmm = GlmmData::from_structural_parts(
             self.x.clone(),
             self.zt.clone(),
             self.y.clone(),
             self.re_blocks.clone(),
             self.family.build_clone(),
-            1,
             self.weights.clone(),
+            self.zt_z.clone(),
+            self.zt_w_z_map.clone(),
         );
         let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref(), 1);
         if val.is_nan() {
@@ -536,17 +539,39 @@ pub fn optimize_theta_glmm(
     offset: Option<Array1<f64>>,
     weights: Option<Array1<f64>>,
 ) -> Result<OptimizeResult, anyhow::Error> {
+    let (zt_z, zt_w_z_map) = glmm_math::build_glmm_structural_maps(&zt);
+    optimize_theta_glmm_with_maps(
+        x, zt, y, re_blocks, init_theta, family, offset, weights, zt_z, zt_w_z_map,
+    )
+}
+
+/// Like [`optimize_theta_glmm`], but reuses precomputed structural maps.
+#[allow(clippy::too_many_arguments)]
+pub fn optimize_theta_glmm_with_maps(
+    x: Array2<f64>,
+    zt: CsMat<f64>,
+    y: Array1<f64>,
+    re_blocks: Vec<ReBlock>,
+    init_theta: Array1<f64>,
+    family: Box<dyn GlmFamily>,
+    offset: Option<Array1<f64>>,
+    weights: Option<Array1<f64>>,
+    zt_z: CsMat<f64>,
+    zt_w_z_map: Vec<(usize, usize, f64)>,
+) -> Result<OptimizeResult, anyhow::Error> {
     let lower_bounds = compute_theta_lower_bounds(&re_blocks);
 
     let cost = GlmmObjective {
-        x: x.clone(),
-        zt: zt.clone(),
-        y: y.clone(),
-        re_blocks: re_blocks.clone(),
+        x,
+        zt,
+        y,
+        re_blocks,
         family,
         offset,
         weights,
         lower_bounds: lower_bounds.clone(),
+        zt_z,
+        zt_w_z_map,
     };
 
     nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
@@ -583,6 +608,7 @@ mod tests {
 
         let family = Box::new(PoissonFamily::new());
         let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+        let (zt_z, zt_w_z_map) = glmm_math::build_glmm_structural_maps(&zt);
 
         let cost_fn = GlmmObjective {
             x,
@@ -593,6 +619,8 @@ mod tests {
             offset: None,
             weights: None,
             lower_bounds,
+            zt_z,
+            zt_w_z_map,
         };
 
         let theta = array![1.0];

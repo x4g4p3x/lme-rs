@@ -550,6 +550,16 @@ fn parse_nlmm_start(start: Option<&Bound<'_, PyDict>>) -> PyResult<NlmmStart> {
     Ok(map)
 }
 
+fn parse_optional_nlmm_bounds(
+    bounds: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Option<NlmmStart>> {
+    match bounds {
+        None => Ok(None),
+        Some(d) if d.is_empty() => Ok(None),
+        Some(d) => Ok(Some(parse_nlmm_start(Some(d))?)),
+    }
+}
+
 /// User-defined nonlinear mean backed by a Python callable.
 struct PyNlmmMeanEval {
     n_params: usize,
@@ -1376,6 +1386,29 @@ impl PyLmeFit {
         }
     }
 
+    /// Parametric bootstrap refits for GLMMs (`bootMer`-style).
+    #[pyo3(signature = (formula, data, nsim=200, method="parametric", seed=None, n_jobs=None))]
+    pub fn boot_glmer<'py>(
+        &self,
+        py: Python<'py>,
+        formula: &str,
+        data: &Bound<'py, PyAny>,
+        nsim: usize,
+        method: &str,
+        seed: Option<u64>,
+        n_jobs: Option<usize>,
+    ) -> PyResult<PyBootLmerResult> {
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        let boot_method = parse_boot_method(method)?;
+        match lme_rs::boot_glmer(formula, &df, &self.inner, nsim, boot_method, seed, n_jobs) {
+            Ok(res) => Ok(PyBootLmerResult { inner: res }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "boot_glmer failed: {e}"
+            ))),
+        }
+    }
+
     /// Compute robust (Sandwich) standard errors and p-values.
     ///
     /// If `cluster_col` is provided, computes cluster-robust standard errors.
@@ -1598,6 +1631,30 @@ pub fn boot_lmer<'py>(
     }
 }
 
+/// Parametric bootstrap refits for GLMMs (`bootMer`-style).
+#[pyfunction]
+#[pyo3(signature = (formula, data, fit, nsim=200, method="parametric", seed=None, n_jobs=None))]
+pub fn boot_glmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    fit: &PyLmeFit,
+    nsim: usize,
+    method: &str,
+    seed: Option<u64>,
+    n_jobs: Option<usize>,
+) -> PyResult<PyBootLmerResult> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    let boot_method = parse_boot_method(method)?;
+    match lme_rs::boot_glmer(formula, &df, &fit.inner, nsim, boot_method, seed, n_jobs) {
+        Ok(res) => Ok(PyBootLmerResult { inner: res }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "boot_glmer failed: {e}"
+        ))),
+    }
+}
+
 /// Fit a fixed-effects-only linear model from a Wilkinson formula string.
 ///
 /// Parameters
@@ -1760,7 +1817,7 @@ pub fn contrast_matrix_py(p: usize, rows: Vec<Vec<(usize, f64)>>) -> PyResult<Ve
 
 /// Fit a nonlinear mixed-effects model (`SSlogis` mean; random effect on one NL parameter).
 #[pyfunction]
-#[pyo3(signature = (formula, data, start=None, reml=false, n_agq=1))]
+#[pyo3(signature = (formula, data, start=None, reml=false, n_agq=1, lower=None, upper=None))]
 pub fn nlmer<'py>(
     py: Python<'py>,
     formula: &str,
@@ -1768,6 +1825,8 @@ pub fn nlmer<'py>(
     start: Option<&Bound<'py, PyDict>>,
     reml: bool,
     n_agq: usize,
+    lower: Option<&Bound<'py, PyDict>>,
+    upper: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
@@ -1776,6 +1835,8 @@ pub fn nlmer<'py>(
         reml,
         start: start_map,
         n_agq,
+        lower: parse_optional_nlmm_bounds(lower)?,
+        upper: parse_optional_nlmm_bounds(upper)?,
         ..lme_rs::NlmerOptions::default()
     };
     match lme_rs::nlmer_with_options(formula, &df, &opts) {
@@ -1793,7 +1854,7 @@ pub fn nlmer<'py>(
 /// must return ``(mu, grad)`` where ``grad`` has one partial derivative per name in
 /// ``param_names``.
 #[pyfunction]
-#[pyo3(signature = (formula, data, mean_fn, param_names, start=None, reml=false, n_agq=1))]
+#[pyo3(signature = (formula, data, mean_fn, param_names, start=None, reml=false, n_agq=1, lower=None, upper=None))]
 pub fn nlmer_with_mean<'py>(
     py: Python<'py>,
     formula: &str,
@@ -1803,6 +1864,8 @@ pub fn nlmer_with_mean<'py>(
     start: Option<&Bound<'py, PyDict>>,
     reml: bool,
     n_agq: usize,
+    lower: Option<&Bound<'py, PyDict>>,
+    upper: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<PyLmeFit> {
     if param_names.is_empty() {
         return Err(pyo3::exceptions::PyValueError::new_err(
@@ -1820,6 +1883,8 @@ pub fn nlmer_with_mean<'py>(
         reml,
         start: start_map,
         n_agq,
+        lower: parse_optional_nlmm_bounds(lower)?,
+        upper: parse_optional_nlmm_bounds(upper)?,
         ..lme_rs::NlmerOptions::default()
     };
     match lme_rs::nlmer_with_mean(
@@ -1879,6 +1944,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(refit_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(cv_grouped, m)?)?;
     m.add_function(wrap_pyfunction!(boot_lmer, m)?)?;
+    m.add_function(wrap_pyfunction!(boot_glmer, m)?)?;
     m.add_function(wrap_pyfunction!(lmer_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(glmer, m)?)?;
     m.add_function(wrap_pyfunction!(glmer_weighted, m)?)?;
@@ -1912,6 +1978,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "refit_lmer",
             "cv_grouped",
             "boot_lmer",
+            "boot_glmer",
             "lmer_weighted",
             "glmer",
             "glmer_weighted",

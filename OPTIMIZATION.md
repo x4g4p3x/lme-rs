@@ -13,9 +13,9 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 ## At a glance (2026-07-09)
 
-**Goal:** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), reach **within ~1.5× of MixedModels.jl** on tier-A `cold_fit` cases **without breaking** golden parity. (Legacy bar: **2×**, through 2026-07-08.)
+**Goal:** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), reach **strictly faster than MixedModels.jl (&lt;1.0×)** on tier-A `cold_fit` cases **without breaking** golden parity. (Prior bars: **2×** through 2026-07-08; **1.5×** through 2026-07-15.)
 
-**Hardest synthetic case:** `nested_10k` — borderline at the **1.5×** bar (~**1.51×**); then `crossed_20k` (~**1.29×**).
+**Former stragglers:** `nested_10k` and `crossed_20k` — now **~0.93× / ~0.91×** after the 2026-07-16 prepare/gate pass ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
@@ -498,11 +498,11 @@ Do not reintroduce these without re-validating parity and benchmarks.
 ## Next experiments (priority order)
 
 1. ~~**Single-factor random-slopes throughput**~~ — **done (2026-07-09):** `SingleFactorSlopesCache` plus linear block extraction; `sleepstudy_reml` is **~0.8×** Julia cold, and `large_random_slopes_100k` is **~0.83×** cold / **~0.65×** prepared. See [BENCHMARKS.md](BENCHMARKS.md#large-random-slopes-showcase).
-2. **Nested blocked path (row-grouped ColumnBlocks)** — **partial (2026-07-08):** nested `batch/cask` now uses `ReFactor::Diagonal` + `trisolve_single_row_cols` on the batch block (`columns_single_row` sparse gate). Fair harness: `nested_10k` cold **~1.7×** Julia, **`fit_prepared` ~0.56×** Julia. Remaining: row-grouped **10×10 cask** ColumnBlocks on block 0 if `prepare_lmer` needs it.
+2. ~~**Nested blocked path (row-grouped ColumnBlocks)**~~ — **cold &lt;1× (2026-07-16):** fair two-factor membership Gram + allocation-free blocked gate + skip duplicate gate on `ensure_blocked`; `nested_10k` cold **~0.93×** Julia. ColumnBlocks post-fit remains optional structure work.
 3. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
 4. ~~**Large random-intercept setup**~~ — **done (2026-07-09):** direct single-factor `Zᵀ` CSR, diagonal single-membership `ZᵀZ`, and no-op cast avoidance make cold 50k/100k fits **~0.47× / ~0.51×** Julia; see [setup reference](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json).
-5. **Post-fit SEs** — `inv_lx` in `evaluate()` still allocates; Cholesky backsolve for `beta_se` would shave the last ~2 ms on crossed.
-6. ~~**Fair harness reference JSON**~~ — **refreshed (2026-07-09):** [full LMM snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json) re-ran the real fixtures plus 10k/50k/100k intercept, crossed, and nested cases at HEAD; [GLMM snapshot](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) covers CBPP and grouseticks.
+5. **Post-fit SEs** — `evaluate()` uses triangular solves for small `p` instead of a full inverse; further Cholesky-only diagonal SEs are optional.
+6. ~~**Fair harness reference JSON**~~ — **refreshed (2026-07-16):** [cold-fit &lt;1 snapshot](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json) for `crossed_20k` / `nested_10k` at axis (3) target **1.0**.
 7. **Fix dense backend** — O(nnz) `A` assembly if revisited for non-blocked cases.
 
 ---

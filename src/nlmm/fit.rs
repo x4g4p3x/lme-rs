@@ -25,6 +25,10 @@ pub struct NlmerOptions {
     pub reml: bool,
     /// Starting values for fixed nonlinear parameters.
     pub start: NlmmStart,
+    /// Optional lower bounds on **population** nonlinear parameters (by name).
+    pub lower: Option<NlmmStart>,
+    /// Optional upper bounds on **population** nonlinear parameters (by name).
+    pub upper: Option<NlmmStart>,
     /// Maximum penalized Gauss–Newton iterations per RE-variance evaluation.
     pub max_inner: usize,
     /// Reserved for future multi-θ optimizers.
@@ -39,6 +43,8 @@ impl Default for NlmerOptions {
         Self {
             reml: false,
             start: NlmmStart::new(),
+            lower: None,
+            upper: None,
             max_inner: 120,
             max_outer_iters: 500,
             n_agq: 1,
@@ -56,9 +62,23 @@ struct NlmmProblem {
     re_indices: Vec<usize>,
     k_re: usize,
     n_fix: usize,
+    /// Per-parameter lower bounds (`-∞` when unconstrained).
+    lower: Vec<f64>,
+    /// Per-parameter upper bounds (`+∞` when unconstrained).
+    upper: Vec<f64>,
 }
 
 impl NlmmProblem {
+    fn project_params(&self, params: &mut [f64]) {
+        for (i, p) in params.iter_mut().enumerate() {
+            if *p < self.lower[i] {
+                *p = self.lower[i];
+            } else if *p > self.upper[i] {
+                *p = self.upper[i];
+            }
+        }
+    }
+
     fn b_index(&self, group: usize, re_slot: usize) -> usize {
         group * self.k_re + re_slot
     }
@@ -191,6 +211,7 @@ impl NlmmProblem {
                 params[scal_idx] = 350.0;
             }
         }
+        self.project_params(&mut params);
 
         let mut b = Array1::<f64>::zeros(self.m * self.k_re);
         let n = self.y.len();
@@ -255,6 +276,7 @@ impl NlmmProblem {
                             }
                         }
                     }
+                    self.project_params(&mut new_params);
                     let mut nb = b.clone();
                     for g in 0..self.m {
                         for r_slot in 0..self.k_re {
@@ -586,6 +608,46 @@ fn default_start_map(mean: &dyn NlmmMeanEval, param_names: &[String]) -> NlmmSta
         .collect()
 }
 
+fn bound_vectors(
+    param_names: &[String],
+    lower: &Option<NlmmStart>,
+    upper: &Option<NlmmStart>,
+) -> crate::Result<(Vec<f64>, Vec<f64>)> {
+    let mut lo = vec![f64::NEG_INFINITY; param_names.len()];
+    let mut hi = vec![f64::INFINITY; param_names.len()];
+    if let Some(map) = lower {
+        for (name, value) in map {
+            let Some(idx) = param_names.iter().position(|n| n == name) else {
+                return Err(LmeError::NotImplemented {
+                    feature: format!("nlmer lower bound unknown parameter '{name}'"),
+                });
+            };
+            lo[idx] = *value;
+        }
+    }
+    if let Some(map) = upper {
+        for (name, value) in map {
+            let Some(idx) = param_names.iter().position(|n| n == name) else {
+                return Err(LmeError::NotImplemented {
+                    feature: format!("nlmer upper bound unknown parameter '{name}'"),
+                });
+            };
+            hi[idx] = *value;
+        }
+    }
+    for (i, name) in param_names.iter().enumerate() {
+        if lo[i] > hi[i] {
+            return Err(LmeError::NotImplemented {
+                feature: format!(
+                    "nlmer bounds for '{name}': lower {} > upper {}",
+                    lo[i], hi[i]
+                ),
+            });
+        }
+    }
+    Ok((lo, hi))
+}
+
 fn start_candidates(
     opts: &NlmerOptions,
     mean: &dyn NlmmMeanEval,
@@ -719,6 +781,7 @@ pub fn fit_nlmer(
     }
 
     let candidates = start_candidates(opts, mean.as_ref(), &y, &x, &parsed.fixed_param_names);
+    let (lower, upper) = bound_vectors(&parsed.fixed_param_names, &opts.lower, &opts.upper)?;
 
     let problem = NlmmProblem {
         y,
@@ -730,6 +793,8 @@ pub fn fit_nlmer(
         re_indices,
         k_re,
         n_fix,
+        lower,
+        upper,
     };
 
     let t_len = theta_len(k_re);
@@ -1012,6 +1077,8 @@ mod orange_inner {
             re_indices,
             k_re: 1,
             n_fix: 3,
+            lower: vec![f64::NEG_INFINITY; 3],
+            upper: vec![f64::INFINITY; 3],
         };
         let (params, _, _) = problem.inner_gauss_newton(&[4.03497223047614], &start, 200);
         assert!(
@@ -1063,6 +1130,8 @@ mod orange_inner {
             re_indices,
             k_re: 2,
             n_fix: 3,
+            lower: vec![f64::NEG_INFINITY; 3],
+            upper: vec![f64::INFINITY; 3],
         };
         let theta_rel = [4.59538334289034, 3.80974418701676, 2.98859274071634];
         let (params, b, _) = problem.inner_gauss_newton(&theta_rel, &start, 400);

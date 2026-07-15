@@ -44,6 +44,8 @@ pub struct DesignMatrices {
     pub offset: Option<Array1<f64>>,
     /// Saved categorical dummy variable levels during training.
     pub categorical_levels: HashMap<String, Vec<String>>,
+    /// Optional precomputed \(Z^T Z\) from the fair design path (avoids rescanning \(Z^T\)).
+    pub precomputed_zt_z: Option<sprs::CsMat<f64>>,
 }
 
 /// Constructs structural matrices formatting Fixed Effects ($X$) and Random Effects ($Z$) bounds out of `fiasto` inputs.
@@ -256,6 +258,7 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
         fixed_term_assign,
         offset,
         categorical_levels,
+        precomputed_zt_z: None,
     })
 }
 
@@ -288,6 +291,121 @@ fn build_zt_csr(
         cursor[row] += 1;
     }
     sprs::CsMat::new((q, n_obs), indptr, indices, data)
+}
+
+/// Stack two intercept-only grouping factors into one CSR \(Z^T\) (rows = factor0 then factor1).
+fn build_two_factor_intercept_zt_csr(
+    mem0: &[usize],
+    m0: usize,
+    mem1: &[usize],
+    m1: usize,
+) -> sprs::CsMat<f64> {
+    debug_assert_eq!(mem0.len(), mem1.len());
+    let n_obs = mem0.len();
+    let q = m0 + m1;
+    let mut row_counts = vec![0usize; q];
+    for (&g0, &g1) in mem0.iter().zip(mem1) {
+        row_counts[g0] += 1;
+        row_counts[m0 + g1] += 1;
+    }
+    let mut indptr = vec![0usize; q + 1];
+    for row in 0..q {
+        indptr[row + 1] = indptr[row] + row_counts[row];
+    }
+    let nnz = n_obs * 2;
+    let mut indices = vec![0usize; nnz];
+    let mut cursor = indptr.clone();
+    for (obs, (&g0, &g1)) in mem0.iter().zip(mem1).enumerate() {
+        let p0 = cursor[g0];
+        indices[p0] = obs;
+        cursor[g0] += 1;
+        let row1 = m0 + g1;
+        let p1 = cursor[row1];
+        indices[p1] = obs;
+        cursor[row1] += 1;
+    }
+    sprs::CsMat::new((q, n_obs), indptr, indices, vec![1.0; nnz])
+}
+
+/// Direct \(Z^T Z\) for two unweighted intercept-only factors from membership vectors.
+fn build_two_factor_intercept_zt_z(
+    mem0: &[usize],
+    m0: usize,
+    mem1: &[usize],
+    m1: usize,
+) -> sprs::CsMat<f64> {
+    debug_assert_eq!(mem0.len(), mem1.len());
+    let q = m0 + m1;
+    let mut counts0 = vec![0usize; m0];
+    let mut counts1 = vec![0usize; m1];
+    let mut cross: HashMap<(usize, usize), usize> = HashMap::new();
+    for (&g0, &g1) in mem0.iter().zip(mem1) {
+        counts0[g0] += 1;
+        counts1[g1] += 1;
+        *cross.entry((g0, g1)).or_default() += 1;
+    }
+    // Diagonal nnz + 2 * cross nnz (symmetric).
+    let nnz = m0 + m1 + 2 * cross.len();
+    let mut row_counts = vec![0usize; q];
+    for (i, &c) in counts0.iter().enumerate() {
+        if c > 0 {
+            row_counts[i] += 1;
+        }
+    }
+    for (i, &c) in counts1.iter().enumerate() {
+        if c > 0 {
+            row_counts[m0 + i] += 1;
+        }
+    }
+    for &(left, right) in cross.keys() {
+        row_counts[left] += 1;
+        row_counts[m0 + right] += 1;
+    }
+    let mut indptr = vec![0usize; q + 1];
+    for row in 0..q {
+        indptr[row + 1] = indptr[row] + row_counts[row];
+    }
+    let mut indices = vec![0usize; nnz];
+    let mut data = vec![0.0f64; nnz];
+    let mut cursor = indptr.clone();
+    let mut write = |row: usize, col: usize, val: f64| {
+        let pos = cursor[row];
+        indices[pos] = col;
+        data[pos] = val;
+        cursor[row] += 1;
+    };
+    for (i, &c) in counts0.iter().enumerate() {
+        if c > 0 {
+            write(i, i, c as f64);
+        }
+    }
+    for (i, &c) in counts1.iter().enumerate() {
+        if c > 0 {
+            write(m0 + i, m0 + i, c as f64);
+        }
+    }
+    for ((left, right), count) in cross {
+        let right_row = m0 + right;
+        let v = count as f64;
+        write(left, right_row, v);
+        write(right_row, left, v);
+    }
+    // CSR column indices within each row must be sorted for sprs invariants.
+    for row in 0..q {
+        let start = indptr[row];
+        let end = indptr[row + 1];
+        let mut pairs: Vec<(usize, f64)> = indices[start..end]
+            .iter()
+            .zip(&data[start..end])
+            .map(|(&c, &v)| (c, v))
+            .collect();
+        pairs.sort_unstable_by_key(|&(c, _)| c);
+        for (offset, (c, v)) in pairs.into_iter().enumerate() {
+            indices[start + offset] = c;
+            data[start + offset] = v;
+        }
+    }
+    sprs::CsMat::new((q, q), indptr, indices, data)
 }
 
 /// Direct CSR construction for a single intercept-only grouping factor.
@@ -855,6 +973,38 @@ fn try_build_interaction_groups(
         level_labels.push(labels);
     }
 
+    // Two-factor nesting is the hot fair-harness path: avoid allocating `Vec` keys per row.
+    if parts.len() == 2 {
+        let a = &level_obs_idx[0];
+        let b = &level_obs_idx[1];
+        let labels_a = &level_labels[0];
+        let labels_b = &level_labels[1];
+        let mut pair_map: HashMap<(usize, usize), usize> = HashMap::with_capacity(n_obs.min(4096));
+        let mut unique_groups: Vec<String> = Vec::new();
+        let mut group_map: HashMap<String, usize> = HashMap::new();
+        let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
+        for i in 0..n_obs {
+            let key = (a[i], b[i]);
+            let idx = match pair_map.get(&key) {
+                Some(&idx) => idx,
+                None => {
+                    let idx = unique_groups.len();
+                    let mut label =
+                        String::with_capacity(labels_a[a[i]].len() + labels_b[b[i]].len() + 1);
+                    label.push_str(&labels_a[a[i]]);
+                    label.push('_');
+                    label.push_str(&labels_b[b[i]]);
+                    group_map.insert(label.clone(), idx);
+                    unique_groups.push(label);
+                    pair_map.insert(key, idx);
+                    idx
+                }
+            };
+            obs_group_idx.push(idx);
+        }
+        return Ok(Some((obs_group_idx, unique_groups, group_map)));
+    }
+
     let mut pair_map: HashMap<Vec<usize>, usize> = HashMap::new();
     let mut unique_groups: Vec<String> = Vec::new();
     let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
@@ -1029,15 +1179,15 @@ pub fn try_build_fair_lmm_design(
         )
     };
 
-    let mut triplet_rows = Vec::new();
-    let mut triplet_cols = Vec::new();
-    let mut triplet_vals = Vec::new();
     let mut re_blocks = Vec::new();
-    let mut current_q_offset = 0usize;
     let single_factor = parsed.re_terms.len() == 1;
+    let two_intercept_factors =
+        parsed.re_terms.len() == 2 && parsed.re_terms.iter().all(|t| t.slope.is_none());
     let mut single_factor_zt = None;
+    let mut factor_memberships: Vec<(Vec<usize>, usize)> = Vec::new();
+    let mut precomputed_zt_z = None;
 
-    for re_term in parsed.re_terms {
+    for re_term in &parsed.re_terms {
         let g_var = re_term.group.as_str();
         let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
             let parts: Vec<&str> = g_var.split(':').collect();
@@ -1070,15 +1220,11 @@ pub fn try_build_fair_lmm_design(
             } else {
                 build_intercept_zt_csr(&obs_group_idx, m)
             });
+        } else if two_intercept_factors {
+            factor_memberships.push((obs_group_idx, m));
         } else {
-            triplet_rows.reserve(n_obs);
-            triplet_cols.reserve(n_obs);
-            triplet_vals.reserve(n_obs);
-            for (obs, &g_idx) in obs_group_idx.iter().enumerate() {
-                triplet_rows.push(current_q_offset + g_idx);
-                triplet_cols.push(obs);
-                triplet_vals.push(1.0);
-            }
+            // Unexpected multi-factor slope mix: fall back to generic formula path.
+            return Ok(None);
         }
 
         let (k, theta_len, effect_names) = if let Some(slope_name) = re_term.slope {
@@ -1098,19 +1244,15 @@ pub fn try_build_fair_lmm_design(
             effect_names,
             group_map,
         });
-        current_q_offset += m * k;
     }
 
     let zt = if let Some(zt) = single_factor_zt {
         zt
-    } else if current_q_offset > 0 {
-        build_zt_csr(
-            &triplet_rows,
-            &triplet_cols,
-            &triplet_vals,
-            current_q_offset,
-            n_obs,
-        )
+    } else if factor_memberships.len() == 2 {
+        let (ref mem0, m0) = factor_memberships[0];
+        let (ref mem1, m1) = factor_memberships[1];
+        precomputed_zt_z = Some(build_two_factor_intercept_zt_z(mem0, m0, mem1, m1));
+        build_two_factor_intercept_zt_csr(mem0, m0, mem1, m1)
     } else {
         sprs::CsMat::zero((0, n_obs))
     };
@@ -1125,6 +1267,7 @@ pub fn try_build_fair_lmm_design(
         fixed_term_assign,
         offset: None,
         categorical_levels: HashMap::new(),
+        precomputed_zt_z,
     }))
 }
 
