@@ -40,6 +40,7 @@ fn test_anova_methods_produce_valid_f_tests() {
         categorical_levels: None,
         nlmm_mean: None,
         nlmm_formula: None,
+        weights: None,
     };
 
     // Test rejection without having evaluated tracking matrices

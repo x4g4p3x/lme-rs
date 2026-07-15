@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Parametric GLMM bootstrap (`boot_glmer`)** — amortized [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer`](src/lib.rs) with structural-map reuse in the θ objective; Python `boot_glmer` / `fit.boot_glmer`. Residual bootstrap rejected for discrete families. Binomial **proportion + integer trial weights** supported via `Binom(n_i, p_i)` simulation (returns proportions).
+- **Built-in nlmer means `SSfpl`, `SSbiexp`, `SSweibull`** — four-parameter `stats::SS*` means with analytic grads, `selfStart` heuristics, and smoke tests ([`tests/test_nlmm_ss_new_means.rs`](tests/test_nlmm_ss_new_means.rs)).
+- **GLMM scalar AGQ-in-θ** — when `n_agq > 1` and the model has a single `k = 1` RE block, [`optimize_theta_glmm_with_maps`](src/optimizer.rs) refines θ under AGQ deviance after a Laplace warm-start (matching `lme4`). Vector / multi-term RE still use Laplace for the outer θ search.
+- **GLMM group CV (`cv_grouped_glmer`)** — sibling of [`cv_grouped`](src/cv.rs); `prepare_glmer*` + response-scale OOF RMSE/MAE (binomial mean log-loss). Python `cv_grouped_glmer`.
+- **Profile-likelihood CIs** — [`LmeFit::confint_profile`](src/profile_ci.rs) / `confint_with(..., ConfintMethod::Profile)` for LMM and GLMM fixed effects (Wald remains default). Python: `fit.confint(level=0.95, method="profile", data=df)`.
 - **`nlmer` coefficient box bounds** — optional named `lower` / `upper` on [`NlmerOptions`](src/nlmm/fit.rs) (population nonlinear parameters); projected after each Gauss–Newton trial. Python `nlmer(..., lower=..., upper=...)`.
-- **Parametric GLMM bootstrap (`boot_glmer`)** — amortized [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer`](src/lib.rs) with structural-map reuse in the θ objective; Python `boot_glmer` / `fit.boot_glmer`. Residual bootstrap rejected for discrete families; weighted binomial trials unsupported until simulate grows a trials path.
 - **`prepare_glmer` / `fit_prepared_glmer`** — GLMM design-matrix + \(Z^TWZ\) map amortization for repeated fits / bootstrap.
 
 ### Changed

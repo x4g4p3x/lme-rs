@@ -477,7 +477,7 @@ where
 use crate::family::GlmFamily;
 use crate::glmm_math::{self, GlmmData};
 
-/// Wrapper for the GLMM Laplace deviance function to be used by argmin.
+/// Wrapper for the GLMM Laplace / AGQ deviance function to be used by argmin.
 struct GlmmObjective {
     x: Array2<f64>,
     zt: CsMat<f64>,
@@ -489,6 +489,9 @@ struct GlmmObjective {
     lower_bounds: Vec<f64>,
     zt_z: CsMat<f64>,
     zt_w_z_map: Vec<(usize, usize, f64)>,
+    /// Quadrature order for the θ objective (`1` = Laplace). AGQ-in-θ is used only for
+    /// scalar random effects (`one block with k = 1`); otherwise forced to Laplace.
+    n_agq: usize,
 }
 
 impl CostFunction for GlmmObjective {
@@ -500,9 +503,6 @@ impl CostFunction for GlmmObjective {
         let mut theta_clamped = theta.clone();
         clamp_theta(&mut theta_clamped, &self.lower_bounds);
 
-        // Always use Laplace (n_agq = 1) for θ: AGQ marginal deviance is expensive and can be
-        // poorly behaved for derivative-free search on θ; AGQ is applied in the final `pirls`
-        // pass when the user requests `n_agq > 1`.
         let mut glmm = GlmmData::from_structural_parts(
             self.x.clone(),
             self.zt.clone(),
@@ -513,7 +513,11 @@ impl CostFunction for GlmmObjective {
             self.zt_z.clone(),
             self.zt_w_z_map.clone(),
         );
-        let val = glmm.laplace_deviance(theta_clamped.as_slice().unwrap(), self.offset.as_ref(), 1);
+        let val = glmm.laplace_deviance(
+            theta_clamped.as_slice().unwrap(),
+            self.offset.as_ref(),
+            self.n_agq,
+        );
         if val.is_nan() {
             Ok(f64::MAX)
         } else {
@@ -522,12 +526,14 @@ impl CostFunction for GlmmObjective {
     }
 }
 
-/// Optimizes θ for a GLMM using Nelder-Mead on the Laplace-approximated deviance.
+/// Optimizes θ for a GLMM using Nelder-Mead on the Laplace- or AGQ-approximated deviance.
 ///
 /// Enforces lower bounds on θ: diagonal elements of the Cholesky factor ≥ 0.
 ///
-/// Adaptive quadrature (`n_agq > 1`) is evaluated only in the final [`crate::glmm_math::GlmmData::pirls`]
-/// call after `θ` is estimated; the outer objective stays Laplace for numerical stability.
+/// When `n_agq > 1` and the model has a single scalar random-effect block (`k = 1`),
+/// the outer θ objective uses AGQ deviance (matching `lme4::glmer` / `nlmer` behavior).
+/// Otherwise the outer objective stays Laplace; AGQ may still be applied in the final
+/// [`crate::glmm_math::GlmmData::pirls`] pass for eligible models.
 #[allow(clippy::too_many_arguments)]
 pub fn optimize_theta_glmm(
     x: Array2<f64>,
@@ -538,10 +544,11 @@ pub fn optimize_theta_glmm(
     family: Box<dyn GlmFamily>,
     offset: Option<Array1<f64>>,
     weights: Option<Array1<f64>>,
+    n_agq: usize,
 ) -> Result<OptimizeResult, anyhow::Error> {
     let (zt_z, zt_w_z_map) = glmm_math::build_glmm_structural_maps(&zt);
     optimize_theta_glmm_with_maps(
-        x, zt, y, re_blocks, init_theta, family, offset, weights, zt_z, zt_w_z_map,
+        x, zt, y, re_blocks, init_theta, family, offset, weights, zt_z, zt_w_z_map, n_agq,
     )
 }
 
@@ -558,10 +565,32 @@ pub fn optimize_theta_glmm_with_maps(
     weights: Option<Array1<f64>>,
     zt_z: CsMat<f64>,
     zt_w_z_map: Vec<(usize, usize, f64)>,
+    n_agq: usize,
 ) -> Result<OptimizeResult, anyhow::Error> {
     let lower_bounds = compute_theta_lower_bounds(&re_blocks);
+    let n_agq_obj = n_agq_for_theta_objective(n_agq, &re_blocks);
 
-    let cost = GlmmObjective {
+    // Always warm-start with Laplace (stable Nelder–Mead landscape).
+    let laplace = GlmmObjective {
+        x: x.clone(),
+        zt: zt.clone(),
+        y: y.clone(),
+        re_blocks: re_blocks.clone(),
+        family: family.build_clone(),
+        offset: offset.clone(),
+        weights: weights.clone(),
+        lower_bounds: lower_bounds.clone(),
+        zt_z: zt_z.clone(),
+        zt_w_z_map: zt_w_z_map.clone(),
+        n_agq: 1,
+    };
+    let laplace_result = nelder_mead_optimize(init_theta, &lower_bounds, 1000, laplace)?;
+    if n_agq_obj <= 1 {
+        return Ok(laplace_result);
+    }
+
+    // Refine θ under AGQ deviance for scalar RE (lme4-style AGQ-in-θ).
+    let agq = GlmmObjective {
         x,
         zt,
         y,
@@ -572,9 +601,35 @@ pub fn optimize_theta_glmm_with_maps(
         lower_bounds: lower_bounds.clone(),
         zt_z,
         zt_w_z_map,
+        n_agq: n_agq_obj,
     };
+    let agq_result = nelder_mead_optimize(laplace_result.theta.clone(), &lower_bounds, 1000, agq)?;
+    // Reject pathological AGQ refinements (discontinuous AGQ/Laplace fallback landscape).
+    let theta_ok = agq_result.theta.iter().all(|t| t.is_finite())
+        && agq_result
+            .theta
+            .iter()
+            .zip(laplace_result.theta.iter())
+            .all(|(&a, &l)| (a - l).abs() < (5.0_f64).max(10.0 * l.abs().max(1e-8)));
+    if agq_result.final_cost.is_finite() && theta_ok {
+        Ok(OptimizeResult {
+            theta: agq_result.theta,
+            converged: laplace_result.converged && agq_result.converged,
+            iterations: laplace_result.iterations + agq_result.iterations,
+            final_cost: agq_result.final_cost,
+        })
+    } else {
+        Ok(laplace_result)
+    }
+}
 
-    nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
+/// AGQ inside the θ search only for a single scalar RE block (`k = 1`).
+fn n_agq_for_theta_objective(n_agq: usize, re_blocks: &[ReBlock]) -> usize {
+    if n_agq > 1 && re_blocks.len() == 1 && re_blocks[0].k == 1 {
+        n_agq
+    } else {
+        1
+    }
 }
 
 #[cfg(test)]
@@ -621,6 +676,7 @@ mod tests {
             lower_bounds,
             zt_z,
             zt_w_z_map,
+            n_agq: 1,
         };
 
         let theta = array![1.0];

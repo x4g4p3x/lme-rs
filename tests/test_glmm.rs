@@ -141,7 +141,7 @@ fn test_cbpp_laplace_agq_deviance_at_reference_theta() {
     );
 }
 
-/// `n_agq > 1` uses AGQ in the final PIRLS deviance; θ is still optimized with Laplace (stable outer loop).
+/// `n_agq > 1` optimizes θ under AGQ for scalar RE; coefficients stay near Laplace.
 #[test]
 fn test_glmm_binomial_cbpp_agq_consistent_with_laplace() {
     let _ = env_logger::try_init();
@@ -175,10 +175,17 @@ fn test_glmm_binomial_cbpp_agq_consistent_with_laplace() {
     }
     let tl = fit_laplace.theta.unwrap();
     let ta = fit_agq.theta.unwrap();
+    // Scalar AGQ-in-θ may shift θ slightly vs Laplace; still expect the same order of magnitude.
     for i in 0..tl.len() {
         assert!(
-            (ta[i] - tl[i]).abs() < 1e-6,
-            "theta should match (Laplace θ̂ for both fits): laplace={} agq={}",
+            ta[i].is_finite() && tl[i].is_finite(),
+            "theta non-finite: laplace={} agq={}",
+            tl[i],
+            ta[i]
+        );
+        assert!(
+            (ta[i] - tl[i]).abs() < (0.5_f64).max(0.5 * tl[i].abs()),
+            "theta drifted too far: laplace={} agq={}",
             tl[i],
             ta[i]
         );

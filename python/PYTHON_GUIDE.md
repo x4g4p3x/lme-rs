@@ -46,12 +46,13 @@ Top-level functions:
 - `lme_python.fit_prepared(prepared, reml=True)`
 - `lme_python.refit_lmer(formula, data, reml=True)`
 - `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
+- `lme_python.cv_grouped_glmer(formula, data, group, family_name, n_splits=5, n_agq=1, weights=None, link_name=None, seed=None, n_jobs=None)` → `PyCvGroupedResult` (response-scale OOF; binomial includes `mean_log_loss`)
 - `lme_python.boot_lmer(formula, data, fit, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
-- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`); optional population box bounds
-- `lme_python.boot_lmer(...)` / `fit.boot(...)` — LMM bootstrap; `lme_python.boot_glmer(...)` / `fit.boot_glmer(...)` — parametric GLMM bootstrap
+- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`); optional population box bounds
+- `lme_python.boot_lmer(...)` / `fit.boot(...)` — LMM bootstrap; `lme_python.boot_glmer(...)` / `fit.boot_glmer(...)` — parametric GLMM bootstrap (including binomial proportion + trial weights)
 - `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
@@ -66,7 +67,7 @@ Available `PyLmeFit` methods:
 - `predict_conditional(newdata, allow_new_levels=False)`
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
-- `confint(level=0.95)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit
+- `confint(level=0.95, method="wald"|"profile", data=None)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower
 - `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
 - `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
 - `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM only)
@@ -190,11 +191,11 @@ probit_fit = lme_python.glmer(
 
 Supported links per family match Rust [`family::Link`](../../src/family.rs): binomial — logit (default), probit, cloglog; poisson — log, identity, sqrt; gaussian — identity, log, inverse; gamma — inverse, identity, log.
 
-Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer_weighted`).
+Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer_weighted`). For binomial proportions, integer trial sizes enable `Binom(n, p)` simulation and `boot_glmer`.
 
 ### Nonlinear mixed models
 
-Built-in means match R `stats::SS*` where available, plus `SSpower` (`a * x^b + c`, MATLAB Curve Fitter `power2`): `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`.
+Built-in means match R `stats::SS*` where available, plus `SSpower` (`a * x^b + c`, MATLAB Curve Fitter `power2`): `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`.
 
 When `start=None` (or an empty dict), the fitter uses R-style **`selfStart`** heuristics on `(covariate, response)` with multistart fallback to static defaults; validate against R `nlmer()` when your workflow depends on exact starting behavior.
 
@@ -297,9 +298,11 @@ For binomial models this returns probabilities. For poisson models it returns ex
 print(model.summary())
 print(model.std_errors)
 print(model.confint(level=0.95))
+# Profile-likelihood (slower; needs original data):
+# print(model.confint(level=0.95, method="profile", data=df))
 ```
 
-Call `with_satterthwaite(data)` or `with_kenward_roger(data)` before `confint()` to use t-based intervals with the corresponding denominator degrees of freedom.
+Call `with_satterthwaite(data)` or `with_kenward_roger(data)` before Wald `confint()` to use t-based intervals with the corresponding denominator degrees of freedom.
 
 ## Repeated fits and cross-validation
 
@@ -423,7 +426,7 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 ## Current limitations
 
 - Matrix-only `lm(y, x)` without a DataFrame is Rust-only.
-- `cv_grouped` and `boot_lmer` support LMMs only (not GLMM/NLMM).
+- `cv_grouped` supports LMMs; `cv_grouped_glmer` supports GLMMs; `boot_lmer` / `boot_glmer` cover LMM/GLMM bootstrap (not NLMM).
 - `boot_lmer` implements parametric and residual response bootstrap with percentile CIs; it does not cover every `bootMer` option (e.g. semiparametric, case bootstrap, BCa intervals).
 - `glmer()` currently exposes only the string family selector described above.
 

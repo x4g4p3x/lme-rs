@@ -40,6 +40,8 @@ pub mod nlmm;
 pub mod optimizer;
 /// Optional performance diagnostics (`LME_PERF_DIAG=1`).
 pub mod perf_diag;
+/// Profile-likelihood confidence intervals for fixed effects.
+pub mod profile_ci;
 pub(crate) mod quadrature;
 /// Robust Standard Errors (Sandwich Estimators).
 pub mod robust;
@@ -55,11 +57,12 @@ pub use bootstrap::{
 pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
-pub use cv::{cv_grouped, refit_lmer, CvFoldMetric, CvGroupedResult};
+pub use cv::{cv_grouped, cv_grouped_glmer, refit_lmer, CvFoldMetric, CvGroupedResult};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmStart};
 use polars::prelude::*;
+pub use profile_ci::ConfintMethod;
 pub use robust::RobustResult;
 use std::fmt;
 use std::sync::Arc;
@@ -181,6 +184,8 @@ pub struct LmeFit {
     pub nlmm_mean: Option<std::sync::Arc<dyn nlmm::NlmmMeanEval>>,
     /// Parsed `nlmer` formula metadata (covariate, RE structure, parameter names).
     pub nlmm_formula: Option<nlmm::NlmerFormula>,
+    /// Prior observation weights from the fit (e.g. binomial trial sizes).
+    pub weights: Option<Array1<f64>>,
 }
 
 impl LmeFit {
@@ -995,6 +1000,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         categorical_levels: None,
         nlmm_mean: None,
         nlmm_formula: None,
+        weights: None,
     })
 }
 
@@ -1227,6 +1233,7 @@ fn assemble_lme_fit(
             categorical_levels: Some(matrices.categorical_levels.clone()),
             nlmm_mean: None,
             nlmm_formula: None,
+            weights: lmm.weights.clone(),
         }
     }))
 }
@@ -1468,6 +1475,7 @@ pub fn prepare_glmer_weighted_with_link(
     let matrices = model_matrix::build_design_matrices(&ast, data)?;
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
     validate_glmm_response(&matrices.y, family_enum)?;
+    validate_binomial_trial_counts(&matrices.y, weights.as_ref(), family_enum)?;
 
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
     let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
@@ -1514,6 +1522,7 @@ pub fn fit_prepared_glmer_with_response(
                 });
             }
             validate_glmm_response(&y, family_enum)?;
+            validate_binomial_trial_counts(&y, prepared.weights.as_ref(), family_enum)?;
             y
         }
         None => prepared.matrices.y.clone(),
@@ -1531,6 +1540,7 @@ pub fn fit_prepared_glmer_with_response(
         prepared.weights.clone(),
         prepared.zt_z.clone(),
         prepared.zt_w_z_map.clone(),
+        n_agq,
     )
     .map_err(|e| LmeError::NotImplemented {
         feature: format!("GLMM optimizer failed: {}", e),
@@ -1623,6 +1633,7 @@ pub fn fit_prepared_glmer_with_response(
         categorical_levels: Some(prepared.matrices.categorical_levels.clone()),
         nlmm_mean: None,
         nlmm_formula: None,
+        weights: prepared.weights.clone(),
     })
 }
 
@@ -1738,6 +1749,48 @@ fn validate_glmm_response(y: &Array1<f64>, family_enum: family::Family) -> Resul
         family::Family::Gaussian => {}
     }
     Ok(())
+}
+
+/// When binomial weights look like integer trial sizes, require `y * n` near-integer.
+pub(crate) fn validate_binomial_trial_counts(
+    y: &Array1<f64>,
+    weights: Option<&Array1<f64>>,
+    family_enum: family::Family,
+) -> Result<()> {
+    if family_enum != family::Family::Binomial {
+        return Ok(());
+    }
+    let Some(n_trials) = binomial_trial_sizes(weights) else {
+        return Ok(());
+    };
+    for i in 0..y.len() {
+        let count = y[i] * n_trials[i] as f64;
+        if !count.is_finite() || (count - count.round()).abs() > 1e-6 {
+            return Err(LmeError::NotImplemented {
+                feature: format!(
+                    "binomial trials: y[{i}] * weights[{i}] must be near-integer (got {count})"
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Interpret prior weights as binomial trial sizes when every entry is an integer `≥ 1`.
+pub(crate) fn binomial_trial_sizes(weights: Option<&Array1<f64>>) -> Option<Vec<u64>> {
+    let w = weights?;
+    let mut out = Vec::with_capacity(w.len());
+    for &wi in w.iter() {
+        if !wi.is_finite() || wi < 1.0 - 1e-9 {
+            return None;
+        }
+        let ni = wi.round();
+        if (wi - ni).abs() > 1e-6 || ni < 1.0 {
+            return None;
+        }
+        out.push(ni as u64);
+    }
+    Some(out)
 }
 
 /// Gap 2: Builds a ranef DataFrame from the b vector organized per group/effect.

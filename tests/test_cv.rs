@@ -162,3 +162,62 @@ fn test_prepare_lmer_fit_prepared_refit() {
         "fit_prepared should match lmer"
     );
 }
+
+fn synthetic_binary_cv() -> DataFrame {
+    let n_groups = 12usize;
+    let n_per = 5usize;
+    let mut y = Vec::new();
+    let mut x = Vec::new();
+    let mut g = Vec::new();
+    for gi in 0..n_groups {
+        for j in 0..n_per {
+            let xv = (j as f64) / (n_per as f64);
+            let lp = -0.4 + 1.0 * xv + 0.25 * ((gi % 4) as f64 - 1.5);
+            let p = 1.0 / (1.0 + (-lp).exp());
+            y.push(if p > 0.5 { 1.0 } else { 0.0 });
+            x.push(xv);
+            g.push(format!("g{gi}"));
+        }
+    }
+    DataFrame::new(vec![
+        Column::new("y".into(), y),
+        Column::new("x".into(), x),
+        Column::new("g".into(), g),
+    ])
+    .unwrap()
+}
+
+#[test]
+fn test_cv_grouped_glmer_binomial() {
+    use lme_rs::cv_grouped_glmer;
+    use lme_rs::family::{Family, Link};
+
+    let df = synthetic_binary_cv();
+    let result = cv_grouped_glmer(
+        "y ~ x + (1 | g)",
+        &df,
+        "g",
+        4,
+        Family::Binomial,
+        Link::Logit,
+        1,
+        None,
+        Some(7),
+        Some(1),
+    )
+    .unwrap();
+
+    assert_eq!(result.n_splits, 4);
+    assert!(result.rmse.is_finite());
+    assert!(result.mae.is_finite());
+    assert!(result.mean_log_loss.is_some());
+    let ll = result.mean_log_loss.unwrap();
+    assert!(ll.is_finite() && ll > 0.0);
+    assert_eq!(result.oof_predictions.len(), df.height());
+    for &p in result.oof_predictions.iter() {
+        assert!(
+            (0.0..=1.0).contains(&p),
+            "response-scale pred out of range: {p}"
+        );
+    }
+}

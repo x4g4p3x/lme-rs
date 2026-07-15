@@ -14,8 +14,12 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 
+use crate::family::{Family, Link};
 use crate::formula::parse;
-use crate::{fit_prepared, prepare_lmer, LmeError, Result};
+use crate::{
+    fit_prepared, fit_prepared_glmer, prepare_glmer_weighted_with_link, prepare_lmer, LmeError,
+    Result,
+};
 
 /// Per-fold metrics from [`cv_grouped`].
 #[derive(Debug, Clone)]
@@ -34,6 +38,8 @@ pub struct CvFoldMetric {
     pub rmse: f64,
     /// Mean absolute error on the test fold.
     pub mae: f64,
+    /// Mean Bernoulli log-loss on the test fold (binomial GLMMs only).
+    pub mean_log_loss: Option<f64>,
     /// Whether the training fit reported optimizer convergence.
     pub converged: bool,
 }
@@ -49,6 +55,8 @@ pub struct CvGroupedResult {
     pub rmse: f64,
     /// Overall MAE across all out-of-fold predictions.
     pub mae: f64,
+    /// Overall mean Bernoulli log-loss (binomial GLMMs only).
+    pub mean_log_loss: Option<f64>,
     /// Per-fold breakdown (sorted by fold index).
     pub folds: Vec<CvFoldMetric>,
     /// True when every fold fit converged.
@@ -213,6 +221,7 @@ pub fn cv_grouped(
         test_fold,
         rmse,
         mae,
+        mean_log_loss: None,
         folds,
         all_converged,
         n_splits,
@@ -226,6 +235,303 @@ pub fn cv_grouped(
 pub fn refit_lmer(formula_str: &str, data: &DataFrame, reml: bool) -> Result<crate::LmeFit> {
     let prepared = prepare_lmer(formula_str, data)?;
     fit_prepared(&prepared, reml)
+}
+
+/// Grouped k-fold cross-validation for GLMMs.
+///
+/// Same group-preserving split as [`cv_grouped`], but fits with
+/// [`prepare_glmer_weighted_with_link`] / [`fit_prepared_glmer`] and scores
+/// **response-scale** population predictions (`predict_response`). For binomial
+/// families, also reports mean Bernoulli log-loss.
+#[allow(clippy::too_many_arguments)]
+pub fn cv_grouped_glmer(
+    formula_str: &str,
+    data: &DataFrame,
+    group_col: &str,
+    n_splits: usize,
+    family: Family,
+    link: Link,
+    n_agq: usize,
+    weights: Option<Array1<f64>>,
+    seed: Option<u64>,
+    n_jobs: Option<usize>,
+) -> Result<CvGroupedResult> {
+    if formula_str.trim().is_empty() {
+        return Err(LmeError::EmptyFormula);
+    }
+    if n_splits < 2 {
+        return Err(LmeError::NotImplemented {
+            feature: "cv_grouped_glmer requires n_splits >= 2".to_string(),
+        });
+    }
+    if data.column(group_col).is_err() {
+        return Err(LmeError::NotImplemented {
+            feature: format!("Grouping column '{group_col}' not found in data"),
+        });
+    }
+    if matches!(n_jobs, Some(0)) {
+        return Err(LmeError::NotImplemented {
+            feature: "cv_grouped_glmer requires n_jobs >= 1".to_string(),
+        });
+    }
+    if family == Family::Gaussian && link == Link::Identity {
+        return Err(LmeError::NotImplemented {
+            feature: "cv_grouped_glmer: use cv_grouped for Gaussian identity LMMs".to_string(),
+        });
+    }
+    if let Some(w) = weights.as_ref() {
+        if w.len() != data.height() {
+            return Err(LmeError::NotImplemented {
+                feature: format!(
+                    "cv_grouped_glmer: weights length {} does not match data rows {}",
+                    w.len(),
+                    data.height()
+                ),
+            });
+        }
+    }
+
+    let response_col = response_column_name(formula_str)?;
+    let mut groups = unique_group_labels(data, group_col)?;
+    if groups.len() < n_splits {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "cv_grouped_glmer: n_splits ({n_splits}) exceeds number of unique groups ({})",
+                groups.len()
+            ),
+        });
+    }
+
+    let mut rng = match seed {
+        Some(s) => StdRng::seed_from_u64(s),
+        None => StdRng::from_os_rng(),
+    };
+    groups.shuffle(&mut rng);
+
+    let n_obs = data.height();
+    let y_all =
+        column_to_f64_vec(
+            data.column(&response_col)
+                .map_err(|e| LmeError::NotImplemented {
+                    feature: format!("Response column '{response_col}' not found: {e}"),
+                })?,
+        )?;
+
+    let chunk = groups.len().div_ceil(n_splits);
+    let mut fold_specs = Vec::with_capacity(n_splits);
+    for fold in 0..n_splits {
+        let start = fold * chunk;
+        if start >= groups.len() {
+            break;
+        }
+        let end = ((fold + 1) * chunk).min(groups.len());
+        let test_groups: HashSet<String> = groups[start..end].iter().cloned().collect();
+        fold_specs.push(FoldSpec { fold, test_groups });
+    }
+
+    let workers = resolve_n_jobs(n_jobs, fold_specs.len());
+    let data = Arc::new(data.clone());
+    let formula = Arc::new(formula_str.to_string());
+    let group_col_s = Arc::new(group_col.to_string());
+    let weights = Arc::new(weights);
+
+    let fold_results = if workers == 1 {
+        fold_specs
+            .iter()
+            .map(|spec| {
+                run_fold_glmer(
+                    spec,
+                    &data,
+                    &formula,
+                    &group_col_s,
+                    &groups,
+                    family,
+                    link,
+                    n_agq,
+                    weights.as_ref().as_ref(),
+                    &y_all,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        pin_competing_threadpools_single_thread();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(workers)
+            .build()
+            .map_err(|e| LmeError::NotImplemented {
+                feature: format!("cv_grouped_glmer failed to build thread pool: {e}"),
+            })?;
+        pool.install(|| {
+            fold_specs
+                .par_iter()
+                .map(|spec| {
+                    run_fold_glmer(
+                        spec,
+                        &data,
+                        &formula,
+                        &group_col_s,
+                        &groups,
+                        family,
+                        link,
+                        n_agq,
+                        weights.as_ref().as_ref(),
+                        &y_all,
+                    )
+                })
+                .collect::<Result<Vec<_>>>()
+        })?
+    };
+
+    let mut oof = Array1::<f64>::from_elem(n_obs, f64::NAN);
+    let mut test_fold = Array1::<i32>::from_elem(n_obs, -1);
+    let mut folds = Vec::with_capacity(fold_results.len());
+    let mut all_converged = true;
+
+    for result in fold_results {
+        all_converged &= result.converged;
+        for (row, pred) in result.oof_updates {
+            oof[row] = pred;
+            test_fold[row] = result.test_fold_value;
+        }
+        folds.push(result.metric);
+    }
+    folds.sort_by_key(|m| m.fold);
+
+    let mut total_sq = 0.0;
+    let mut total_abs = 0.0;
+    let mut total_ll = 0.0;
+    let mut n_pred = 0.0;
+    let compute_ll = family == Family::Binomial;
+    for i in 0..n_obs {
+        if test_fold[i] >= 0 {
+            let err = y_all[i] - oof[i];
+            total_sq += err * err;
+            total_abs += err.abs();
+            if compute_ll {
+                total_ll += bernoulli_log_loss(y_all[i], oof[i]);
+            }
+            n_pred += 1.0;
+        }
+    }
+    let rmse = (total_sq / n_pred).sqrt();
+    let mae = total_abs / n_pred;
+    let mean_log_loss = if compute_ll {
+        Some(total_ll / n_pred)
+    } else {
+        None
+    };
+
+    Ok(CvGroupedResult {
+        oof_predictions: oof,
+        test_fold,
+        rmse,
+        mae,
+        mean_log_loss,
+        folds,
+        all_converged,
+        n_splits,
+        group_col: group_col_s.to_string(),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_fold_glmer(
+    spec: &FoldSpec,
+    data: &DataFrame,
+    formula_str: &str,
+    group_col: &str,
+    all_groups: &[String],
+    family: Family,
+    link: Link,
+    n_agq: usize,
+    weights: Option<&Array1<f64>>,
+    y_all: &[f64],
+) -> Result<FoldWorkResult> {
+    let train_set: HashSet<String> = all_groups
+        .iter()
+        .filter(|g| !spec.test_groups.contains(*g))
+        .cloned()
+        .collect();
+
+    let train_df = filter_by_groups(data, group_col, &train_set)?;
+    let test_df = filter_by_groups(data, group_col, &spec.test_groups)?;
+    if train_df.height() == 0 || test_df.height() == 0 {
+        return Err(LmeError::NotImplemented {
+            feature: format!(
+                "cv_grouped_glmer fold {} produced empty train or test split",
+                spec.fold
+            ),
+        });
+    }
+
+    let train_weights = if let Some(w) = weights {
+        let train_idx = row_indices_for_groups(data, group_col, &train_set)?;
+        Some(Array1::from_vec(train_idx.iter().map(|&i| w[i]).collect()))
+    } else {
+        None
+    };
+
+    let prepared = prepare_glmer_weighted_with_link(
+        formula_str,
+        &train_df,
+        family,
+        link,
+        n_agq,
+        train_weights,
+    )?;
+    let fit = fit_prepared_glmer(&prepared)?;
+    let preds = fit
+        .predict_response(&test_df)
+        .map_err(|e| LmeError::NotImplemented {
+            feature: format!(
+                "cv_grouped_glmer prediction failed on fold {}: {e}",
+                spec.fold
+            ),
+        })?;
+
+    let test_indices = row_indices_for_groups(data, group_col, &spec.test_groups)?;
+    let mut fold_sq = 0.0;
+    let mut fold_abs = 0.0;
+    let mut fold_ll = 0.0;
+    let mut oof_updates = Vec::with_capacity(test_indices.len());
+    let compute_ll = family == Family::Binomial;
+    for (j, &row) in test_indices.iter().enumerate() {
+        oof_updates.push((row, preds[j]));
+        let err = y_all[row] - preds[j];
+        fold_sq += err * err;
+        fold_abs += err.abs();
+        if compute_ll {
+            fold_ll += bernoulli_log_loss(y_all[row], preds[j]);
+        }
+    }
+    let n_test = test_indices.len() as f64;
+    let converged = fit.converged.unwrap_or(false);
+
+    Ok(FoldWorkResult {
+        metric: CvFoldMetric {
+            fold: spec.fold,
+            n_train_groups: train_set.len(),
+            n_test_groups: spec.test_groups.len(),
+            n_train_obs: train_df.height(),
+            n_test_obs: test_df.height(),
+            rmse: (fold_sq / n_test).sqrt(),
+            mae: fold_abs / n_test,
+            mean_log_loss: if compute_ll {
+                Some(fold_ll / n_test)
+            } else {
+                None
+            },
+            converged,
+        },
+        oof_updates,
+        test_fold_value: spec.fold as i32,
+        converged,
+    })
+}
+
+fn bernoulli_log_loss(y: f64, p: f64) -> f64 {
+    let p = p.clamp(1e-12, 1.0 - 1e-12);
+    -(y * p.ln() + (1.0 - y) * (1.0 - p).ln())
 }
 
 fn resolve_n_jobs(n_jobs: Option<usize>, n_folds: usize) -> usize {
@@ -302,6 +608,7 @@ fn run_fold(
             n_test_obs: test_df.height(),
             rmse: (fold_sq / n_test).sqrt(),
             mae: fold_abs / n_test,
+            mean_log_loss: None,
             converged,
         },
         oof_updates,

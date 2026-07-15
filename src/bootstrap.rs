@@ -245,8 +245,8 @@ pub fn boot_lmer(
 /// Parametric bootstrap for a fitted GLMM (`bootMer`-style).
 ///
 /// Residual bootstrap is rejected for discrete families (support-breaking). Gaussian GLMMs
-/// should use [`boot_lmer`] via the LMM path. Weighted binomial (proportion + trials) is
-/// rejected until simulation grows an explicit trials path.
+/// should use [`boot_lmer`] via the LMM path. Binomial proportion responses with integer
+/// trial weights are supported (simulate draws `Binom(n_i, p_i)` and returns proportions).
 #[allow(clippy::too_many_arguments)]
 pub fn boot_glmer(
     formula_str: &str,
@@ -289,18 +289,6 @@ pub fn boot_glmer(
             feature: "boot_glmer: use boot_lmer for Gaussian LMMs".to_string(),
         });
     }
-    if family == Family::Binomial {
-        let y_obs_binary = fit.residuals.iter().zip(fit.fitted.iter()).all(|(&r, &m)| {
-            let y = r + m;
-            (y - 0.0).abs() < 1e-9 || (y - 1.0).abs() < 1e-9
-        });
-        if !y_obs_binary {
-            return Err(LmeError::NotImplemented {
-                feature: "boot_glmer parametric binomial currently supports 0/1 responses only (not weighted trials)"
-                    .to_string(),
-            });
-        }
-    }
 
     let link = match fit.link_name.as_deref() {
         Some(name) => Link::parse(name)?,
@@ -319,7 +307,8 @@ pub fn boot_glmer(
         });
     }
 
-    let prepared = prepare_glmer_weighted_with_link(formula_str, data, family, link, 1, None)?;
+    let prepared =
+        prepare_glmer_weighted_with_link(formula_str, data, family, link, 1, fit.weights.clone())?;
     if prepared.matrices.y.len() != fit.num_obs {
         return Err(LmeError::NotImplemented {
             feature: format!(

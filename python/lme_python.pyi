@@ -130,7 +130,12 @@ class PyLmeFit:
     def predict_conditional_response(
         self, newdata: DataFrameInput, allow_new_levels: bool = ...
     ) -> list[float]: ...
-    def confint(self, level: float = 0.95) -> PyConfintResult: ...
+    def confint(
+        self,
+        level: float = 0.95,
+        method: str = "wald",
+        data: DataFrameLike | None = None,
+    ) -> PyConfintResult: ...
     def anova(
         self, ddf_method: str = "satterthwaite", anova_type: str = "III"
     ) -> PyFixedEffectsAnova: ...
@@ -199,6 +204,7 @@ class PyCvFoldMetric:
     n_test_obs: int
     rmse: float
     mae: float
+    mean_log_loss: float | None
     converged: bool
 
 class PyCvGroupedResult:
@@ -206,6 +212,7 @@ class PyCvGroupedResult:
     test_fold: list[int]
     rmse: float
     mae: float
+    mean_log_loss: float | None
     folds: list[PyCvFoldMetric]
     all_converged: bool
     n_splits: int
@@ -223,6 +230,18 @@ def cv_grouped(
     group: str,
     n_splits: int = 5,
     reml: bool = True,
+    seed: Optional[int] = None,
+    n_jobs: Optional[int] = None,
+) -> PyCvGroupedResult: ...
+def cv_grouped_glmer(
+    formula: str,
+    data: DataFrameInput,
+    group: str,
+    family_name: str,
+    n_splits: int = 5,
+    n_agq: int = 1,
+    weights: Optional[list[float]] = None,
+    link_name: Optional[str] = None,
     seed: Optional[int] = None,
     n_jobs: Optional[int] = None,
 ) -> PyCvGroupedResult: ...

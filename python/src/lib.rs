@@ -55,6 +55,8 @@ pub struct PyCvFoldMetric {
     #[pyo3(get)]
     pub mae: f64,
     #[pyo3(get)]
+    pub mean_log_loss: Option<f64>,
+    #[pyo3(get)]
     pub converged: bool,
 }
 
@@ -70,6 +72,8 @@ pub struct PyCvGroupedResult {
     pub rmse: f64,
     #[pyo3(get)]
     pub mae: f64,
+    #[pyo3(get)]
+    pub mean_log_loss: Option<f64>,
     #[pyo3(get)]
     pub folds: Vec<PyCvFoldMetric>,
     #[pyo3(get)]
@@ -1124,17 +1128,51 @@ impl PyLmeFit {
         }
     }
 
-    /// Wald confidence intervals for fixed effects.
-    #[pyo3(signature = (level=0.95))]
-    pub fn confint(&self, level: f64) -> PyResult<PyConfintResult> {
-        match self.inner.confint(level) {
+    /// Wald or profile-likelihood confidence intervals for fixed effects.
+    ///
+    /// `method` is `"wald"` (default) or `"profile"`. Profile requires `data`
+    /// (same frame used to fit) and is slower (many θ refits).
+    #[pyo3(signature = (level=0.95, method="wald", data=None))]
+    pub fn confint<'py>(
+        &self,
+        py: Python<'py>,
+        level: f64,
+        method: &str,
+        data: Option<&Bound<'py, PyAny>>,
+    ) -> PyResult<PyConfintResult> {
+        let method = match method.to_ascii_lowercase().as_str() {
+            "wald" => lme_rs::ConfintMethod::Wald,
+            "profile" => lme_rs::ConfintMethod::Profile,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "confint method must be 'wald' or 'profile', got '{other}'"
+                )))
+            }
+        };
+        let df;
+        let data_ref = if matches!(method, lme_rs::ConfintMethod::Profile) {
+            let raw = data.ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(
+                    "confint(method='profile') requires data=...",
+                )
+            })?;
+            let bytes = get_ipc_bytes(py, raw)?;
+            df = read_ipc_bytes(&bytes)?;
+            Some(&df)
+        } else {
+            None
+        };
+        match self.inner.confint_with(level, method, data_ref) {
             Ok(ci) => Ok(PyConfintResult {
                 lower: ci.lower.to_vec(),
                 upper: ci.upper.to_vec(),
                 names: ci.names,
                 level: ci.level,
             }),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("confint failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "confint failed: {}",
+                e
+            ))),
         }
     }
 
@@ -1570,30 +1608,78 @@ pub fn cv_grouped<'py>(
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     match lme_rs::cv_grouped(formula, &df, group, n_splits, reml, seed, n_jobs) {
-        Ok(res) => Ok(PyCvGroupedResult {
-            oof_predictions: res.oof_predictions.to_vec(),
-            test_fold: res.test_fold.to_vec(),
-            rmse: res.rmse,
-            mae: res.mae,
-            folds: res
-                .folds
-                .into_iter()
-                .map(|f| PyCvFoldMetric {
-                    fold: f.fold,
-                    n_train_groups: f.n_train_groups,
-                    n_test_groups: f.n_test_groups,
-                    n_train_obs: f.n_train_obs,
-                    n_test_obs: f.n_test_obs,
-                    rmse: f.rmse,
-                    mae: f.mae,
-                    converged: f.converged,
-                })
-                .collect(),
-            all_converged: res.all_converged,
-            n_splits: res.n_splits,
-            group_col: res.group_col,
-        }),
+        Ok(res) => Ok(cv_result_to_py(res)),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("cv_grouped failed: {e}"))),
+    }
+}
+
+fn cv_result_to_py(res: lme_rs::CvGroupedResult) -> PyCvGroupedResult {
+    PyCvGroupedResult {
+        oof_predictions: res.oof_predictions.to_vec(),
+        test_fold: res.test_fold.to_vec(),
+        rmse: res.rmse,
+        mae: res.mae,
+        mean_log_loss: res.mean_log_loss,
+        folds: res
+            .folds
+            .into_iter()
+            .map(|f| PyCvFoldMetric {
+                fold: f.fold,
+                n_train_groups: f.n_train_groups,
+                n_test_groups: f.n_test_groups,
+                n_train_obs: f.n_train_obs,
+                n_test_obs: f.n_test_obs,
+                rmse: f.rmse,
+                mae: f.mae,
+                mean_log_loss: f.mean_log_loss,
+                converged: f.converged,
+            })
+            .collect(),
+        all_converged: res.all_converged,
+        n_splits: res.n_splits,
+        group_col: res.group_col,
+    }
+}
+
+/// Group-structure-preserving k-fold CV for GLMMs (response-scale OOF metrics).
+#[pyfunction]
+#[pyo3(signature = (
+    formula,
+    data,
+    group,
+    family_name,
+    n_splits=5,
+    n_agq=1,
+    weights=None,
+    link_name=None,
+    seed=None,
+    n_jobs=None
+))]
+pub fn cv_grouped_glmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    group: &str,
+    family_name: &str,
+    n_splits: usize,
+    n_agq: usize,
+    weights: Option<Vec<f64>>,
+    link_name: Option<&str>,
+    seed: Option<u64>,
+    n_jobs: Option<usize>,
+) -> PyResult<PyCvGroupedResult> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    let family = parse_family(family_name)?;
+    let link = parse_link(link_name, family)?;
+    let w = weights.map(ndarray::Array1::from_vec);
+    match lme_rs::cv_grouped_glmer(
+        formula, &df, group, n_splits, family, link, n_agq, w, seed, n_jobs,
+    ) {
+        Ok(res) => Ok(cv_result_to_py(res)),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "cv_grouped_glmer failed: {e}"
+        ))),
     }
 }
 
@@ -1943,6 +2029,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fit_prepared, m)?)?;
     m.add_function(wrap_pyfunction!(refit_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(cv_grouped, m)?)?;
+    m.add_function(wrap_pyfunction!(cv_grouped_glmer, m)?)?;
     m.add_function(wrap_pyfunction!(boot_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(boot_glmer, m)?)?;
     m.add_function(wrap_pyfunction!(lmer_weighted, m)?)?;
@@ -1977,6 +2064,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "fit_prepared",
             "refit_lmer",
             "cv_grouped",
+            "cv_grouped_glmer",
             "boot_lmer",
             "boot_glmer",
             "lmer_weighted",

@@ -916,6 +916,7 @@ pub fn fit_nlmer(
         categorical_levels: None,
         nlmm_mean: Some(mean),
         nlmm_formula: Some(parsed.clone()),
+        weights: None,
     })
 }
 

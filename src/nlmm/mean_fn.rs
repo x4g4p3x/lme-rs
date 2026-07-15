@@ -6,10 +6,13 @@ use crate::nlmm::fit::NlmmStart;
 use crate::nlmm::formula::NlmmMeanKind;
 use crate::nlmm::self_start;
 use crate::nlmm::ssasymp::ssasymp_eval;
+use crate::nlmm::ssbiexp::ssbiexp_eval;
+use crate::nlmm::ssfpl::ssfpl_eval;
 use crate::nlmm::ssgompertz::ssgompertz_eval;
 use crate::nlmm::sslogis::sslogis_eval;
 use crate::nlmm::ssmicmen::ssmicmen_eval;
 use crate::nlmm::sspower::sspower_eval;
+use crate::nlmm::ssweibull::ssweibull_eval;
 use ndarray::Array1;
 
 type NlmmMeanClosure = dyn Fn(f64, &[f64]) -> (f64, Vec<f64>) + Send + Sync;
@@ -61,6 +64,18 @@ impl NlmmMeanEval for NlmmMeanKind {
                 let (mu, da, db, dc) = sspower_eval(params[0], params[1], params[2], x);
                 (mu, vec![da, db, dc])
             }
+            NlmmMeanKind::Ssfpl => {
+                let (mu, grads) = ssfpl_eval(params[0], params[1], params[2], params[3], x);
+                (mu, grads)
+            }
+            NlmmMeanKind::Ssbiexp => {
+                let (mu, grads) = ssbiexp_eval(params[0], params[1], params[2], params[3], x);
+                (mu, grads)
+            }
+            NlmmMeanKind::Ssweibull => {
+                let (mu, grads) = ssweibull_eval(params[0], params[1], params[2], params[3], x);
+                (mu, grads)
+            }
         }
     }
 
@@ -77,7 +92,7 @@ impl NlmmMeanEval for NlmmMeanKind {
     }
 
     fn needs_positive_scal(&self) -> bool {
-        matches!(self, NlmmMeanKind::Sslogis)
+        matches!(self, NlmmMeanKind::Sslogis | NlmmMeanKind::Ssfpl)
     }
 }
 

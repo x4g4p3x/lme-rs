@@ -34,6 +34,12 @@ pub enum NlmmMeanKind {
     Ssgompertz,
     /// `SSpower(covariate, a, b, c)` — `a * x^b + c` (MATLAB Curve Fitter `power2`)
     Sspower,
+    /// `SSfpl(covariate, A, B, xmid, scal)` — four-parameter logistic
+    Ssfpl,
+    /// `SSbiexp(covariate, A1, lrc1, A2, lrc2)` — bi-exponential
+    Ssbiexp,
+    /// `SSweibull(covariate, Asym, Drop, lrc, pwr)` — Weibull growth curve
+    Ssweibull,
 }
 
 impl NlmmMeanKind {
@@ -41,6 +47,7 @@ impl NlmmMeanKind {
         match self {
             Self::Ssmicmen => 2,
             Self::Sslogis | Self::Ssasymp | Self::Ssfol | Self::Ssgompertz | Self::Sspower => 3,
+            Self::Ssfpl | Self::Ssbiexp | Self::Ssweibull => 4,
         }
     }
 
@@ -148,10 +155,13 @@ fn parse_nonlinear_part(s: &str) -> crate::Result<(NlmmMeanKind, String, Vec<Str
         "SSmicmen" => NlmmMeanKind::Ssmicmen,
         "SSgompertz" => NlmmMeanKind::Ssgompertz,
         "SSpower" => NlmmMeanKind::Sspower,
+        "SSfpl" => NlmmMeanKind::Ssfpl,
+        "SSbiexp" => NlmmMeanKind::Ssbiexp,
+        "SSweibull" => NlmmMeanKind::Ssweibull,
         other => {
             return Err(LmeError::NotImplemented {
                 feature: format!(
-                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz, SSpower)"
+                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz, SSpower, SSfpl, SSbiexp, SSweibull)"
                 ),
             });
         }
@@ -279,6 +289,28 @@ mod tests {
         assert_eq!(kind, NlmmMeanKind::Sspower);
         assert_eq!(f.fixed_param_names, vec!["a", "b", "c"]);
         assert_eq!(f.re_params, vec!["c".to_string()]);
+    }
+
+    #[test]
+    fn parses_ssfpl_formula() {
+        let (f, kind) = parse_nlmer_formula("y ~ SSfpl(x, A, B, xmid, scal) ~ A|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Ssfpl);
+        assert_eq!(f.fixed_param_names, vec!["A", "B", "xmid", "scal"]);
+    }
+
+    #[test]
+    fn parses_ssbiexp_formula() {
+        let (f, kind) = parse_nlmer_formula("y ~ SSbiexp(x, A1, lrc1, A2, lrc2) ~ A1|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Ssbiexp);
+        assert_eq!(f.fixed_param_names, vec!["A1", "lrc1", "A2", "lrc2"]);
+    }
+
+    #[test]
+    fn parses_ssweibull_formula() {
+        let (f, kind) =
+            parse_nlmer_formula("y ~ SSweibull(x, Asym, Drop, lrc, pwr) ~ Asym|id").unwrap();
+        assert_eq!(kind, NlmmMeanKind::Ssweibull);
+        assert_eq!(f.fixed_param_names, vec!["Asym", "Drop", "lrc", "pwr"]);
     }
 
     #[test]

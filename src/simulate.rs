@@ -8,9 +8,10 @@ use ndarray::Array1;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-use rand_distr::{Bernoulli, Gamma, Poisson, StandardNormal};
+use rand_distr::{Bernoulli, Binomial, Gamma, Poisson, StandardNormal};
 use rayon::prelude::*;
 
+use crate::binomial_trial_sizes;
 use crate::LmeFit;
 use crate::SimulateResult;
 
@@ -90,17 +91,30 @@ fn simulate_sequential(
     seed: Option<u64>,
 ) -> anyhow::Result<Vec<Array1<f64>>> {
     let sigma2 = fit.sigma2.unwrap_or(1.0);
+    let trials = binomial_trial_sizes(fit.weights.as_ref());
     let mut out = Vec::with_capacity(count);
 
     if let Some(base) = seed {
         for i in 0..count {
             let mut rng = StdRng::seed_from_u64(base.wrapping_add((start_index + i) as u64));
-            out.push(draw_one(&fit.fitted, fit.family, sigma2, &mut rng)?);
+            out.push(draw_one(
+                &fit.fitted,
+                fit.family,
+                sigma2,
+                trials.as_deref(),
+                &mut rng,
+            )?);
         }
     } else {
         let mut rng = rand::rng();
         for _ in 0..count {
-            out.push(draw_one(&fit.fitted, fit.family, sigma2, &mut rng)?);
+            out.push(draw_one(
+                &fit.fitted,
+                fit.family,
+                sigma2,
+                trials.as_deref(),
+                &mut rng,
+            )?);
         }
     }
 
@@ -117,6 +131,7 @@ fn simulate_parallel(
     let fitted = fit.fitted.clone();
     let family = fit.family;
     let sigma2 = fit.sigma2.unwrap_or(1.0);
+    let trials = binomial_trial_sizes(fit.weights.as_ref());
 
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(workers)
@@ -132,7 +147,7 @@ fn simulate_parallel(
                     Some(base) => StdRng::seed_from_u64(base.wrapping_add(global as u64)),
                     None => StdRng::from_os_rng(),
                 };
-                draw_one(&fitted, family, sigma2, &mut rng)
+                draw_one(&fitted, family, sigma2, trials.as_deref(), &mut rng)
             })
             .collect()
     })
@@ -142,6 +157,7 @@ fn draw_one<R: Rng + ?Sized>(
     fitted: &Array1<f64>,
     family: Option<crate::family::Family>,
     sigma2: f64,
+    trials: Option<&[u64]>,
     rng: &mut R,
 ) -> anyhow::Result<Array1<f64>> {
     let n = fitted.len();
@@ -156,11 +172,35 @@ fn draw_one<R: Rng + ?Sized>(
             }
         }
         Some(crate::family::Family::Binomial) => {
-            for i in 0..n {
-                let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
-                let bern = Bernoulli::new(p)
-                    .map_err(|e| anyhow::anyhow!("Invalid binomial probability: {e}"))?;
-                y_sim[i] = if rng.sample(bern) { 1.0 } else { 0.0 };
+            if let Some(n_trials) = trials {
+                if n_trials.len() != n {
+                    return Err(anyhow::anyhow!(
+                        "binomial trial weights length {} does not match fitted length {}",
+                        n_trials.len(),
+                        n
+                    ));
+                }
+                for i in 0..n {
+                    let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
+                    let ni = n_trials[i];
+                    if ni == 1 {
+                        let bern = Bernoulli::new(p)
+                            .map_err(|e| anyhow::anyhow!("Invalid binomial probability: {e}"))?;
+                        y_sim[i] = if rng.sample(bern) { 1.0 } else { 0.0 };
+                    } else {
+                        let bin = Binomial::new(ni, p)
+                            .map_err(|e| anyhow::anyhow!("Invalid binomial parameters: {e}"))?;
+                        let k = rng.sample(bin) as f64;
+                        y_sim[i] = k / (ni as f64);
+                    }
+                }
+            } else {
+                for i in 0..n {
+                    let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
+                    let bern = Bernoulli::new(p)
+                        .map_err(|e| anyhow::anyhow!("Invalid binomial probability: {e}"))?;
+                    y_sim[i] = if rng.sample(bern) { 1.0 } else { 0.0 };
+                }
             }
         }
         Some(crate::family::Family::Poisson) => {

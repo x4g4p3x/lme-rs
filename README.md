@@ -14,7 +14,7 @@
 - `prepare_lmer()` / `fit_prepared()` to amortize design-matrix setup when fitting the same formula and data repeatedly (see [OPTIMIZATION.md](OPTIMIZATION.md))
 - `cv_grouped()` for group-structure-preserving k-fold cross-validation on LMMs (see [GUIDE.md](GUIDE.md#repeated-fits-and-cross-validation))
 - `boot_lmer()` for parametric or residual bootstrap refits on LMMs with percentile CIs (see [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer))
-- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / `SSpower` means; optional scalar AGQ; `nlmer_with_mean` for custom μ in Rust and Python; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
+- `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / `SSpower` / `SSfpl` / `SSbiexp` / `SSweibull` means; optional scalar AGQ; `nlmer_with_mean` for custom μ in Rust and Python; scalar or multivariate random effects on nonlinear parameters, e.g. Orange-tree growth)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models
 - Wilkinson formulas with nested and crossed random effects
 - Population-level and conditional prediction APIs

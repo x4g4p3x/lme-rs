@@ -20,6 +20,9 @@ pub(crate) fn self_start(
         NlmmMeanKind::Ssmicmen => self_start_ssmicmen(&xy),
         NlmmMeanKind::Ssgompertz => self_start_ssgompertz(&xy),
         NlmmMeanKind::Sspower => self_start_sspower(&xy),
+        NlmmMeanKind::Ssfpl => self_start_ssfpl(&xy),
+        NlmmMeanKind::Ssbiexp => self_start_ssbiexp(&xy),
+        NlmmMeanKind::Ssweibull => self_start_ssweibull(&xy),
     };
     let mut start = NlmmStart::new();
     for (name, value) in param_names.iter().zip(values.iter()) {
@@ -197,6 +200,57 @@ fn self_start_sspower(xy: &[(f64, f64)]) -> Vec<f64> {
     let log_a = (sum_y - b * sum_x) / n;
     let a = log_a.exp().max(1e-8);
     vec![a, b, c]
+}
+
+fn self_start_ssfpl(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.len() < 4 {
+        return vec![10.0, 50.0, 5.0, 2.0];
+    }
+    let a = xy.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
+    let b = xy.iter().map(|(_, y)| *y).fold(f64::NEG_INFINITY, f64::max);
+    if !(a.is_finite() && b.is_finite()) || (b - a).abs() < 1e-8 {
+        return vec![10.0, 50.0, 5.0, 2.0];
+    }
+    let mid_y = 0.5 * (a + b);
+    let xmid = approx_x_from_y(xy, mid_y).unwrap_or(xy[xy.len() / 2].0);
+    let y_q = a + 0.25 * (b - a);
+    let x_q = approx_x_from_y(xy, y_q).unwrap_or(xmid);
+    let mut scal = (xmid - x_q).abs().max(1e-3);
+    if !scal.is_finite() {
+        scal = 1.0;
+    }
+    vec![a, b, xmid, scal]
+}
+
+fn self_start_ssbiexp(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.len() < 4 {
+        return vec![5.0, (0.5_f64).ln(), 3.0, (0.1_f64).ln()];
+    }
+    let y0 = xy.first().map(|(_, y)| *y).unwrap_or(1.0).abs().max(1e-3);
+    let y_last = xy.last().map(|(_, y)| *y).unwrap_or(0.0).abs();
+    let a1 = (0.6 * y0).max(1e-3);
+    let a2 = (0.4 * y0).max(1e-3);
+    let x_mid = xy[xy.len() / 2].0.max(1e-3);
+    let lrc1 = (1.5 / x_mid).ln();
+    let lrc2 = ((0.3 / x_mid).max(1e-6)).ln();
+    let _ = y_last;
+    vec![a1, lrc1, a2, lrc2]
+}
+
+fn self_start_ssweibull(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.len() < 4 {
+        return vec![100.0, 80.0, -1.0, 1.5];
+    }
+    let asym = xy
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .max(1.0);
+    let y_min = xy.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
+    let drop = (asym - y_min).abs().max(1e-3);
+    let x_mid = xy[xy.len() / 2].0.max(1e-3);
+    let lrc = (1.0 / x_mid).ln();
+    vec![asym, drop, lrc, 1.5]
 }
 
 #[cfg(test)]

@@ -270,6 +270,7 @@ mod tests {
             categorical_levels: None,
             nlmm_mean: None,
             nlmm_formula: None,
+            weights: None,
         }
     }
 

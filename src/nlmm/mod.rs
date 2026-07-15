@@ -8,18 +8,24 @@ pub(crate) mod predict;
 pub(crate) mod re_cov;
 mod self_start;
 mod ssasymp;
+mod ssbiexp;
+mod ssfpl;
 mod ssgompertz;
 mod sslogis;
 mod ssmicmen;
 mod sspower;
+mod ssweibull;
 pub use re_cov::sigma_from_theta;
 pub use ssasymp::ssasymp_eval;
 /// Alias for [`ssasymp_eval`] (`stats::SSfol` uses the same mean function).
 pub use ssasymp::ssasymp_eval as ssfol_eval;
+pub use ssbiexp::ssbiexp_eval;
+pub use ssfpl::ssfpl_eval;
 pub use ssgompertz::ssgompertz_eval;
 pub use sslogis::sslogis_eval;
 pub use ssmicmen::ssmicmen_eval;
 pub use sspower::sspower_eval;
+pub use ssweibull::ssweibull_eval;
 
 pub use fit::{fit_nlmer, NlmerOptions, NlmmStart};
 pub use formula::{parse_nlmer_custom_formula, parse_nlmer_formula, NlmerFormula, NlmmMeanKind};
@@ -43,9 +49,13 @@ use crate::LmeFit;
 /// response ~ SSmicmen(covariate, Vmax, K) ~ Vmax|group
 /// response ~ SSgompertz(covariate, Asym, b2, b3) ~ Asym|group
 /// response ~ SSpower(covariate, a, b, c) ~ c|group
+/// response ~ SSfpl(covariate, A, B, xmid, scal) ~ A|group
+/// response ~ SSbiexp(covariate, A1, lrc1, A2, lrc2) ~ A1|group
+/// response ~ SSweibull(covariate, Asym, Drop, lrc, pwr) ~ Asym|group
 /// ```
 ///
-/// Supported means: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`.
+/// Supported means: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`,
+/// `SSfpl`, `SSbiexp`, `SSweibull`.
 /// When `start` is empty, R-style data-driven starting heuristics are used with
 /// multistart fallback to static defaults.
 /// Random effects are additive on the named nonlinear parameters (one or more

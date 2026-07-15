@@ -1,5 +1,6 @@
 use lme_rs::family::Family;
 use lme_rs::{boot_glmer, boot_lmer, glmer, lmer, BootLmerMethod};
+use ndarray::Array1;
 use polars::prelude::*;
 use std::fs::File;
 
@@ -213,4 +214,103 @@ fn test_boot_glmer_rejects_lmm() {
     .unwrap_err();
     let msg = format!("{err}");
     assert!(msg.contains("GLMM") || msg.contains("family"), "{msg}");
+}
+
+fn synthetic_proportion_trials_glmm() -> (DataFrame, Array1<f64>, &'static str) {
+    // Proportion response + integer trial weights (cbpp-style).
+    let n_groups = 6usize;
+    let n_per = 4usize;
+    let mut y = Vec::new();
+    let mut x = Vec::new();
+    let mut g = Vec::new();
+    let mut w = Vec::new();
+    for gi in 0..n_groups {
+        for j in 0..n_per {
+            let xv = (j as f64) / (n_per as f64);
+            let n_trials = 5 + ((gi + j) % 4) as u64;
+            let k = ((n_trials as f64) * (0.2 + 0.5 * xv))
+                .round()
+                .clamp(0.0, n_trials as f64);
+            y.push(k / (n_trials as f64));
+            x.push(xv);
+            g.push(format!("g{gi}"));
+            w.push(n_trials as f64);
+        }
+    }
+    let df = DataFrame::new(vec![
+        Column::new("y".into(), y),
+        Column::new("x".into(), x),
+        Column::new("g".into(), g),
+    ])
+    .unwrap();
+    (df, Array1::from_vec(w), "y ~ x + (1 | g)")
+}
+
+#[test]
+fn test_simulate_binomial_proportion_trials() {
+    use lme_rs::glmer_weighted;
+    let (df, weights, formula) = synthetic_proportion_trials_glmm();
+    let fit = glmer_weighted(formula, &df, Family::Binomial, 1, Some(weights)).unwrap();
+    assert!(fit.weights.is_some());
+    let sim = fit.simulate_with(8, Some(1), Some(42)).unwrap();
+    for s in &sim.simulations {
+        assert_eq!(s.len(), fit.num_obs);
+        for &yi in s.iter() {
+            assert!((0.0..=1.0).contains(&yi), "proportion out of range: {yi}");
+        }
+        // With n_i > 1, at least some draws should be non-binary proportions.
+    }
+    let any_fraction = sim.simulations.iter().any(|s| {
+        s.iter()
+            .any(|&yi| (yi - 0.0).abs() > 1e-12 && (yi - 1.0).abs() > 1e-12)
+    });
+    assert!(
+        any_fraction,
+        "expected some non-0/1 proportions under multi-trial binomial"
+    );
+}
+
+#[test]
+fn test_boot_glmer_parametric_proportion_trials() {
+    use lme_rs::glmer_weighted;
+    let (df, weights, formula) = synthetic_proportion_trials_glmm();
+    let fit = glmer_weighted(formula, &df, Family::Binomial, 1, Some(weights)).unwrap();
+    let boot = boot_glmer(
+        formula,
+        &df,
+        &fit,
+        10,
+        BootLmerMethod::Parametric,
+        Some(13),
+        Some(1),
+    )
+    .unwrap();
+    assert_eq!(boot.nsim, 10);
+    assert_eq!(boot.replicates.len(), 10);
+    assert!(boot.prop_converged > 0.0);
+}
+
+#[test]
+fn test_binomial_trials_reject_non_integer_counts() {
+    use lme_rs::glmer_weighted;
+    let df = DataFrame::new(vec![
+        Column::new("y".into(), vec![0.3_f64, 0.5]),
+        Column::new("x".into(), vec![0.0_f64, 1.0]),
+        Column::new("g".into(), vec!["a".to_string(), "b".to_string()]),
+    ])
+    .unwrap();
+    // 0.3 * 10 = 3 ok; 0.5 * 3 = 1.5 not near-integer
+    let err = glmer_weighted(
+        "y ~ x + (1 | g)",
+        &df,
+        Family::Binomial,
+        1,
+        Some(Array1::from_vec(vec![10.0, 3.0])),
+    )
+    .unwrap_err();
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("near-integer") || msg.contains("trials"),
+        "{msg}"
+    );
 }

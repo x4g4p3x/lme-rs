@@ -12,6 +12,14 @@ pub(crate) fn default_start(kind: NlmmMeanKind, names: &[String]) -> Vec<f64> {
         NlmmMeanKind::Ssmicmen => &[("Vmax", 10.0), ("K", 1.0)],
         NlmmMeanKind::Ssgompertz => &[("Asym", 50.0), ("b2", 1.0), ("b3", 0.3)],
         NlmmMeanKind::Sspower => &[("a", 1.0), ("b", 1.0), ("c", 0.0)],
+        NlmmMeanKind::Ssfpl => &[("A", 10.0), ("B", 50.0), ("xmid", 5.0), ("scal", 2.0)],
+        NlmmMeanKind::Ssbiexp => &[
+            ("A1", 5.0),
+            ("lrc1", (0.5_f64).ln()),
+            ("A2", 3.0),
+            ("lrc2", (0.1_f64).ln()),
+        ],
+        NlmmMeanKind::Ssweibull => &[("Asym", 100.0), ("Drop", 80.0), ("lrc", -1.0), ("pwr", 1.5)],
     };
     names
         .iter()

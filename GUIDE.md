@@ -147,6 +147,9 @@ y ~ SSfol(x, Asym, R0, lrc) ~ Asym|id
 y ~ SSmicmen(x, Vmax, K) ~ Vmax|id
 y ~ SSgompertz(x, Asym, b2, b3) ~ Asym|id
 y ~ SSpower(x, a, b, c) ~ c|id   # MATLAB Curve Fitter power2: a*x^b + c
+y ~ SSfpl(x, A, B, xmid, scal) ~ A|id
+y ~ SSbiexp(x, A1, lrc1, A2, lrc2) ~ A1|id
+y ~ SSweibull(x, Asym, Drop, lrc, pwr) ~ Asym|id
 ```
 
 ```rust
@@ -175,12 +178,12 @@ Custom mean functions implement [`NlmmMeanEval`](src/nlmm/mean_fn.rs) or wrap a 
 
 Current limitations:
 
-- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower` (`a * x^b + c`, MATLAB `power2`; not in R `stats::SS*`). User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust, or `lme_python.nlmer_with_mean` in Python.
+- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower` (`a * x^b + c`, MATLAB `power2`; not in R `stats::SS*`), `SSfpl`, `SSbiexp`, `SSweibull`. User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust, or `lme_python.nlmer_with_mean` in Python.
 - Starting values: pass an empty `NlmmStart` / `start=None` in Python to use R-style `selfStart` heuristics (`stats::getInitial`); the fitter also tries static defaults and keeps the lowest-deviance result.
 - Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / **`SSpower`**, are covered by lme4 parity tests (`SSpower` via custom R `selfStart`; see [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md)).
 - **`SSpower`:** μ = `a * x^b + c` (MATLAB Curve Fitter `power2`). Requires **covariate x > 0**. Not in R `stats::SS*`; grouped calibration only — not bounded single-curve NLS (lmfit / MATLAB Curve Fitter). For **independent per-sensor fits** vs **pooled** `nlmer`, and why CUDA batch fitters are a different lane, see [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md).
 - `predict()` evaluates the mean at fixed parameters only (`re.form = NA`); `predict_conditional()` adds stored random effects (`re.form = NULL`).
-- Scalar AGQ (`n_agq ≥ 2`, `k = 1` RE) is applied in the final profile evaluation at the optimized θ, not inside the θ search (same pattern as `glmer`). Default `n_agq = 1` is Laplace / penalized Gauss–Newton (`nAGQ = 0` style).
+- Scalar AGQ (`n_agq ≥ 2`, `k = 1` RE) is folded into the θ profile objective (same pattern as `glmer` scalar AGQ-in-θ). Default `n_agq = 1` is Laplace / penalized Gauss–Newton (`nAGQ = 0` style).
 
 ### `glmer()` for generalized linear mixed models
 
@@ -253,7 +256,7 @@ let fit = glmer_weighted(
 )?;
 ```
 
-Weights must be strictly positive and match the number of rows. For `Family::Gaussian`, fitting delegates to `lmer_weighted` with ML.
+Weights must be strictly positive and match the number of rows. For binomial **proportion** responses, pass integer trial sizes as weights (lme4-style); the fitter validates that `y * n` is near-integer, and `simulate` / `boot_glmer` draw `Binom(n_i, p_i)` returning proportions. For `Family::Gaussian`, fitting delegates to `lmer_weighted` with ML.
 
 ### Understanding model output
 
@@ -323,18 +326,23 @@ let mu_cond = poisson_fit.predict_conditional_response(&newdata, true)?;
 
 ### Confidence intervals
 
-`confint()` returns Wald intervals for the fixed effects. When Kenward–Roger or Satterthwaite denominator degrees of freedom are stored on the fit (via `with_kenward_roger()` or `with_satterthwaite()`), intervals use **t** critical values with those dfs; otherwise the normal approximation is used.
+`confint()` returns Wald intervals for the fixed effects by default. When Kenward–Roger or Satterthwaite denominator degrees of freedom are stored on the fit (via `with_kenward_roger()` or `with_satterthwaite()`), Wald intervals use **t** critical values with those dfs; otherwise the normal approximation is used.
+
+Profile-likelihood intervals: `confint_profile(level, &data)` or `confint_with(level, ConfintMethod::Profile, Some(&data))`. They need the original data, refit θ many times per coefficient, and are slower than Wald. LMM profiles use the ML deviance scale (even if the reference fit was REML).
 
 ```rust
 let mut fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
 fit.with_satterthwaite(&df)?;
 let ci = fit.confint(0.95)?;
+let ci_prof = fit.confint_profile(0.95, &df)?;
 println!("{}", ci);
 ```
 
 ### Parametric simulation
 
-`simulate()` draws new response vectors from the fitted conditional means. It does **not** refit the model. For bootstrap inference (simulate or resample → refit → summarize), use [`boot_lmer`](#bootstrap-refits-boot_lmer) instead.
+`simulate()` draws new response vectors from the fitted conditional means. It does **not** refit the model. For bootstrap inference (simulate or resample → refit → summarize), use [`boot_lmer`](#bootstrap-refits-boot_lmer) / [`boot_glmer`](#bootstrap-refits-boot_lmer--boot_glmer) instead.
+
+For binomial fits with integer trial weights (`glmer_weighted(..., weights = n)`), draws are `Binom(n_i, p_i)` returned as proportions `k/n`. Unweighted / non-integer prior weights keep the Bernoulli `0/1` path.
 
 ```rust
 // All logical CPUs by default when n_jobs is None
@@ -352,7 +360,7 @@ fit.simulate_batched(50_000, 1_000, Some(4), Some(42), |batch_idx, batch| {
 
 [`boot_lmer`](src/bootstrap.rs) mirrors R's `lme4::bootMer` workflow for **Gaussian LMMs**: draw bootstrap responses, refit on each replicate, and summarize fixed-effect (and variance-component) draws. Design-matrix setup is amortized with [`prepare_lmer`](#amortized-fitting-prepare_lmer--fit_prepared); each replicate calls [`fit_prepared_with_response`](src/lib.rs) to swap the response vector without rebuilding `X` / `Z`.
 
-[`boot_glmer`](src/bootstrap.rs) provides the same parametric workflow for **GLMMs**, amortized with [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer_with_response`](src/lib.rs). Residual bootstrap is not supported for discrete families. Weighted binomial (proportion + trials) is rejected until simulation grows an explicit trials path.
+[`boot_glmer`](src/bootstrap.rs) provides the same parametric workflow for **GLMMs**, amortized with [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer_with_response`](src/lib.rs). Residual bootstrap is not supported for discrete families. Binomial **proportion + integer trial weights** (lme4-style `weights = n`) is supported: simulation draws `Binom(n_i, p_i)` and returns proportions `k/n` on the same scale as the fit.
 
 ```rust
 use lme_rs::{boot_lmer, lmer, BootLmerMethod};
@@ -500,7 +508,28 @@ println!("OOF RMSE: {:.2}", cv.rmse);
 
 **Parallelism:** pass `n_jobs: Some(k)` to fit up to `k` folds concurrently (`None` uses all logical CPUs, capped at fold count). When `n_jobs > 1`, OpenBLAS/MKL/OpenMP are pinned to one thread per worker to avoid CPU oversubscription.
 
-**Scope:** LMMs only (not GLMM/NLMM). Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`. Each training fold is fit via `prepare_lmer` + `fit_prepared`.
+**Scope:** LMMs only via `cv_grouped` (not NLMM). For GLMMs use [`cv_grouped_glmer`](#group-structure-preserving-cv-cv_grouped): same split logic, `prepare_glmer*` / `fit_prepared_glmer`, and **response-scale** OOF predictions (`predict_response`). Binomial folds also report mean log-loss. Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`.
+
+### Group-structure-preserving CV for GLMMs (`cv_grouped_glmer`)
+
+```rust
+use lme_rs::family::{Family, Link};
+use lme_rs::cv_grouped_glmer;
+
+let cv = cv_grouped_glmer(
+    "y ~ x + (1 | g)",
+    &df,
+    "g",
+    4,
+    Family::Binomial,
+    Link::Logit,
+    1,       // n_agq
+    None,    // optional prior weights
+    Some(7), // seed
+    Some(1), // n_jobs
+)?;
+println!("OOF RMSE={:.3} log-loss={:?}", cv.rmse, cv.mean_log_loss);
+```
 
 ### Custom parallel refits (grids, manual bootstrap)
 
@@ -604,11 +633,12 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `fit_prepared(prepared, reml)` | fit from a prior `prepare_lmer` call |
 | `refit_lmer(formula, data, reml)` | `prepare_lmer` + `fit_prepared` convenience |
 | `cv_grouped(formula, data, group_col, n_splits, reml, seed, n_jobs)` | group-preserving k-fold CV (LMM); parallel folds when `n_jobs > 1` |
+| `cv_grouped_glmer(..., family, link, n_agq, weights, ...)` | group-preserving k-fold CV (GLMM); response-scale OOF |
 | `boot_lmer(formula, data, fit, nsim, method, reml, seed, n_jobs)` | parametric/residual bootstrap refits (LMM); percentile CIs on `BootLmerResult` |
 | `boot_glmer(formula, data, fit, nsim, method, seed, n_jobs)` | parametric bootstrap refits (GLMM); residual rejected |
 | `fit_prepared_with_response(prepared, y_response, reml)` | refit from prepared design with a new response vector |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
-| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`; multivariate RE; empty `start` → `selfStart`) |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`…`SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
 | `nlmer_with_mean(parsed, mean, data, formula_label, opts)` | `nlmer` with a custom [`NlmmMeanEval`](src/nlmm/mean_fn.rs) |
 | `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |
@@ -625,6 +655,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `predict_response(newdata)` | GLMM response-scale prediction |
 | `predict_conditional_response(newdata, allow_new_levels)` | conditional response-scale GLMM prediction |
 | `confint(level)` | Wald CIs; uses t with KR/Satterthwaite dfs when stored on fit |
+| `confint_profile(level, data)` | profile-likelihood CIs (LMM/GLMM; slower) |
 | `simulate(nsim)` | parametric simulation (sequential; use `simulate_with` for parallel) |
 | `simulate_with(nsim, n_jobs, seed)` | parallel parametric simulation |
 | `simulate_batched(nsim, batch_size, n_jobs, seed, on_batch)` | stream simulation batches |

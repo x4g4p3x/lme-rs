@@ -102,11 +102,11 @@ Statuses are **practical**, not formal support tiers.
 | Random-slopes LMM (e.g. `(Days \| Subject)`) | Fair-harness competitive on sleepstudy (~0.8× Julia cold `lmer()`); validate on your data | Compare to R; use `prepare_lmer` + `fit_prepared` for repeated fits — [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes) |
 | Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
 | GLMM non-canonical links, weights | Implemented; narrower test matrix | Golden checks where listed; validate otherwise |
-| `nlmer` built-in `SS*` means | Subset of R `stats::SS*` plus **`SSpower`** (MATLAB `power2`); one grouping factor | Orange / synthetic parity cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
+| `nlmer` built-in `SS*` means | Subset of R `stats::SS*` (incl. **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**) plus **`SSpower`** (MATLAB `power2`); one grouping factor | Orange / synthetic parity cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
 | Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population `lower`/`upper` bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. Bounds are population-level only. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | `nlmer_with_mean` (custom μ) | No R `selfStart` for arbitrary custom means; defaults are naive | Supply `start`; verify predictions |
-| Scalar AGQ (`n_agq ≥ 2`) | Applied at final θ, not inside optimizer | Same pattern as `glmer`; compare Laplace vs AGQ |
+| Scalar AGQ (`n_agq ≥ 2`) | Inside θ search for scalar RE; final eval always | Same for `nlmer` scalar RE |
 | Python bindings | Polars, pandas, or PyArrow `Table` accepted; Polars canonical internally | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 
 ### Red — not a substitute yet
@@ -115,7 +115,7 @@ Statuses are **practical**, not formal support tiers.
 |:------------|:--------|
 | Drop-in replacement for all of `lme4` + `lmerTest` + `car` + `nlme` | Intentionally partial API |
 | Arbitrary R formula edge cases | Wilkinson coverage is broad but not universal |
-| Full `stats::SS*` / general nonlinear mixed modeling | Six built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
+| Full `stats::SS*` / general nonlinear mixed modeling | Nine built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
 | Identical GLMM AIC/BIC / log-likelihood to R | Deviance omits data-dependent constants |
 | “Proven in production” without your own validation | 0.1.x; limited public field track record |
 | Competitive cold `lmer()` on every RE layout vs MixedModels.jl | Improving; see [OPTIMIZATION.md](OPTIMIZATION.md) row in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) |
