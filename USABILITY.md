@@ -90,7 +90,7 @@ Statuses are **practical**, not formal support tiers.
 | Nested model LRT (`anova`) | ✓ | ✓ | |
 | Group-preserving CV (`cv_grouped` / `cv_grouped_glmer`) | ✓ | ✓ | LMM + GLMM; population / response-scale OOF on held-out groups |
 | Bootstrap refits (`boot_lmer` / `boot_glmer`) | ✓ | ✓ | LMM parametric & residual; GLMM parametric (incl. binomial trials); percentile CIs |
-| GLMM: binomial / Poisson / gamma (canonical links) | ✓ | ✓ | Coefficients & variance params; Laplace default; scalar AGQ via `n_agq ≥ 2` |
+| GLMM: binomial / Poisson / gamma / gaussian | ✓ | ✓ | Coeffs & variance params; Laplace default; scalar AGQ via `n_agq ≥ 2`. Gamma: mean/dispersion golden (`gamma_dyestuff_log_laplace`); RE θ may hit the boundary vs lme4 |
 | Profile CIs (`confint_profile` / `parms=`) | ✓ | ✓ | LMM/GLMM; sleepstudy vs R fixture; subset via `parms` |
 | `confint` (Wald), `simulate`, robust SE | ✓ | ✓ | LMM-focused Wald/t paths; GLMM z / profile as documented |
 
@@ -102,7 +102,8 @@ Statuses are **practical**, not formal support tiers.
 |:---------|:------|:-----------|
 | Random-slopes LMM (e.g. `(Days \| Subject)`) | Fair-harness competitive on sleepstudy (~0.8× Julia cold `lmer()`); validate on your data | Compare to R; use `prepare_lmer` + `fit_prepared` for repeated fits — [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes) |
 | Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
-| GLMM non-canonical links, weights | Implemented; narrower test matrix | Golden checks where listed; validate otherwise |
+| GLMM non-canonical links, weights | Probit **and** cloglog golden-locked; weights via `cbpp_binomial_weighted` | Remaining link variants (e.g. poisson sqrt) implemented — validate if non-golden |
+| Weights + formula `offset()` together | Supported (`glmer_weighted` + `offset()`); **not** a separate golden matrix | Validate on your data |
 | `nlmer` built-in `SS*` means | Eleven built-ins (`SSlogis`…`SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**); one grouping factor | Orange / synthetic golden cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
 | Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population and group-level (`β+b`) bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |

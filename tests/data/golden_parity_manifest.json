@@ -572,6 +572,83 @@
       }
     },
     {
+      "id": "cbpp_binomial_cloglog",
+      "description": "Binomial GLMM on CBPP with complementary log-log link.",
+      "kind": "glmm",
+      "data_path": "tests/data/cbpp_binary.csv",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "family": "binomial",
+      "link": "cloglog",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(..., family = binomial(link = 'cloglog'))",
+        "source_fixture": "tests/data/glmm_binomial_cloglog.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": -1.52558200438582,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period2",
+            "value": -0.916109259489627,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period3",
+            "value": -1.03465221930296,
+            "tolerance": 0.08
+          },
+          {
+            "name": "period4",
+            "value": -1.48339101343872,
+            "tolerance": 0.08
+          }
+        ],
+        "theta": [
+          {
+            "name": "herd.(Intercept)",
+            "value": 0.587356471736574,
+            "tolerance": 0.08
+          }
+        ],
+        "finite_deviance": true
+      }
+    },
+    {
+      "id": "gamma_dyestuff_log_laplace",
+      "description": "Gamma GLMM on Dyestuff with log link (Laplace); mean/dispersion locked vs lme4.",
+      "kind": "glmm",
+      "data_path": "tests/data/dyestuff.csv",
+      "formula": "Yield ~ 1 + (1 | Batch)",
+      "family": "gamma",
+      "link": "log",
+      "n_agq": 1,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(Yield ~ 1 + (1 | Batch), Dyestuff, family = Gamma(link = 'log'))",
+        "source_fixture": "tests/data/glmm_gamma_dyestuff.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 7.33085641281014,
+            "tolerance": 0.05
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 0.00111808357485404,
+          "tolerance": 0.001
+        },
+        "finite_deviance": true
+      }
+    },
+    {
       "id": "cbpp_binomial_weighted",
       "description": "Binomial GLMM on CBPP with prior observation weights.",
       "kind": "glmm",

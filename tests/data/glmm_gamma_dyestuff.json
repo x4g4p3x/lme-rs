@@ -1,0 +1,15 @@
+{
+  "model": "Yield ~ 1 + (1 | Batch) [Gamma log]",
+  "engine": "lme4::glmer",
+  "call": "glmer(Yield ~ 1 + (1 | Batch), Dyestuff, family = Gamma(link = 'log'))",
+  "data_path": "tests/data/dyestuff.csv",
+  "family": "gamma",
+  "link": "log",
+  "n_agq": 1,
+  "coefficients": {
+    "(Intercept)": 7.33085641281014
+  },
+  "sigma": 0.0334377567258038,
+  "sigma2": 0.00111808357485404,
+  "notes": "Dyestuff Gamma with log link (inverse on Yield fails lme4 convergence). Fixed-effect locked; RE θ not asserted (Rust Gamma θ often hits the boundary vs lme4)."
+}

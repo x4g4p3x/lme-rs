@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Profile-likelihood CIs** — LMM/GLMM; `parms=` subset; sleepstudy vs R profile fixture.
 - **`nlmer` box bounds** — population `lower`/`upper` and group-level `group_lower`/`group_upper` (`β + b`).
 - **Dyestuff intercept LMM golden** — `dyestuff_intercept_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) vs lme4 (`tests/data/dyestuff_intercept_reml.json`).
+- **GLMM goldens** — `cbpp_binomial_cloglog`; `gamma_dyestuff_log_laplace` (mean/dispersion; Gamma RE θ not asserted).
 
 ### Changed
 
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tooling example [`examples/dump_cascade_fixtures.rs`](examples/dump_cascade_fixtures.rs) — provisional no-R fixture dump (defaults to `target/cascade_fixture_dump/`; refuses to overwrite `tests/data/` without `--write-tests-data --force`).
 - **End-user documentation** — GUIDE / PYTHON_GUIDE / USABILITY / COMPARISONS / BENCHMARKS / OPTIMIZATION / CONTRIBUTING aligned to current APIs (`prepare_glmer`, `boot_glmer`, `cv_grouped_glmer`, profile `parms=`, full `SS*` catalog + bounds, AGQ-in-θ); BENCHMARKS no longer treats v0.1.3 as the live SoT.
 - **LMM completion closeout** — golden `dyestuff_intercept_reml`; [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows **1** and **13** at **100%** (tier-A cold `lmer()` &lt;1.0× met; optional OPTIMIZATION leftovers non-blocking).
+- **GLMM completion closeout** — cloglog + Gamma log goldens; [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row **2** at **100%** (intended family/link/AGQ surface; Gamma RE θ limitation documented).
 
 ## [0.1.11] - 2026-07-14
 

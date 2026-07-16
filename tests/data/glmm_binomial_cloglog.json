@@ -1,0 +1,19 @@
+{
+  "model": "y ~ period2 + period3 + period4 + (1 | herd) [Binomial cloglog]",
+  "engine": "lme4::glmer",
+  "call": "glmer(y ~ period2 + period3 + period4 + (1 | herd), cbpp_binary, family = binomial(link = 'cloglog'))",
+  "data_path": "tests/data/cbpp_binary.csv",
+  "family": "binomial",
+  "link": "cloglog",
+  "n_agq": 1,
+  "coefficients": {
+    "(Intercept)": -1.52558200438582,
+    "period2": -0.916109259489627,
+    "period3": -1.03465221930296,
+    "period4": -1.48339101343872
+  },
+  "theta": {
+    "herd.(Intercept)": 0.587356471736574
+  },
+  "notes": "CBPP binary-trial cloglog reference from lme4 for golden_parity_manifest."
+}
