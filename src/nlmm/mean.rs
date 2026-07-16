@@ -20,6 +20,8 @@ pub(crate) fn default_start(kind: NlmmMeanKind, names: &[String]) -> Vec<f64> {
             ("lrc2", (0.1_f64).ln()),
         ],
         NlmmMeanKind::Ssweibull => &[("Asym", 100.0), ("Drop", 80.0), ("lrc", -1.0), ("pwr", 1.5)],
+        NlmmMeanKind::Ssasympoff => &[("Asym", 90.0), ("lrc", (0.4_f64).ln()), ("c0", 0.5)],
+        NlmmMeanKind::Ssasymporig => &[("Asym", 90.0), ("lrc", (0.4_f64).ln())],
     };
     names
         .iter()

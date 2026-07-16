@@ -150,6 +150,8 @@ y ~ SSpower(x, a, b, c) ~ c|id   # MATLAB Curve Fitter power2: a*x^b + c
 y ~ SSfpl(x, A, B, xmid, scal) ~ A|id
 y ~ SSbiexp(x, A1, lrc1, A2, lrc2) ~ A1|id
 y ~ SSweibull(x, Asym, Drop, lrc, pwr) ~ Asym|id
+y ~ SSasympOff(x, Asym, lrc, c0) ~ Asym|id
+y ~ SSasympOrig(x, Asym, lrc) ~ Asym|id
 ```
 
 ```rust
@@ -172,13 +174,13 @@ let fit = nlmer(
 
 For scalar adaptive quadrature on a single random effect (`k = 1`), use [`nlmer_with_options`](src/nlmm/mod.rs) and set [`NlmerOptions::n_agq`](src/nlmm/fit.rs) to a value `≥ 2` (default `1` is Laplace only). Python: `nlmer(..., n_agq=7)`.
 
-Optional **population** box bounds on nonlinear coefficients: set [`NlmerOptions::lower` / `upper`](src/nlmm/fit.rs) (named maps). Bounds are projected in the inner Gauss–Newton and do **not** constrain group-level `β + b`. Python: `nlmer(..., lower={"a": 0.1}, upper={"a": 5.0})`.
+Optional **population** box bounds on nonlinear coefficients: set [`NlmerOptions::lower` / `upper`](src/nlmm/fit.rs) (named maps). Bounds are projected in the inner Gauss–Newton. Optional **group-level** bounds on `β + b` use `group_lower` / `group_upper` (RE parameters only): after each trial step, `b` is adjusted so each group's parameter stays in range. Python: `nlmer(..., lower={"a": 0.1}, upper={"a": 5.0}, group_lower={"c": 0.0}, group_upper={"c": 10.0})`.
 
 Custom mean functions implement [`NlmmMeanEval`](src/nlmm/mean_fn.rs) or wrap a closure with [`CustomNlmmMean`](src/nlmm/mean_fn.rs), then call [`nlmer_with_mean`](src/nlmm/mod.rs). In Python, pass a callable to [`nlmer_with_mean`](python/src/lib.rs) with the `response ~ covariate ~ re | group` formula layout (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 Current limitations:
 
-- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower` (`a * x^b + c`, MATLAB `power2`; not in R `stats::SS*`), `SSfpl`, `SSbiexp`, `SSweibull`. User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust, or `lme_python.nlmer_with_mean` in Python.
+- Built-in mean functions: `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower` (`a * x^b + c`, MATLAB `power2`; not in R `stats::SS*`), `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`. User-defined means via [`nlmer_with_mean`](src/nlmm/mod.rs) / [`CustomNlmmMean`](src/nlmm/mean_fn.rs) in Rust, or `lme_python.nlmer_with_mean` in Python.
 - Starting values: pass an empty `NlmmStart` / `start=None` in Python to use R-style `selfStart` heuristics (`stats::getInitial`); the fitter also tries static defaults and keeps the lowest-deviance result.
 - Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / **`SSpower`**, are covered by lme4 parity tests (`SSpower` via custom R `selfStart`; see [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md)).
 - **`SSpower`:** μ = `a * x^b + c` (MATLAB Curve Fitter `power2`). Requires **covariate x > 0**. Not in R `stats::SS*`; grouped calibration only — not bounded single-curve NLS (lmfit / MATLAB Curve Fitter). For **independent per-sensor fits** vs **pooled** `nlmer`, and why CUDA batch fitters are a different lane, see [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md).
@@ -328,13 +330,14 @@ let mu_cond = poisson_fit.predict_conditional_response(&newdata, true)?;
 
 `confint()` returns Wald intervals for the fixed effects by default. When Kenward–Roger or Satterthwaite denominator degrees of freedom are stored on the fit (via `with_kenward_roger()` or `with_satterthwaite()`), Wald intervals use **t** critical values with those dfs; otherwise the normal approximation is used.
 
-Profile-likelihood intervals: `confint_profile(level, &data)` or `confint_with(level, ConfintMethod::Profile, Some(&data))`. They need the original data, refit θ many times per coefficient, and are slower than Wald. LMM profiles use the ML deviance scale (even if the reference fit was REML).
+Profile-likelihood intervals: `confint_profile(level, &data)` or `confint_with(level, ConfintMethod::Profile, Some(&data))`. They need the original data, refit θ many times per coefficient, and are slower than Wald. LMM profiles use the ML deviance scale (even if the reference fit was REML). Use `confint_profile_parms(level, &data, &[j, …])` (or `confint_with_parms(..., Some(&[j]))`) to profile a subset — the main speed lever when only a few coefficients matter.
 
 ```rust
 let mut fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
 fit.with_satterthwaite(&df)?;
 let ci = fit.confint(0.95)?;
 let ci_prof = fit.confint_profile(0.95, &df)?;
+let ci_days = fit.confint_profile_parms(0.95, &df, &[1])?;
 println!("{}", ci);
 ```
 
@@ -638,7 +641,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `boot_glmer(formula, data, fit, nsim, method, seed, n_jobs)` | parametric bootstrap refits (GLMM); residual rejected |
 | `fit_prepared_with_response(prepared, y_response, reml)` | refit from prepared design with a new response vector |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
-| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`…`SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`; multivariate RE; empty `start` → `selfStart`) |
+| `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`…`SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
 | `nlmer_with_mean(parsed, mean, data, formula_label, opts)` | `nlmer` with a custom [`NlmmMeanEval`](src/nlmm/mean_fn.rs) |
 | `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |

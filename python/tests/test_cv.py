@@ -24,6 +24,26 @@ def test_prepare_lmer_fit_prepared(sleepstudy: pl.DataFrame) -> None:
     assert abs(fit_reml.coefficients[0] - cold.coefficients[0]) < 1e-8
 
 
+def test_prepare_glmer_fit_prepared() -> None:
+    cbpp = pl.read_csv(Path(__file__).resolve().parents[2] / "tests" / "data" / "cbpp_binary.csv")
+    prep = lme_python.prepare_glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        data=cbpp,
+        family_name="binomial",
+        n_agq=1,
+    )
+    assert prep.n_agq == 1
+    assert prep.family_name == "binomial"
+    fit = lme_python.fit_prepared_glmer(prep)
+    cold = lme_python.glmer(
+        "y ~ period2 + period3 + period4 + (1 | herd)",
+        data=cbpp,
+        family_name="binomial",
+        n_agq=1,
+    )
+    assert abs(fit.coefficients[0] - cold.coefficients[0]) < 1e-6
+
+
 def test_refit_lmer(sleepstudy: pl.DataFrame) -> None:
     fit = lme_python.refit_lmer("Reaction ~ Days + (1 | Subject)", data=sleepstudy, reml=True)
     assert fit.reml_criterion is not None

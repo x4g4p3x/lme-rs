@@ -6,6 +6,8 @@ use crate::nlmm::fit::NlmmStart;
 use crate::nlmm::formula::NlmmMeanKind;
 use crate::nlmm::self_start;
 use crate::nlmm::ssasymp::ssasymp_eval;
+use crate::nlmm::ssasympoff::ssasympoff_eval;
+use crate::nlmm::ssasymporig::ssasymporig_eval;
 use crate::nlmm::ssbiexp::ssbiexp_eval;
 use crate::nlmm::ssfpl::ssfpl_eval;
 use crate::nlmm::ssgompertz::ssgompertz_eval;
@@ -74,6 +76,14 @@ impl NlmmMeanEval for NlmmMeanKind {
             }
             NlmmMeanKind::Ssweibull => {
                 let (mu, grads) = ssweibull_eval(params[0], params[1], params[2], params[3], x);
+                (mu, grads)
+            }
+            NlmmMeanKind::Ssasympoff => {
+                let (mu, grads) = ssasympoff_eval(params[0], params[1], params[2], x);
+                (mu, grads)
+            }
+            NlmmMeanKind::Ssasymporig => {
+                let (mu, grads) = ssasymporig_eval(params[0], params[1], x);
                 (mu, grads)
             }
         }

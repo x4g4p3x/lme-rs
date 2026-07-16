@@ -6,7 +6,7 @@ use std::sync::Arc;
 use lme_rs::contrast::contrast_matrix;
 use lme_rs::family::Family;
 use lme_rs::nlmm::{parse_nlmer_custom_formula, NlmmMeanEval, NlmmStart};
-use lme_rs::{AnovaType, DdfMethod, LmeFit, LmerPrepared};
+use lme_rs::{AnovaType, DdfMethod, GlmerPrepared, LmeFit, LmerPrepared};
 use ndarray::Array2;
 
 #[pyclass]
@@ -33,6 +33,26 @@ impl PyLmerPrepared {
     #[getter]
     fn blocked_kernel_detail(&self) -> &'static str {
         self.inner.blocked_kernel_detail
+    }
+}
+
+/// Cached design matrices for repeated GLMM fits (`prepare_glmer`).
+#[pyclass(from_py_object)]
+#[derive(Clone)]
+pub struct PyGlmerPrepared {
+    inner: GlmerPrepared,
+}
+
+#[pymethods]
+impl PyGlmerPrepared {
+    #[getter]
+    fn n_agq(&self) -> usize {
+        self.inner.n_agq()
+    }
+
+    #[getter]
+    fn family_name(&self) -> String {
+        self.inner.family().to_string().to_ascii_lowercase()
     }
 }
 
@@ -442,6 +462,42 @@ fn parse_family(family_name: &str) -> PyResult<Family> {
             "Unsupported or invalid family: {other}"
         ))),
     }
+}
+
+fn resolve_confint_parms(
+    fit: &LmeFit,
+    parms: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<Vec<usize>>> {
+    let Some(obj) = parms else {
+        return Ok(None);
+    };
+    let seq = obj.cast::<PyList>().map_err(|_| {
+        pyo3::exceptions::PyTypeError::new_err("confint parms must be a list of indices or names")
+    })?;
+    if seq.is_empty() {
+        return Ok(None);
+    }
+    let names = fit.fixed_names.as_deref().unwrap_or(&[]);
+    let mut out = Vec::with_capacity(seq.len());
+    for item in seq.iter() {
+        if let Ok(idx) = item.extract::<usize>() {
+            out.push(idx);
+            continue;
+        }
+        if let Ok(name) = item.extract::<String>() {
+            let Some(idx) = names.iter().position(|n| n == &name) else {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "confint parms unknown fixed-effect name '{name}'"
+                )));
+            };
+            out.push(idx);
+            continue;
+        }
+        return Err(pyo3::exceptions::PyTypeError::new_err(
+            "confint parms entries must be int indices or str names",
+        ));
+    }
+    Ok(Some(out))
 }
 
 fn parse_link(link_name: Option<&str>, family: Family) -> PyResult<lme_rs::family::Link> {
@@ -1132,13 +1188,17 @@ impl PyLmeFit {
     ///
     /// `method` is `"wald"` (default) or `"profile"`. Profile requires `data`
     /// (same frame used to fit) and is slower (many θ refits).
-    #[pyo3(signature = (level=0.95, method="wald", data=None))]
+    ///
+    /// `parms` optionally selects coefficients by 0-based index or fixed-effect
+    /// name (profile and Wald).
+    #[pyo3(signature = (level=0.95, method="wald", data=None, parms=None))]
     pub fn confint<'py>(
         &self,
         py: Python<'py>,
         level: f64,
         method: &str,
         data: Option<&Bound<'py, PyAny>>,
+        parms: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<PyConfintResult> {
         let method = match method.to_ascii_lowercase().as_str() {
             "wald" => lme_rs::ConfintMethod::Wald,
@@ -1162,7 +1222,12 @@ impl PyLmeFit {
         } else {
             None
         };
-        match self.inner.confint_with(level, method, data_ref) {
+        let parms_idx = resolve_confint_parms(&self.inner, parms)?;
+        let parms_ref = parms_idx.as_deref();
+        match self
+            .inner
+            .confint_with_parms(level, method, data_ref, parms_ref)
+        {
             Ok(ci) => Ok(PyConfintResult {
                 lower: ci.lower.to_vec(),
                 upper: ci.upper.to_vec(),
@@ -1580,6 +1645,43 @@ pub fn fit_prepared(prepared: &PyLmerPrepared, reml: bool) -> PyResult<PyLmeFit>
     }
 }
 
+/// Prepare a GLMM for repeated fits on the same formula and data.
+#[pyfunction]
+#[pyo3(signature = (formula, data, family_name, n_agq=1, weights=None, link_name=None))]
+pub fn prepare_glmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    family_name: &str,
+    n_agq: usize,
+    weights: Option<Vec<f64>>,
+    link_name: Option<&str>,
+) -> PyResult<PyGlmerPrepared> {
+    let bytes = get_ipc_bytes(py, data)?;
+    let df = read_ipc_bytes(&bytes)?;
+    let family = parse_family(family_name)?;
+    let link = parse_link(link_name, family)?;
+    let w = weights.map(ndarray::Array1::from_vec);
+    match lme_rs::prepare_glmer_weighted_with_link(formula, &df, family, link, n_agq, w) {
+        Ok(prepared) => Ok(PyGlmerPrepared { inner: prepared }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "prepare_glmer failed: {e}"
+        ))),
+    }
+}
+
+/// Fit a prepared GLMM (amortized hot path after [`prepare_glmer`]).
+#[pyfunction]
+#[pyo3(signature = (prepared,))]
+pub fn fit_prepared_glmer(prepared: &PyGlmerPrepared) -> PyResult<PyLmeFit> {
+    match lme_rs::fit_prepared_glmer(&prepared.inner) {
+        Ok(fit) => Ok(PyLmeFit { inner: fit }),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "fit_prepared_glmer failed: {e}"
+        ))),
+    }
+}
+
 /// Refit an LMM on the same formula and data (prepare + fit).
 #[pyfunction]
 #[pyo3(signature = (formula, data, reml=true))]
@@ -1903,7 +2005,7 @@ pub fn contrast_matrix_py(p: usize, rows: Vec<Vec<(usize, f64)>>) -> PyResult<Ve
 
 /// Fit a nonlinear mixed-effects model (`SSlogis` mean; random effect on one NL parameter).
 #[pyfunction]
-#[pyo3(signature = (formula, data, start=None, reml=false, n_agq=1, lower=None, upper=None))]
+#[pyo3(signature = (formula, data, start=None, reml=false, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None))]
 pub fn nlmer<'py>(
     py: Python<'py>,
     formula: &str,
@@ -1913,6 +2015,8 @@ pub fn nlmer<'py>(
     n_agq: usize,
     lower: Option<&Bound<'py, PyDict>>,
     upper: Option<&Bound<'py, PyDict>>,
+    group_lower: Option<&Bound<'py, PyDict>>,
+    group_upper: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
@@ -1923,6 +2027,8 @@ pub fn nlmer<'py>(
         n_agq,
         lower: parse_optional_nlmm_bounds(lower)?,
         upper: parse_optional_nlmm_bounds(upper)?,
+        group_lower: parse_optional_nlmm_bounds(group_lower)?,
+        group_upper: parse_optional_nlmm_bounds(group_upper)?,
         ..lme_rs::NlmerOptions::default()
     };
     match lme_rs::nlmer_with_options(formula, &df, &opts) {
@@ -1940,7 +2046,7 @@ pub fn nlmer<'py>(
 /// must return ``(mu, grad)`` where ``grad`` has one partial derivative per name in
 /// ``param_names``.
 #[pyfunction]
-#[pyo3(signature = (formula, data, mean_fn, param_names, start=None, reml=false, n_agq=1, lower=None, upper=None))]
+#[pyo3(signature = (formula, data, mean_fn, param_names, start=None, reml=false, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None))]
 pub fn nlmer_with_mean<'py>(
     py: Python<'py>,
     formula: &str,
@@ -1952,6 +2058,8 @@ pub fn nlmer_with_mean<'py>(
     n_agq: usize,
     lower: Option<&Bound<'py, PyDict>>,
     upper: Option<&Bound<'py, PyDict>>,
+    group_lower: Option<&Bound<'py, PyDict>>,
+    group_upper: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<PyLmeFit> {
     if param_names.is_empty() {
         return Err(pyo3::exceptions::PyValueError::new_err(
@@ -1971,6 +2079,8 @@ pub fn nlmer_with_mean<'py>(
         n_agq,
         lower: parse_optional_nlmm_bounds(lower)?,
         upper: parse_optional_nlmm_bounds(upper)?,
+        group_lower: parse_optional_nlmm_bounds(group_lower)?,
+        group_upper: parse_optional_nlmm_bounds(group_upper)?,
         ..lme_rs::NlmerOptions::default()
     };
     match lme_rs::nlmer_with_mean(
@@ -2010,6 +2120,7 @@ pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<PyLikelihoodRatioAn
 fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLmeFit>()?;
     m.add_class::<PyLmerPrepared>()?;
+    m.add_class::<PyGlmerPrepared>()?;
     m.add_class::<PyCvFoldMetric>()?;
     m.add_class::<PyCvGroupedResult>()?;
     m.add_class::<PyBootReplicate>()?;
@@ -2027,6 +2138,8 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lmer, m)?)?;
     m.add_function(wrap_pyfunction!(prepare_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(fit_prepared, m)?)?;
+    m.add_function(wrap_pyfunction!(prepare_glmer, m)?)?;
+    m.add_function(wrap_pyfunction!(fit_prepared_glmer, m)?)?;
     m.add_function(wrap_pyfunction!(refit_lmer, m)?)?;
     m.add_function(wrap_pyfunction!(cv_grouped, m)?)?;
     m.add_function(wrap_pyfunction!(cv_grouped_glmer, m)?)?;
@@ -2045,6 +2158,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
         [
             "PyLmeFit",
             "PyLmerPrepared",
+            "PyGlmerPrepared",
             "PyCvFoldMetric",
             "PyCvGroupedResult",
             "PyBootReplicate",
@@ -2062,6 +2176,8 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "lmer",
             "prepare_lmer",
             "fit_prepared",
+            "prepare_glmer",
+            "fit_prepared_glmer",
             "refit_lmer",
             "cv_grouped",
             "cv_grouped_glmer",

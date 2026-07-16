@@ -84,3 +84,70 @@ fn rejects_inverted_bounds() {
     let err = nlmer_with_options("y ~ SSpower(x, a, b, c) ~ c|g", &df, &opts).unwrap_err();
     assert!(format!("{err}").contains("bounds"));
 }
+
+#[test]
+fn sspower_respects_group_level_box_bounds() {
+    let df = power_df();
+
+    let mut start = NlmmStart::new();
+    start.insert("a".to_string(), 1.0);
+    start.insert("b".to_string(), 0.5);
+    start.insert("c".to_string(), 1.0);
+
+    // Tight bounds on group-level c = β_c + b_g around the DGP (~0.9–1.15).
+    let mut group_lower = NlmmStart::new();
+    group_lower.insert("c".to_string(), 0.85);
+    let mut group_upper = NlmmStart::new();
+    group_upper.insert("c".to_string(), 1.25);
+
+    let opts = NlmerOptions {
+        reml: false,
+        start,
+        group_lower: Some(group_lower),
+        group_upper: Some(group_upper),
+        ..NlmerOptions::default()
+    };
+
+    let fit = nlmer_with_options("y ~ SSpower(x, a, b, c) ~ c|g", &df, &opts).unwrap();
+    let c_idx = fit
+        .fixed_names
+        .as_ref()
+        .unwrap()
+        .iter()
+        .position(|n| n == "c")
+        .unwrap();
+    let beta_c = fit.coefficients[c_idx];
+    let ranef = fit.ranef.as_ref().expect("ranef");
+    let terms = ranef.column("term").unwrap();
+    let vals = ranef.column("condval").unwrap().f64().unwrap();
+    for row in 0..ranef.height() {
+        let term = terms
+            .get(row)
+            .unwrap()
+            .to_string()
+            .trim_matches('"')
+            .to_string();
+        if term != "c" {
+            continue;
+        }
+        let b = vals.get(row).unwrap();
+        let phi = beta_c + b;
+        assert!(
+            (0.85..=1.25).contains(&phi),
+            "group-level c out of bounds: {phi}"
+        );
+    }
+}
+
+#[test]
+fn rejects_group_bound_on_fixed_only_param() {
+    let df = power_df();
+    let mut group_lower = NlmmStart::new();
+    group_lower.insert("a".to_string(), 0.0);
+    let opts = NlmerOptions {
+        group_lower: Some(group_lower),
+        ..NlmerOptions::default()
+    };
+    let err = nlmer_with_options("y ~ SSpower(x, a, b, c) ~ c|g", &df, &opts).unwrap_err();
+    assert!(format!("{err}").contains("random-effect"));
+}

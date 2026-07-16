@@ -1426,6 +1426,23 @@ pub struct GlmerPrepared {
     zt_w_z_map: Vec<(usize, usize, f64)>,
 }
 
+impl GlmerPrepared {
+    /// Adaptive Gauss–Hermite order stored at prepare time.
+    pub fn n_agq(&self) -> usize {
+        self.n_agq
+    }
+
+    /// GLMM family stored at prepare time.
+    pub fn family(&self) -> family::Family {
+        self.family
+    }
+
+    /// Link function stored at prepare time.
+    pub fn link(&self) -> family::Link {
+        self.link
+    }
+}
+
 /// Prepare an unweighted GLMM (design matrices + structural maps) without optimizing θ.
 pub fn prepare_glmer(
     formula_str: &str,

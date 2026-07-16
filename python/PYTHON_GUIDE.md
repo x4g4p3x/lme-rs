@@ -43,6 +43,9 @@ Top-level functions:
 - `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
 - `lme_python.lmer(formula, data, reml=True)`
 - `lme_python.prepare_lmer(formula, data)` → `PyLmerPrepared`
+- `lme_python.fit_prepared(prepared, reml=True)` → `PyLmeFit`
+- `lme_python.prepare_glmer(formula, data, family_name, n_agq=1, weights=None, link_name=None)` → `PyGlmerPrepared`
+- `lme_python.fit_prepared_glmer(prepared)` → `PyLmeFit`
 - `lme_python.fit_prepared(prepared, reml=True)`
 - `lme_python.refit_lmer(formula, data, reml=True)`
 - `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
@@ -51,7 +54,7 @@ Top-level functions:
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
 - `lme_python.glmer(formula, data, family_name, n_agq=1)`
 - `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
-- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`); optional population box bounds
+- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`); optional population and group-level (`β+b`) box bounds
 - `lme_python.boot_lmer(...)` / `fit.boot(...)` — LMM bootstrap; `lme_python.boot_glmer(...)` / `fit.boot_glmer(...)` — parametric GLMM bootstrap (including binomial proportion + trial weights)
 - `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
@@ -67,7 +70,7 @@ Available `PyLmeFit` methods:
 - `predict_conditional(newdata, allow_new_levels=False)`
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
-- `confint(level=0.95, method="wald"|"profile", data=None)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower
+- `confint(level=0.95, method="wald"|"profile", data=None, parms=None)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower; `parms` selects coefficients by index or name
 - `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
 - `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
 - `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM only)
@@ -314,6 +317,13 @@ When fitting the same formula and data repeatedly (REML vs ML, grid search, boot
 prep = lme_python.prepare_lmer("Reaction ~ Days + (1 | Subject)", data=df)
 fit_reml = lme_python.fit_prepared(prep, reml=True)
 fit_ml = lme_python.fit_prepared(prep, reml=False)
+
+gprep = lme_python.prepare_glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    data=cbpp,
+    family_name="binomial",
+)
+gfit = lme_python.fit_prepared_glmer(gprep)
 ```
 
 `refit_lmer(formula, data, reml=True)` combines prepare + fit when you do not need to hold the prepared object.

@@ -1,0 +1,11 @@
+{
+  "model": "Reaction ~ Days + (1 | Subject) ML",
+  "level": 0.95,
+  "method": "profile",
+  "outputs": {
+    "names": ["(Intercept)", "Days"],
+    "lower": [231.992326372124, 8.8865509580503],
+    "upper": [270.817883468577, 12.0480209620092],
+    "estimate": [251.405104848484, 10.467285959596]
+  }
+}

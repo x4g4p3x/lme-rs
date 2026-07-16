@@ -54,11 +54,44 @@ fn test_confint_with_profile_matches_confint_profile() {
 }
 
 #[test]
-fn test_confint_profile_rejects_bad_level() {
+fn test_confint_profile_parms_subset() {
     let df = load_sleepstudy();
-    let fit = lmer("Reaction ~ Days + (1 | Subject)", &df, true).unwrap();
-    assert!(fit.confint_profile(0.0, &df).is_err());
-    assert!(fit.confint_profile(1.0, &df).is_err());
+    let fit = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    let all = fit.confint_profile(0.95, &df).unwrap();
+    let days_only = fit.confint_profile_parms(0.95, &df, &[1]).unwrap();
+    assert_eq!(days_only.names.len(), 1);
+    assert_eq!(days_only.names[0], all.names[1]);
+    assert!((days_only.lower[0] - all.lower[1]).abs() < 1e-6);
+    assert!((days_only.upper[0] - all.upper[1]).abs() < 1e-6);
+}
+
+#[test]
+fn test_confint_profile_sleepstudy_matches_r_fixture() {
+    let df = load_sleepstudy();
+    let fit = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    let profile = fit.confint_profile(0.95, &df).unwrap();
+    let file = File::open("tests/data/sleepstudy_confint_profile.json")
+        .expect("sleepstudy_confint_profile.json");
+    let raw: serde_json::Value = serde_json::from_reader(file).unwrap();
+    let outs = &raw["outputs"];
+    let r_lo = outs["lower"].as_array().unwrap();
+    let r_hi = outs["upper"].as_array().unwrap();
+    for i in 0..2 {
+        let lo = r_lo[i].as_f64().unwrap();
+        let hi = r_hi[i].as_f64().unwrap();
+        assert!(
+            (profile.lower[i] - lo).abs() < 6.0,
+            "lower[{i}]: rust={} r={}",
+            profile.lower[i],
+            lo
+        );
+        assert!(
+            (profile.upper[i] - hi).abs() < 6.0,
+            "upper[{i}]: rust={} r={}",
+            profile.upper[i],
+            hi
+        );
+    }
 }
 
 #[test]

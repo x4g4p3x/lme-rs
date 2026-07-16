@@ -135,6 +135,7 @@ class PyLmeFit:
         level: float = 0.95,
         method: str = "wald",
         data: DataFrameLike | None = None,
+        parms: list[int | str] | None = None,
     ) -> PyConfintResult: ...
     def anova(
         self, ddf_method: str = "satterthwaite", anova_type: str = "III"
@@ -196,6 +197,10 @@ class PyLmerPrepared:
     blocked_kernel: bool
     blocked_kernel_detail: str
 
+class PyGlmerPrepared:
+    n_agq: int
+    family_name: str
+
 class PyCvFoldMetric:
     fold: int
     n_train_groups: int
@@ -223,6 +228,15 @@ def lm_matrix(y: list[float], x: list[list[float]]) -> PyLmeFit: ...
 def lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
 def prepare_lmer(formula: str, data: DataFrameInput) -> PyLmerPrepared: ...
 def fit_prepared(prepared: PyLmerPrepared, reml: bool = True) -> PyLmeFit: ...
+def prepare_glmer(
+    formula: str,
+    data: DataFrameInput,
+    family_name: str,
+    n_agq: int = 1,
+    weights: list[float] | None = None,
+    link_name: str | None = None,
+) -> PyGlmerPrepared: ...
+def fit_prepared_glmer(prepared: PyGlmerPrepared) -> PyLmeFit: ...
 def refit_lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
 def cv_grouped(
     formula: str,
@@ -293,6 +307,8 @@ def nlmer(
     n_agq: int = 1,
     lower: Optional[dict[str, float]] = None,
     upper: Optional[dict[str, float]] = None,
+    group_lower: Optional[dict[str, float]] = None,
+    group_upper: Optional[dict[str, float]] = None,
 ) -> PyLmeFit: ...
 def nlmer_with_mean(
     formula: str,
@@ -304,6 +320,8 @@ def nlmer_with_mean(
     n_agq: int = 1,
     lower: Optional[dict[str, float]] = None,
     upper: Optional[dict[str, float]] = None,
+    group_lower: Optional[dict[str, float]] = None,
+    group_upper: Optional[dict[str, float]] = None,
 ) -> PyLmeFit: ...
 def anova(fit_a: PyLmeFit, fit_b: PyLmeFit) -> PyLikelihoodRatioAnova: ...
 def contrast_matrix(p: int, rows: list[list[tuple[int, float]]]) -> list[list[float]]: ...

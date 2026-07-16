@@ -838,6 +838,100 @@
           }
         ]
       }
+    },
+    {
+      "id": "ssfpl_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSfpl mean; selfStart (no explicit start).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssfpl_synthetic.csv",
+      "formula": "y ~ SSfpl(x, A, B, xmid, scal) ~ A|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSfpl(x, A, B, xmid, scal) ~ A|id, data, start=getInitial(...))",
+        "source_fixture": "tests/data/ssfpl_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          { "name": "A", "value": 6.86691007158082, "tolerance": 2.0 },
+          { "name": "B", "value": 54.6031103327556, "tolerance": 3.0 },
+          { "name": "xmid", "value": 5.19742944278641, "tolerance": 1.0 },
+          { "name": "scal", "value": 2.58290152180042, "tolerance": 1.0 }
+        ],
+        "theta": [
+          { "name": "id.A", "value": 1.85330170886257, "tolerance": 1.5 }
+        ]
+      }
+    },
+    {
+      "id": "ssasympoff_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSasympOff mean; selfStart (no explicit start).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssasympoff_synthetic.csv",
+      "formula": "y ~ SSasympOff(x, Asym, lrc, c0) ~ Asym|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSasympOff(x, Asym, lrc, c0) ~ Asym|id, data, start=getInitial(...))",
+        "source_fixture": "tests/data/ssasympoff_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          { "name": "Asym", "value": 90.4214764852038, "tolerance": 3.0 },
+          { "name": "lrc", "value": -0.956574223085323, "tolerance": 0.5 },
+          { "name": "c0", "value": 0.534203561535354, "tolerance": 0.5 }
+        ],
+        "theta": [
+          { "name": "id.Asym", "value": 1.81764888202075, "tolerance": 1.5 }
+        ]
+      }
+    },
+    {
+      "id": "ssasymporig_synthetic_self_start",
+      "description": "Synthetic grouped nlmer with SSasympOrig mean; selfStart (no explicit start).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssasymporig_synthetic.csv",
+      "formula": "y ~ SSasympOrig(x, Asym, lrc) ~ Asym|id",
+      "nlmm_reml": false,
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSasympOrig(x, Asym, lrc) ~ Asym|id, data, start=getInitial(...))",
+        "source_fixture": "tests/data/ssasymporig_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          { "name": "Asym", "value": 89.9731706192102, "tolerance": 3.0 },
+          { "name": "lrc", "value": -0.914030163376591, "tolerance": 0.5 }
+        ],
+        "theta": [
+          { "name": "id.Asym", "value": 1.1271224791334, "tolerance": 1.0 }
+        ]
+      }
+    },
+    {
+      "id": "cbpp_binomial_agq7",
+      "description": "CBPP expanded binomial with scalar AGQ nAGQ=7 (AGQ-in-θ).",
+      "kind": "glmm",
+      "data_path": "tests/data/cbpp_binary.csv",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "family": "binomial",
+      "n_agq": 7,
+      "reference": {
+        "engine": "lme4::glmer",
+        "call": "glmer(y ~ period2 + period3 + period4 + (1 | herd), cbpp_binary, family=binomial, nAGQ=7)",
+        "source_fixture": "tests/data/glmm_binomial_agq.json"
+      },
+      "expected": {
+        "coefficients": [
+          { "name": "(Intercept)", "value": -1.39923514415319, "tolerance": 0.08 },
+          { "name": "period2", "value": -0.991393551775128, "tolerance": 0.08 },
+          { "name": "period3", "value": -1.12782137426677, "tolerance": 0.08 },
+          { "name": "period4", "value": -1.5794729537733, "tolerance": 0.08 }
+        ],
+        "theta": [
+          { "name": "herd.(Intercept)", "value": 0.647518712524572, "tolerance": 0.08 }
+        ]
+      }
     }
   ]
 }

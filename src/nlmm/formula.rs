@@ -40,13 +40,22 @@ pub enum NlmmMeanKind {
     Ssbiexp,
     /// `SSweibull(covariate, Asym, Drop, lrc, pwr)` — Weibull growth curve
     Ssweibull,
+    /// `SSasympOff(covariate, Asym, lrc, c0)` — asymptotic regression with offset
+    Ssasympoff,
+    /// `SSasympOrig(covariate, Asym, lrc)` — asymptotic regression through the origin
+    Ssasymporig,
 }
 
 impl NlmmMeanKind {
     pub(crate) fn n_params(self) -> usize {
         match self {
-            Self::Ssmicmen => 2,
-            Self::Sslogis | Self::Ssasymp | Self::Ssfol | Self::Ssgompertz | Self::Sspower => 3,
+            Self::Ssmicmen | Self::Ssasymporig => 2,
+            Self::Sslogis
+            | Self::Ssasymp
+            | Self::Ssfol
+            | Self::Ssgompertz
+            | Self::Sspower
+            | Self::Ssasympoff => 3,
             Self::Ssfpl | Self::Ssbiexp | Self::Ssweibull => 4,
         }
     }
@@ -158,10 +167,12 @@ fn parse_nonlinear_part(s: &str) -> crate::Result<(NlmmMeanKind, String, Vec<Str
         "SSfpl" => NlmmMeanKind::Ssfpl,
         "SSbiexp" => NlmmMeanKind::Ssbiexp,
         "SSweibull" => NlmmMeanKind::Ssweibull,
+        "SSasympOff" => NlmmMeanKind::Ssasympoff,
+        "SSasympOrig" => NlmmMeanKind::Ssasymporig,
         other => {
             return Err(LmeError::NotImplemented {
                 feature: format!(
-                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz, SSpower, SSfpl, SSbiexp, SSweibull)"
+                    "Unsupported nonlinear mean '{other}' (supported: SSlogis, SSasymp, SSfol, SSmicmen, SSgompertz, SSpower, SSfpl, SSbiexp, SSweibull, SSasympOff, SSasympOrig)"
                 ),
             });
         }

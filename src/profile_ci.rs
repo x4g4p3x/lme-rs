@@ -33,7 +33,21 @@ impl LmeFit {
     /// Slower than Wald: each endpoint refits θ many times. Supported for Gaussian LMMs
     /// and GLMMs; not supported for `nlmer`.
     pub fn confint_profile(&self, level: f64, data: &DataFrame) -> anyhow::Result<ConfintResult> {
-        profile_confint(self, level, data)
+        profile_confint(self, level, data, None)
+    }
+
+    /// Profile-likelihood CIs for a subset of fixed effects (`parms` = 0-based indices).
+    ///
+    /// When `parms` is empty, all coefficients are profiled (same as [`Self::confint_profile`]).
+    /// Subsetting avoids profiling unused coefficients and is the main speed lever.
+    pub fn confint_profile_parms(
+        &self,
+        level: f64,
+        data: &DataFrame,
+        parms: &[usize],
+    ) -> anyhow::Result<ConfintResult> {
+        let subset = if parms.is_empty() { None } else { Some(parms) };
+        profile_confint(self, level, data, subset)
     }
 
     /// Confidence intervals with an explicit method.
@@ -55,13 +69,70 @@ impl LmeFit {
             }
         }
     }
+
+    /// Like [`Self::confint_with`], with optional `parms` for profile (ignored for Wald).
+    pub fn confint_with_parms(
+        &self,
+        level: f64,
+        method: ConfintMethod,
+        data: Option<&DataFrame>,
+        parms: Option<&[usize]>,
+    ) -> anyhow::Result<ConfintResult> {
+        match method {
+            ConfintMethod::Wald => {
+                let mut ci = self.confint(level)?;
+                if let Some(idxs) = parms {
+                    if !idxs.is_empty() {
+                        ci = subset_confint(ci, idxs)?;
+                    }
+                }
+                Ok(ci)
+            }
+            ConfintMethod::Profile => {
+                let df = data.ok_or_else(|| {
+                    anyhow::anyhow!("confint_with_parms(Profile) requires data=Some(...)")
+                })?;
+                match parms {
+                    Some(idxs) if !idxs.is_empty() => self.confint_profile_parms(level, df, idxs),
+                    _ => self.confint_profile(level, df),
+                }
+            }
+        }
+    }
 }
 
-/// Compute profile-likelihood CIs for all fixed effects on `fit`.
+fn subset_confint(ci: ConfintResult, parms: &[usize]) -> anyhow::Result<ConfintResult> {
+    let p = ci.lower.len();
+    let mut lower = Vec::with_capacity(parms.len());
+    let mut upper = Vec::with_capacity(parms.len());
+    let mut names = Vec::with_capacity(parms.len());
+    for &j in parms {
+        if j >= p {
+            return Err(anyhow::anyhow!(
+                "confint parms index {j} out of range (p={p})"
+            ));
+        }
+        lower.push(ci.lower[j]);
+        upper.push(ci.upper[j]);
+        names.push(ci.names[j].clone());
+    }
+    Ok(ConfintResult {
+        lower: Array1::from_vec(lower),
+        upper: Array1::from_vec(upper),
+        names,
+        level: ci.level,
+    })
+}
+
+/// Compute profile-likelihood CIs for fixed effects on `fit`.
+///
+/// When `parms` is `Some`, only those 0-based coefficient indices are profiled
+/// (result length matches `parms`).
 pub fn profile_confint(
     fit: &LmeFit,
     level: f64,
     data: &DataFrame,
+    parms: Option<&[usize]>,
 ) -> anyhow::Result<ConfintResult> {
     if level <= 0.0 || level >= 1.0 {
         return Err(anyhow::anyhow!(
@@ -94,13 +165,27 @@ pub fn profile_confint(
         ));
     }
 
-    let names = fit
+    let all_names = fit
         .fixed_names
         .clone()
         .unwrap_or_else(|| (0..p).map(|i| format!("beta_{}", i)).collect());
+    let indices: Vec<usize> = match parms {
+        Some(idxs) if !idxs.is_empty() => {
+            for &j in idxs {
+                if j >= p {
+                    return Err(anyhow::anyhow!(
+                        "confint_profile parms index {j} out of range (p={p})"
+                    ));
+                }
+            }
+            idxs.to_vec()
+        }
+        _ => (0..p).collect(),
+    };
 
-    let mut lower = Array1::zeros(p);
-    let mut upper = Array1::zeros(p);
+    let mut lower = Array1::zeros(indices.len());
+    let mut upper = Array1::zeros(indices.len());
+    let mut names = Vec::with_capacity(indices.len());
 
     if let Some(family) = fit.family {
         let chi2 = ChiSquared::new(1.0).map_err(|e| anyhow::anyhow!("ChiSquared: {e}"))?;
@@ -123,7 +208,7 @@ pub fn profile_confint(
             .theta
             .clone()
             .unwrap_or_else(|| prepared.init_theta.clone());
-        for j in 0..p {
+        for (out_i, &j) in indices.iter().enumerate() {
             let (lo, hi) = profile_bounds_glmm(
                 &prepared,
                 j,
@@ -132,8 +217,9 @@ pub fn profile_confint(
                 target,
                 &init_theta,
             )?;
-            lower[j] = lo;
-            upper[j] = hi;
+            lower[out_i] = lo;
+            upper[out_i] = hi;
+            names.push(all_names[j].clone());
         }
     } else {
         // Profile fixed effects under ML even if the reference fit used REML:
@@ -158,7 +244,7 @@ pub fn profile_confint(
             .clone()
             .unwrap_or_else(|| prepared.init_theta.clone());
         let se_ml = ml_fit.beta_se.as_ref().unwrap_or(se);
-        for j in 0..p {
+        for (out_i, &j) in indices.iter().enumerate() {
             let (lo, hi) = profile_bounds_lmm(
                 &prepared,
                 j,
@@ -168,8 +254,9 @@ pub fn profile_confint(
                 false,
                 &init_theta,
             )?;
-            lower[j] = lo;
-            upper[j] = hi;
+            lower[out_i] = lo;
+            upper[out_i] = hi;
+            names.push(all_names[j].clone());
         }
     }
 

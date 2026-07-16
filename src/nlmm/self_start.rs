@@ -23,6 +23,8 @@ pub(crate) fn self_start(
         NlmmMeanKind::Ssfpl => self_start_ssfpl(&xy),
         NlmmMeanKind::Ssbiexp => self_start_ssbiexp(&xy),
         NlmmMeanKind::Ssweibull => self_start_ssweibull(&xy),
+        NlmmMeanKind::Ssasympoff => self_start_ssasympoff(&xy),
+        NlmmMeanKind::Ssasymporig => self_start_ssasymporig(&xy),
     };
     let mut start = NlmmStart::new();
     for (name, value) in param_names.iter().zip(values.iter()) {
@@ -251,6 +253,50 @@ fn self_start_ssweibull(xy: &[(f64, f64)]) -> Vec<f64> {
     let x_mid = xy[xy.len() / 2].0.max(1e-3);
     let lrc = (1.0 / x_mid).ln();
     vec![asym, drop, lrc, 1.5]
+}
+
+fn self_start_ssasympoff(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.len() < 3 {
+        return vec![90.0, (0.4_f64).ln(), 0.5];
+    }
+    let asym = xy
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .max(1.0);
+    let y0 = xy.first().map(|(_, y)| *y).unwrap_or(0.0);
+    let c0 = if y0.abs() < 1e-6 {
+        xy.first().map(|(x, _)| *x).unwrap_or(0.0)
+    } else {
+        approx_x_from_y(xy, 0.0).unwrap_or(xy[0].0)
+    };
+    let half = asym / 2.0;
+    let xmid = approx_x_from_y(xy, half).unwrap_or(xy[xy.len() / 2].0);
+    let mut lrc = ((2.0_f64).ln() / (xmid - c0).abs().max(1e-3)).ln();
+    if !lrc.is_finite() {
+        lrc = (0.4_f64).ln();
+    }
+    vec![asym, lrc, c0]
+}
+
+fn self_start_ssasymporig(xy: &[(f64, f64)]) -> Vec<f64> {
+    if xy.len() < 3 {
+        return vec![90.0, (0.4_f64).ln()];
+    }
+    let asym = xy
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .max(1.0);
+    let half = asym / 2.0;
+    let xmid = approx_x_from_y(xy, half)
+        .unwrap_or(xy[xy.len() / 2].0)
+        .max(1e-3);
+    let mut lrc = ((2.0_f64).ln() / xmid).ln();
+    if !lrc.is_finite() {
+        lrc = (0.4_f64).ln();
+    }
+    vec![asym, lrc]
 }
 
 #[cfg(test)]

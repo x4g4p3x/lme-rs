@@ -8,6 +8,8 @@ pub(crate) mod predict;
 pub(crate) mod re_cov;
 mod self_start;
 mod ssasymp;
+mod ssasympoff;
+mod ssasymporig;
 mod ssbiexp;
 mod ssfpl;
 mod ssgompertz;
@@ -19,6 +21,8 @@ pub use re_cov::sigma_from_theta;
 pub use ssasymp::ssasymp_eval;
 /// Alias for [`ssasymp_eval`] (`stats::SSfol` uses the same mean function).
 pub use ssasymp::ssasymp_eval as ssfol_eval;
+pub use ssasympoff::ssasympoff_eval;
+pub use ssasymporig::ssasymporig_eval;
 pub use ssbiexp::ssbiexp_eval;
 pub use ssfpl::ssfpl_eval;
 pub use ssgompertz::ssgompertz_eval;

@@ -7,19 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-07-16
+
 ### Added
 
-- **Parametric GLMM bootstrap (`boot_glmer`)** — amortized [`prepare_glmer`](src/lib.rs) / [`fit_prepared_glmer`](src/lib.rs) with structural-map reuse in the θ objective; Python `boot_glmer` / `fit.boot_glmer`. Residual bootstrap rejected for discrete families. Binomial **proportion + integer trial weights** supported via `Binom(n_i, p_i)` simulation (returns proportions).
-- **Built-in nlmer means `SSfpl`, `SSbiexp`, `SSweibull`** — four-parameter `stats::SS*` means with analytic grads, `selfStart` heuristics, and smoke tests ([`tests/test_nlmm_ss_new_means.rs`](tests/test_nlmm_ss_new_means.rs)).
-- **GLMM scalar AGQ-in-θ** — when `n_agq > 1` and the model has a single `k = 1` RE block, [`optimize_theta_glmm_with_maps`](src/optimizer.rs) refines θ under AGQ deviance after a Laplace warm-start (matching `lme4`). Vector / multi-term RE still use Laplace for the outer θ search.
-- **GLMM group CV (`cv_grouped_glmer`)** — sibling of [`cv_grouped`](src/cv.rs); `prepare_glmer*` + response-scale OOF RMSE/MAE (binomial mean log-loss). Python `cv_grouped_glmer`.
-- **Profile-likelihood CIs** — [`LmeFit::confint_profile`](src/profile_ci.rs) / `confint_with(..., ConfintMethod::Profile)` for LMM and GLMM fixed effects (Wald remains default). Python: `fit.confint(level=0.95, method="profile", data=df)`.
-- **`nlmer` coefficient box bounds** — optional named `lower` / `upper` on [`NlmerOptions`](src/nlmm/fit.rs) (population nonlinear parameters); projected after each Gauss–Newton trial. Python `nlmer(..., lower=..., upper=...)`.
-- **`prepare_glmer` / `fit_prepared_glmer`** — GLMM design-matrix + \(Z^TWZ\) map amortization for repeated fits / bootstrap.
+- **Parametric GLMM bootstrap (`boot_glmer`)** — amortized prepare/fit; binomial proportion + integer trial weights.
+- **Built-in nlmer means `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`** — grads, selfStart, smoke tests; lme4 golden for FPL / asympOff / asympOrig (biexp/weibull: Rust smoke only).
+- **GLMM scalar AGQ-in-θ** — CBPP `nAGQ=7` golden parity.
+- **GLMM group CV (`cv_grouped_glmer`)**.
+- **Profile-likelihood CIs** — LMM/GLMM; `parms=` subset; sleepstudy vs R profile fixture.
+- **`nlmer` box bounds** — population `lower`/`upper` and group-level `group_lower`/`group_upper` (`β + b`).
+- **Python `prepare_glmer` / `fit_prepared_glmer`**.
 
 ### Changed
 
-- Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` (default `--target-ratio 1.0`). `crossed_20k` / `nested_10k` cold fits are **~0.91× / ~0.93×** after prepare Gram + allocation-free blocked gate ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
+- Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 
 ## [0.1.11] - 2026-07-14
 

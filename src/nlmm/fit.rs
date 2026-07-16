@@ -29,6 +29,13 @@ pub struct NlmerOptions {
     pub lower: Option<NlmmStart>,
     /// Optional upper bounds on **population** nonlinear parameters (by name).
     pub upper: Option<NlmmStart>,
+    /// Optional lower bounds on **group-level** parameters `β + b` (by name).
+    ///
+    /// Only parameters that appear in the random-effects formula are constrained;
+    /// after each Gauss–Newton trial, `b` is adjusted so `β_j + b_{g,j}` stays in range.
+    pub group_lower: Option<NlmmStart>,
+    /// Optional upper bounds on **group-level** parameters `β + b` (by name).
+    pub group_upper: Option<NlmmStart>,
     /// Maximum penalized Gauss–Newton iterations per RE-variance evaluation.
     pub max_inner: usize,
     /// Reserved for future multi-θ optimizers.
@@ -45,6 +52,8 @@ impl Default for NlmerOptions {
             start: NlmmStart::new(),
             lower: None,
             upper: None,
+            group_lower: None,
+            group_upper: None,
             max_inner: 120,
             max_outer_iters: 500,
             n_agq: 1,
@@ -66,6 +75,10 @@ struct NlmmProblem {
     lower: Vec<f64>,
     /// Per-parameter upper bounds (`+∞` when unconstrained).
     upper: Vec<f64>,
+    /// Per-parameter group-level (`β + b`) lower bounds.
+    group_lower: Vec<f64>,
+    /// Per-parameter group-level (`β + b`) upper bounds.
+    group_upper: Vec<f64>,
 }
 
 impl NlmmProblem {
@@ -75,6 +88,29 @@ impl NlmmProblem {
                 *p = self.lower[i];
             } else if *p > self.upper[i] {
                 *p = self.upper[i];
+            }
+        }
+    }
+
+    /// Project `b` so each group's `β_j + b_{g,j}` respects [`Self::group_lower`]/`group_upper`].
+    fn project_group_params(&self, params: &[f64], b: &mut Array1<f64>) {
+        for r_slot in 0..self.k_re {
+            let param_idx = self.re_indices[r_slot];
+            let lo = self.group_lower[param_idx];
+            let hi = self.group_upper[param_idx];
+            if !lo.is_finite() && !hi.is_finite() {
+                continue;
+            }
+            let beta = params[param_idx];
+            for g in 0..self.m {
+                let idx = self.b_index(g, r_slot);
+                let mut phi = beta + b[idx];
+                if phi < lo {
+                    phi = lo;
+                } else if phi > hi {
+                    phi = hi;
+                }
+                b[idx] = phi - beta;
             }
         }
     }
@@ -284,6 +320,7 @@ impl NlmmProblem {
                             nb[self.b_index(g, r_slot)] += alpha * delta[col];
                         }
                     }
+                    self.project_group_params(&new_params, &mut nb);
                     let new_obj = self.penalized_rss(&new_params, &nb, theta);
                     if new_obj < old_obj {
                         step_norm = (alpha * delta).iter().map(|v| v.abs()).fold(0.0, f64::max);
@@ -648,6 +685,31 @@ fn bound_vectors(
     Ok((lo, hi))
 }
 
+fn validate_group_bounds_names(
+    param_names: &[String],
+    re_indices: &[usize],
+    bounds: &Option<NlmmStart>,
+) -> crate::Result<()> {
+    let Some(map) = bounds else {
+        return Ok(());
+    };
+    for name in map.keys() {
+        let Some(idx) = param_names.iter().position(|n| n == name) else {
+            return Err(LmeError::NotImplemented {
+                feature: format!("nlmer group bound unknown parameter '{name}'"),
+            });
+        };
+        if !re_indices.contains(&idx) {
+            return Err(LmeError::NotImplemented {
+                feature: format!(
+                    "nlmer group bound '{name}' is not a random-effect parameter (β+b bounds apply only to RE terms)"
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
 fn start_candidates(
     opts: &NlmerOptions,
     mean: &dyn NlmmMeanEval,
@@ -782,6 +844,13 @@ pub fn fit_nlmer(
 
     let candidates = start_candidates(opts, mean.as_ref(), &y, &x, &parsed.fixed_param_names);
     let (lower, upper) = bound_vectors(&parsed.fixed_param_names, &opts.lower, &opts.upper)?;
+    let (group_lower, group_upper) = bound_vectors(
+        &parsed.fixed_param_names,
+        &opts.group_lower,
+        &opts.group_upper,
+    )?;
+    validate_group_bounds_names(&parsed.fixed_param_names, &re_indices, &opts.group_lower)?;
+    validate_group_bounds_names(&parsed.fixed_param_names, &re_indices, &opts.group_upper)?;
 
     let problem = NlmmProblem {
         y,
@@ -795,6 +864,8 @@ pub fn fit_nlmer(
         n_fix,
         lower,
         upper,
+        group_lower,
+        group_upper,
     };
 
     let t_len = theta_len(k_re);
@@ -1080,6 +1151,8 @@ mod orange_inner {
             n_fix: 3,
             lower: vec![f64::NEG_INFINITY; 3],
             upper: vec![f64::INFINITY; 3],
+            group_lower: vec![f64::NEG_INFINITY; 3],
+            group_upper: vec![f64::INFINITY; 3],
         };
         let (params, _, _) = problem.inner_gauss_newton(&[4.03497223047614], &start, 200);
         assert!(
@@ -1133,6 +1206,8 @@ mod orange_inner {
             n_fix: 3,
             lower: vec![f64::NEG_INFINITY; 3],
             upper: vec![f64::INFINITY; 3],
+            group_lower: vec![f64::NEG_INFINITY; 3],
+            group_upper: vec![f64::INFINITY; 3],
         };
         let theta_rel = [4.59538334289034, 3.80974418701676, 2.98859274071634];
         let (params, b, _) = problem.inner_gauss_newton(&theta_rel, &start, 400);
