@@ -45,6 +45,11 @@ tasks:
     cmds:
       - '{{.RUN}} repo-metadata'
 
+  completion:check:
+    desc: Validate completion-manifest arithmetic and published score markers
+    cmds:
+      - '{{.RUN}} completion-check'
+
   benchmarks:smoke:
     desc: Release examples + sleepstudy Rust cross-language benchmark smoke
     cmds:

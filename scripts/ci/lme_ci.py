@@ -180,6 +180,11 @@ def repo_metadata() -> None:
     repo_metadata_verify()
 
 
+def completion_check() -> None:
+    """Validate completion-manifest arithmetic and published score markers."""
+    run([sys.executable, "scripts/ci/check_completion_score.py"])
+
+
 def legal_compliance() -> None:
     """Validate fixture provenance and third-party license records."""
     run([sys.executable, "scripts/ci/check_legal_compliance.py"])
@@ -552,6 +557,7 @@ def python_bindings(*, reuse_venv: bool = False, skip_wheel: bool = False) -> No
 
 
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
+    completion_check()
     cargo_build_test()
     if not skip_python:
         python_bindings(reuse_venv=reuse_venv, skip_wheel=skip_wheel)
@@ -621,6 +627,10 @@ def main(argv: list[str] | None = None) -> int:
         "repo-metadata",
         help="Dry-run Cargo.toml metadata sync; verify REPO_ADMIN_TOKEN if set",
     ).set_defaults(fn=lambda _: repo_metadata())
+    sub.add_parser(
+        "completion-check",
+        help="Validate completion-manifest arithmetic and README/report score markers",
+    ).set_defaults(fn=lambda _: completion_check())
     sub.add_parser(
         "benchmarks-smoke",
         help="Build release examples + run sleepstudy Rust benchmark once",

@@ -7,6 +7,8 @@
 
 `lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
 
+> **Repository completion (evidence-weighted): 86% (204/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
+
 ## What it covers
 
 - `lm()` for fixed-effects-only linear models
@@ -82,7 +84,7 @@ On the fair MixedModels.jl harness, **tier-A LMM cold `lmer()` beats Julia** (`c
 - Python bindings guide: [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)
 - Cross-language numerical comparisons: [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md)
 - **Usability** (workflows in scope, validation posture, field experience): [USABILITY.md](USABILITY.md)
-- Approximate **coverage** by repository area (not usability): [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
+- Evidence-weighted **implementation coverage** by repository area (not usability): [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md)
 - Benchmark scope and methodology: [BENCHMARKS.md](BENCHMARKS.md); **coverage map** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)
 - LMM fit optimization (engineering notes): [OPTIMIZATION.md](OPTIMIZATION.md)
 - **Calo / sensor calibration** (MATLAB `power2` vs `nlmer`, CUDA batch fitting): [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md)
