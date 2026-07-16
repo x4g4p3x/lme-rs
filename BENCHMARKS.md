@@ -399,30 +399,20 @@ The repository also includes a dedicated workflow in [.github/workflows/benchmar
 
 ## Latest published results
 
-The latest published benchmark artifacts are attached to the [v0.1.3 release](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3).
+Release-attached Criterion and cross-language JSON artifacts are uploaded by [`.github/workflows/benchmarks.yml`](../.github/workflows/benchmarks.yml) on `v*` tags (and manual dispatch). Prefer the [latest GitHub Release](https://github.com/x4g4p3x/lme-rs/releases/latest) for downloadable CI artifacts, and [`CHANGELOG.md`](CHANGELOG.md) for which crate version each tag ships.
 
-That release currently includes:
+**Engineering source of truth for fair Rust vs Julia fit timing** is the checked-in reference JSON under [`benchmarks/`](benchmarks/), especially the axis-(3) cold-fit snapshot [benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json). Older tags (for example [v0.1.3](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)) still carry historical CI tarballs useful for release-to-release comparison, but they are **not** the current performance baseline.
+
+A representative older cross-language artifact set (v0.1.3) included:
 
 - `criterion-e8a82e0b97b88c5549bc61e89c22dc12c9060a02.tar.gz`
 - `cross-language-e8a82e0b97b88c5549bc61e89c22dc12c9060a02.json`
 
-The cross-language JSON includes representative timings for:
+with timings for `sleepstudy`, `pastes`, `cbpp`, and `grouseticks` across Rust / Python / R / Julia.
 
-- `sleepstudy`
-- `pastes`
-- `cbpp`
-- `grouseticks`
+Treat release-runner numbers as versioned artifacts from GitHub-hosted machines with the workflow's pinned toolchain — useful for transparency and tag-to-tag diffs, not as machine-independent absolute speed claims.
 
-across:
-
-- Rust
-- Python
-- R
-- Julia
-
-Treat those numbers as versioned release artifacts, not as universal constants. They were produced on GitHub-hosted runners with the workflow's pinned toolchain setup, so they are useful for release-to-release comparison and public transparency, but not as machine-independent proof of absolute speed.
-
-If you want to cite benchmark results in release notes or external docs, prefer linking the release asset directly instead of copying raw numbers into the README. That keeps the landing page stable while still making the measured outputs inspectable.
+If you want to cite benchmark results in release notes or external docs, prefer linking the release asset or the in-repo fair JSON directly instead of copying raw numbers into the README. That keeps the landing page stable while still making the measured outputs inspectable.
 
 ## How to interpret results
 

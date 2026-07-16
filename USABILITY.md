@@ -4,7 +4,7 @@ This document answers **“can I use this for my problem?”** — a different q
 
 For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md). That file tracks **coverage** (what is implemented). This file tracks **usability** (what is safe and practical to rely on).
 
-**Last assessed:** 2026-07-09 · `lme-rs` / `lme_python` **0.1.9** (CV/refit APIs added; bump version on next release)
+**Last assessed:** 2026-07-16 · `lme-rs` / `lme_python` **0.1.11** (Unreleased cascade features documented on main; next crate bump when tagged)
 
 ---
 
@@ -88,10 +88,11 @@ Statuses are **practical**, not formal support tiers.
 | REML / ML, population & conditional predict | ✓ | ✓ | |
 | Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts | ✓ | ✓ | Scoped to tested LMM shapes; see golden `pastes_cask` |
 | Nested model LRT (`anova`) | ✓ | ✓ | |
-| Group-preserving CV (`cv_grouped`) | ✓ | ✓ | LMM only; population OOF predictions on held-out groups |
-| Bootstrap refits (`boot_lmer` / `fit.boot`) | ✓ | ✓ | LMM only; parametric & residual; percentile CIs |
-| GLMM: binomial / Poisson / gamma (canonical links) | ✓ | ✓ | Coefficients & variance params; Laplace default |
-| `confint`, `simulate`, robust SE | ✓ | ✓ | LMM-focused; not every GLMM edge case |
+| Group-preserving CV (`cv_grouped` / `cv_grouped_glmer`) | ✓ | ✓ | LMM + GLMM; population / response-scale OOF on held-out groups |
+| Bootstrap refits (`boot_lmer` / `boot_glmer`) | ✓ | ✓ | LMM parametric & residual; GLMM parametric (incl. binomial trials); percentile CIs |
+| GLMM: binomial / Poisson / gamma (canonical links) | ✓ | ✓ | Coefficients & variance params; Laplace default; scalar AGQ via `n_agq ≥ 2` |
+| Profile CIs (`confint_profile` / `parms=`) | ✓ | ✓ | LMM/GLMM; sleepstudy vs R fixture; subset via `parms` |
+| `confint` (Wald), `simulate`, robust SE | ✓ | ✓ | LMM-focused Wald/t paths; GLMM z / profile as documented |
 
 **Caveat:** “Green” means **the repo exercises these paths seriously**. It does not mean every R formula variant works.
 
@@ -102,11 +103,11 @@ Statuses are **practical**, not formal support tiers.
 | Random-slopes LMM (e.g. `(Days \| Subject)`) | Fair-harness competitive on sleepstudy (~0.8× Julia cold `lmer()`); validate on your data | Compare to R; use `prepare_lmer` + `fit_prepared` for repeated fits — [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes) |
 | Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
 | GLMM non-canonical links, weights | Implemented; narrower test matrix | Golden checks where listed; validate otherwise |
-| `nlmer` built-in `SS*` means | Subset of R `stats::SS*` (incl. **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**) plus **`SSpower`** (MATLAB `power2`); one grouping factor | Orange / synthetic parity cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
-| Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population `lower`/`upper` bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. Bounds are population-level only. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
+| `nlmer` built-in `SS*` means | Eleven built-ins (`SSlogis`…`SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**); one grouping factor | Orange / synthetic golden cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
+| Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population and group-level (`β+b`) bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | `nlmer_with_mean` (custom μ) | No R `selfStart` for arbitrary custom means; defaults are naive | Supply `start`; verify predictions |
-| Scalar AGQ (`n_agq ≥ 2`) | Inside θ search for scalar RE; final eval always | Same for `nlmer` scalar RE |
+| Scalar AGQ (`n_agq ≥ 2`) | Inside θ search for scalar RE; CBPP AGQ-7 golden | Same for `nlmer` scalar RE |
 | Python bindings | Polars, pandas, or PyArrow `Table` accepted; Polars canonical internally | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 
 ### Red — not a substitute yet
@@ -115,10 +116,10 @@ Statuses are **practical**, not formal support tiers.
 |:------------|:--------|
 | Drop-in replacement for all of `lme4` + `lmerTest` + `car` + `nlme` | Intentionally partial API |
 | Arbitrary R formula edge cases | Wilkinson coverage is broad but not universal |
-| Full `stats::SS*` / general nonlinear mixed modeling | Nine built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
+| Full `stats::SS*` / general nonlinear mixed modeling | Eleven built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
 | Identical GLMM AIC/BIC / log-likelihood to R | Deviance omits data-dependent constants |
 | “Proven in production” without your own validation | 0.1.x; limited public field track record |
-| Competitive cold `lmer()` on every RE layout vs MixedModels.jl | Improving; see [OPTIMIZATION.md](OPTIMIZATION.md) row in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) |
+| Competitive cold `lmer()` vs MixedModels.jl on **unmeasured** RE layouts | Tier-A fair harness meets **&lt;1.0×** Julia ([2026-07-16](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)); benchmark exotic layouts locally |
 
 ---
 
@@ -126,7 +127,7 @@ Statuses are **practical**, not formal support tiers.
 
 | Level | Examples | Trust for your problem |
 |:------|:---------|:-----------------------|
-| **Golden parity** | Manifest in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) — sleepstudy, pastes, cbpp, orange nlmer, etc. | High **if your case matches** (dataset shape, formula family, REML/ML) |
+| **Golden parity** | Manifest in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) — sleepstudy, dyestuff, pastes, cbpp, orange nlmer, etc. | High **if your case matches** (dataset shape, formula family, REML/ML) |
 | **Integration tests** | [`tests/test_numerical_parity.rs`](tests/test_numerical_parity.rs), [`tests/test_glmm.rs`](tests/test_glmm.rs), nlmer suites | High for the pattern covered; does not generalize automatically |
 | **Cross-language comparisons** | [`comparisons/`](comparisons/) scripts | Regression aids; some runs are manual or tag CI |
 | **Documented only** | Mentioned in GUIDE with fewer tests | Validate yourself |
@@ -143,7 +144,7 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 | API breadth | Full formula + matrix paths | Formula mirror + `lm_matrix`; matrix `lm(y, x)` Rust-only |
 | Data | `polars::DataFrame` | Polars / pandas / PyArrow `Table` (normalized to Polars IPC) |
 | Maturity | Same engine | Same engine; stubs in [`python/lme_python.pyi`](python/lme_python.pyi) |
-| When to prefer | Native pipelines, amortized `fit_prepared`, `cv_grouped`, embedding in Rust services | Notebooks, Polars-centric Python stacks; `prepare_lmer` / `cv_grouped` now exposed |
+| When to prefer | Native pipelines, amortized `fit_prepared` / `fit_prepared_glmer`, `cv_grouped*`, embedding in Rust services | Notebooks, Polars-centric Python stacks; prepare/CV/boot/GLMM APIs exposed |
 
 ---
 
@@ -151,11 +152,11 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 
 There is no sharp line between “analysis” and “throughput” use — only **how often you pay the fit cost** and **whether that cost fits your budget**.
 
-| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-09) |
+| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-16) |
 |:-------------|:----------------|:----------------------------------------|
 | **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
 | **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
-| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` + `fit_prepared`, `boot_lmer(..., n_jobs=…)` for standard bootstrap, or `cv_grouped(..., n_jobs=…)` for grouped k-fold CV; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer) |
+| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` / `prepare_glmer`, `boot_lmer` / `boot_glmer(..., n_jobs=…)`, or `cv_grouped` / `cv_grouped_glmer(..., n_jobs=…)`; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer) |
 | **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; random-slopes sleepstudy pattern is ~sub-ms hot fit on the reference workstation |
 
 **Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.

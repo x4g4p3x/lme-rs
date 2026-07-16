@@ -1,0 +1,17 @@
+{
+  "model": "Yield ~ 1 + (1 | Batch)",
+  "engine": "lme4::lmer",
+  "call": "lmer(Yield ~ 1 + (1 | Batch), Dyestuff, REML = TRUE)",
+  "data_path": "tests/data/dyestuff.csv",
+  "reml": true,
+  "coefficients": {
+    "(Intercept)": 1527.5
+  },
+  "theta": {
+    "Batch.(Intercept)": 0.848323783218823
+  },
+  "sigma": 49.5100999656347,
+  "sigma2": 2451.24999860715,
+  "reml_criterion": 319.654276842257,
+  "notes": "Scalars exported from lme4 on the repo dyestuff.csv fixture (R 4.6.1 / lme4) for golden_parity_manifest case dyestuff_intercept_reml."
+}

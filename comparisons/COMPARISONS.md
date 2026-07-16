@@ -21,13 +21,14 @@ These tests re-fit models inside Rust and compare to **stored reference values**
 | Area | Test module / data | Role |
 |:-----|:---------------------|:-----|
 | LMM, sleepstudy REML | [`tests/test_numerical_parity.rs`](../tests/test_numerical_parity.rs) vs [`tests/data/sleepstudy.csv`](../tests/data/sleepstudy.csv) | Fixed effects within ~`0.05` of documented `lme4` scalars; SEs, variance components, and REML deviance checked with tolerances documented in that file. |
+| LMM, Dyestuff intercept | Golden `dyestuff_intercept_reml` in [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) vs [`tests/data/dyestuff.csv`](../tests/data/dyestuff.csv) | Classic `Yield ~ 1 + (1 \| Batch)` REML; β / θ / σ² / REML criterion vs lme4 ([`tests/data/dyestuff_intercept_reml.json`](../tests/data/dyestuff_intercept_reml.json)). |
 | GLMM, CBPP binomial | [`tests/test_glmm.rs`](../tests/test_glmm.rs) vs [`tests/data/glmm_binomial.json`](../tests/data/glmm_binomial.json) | Coefficients and θ compared to values taken from R’s `glmer` fit (same formula as below); typically `\|Δβ\|, \|Δθ\| < 0.05`. |
 | GLMM, Poisson grouseticks | Same `test_glmm.rs` vs [`tests/data/glmm_poisson.json`](../tests/data/glmm_poisson.json) | Looser tolerance on β (`0.15`) because optimizers differ (`Nelder–Mead` in `lme-rs` vs **BOBYQA** in `lme4`). |
-| Golden manifest (multi-model) | [`tests/test_golden_parity.rs`](../tests/test_golden_parity.rs) vs [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) | Offset LMM/GLMM, probit/weighted GLMM, Orange `nlmer` predictions, and synthetic `SSfol` / `SSmicmen` / `SSgompertz` / **`SSpower`** `nlmer` self-start fits; Python mirror in [`python/tests/test_golden_parity.py`](../python/tests/test_golden_parity.py). |
+| Golden manifest (multi-model) | [`tests/test_golden_parity.rs`](../tests/test_golden_parity.rs) vs [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) | Offset LMM/GLMM, probit/weighted GLMM, Orange `nlmer` predictions, synthetic `SSfol` / `SSmicmen` / `SSgompertz` / **`SSpower`** / **`SSfpl`** / **`SSasympOff`** / **`SSasympOrig`** / **`SSbiexp`** / **`SSweibull`** `nlmer` fits, CBPP **AGQ-7**, and sleepstudy profile-CI fixture; Python mirror in [`python/tests/test_golden_parity.py`](../python/tests/test_golden_parity.py). |
 | Cross-language coefficients | [`scripts/verify_cross_language_parity.py`](../scripts/verify_cross_language_parity.py) | R / Julia / Rust / Python exporters under [`comparisons/parity/`](../comparisons/parity/) checked against the same golden manifest tolerances. |
-| Other fixtures | e.g. [`tests/data/random_slopes.json`](../tests/data/random_slopes.json), [`tests/data/penicillin.json`](../tests/data/penicillin.json) | Additional REML / design-matrix checks in the test suite. |
+| Other fixtures | e.g. [`tests/data/random_slopes.json`](../tests/data/random_slopes.json), [`tests/data/penicillin.json`](../tests/data/penicillin.json), [`tests/data/sleepstudy_confint_profile.json`](../tests/data/sleepstudy_confint_profile.json) | Additional REML / design-matrix / profile-CI checks in the test suite. |
 
-AGQ-specific checks (scalar quadrature, `n_agq > 1`) live in GLMM tests, [`tests/test_nlmm_agq.rs`](../tests/test_nlmm_agq.rs) for `nlmer`, and in shared quadrature helpers in [`src/quadrature.rs`](../src/quadrature.rs): they assert finite deviances and, for CBPP at a fixed θ, Laplace vs AGQ marginal deviance within **5%** relative scale.
+AGQ-specific checks (scalar quadrature, `n_agq > 1`) live in GLMM tests (including golden `cbpp_binomial_agq7`), [`tests/test_nlmm_agq.rs`](../tests/test_nlmm_agq.rs) for `nlmer`, and in shared quadrature helpers in [`src/quadrature.rs`](../src/quadrature.rs): they assert finite deviances and, for CBPP at a fixed θ, Laplace vs AGQ marginal deviance within **5%** relative scale. Full θ-path AGQ-in-θ parity for CBPP at `nAGQ = 7` is locked in the golden manifest.
 
 ### `nlmer` — `SSpower` (MATLAB Curve Fitter `power2`)
 
@@ -40,7 +41,19 @@ Grouped calibration-style nonlinear mean **μ = a·x^b + c** (`y ~ SSpower(x, a,
 | **Julia `MixedModels.jl`** | **No `nlmer`**. Linear / GLM mixed models only; no built-in power2 grouped calibration. [`LsqFit.jl`](https://github.com/JuliaNLSolvers/LsqFit.jl) fits single-curve NLS (no random effects). **Not included** in [`scripts/verify_cross_language_parity.py`](../scripts/verify_cross_language_parity.py). |
 | **MATLAB Curve Fitter** | Conceptual reference for the mean (`power2`); not automated in this repo. |
 
-**Not in scope for this parity case:** coefficient bounds, robust loss, or per-sensor independent fits (see [GUIDE.md](../GUIDE.md) `nlmer` limitations). Workflow choice (MATLAB/lmfit vs pooled `nlmer`, CUDA batch fitting): [docs/CALO_CALIBRATION.md](../docs/CALO_CALIBRATION.md).
+**Not in scope for this parity case:** robust loss or per-sensor independent fits (see [GUIDE.md](../GUIDE.md) `nlmer` limitations). Population and group-level (`β+b`) box bounds are supported on `nlmer` but not part of the `SSpower` golden row. Workflow choice (MATLAB/lmfit vs pooled `nlmer`, CUDA batch fitting): [docs/CALO_CALIBRATION.md](../docs/CALO_CALIBRATION.md).
+
+### Additional `nlmer` golden means
+
+| Mean | Manifest id | Notes |
+|:-----|:------------|:------|
+| `SSfpl` | `ssfpl_synthetic_self_start` | Four-parameter logistic; selfStart |
+| `SSasympOff` | `ssasympoff_synthetic_self_start` | Asymptotic regression with offset |
+| `SSasympOrig` | `ssasymporig_synthetic_self_start` | Asymptotic through origin |
+| `SSbiexp` | `ssbiexp_synthetic_truth_start` | Quiet DGP + truth starts (noisy DGPs trip lme4 PIRLS) |
+| `SSweibull` | `ssweibull_synthetic_truth_start` | Same quiet-DGP / truth-start pattern |
+
+Fixtures from [`tests/generate_nlmm_fixtures.R`](../tests/generate_nlmm_fixtures.R).
 
 ### Known reasons results are *not* identical everywhere
 

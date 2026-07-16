@@ -149,7 +149,11 @@ When documentation changes affect user-visible behavior, keep these files aligne
 - `README.md` for the repository landing page
 - `GUIDE.md` for Rust usage
 - `python/PYTHON_GUIDE.md` for Python usage
+- `USABILITY.md` for workflow traffic lights and adoption posture
+- `comparisons/COMPARISONS.md` for parity / golden evidence
+- `BENCHMARKS.md` / `OPTIMIZATION.md` when fit timing or amortization guidance changes
 - `CHANGELOG.md` for release-facing notes
+- `REPO_COMPLETION_BY_AREA.md` when coverage claims change
 
 Do not describe a feature as supported unless it is exposed by the public API and covered by tests or concrete examples.
 

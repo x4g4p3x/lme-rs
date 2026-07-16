@@ -22,7 +22,7 @@ This guide covers the practical Rust workflow for fitting linear and generalized
 
 ```toml
 [dependencies]
-lme-rs = "0.1.9"
+lme-rs = "0.1.11"
 polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```
@@ -192,22 +192,34 @@ Current limitations:
 ```rust
 use lme_rs::{family::Family, glmer};
 
+// Fourth argument is n_agq: 1 = Laplace (default in examples); ≥2 = scalar AGQ-in-θ.
 let poisson_fit = glmer(
     "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
     &df,
     Family::Poisson,
+    1,
 )?;
 
 let binomial_fit = glmer(
     "y ~ x1 + x2 + (1 | group)",
     &df,
     Family::Binomial,
+    1,
 )?;
 
 let gamma_fit = glmer(
     "cost ~ age + (1 | clinic)",
     &df,
     Family::Gamma,
+    1,
+)?;
+
+// Scalar RE + n_agq ≥ 2: θ is refined under AGQ after a Laplace warm-start (lme4 nAGQ).
+let agq_fit = glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    &df,
+    Family::Binomial,
+    7,
 )?;
 ```
 
@@ -259,6 +271,10 @@ let fit = glmer_weighted(
 ```
 
 Weights must be strictly positive and match the number of rows. For binomial **proportion** responses, pass integer trial sizes as weights (lme4-style); the fitter validates that `y * n` is near-integer, and `simulate` / `boot_glmer` draw `Binom(n_i, p_i)` returning proportions. For `Family::Gaussian`, fitting delegates to `lmer_weighted` with ML.
+
+### Adaptive Gauss–Hermite quadrature (`n_agq ≥ 2`)
+
+For **scalar** random effects (`q = 1` RE column), `n_agq ≥ 2` matches `lme4::glmer(..., nAGQ = k)`: after a Laplace warm-start, θ is refined by minimizing the AGQ-approximated deviance. Multivariate RE stays on the Laplace θ path (`n_agq` is used for the final evaluation when applicable). Golden: `cbpp_binomial_agq7` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (parity vs R `nAGQ = 7`).
 
 ### Understanding model output
 
@@ -343,7 +359,7 @@ println!("{}", ci);
 
 ### Parametric simulation
 
-`simulate()` draws new response vectors from the fitted conditional means. It does **not** refit the model. For bootstrap inference (simulate or resample → refit → summarize), use [`boot_lmer`](#bootstrap-refits-boot_lmer) / [`boot_glmer`](#bootstrap-refits-boot_lmer--boot_glmer) instead.
+`simulate()` draws new response vectors from the fitted conditional means. It does **not** refit the model. For bootstrap inference (simulate or resample → refit → summarize), use [`boot_lmer` / `boot_glmer`](#bootstrap-refits-boot_lmer--boot_glmer) instead.
 
 For binomial fits with integer trial weights (`glmer_weighted(..., weights = n)`), draws are `Binom(n_i, p_i)` returned as proportions `k/n`. Unweighted / non-integer prior weights keep the Bernoulli `0/1` path.
 
@@ -388,16 +404,33 @@ println!("{}", ci);
 
 // Convenience on the fit:
 let boot = fit.boot(formula, &df, 500, BootLmerMethod::Parametric, true, Some(42), None)?;
+
+// GLMM parametric bootstrap (residual method is rejected):
+use lme_rs::{boot_glmer, family::Family, glmer};
+
+let g_formula = "y ~ period2 + period3 + period4 + (1 | herd)";
+let gfit = glmer(g_formula, &df, Family::Binomial, 1)?;
+let gboot = boot_glmer(
+    g_formula,
+    &df,
+    &gfit,
+    200,
+    BootLmerMethod::Parametric,
+    Some(7),
+    None,
+)?;
+let g_ci = gboot.confint_percentile(0.95)?;
 ```
 
 | Method | Resampling | R analogue |
 |:-------|:-----------|:-----------|
-| `BootLmerMethod::Parametric` | New Gaussian responses from fitted conditional means + σ² | `bootMer(..., type = "parametric")` |
-| `BootLmerMethod::Residual` | Fitted values + resampled residuals (with replacement) | `bootMer(..., type = "residual")` |
+| `BootLmerMethod::Parametric` (LMM) | New Gaussian responses from fitted conditional means + σ² | `bootMer(..., type = "parametric")` |
+| `BootLmerMethod::Residual` (LMM only) | Fitted values + resampled residuals (with replacement) | `bootMer(..., type = "residual")` |
+| `BootLmerMethod::Parametric` (GLMM via `boot_glmer`) | Family draws from fitted μ (binomial trials → `Binom(n_i, p_i)`) | `bootMer` parametric analogue |
 
 **Result fields:** `t0` (original fixed effects), `replicates` (per-draw `coefficients`, `theta`, `sigma2`, `converged`), `prop_converged`, and `confint_percentile(level)` for percentile intervals on converged draws.
 
-**Scope:** LMMs only (not GLMM/NLMM). Requires the same `formula` and `DataFrame` used for the reference fit. Does not resample fixed-effect or variance-component parameters directly (parametric draws are on the **response** scale, then the model is refit). Validate against R `bootMer` on publication-critical workflows.
+**Scope:** `boot_lmer` — Gaussian LMMs (parametric + residual). `boot_glmer` — GLMMs (parametric only; not NLMM). Requires the same `formula` and `DataFrame` used for the reference fit. Does not resample fixed-effect or variance-component parameters directly (parametric draws are on the **response** scale, then the model is refit). Validate against R `bootMer` on publication-critical workflows.
 
 **Parallelism:** same `n_jobs` semantics as [`cv_grouped`](#group-structure-preserving-cv-cv_grouped); BLAS/OpenMP pinned to one thread per worker when `n_jobs > 1`.
 
@@ -484,6 +517,24 @@ let fit_ml = fit_prepared(&prepared, false)?;
 
 [`refit_lmer`](src/cv.rs) is a convenience wrapper that calls `prepare_lmer` followed by `fit_prepared` when you do not need to hold the prepared object.
 
+### Amortized GLMM fitting (`prepare_glmer` / `fit_prepared_glmer`)
+
+Same pattern for GLMMs — reuse design matrices across bootstrap / CV / grid refits:
+
+```rust
+use lme_rs::{family::Family, fit_prepared_glmer, prepare_glmer};
+
+let prepared = prepare_glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    &df,
+    Family::Binomial,
+    1, // n_agq
+)?;
+let fit = fit_prepared_glmer(&prepared)?;
+```
+
+Python: `prepare_glmer(...)` → `PyGlmerPrepared`, then `fit_prepared_glmer(prepared)`. See [OPTIMIZATION.md](OPTIMIZATION.md).
+
 ### Group-structure-preserving CV (`cv_grouped`)
 
 [`cv_grouped`](src/cv.rs) performs k-fold cross-validation that **splits by grouping units** (e.g. all rows for one `Subject` stay in train or test). This avoids the common mistake of row-wise k-fold on clustered data, which leaks information across folds.
@@ -511,7 +562,7 @@ println!("OOF RMSE: {:.2}", cv.rmse);
 
 **Parallelism:** pass `n_jobs: Some(k)` to fit up to `k` folds concurrently (`None` uses all logical CPUs, capped at fold count). When `n_jobs > 1`, OpenBLAS/MKL/OpenMP are pinned to one thread per worker to avoid CPU oversubscription.
 
-**Scope:** LMMs only via `cv_grouped` (not NLMM). For GLMMs use [`cv_grouped_glmer`](#group-structure-preserving-cv-cv_grouped): same split logic, `prepare_glmer*` / `fit_prepared_glmer`, and **response-scale** OOF predictions (`predict_response`). Binomial folds also report mean log-loss. Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`.
+**Scope:** LMMs only via `cv_grouped` (not NLMM). For GLMMs use [`cv_grouped_glmer`](#group-structure-preserving-cv-for-glmms-cv_grouped_glmer): same split logic, `prepare_glmer*` / `fit_prepared_glmer`, and **response-scale** OOF predictions (`predict_response`). Binomial folds also report mean log-loss. Requires `n_splits ≥ 2` and `n_splits` ≤ number of unique levels in `group_col`.
 
 ### Group-structure-preserving CV for GLMMs (`cv_grouped_glmer`)
 
@@ -584,7 +635,7 @@ Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type
 
 ### Python bindings
 
-The Python package mirrors most of the Rust formula API, including `prepare_lmer`, `fit_prepared`, `refit_lmer`, `cv_grouped`, and `boot_lmer`. Matrix-only `lm(y, x)` without a DataFrame remains Rust-only. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
+The Python package mirrors most of the Rust formula API, including `prepare_lmer` / `fit_prepared`, `prepare_glmer` / `fit_prepared_glmer`, `cv_grouped` / `cv_grouped_glmer`, `boot_lmer` / `boot_glmer`, profile `confint(..., parms=)`, and `nlmer` (built-in `SS*` means, bounds, AGQ). Matrix-only `lm(y, x)` without a DataFrame remains Rust-only. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
 
 ## Troubleshooting
 
@@ -620,7 +671,7 @@ Even with those optimizations, performance depends heavily on:
 - whether you fit random slopes as well as intercepts
 - how well-scaled the predictors are for optimization
 
-Fair fit-only timings vs MixedModels.jl are documented in [BENCHMARKS.md](BENCHMARKS.md#fair-rust-vs-julia-reference-results) (reference workstation medians as of 2026-07-06).
+Fair fit-only timings vs MixedModels.jl are documented in [BENCHMARKS.md](BENCHMARKS.md#fair-rust-vs-julia-reference-results) (axis (3) cold-fit target met on the [2026-07-16 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 
 For concrete parity outputs, use the scripts and datasets in `comparisons/` and `tests/data/`.
 
@@ -632,8 +683,10 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | :------- | :---------- |
 | `lm(y, x)` | fixed-effects-only linear regression |
 | `lmer(formula, data, reml)` | linear mixed model |
-| `prepare_lmer(formula, data)` | cache design matrices for repeated fits |
+| `prepare_lmer(formula, data)` | cache design matrices for repeated LMM fits |
 | `fit_prepared(prepared, reml)` | fit from a prior `prepare_lmer` call |
+| `prepare_glmer(formula, data, family, n_agq)` | cache design matrices for repeated GLMM fits |
+| `fit_prepared_glmer(prepared)` | fit from a prior `prepare_glmer` call |
 | `refit_lmer(formula, data, reml)` | `prepare_lmer` + `fit_prepared` convenience |
 | `cv_grouped(formula, data, group_col, n_splits, reml, seed, n_jobs)` | group-preserving k-fold CV (LMM); parallel folds when `n_jobs > 1` |
 | `cv_grouped_glmer(..., family, link, n_agq, weights, ...)` | group-preserving k-fold CV (GLMM); response-scale OOF |
@@ -642,10 +695,10 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `fit_prepared_with_response(prepared, y_response, reml)` | refit from prepared design with a new response vector |
 | `lmer_weighted(formula, data, reml, weights)` | weighted linear mixed model |
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`…`SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`; multivariate RE; empty `start` → `selfStart`) |
-| `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, `max_inner`, …) |
+| `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, bounds, `max_inner`, …) |
 | `nlmer_with_mean(parsed, mean, data, formula_label, opts)` | `nlmer` with a custom [`NlmmMeanEval`](src/nlmm/mean_fn.rs) |
-| `glmer(formula, data, family)` | generalized linear mixed model (canonical link) |
-| `glmer_with_link(formula, data, family, link)` | GLMM with explicit link |
+| `glmer(formula, data, family, n_agq)` | generalized linear mixed model (canonical link; `n_agq ≥ 2` = scalar AGQ-in-θ) |
+| `glmer_with_link(formula, data, family, link, n_agq)` | GLMM with explicit link |
 | `glmer_weighted(formula, data, family, n_agq, weights)` | GLMM with prior observation weights |
 | `anova(fit_a, fit_b)` | likelihood ratio test between nested models |
 
@@ -659,10 +712,12 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `predict_conditional_response(newdata, allow_new_levels)` | conditional response-scale GLMM prediction |
 | `confint(level)` | Wald CIs; uses t with KR/Satterthwaite dfs when stored on fit |
 | `confint_profile(level, data)` | profile-likelihood CIs (LMM/GLMM; slower) |
+| `confint_profile_parms(level, data, parms)` | profile CIs for a coefficient subset (by index) |
 | `simulate(nsim)` | parametric simulation (sequential; use `simulate_with` for parallel) |
 | `simulate_with(nsim, n_jobs, seed)` | parallel parametric simulation |
 | `simulate_batched(nsim, batch_size, n_jobs, seed, on_batch)` | stream simulation batches |
-| `boot(formula, data, nsim, method, reml, seed, n_jobs)` | parametric/residual bootstrap refits (`bootMer`-style; LMM only) |
+| `boot(formula, data, nsim, method, reml, seed, n_jobs)` | parametric/residual bootstrap refits (`bootMer`-style; LMM) |
+| `boot_glmer(formula, data, nsim, method, seed, n_jobs)` | parametric GLMM bootstrap refits |
 | `with_satterthwaite(data)` | Satterthwaite degrees of freedom and p-values |
 | `with_kenward_roger(data)` | Kenward-Roger denominator degrees of freedom and p-values |
 | `with_robust_se(data, cluster_col)` | robust or cluster-robust standard errors |

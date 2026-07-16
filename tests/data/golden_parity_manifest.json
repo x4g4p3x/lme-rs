@@ -350,6 +350,45 @@
       }
     },
     {
+      "id": "dyestuff_intercept_reml",
+      "description": "Classic lme4 Dyestuff random-intercept LMM fitted by REML.",
+      "kind": "lmm",
+      "data_path": "tests/data/dyestuff.csv",
+      "formula": "Yield ~ 1 + (1 | Batch)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Yield ~ 1 + (1 | Batch), Dyestuff, REML = TRUE)",
+        "source_fixture": "tests/data/dyestuff_intercept_reml.json"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 1527.5,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Batch.(Intercept)",
+            "value": 0.848323783218823,
+            "tolerance": 0.05
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 2451.24999860715,
+          "tolerance": 0.5
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 319.654276842257,
+          "tolerance": 0.2
+        }
+      }
+    },
+    {
       "id": "cbpp_binomial_laplace",
       "description": "Binomial GLMM using expanded CBPP binary-trial data and Laplace approximation.",
       "kind": "glmm",

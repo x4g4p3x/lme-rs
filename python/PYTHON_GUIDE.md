@@ -46,22 +46,22 @@ Top-level functions:
 - `lme_python.fit_prepared(prepared, reml=True)` → `PyLmeFit`
 - `lme_python.prepare_glmer(formula, data, family_name, n_agq=1, weights=None, link_name=None)` → `PyGlmerPrepared`
 - `lme_python.fit_prepared_glmer(prepared)` → `PyLmeFit`
-- `lme_python.fit_prepared(prepared, reml=True)`
 - `lme_python.refit_lmer(formula, data, reml=True)`
 - `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
 - `lme_python.cv_grouped_glmer(formula, data, group, family_name, n_splits=5, n_agq=1, weights=None, link_name=None, seed=None, n_jobs=None)` → `PyCvGroupedResult` (response-scale OOF; binomial includes `mean_log_loss`)
 - `lme_python.boot_lmer(formula, data, fit, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult`
+- `lme_python.boot_glmer(formula, data, fit, nsim=200, method="parametric", seed=None, n_jobs=None)` → `PyBootLmerResult`
 - `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
-- `lme_python.glmer(formula, data, family_name, n_agq=1)`
-- `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None)`
+- `lme_python.glmer(formula, data, family_name, n_agq=1, link_name=None)`
+- `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None, link_name=None)`
 - `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`); optional population and group-level (`β+b`) box bounds
-- `lme_python.boot_lmer(...)` / `fit.boot(...)` — LMM bootstrap; `lme_python.boot_glmer(...)` / `fit.boot_glmer(...)` — parametric GLMM bootstrap (including binomial proportion + trial weights)
 - `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
+- `fit.boot(...)` / `fit.boot_glmer(...)` — convenience wrappers on `PyLmeFit`
 - `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
 
-Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
 
 Available `PyLmeFit` methods:
 
@@ -73,7 +73,8 @@ Available `PyLmeFit` methods:
 - `confint(level=0.95, method="wald"|"profile", data=None, parms=None)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower; `parms` selects coefficients by index or name
 - `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
 - `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
-- `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM only)
+- `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM)
+- `boot_glmer(formula, data, nsim=200, method="parametric", seed=None, n_jobs=None)` → `PyBootLmerResult` (parametric GLMM bootstrap)
 - `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
 - `with_satterthwaite(data)`  # denominator df and p-values
 - `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
@@ -181,6 +182,7 @@ model = lme_python.glmer(
     "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
     data=df,
     family_name="poisson",
+    # n_agq=1 is Laplace (default); use n_agq≥2 for scalar AGQ-in-θ
 )
 
 # Optional non-canonical link (logit, probit, cloglog, log, identity, inverse, sqrt)
@@ -189,6 +191,7 @@ probit_fit = lme_python.glmer(
     data=pl.read_csv("tests/data/cbpp_binary.csv"),
     family_name="binomial",
     link_name="probit",
+    n_agq=1,
 )
 ```
 
@@ -198,7 +201,7 @@ Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer
 
 ### Nonlinear mixed models
 
-Built-in means match R `stats::SS*` where available, plus `SSpower` (`a * x^b + c`, MATLAB Curve Fitter `power2`): `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`.
+Built-in means match R `stats::SS*` where available, plus `SSpower` (`a * x^b + c`, MATLAB Curve Fitter `power2`): `SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`.
 
 When `start=None` (or an empty dict), the fitter uses R-style **`selfStart`** heuristics on `(covariate, response)` with multistart fallback to static defaults; validate against R `nlmer()` when your workflow depends on exact starting behavior.
 
@@ -226,9 +229,20 @@ fit_power = lme_python.nlmer(
     start=None,
     reml=False,
 )
+
+# Population and group-level (β+b) box bounds:
+fit_bounds = lme_python.nlmer(
+    "y ~ SSpower(x, a, b, c) ~ c|id",
+    data=cal,
+    start=None,
+    lower={"a": 0.1},
+    upper={"a": 5.0},
+    group_lower={"c": 0.0},
+    group_upper={"c": 10.0},
+)
 ```
 
-Requires **x > 0**. `SSpower` is not in R `stats::SS*`; lme4 parity uses a custom R `selfStart` (see [`comparisons/nlmm_sspower.R`](../comparisons/nlmm_sspower.R)). Not a substitute for lmfit/MATLAB bounded single-curve fitting.
+Requires **x > 0** for `SSpower`. `SSpower` is not in R `stats::SS*`; lme4 parity uses a custom R `selfStart` (see [`comparisons/nlmm_sspower.R`](../comparisons/nlmm_sspower.R)). Not a substitute for lmfit/MATLAB bounded single-curve fitting.
 
 Explicit `start` overrides `selfStart`; partial dicts merge with defaults for missing parameter names.
 
@@ -303,6 +317,9 @@ print(model.std_errors)
 print(model.confint(level=0.95))
 # Profile-likelihood (slower; needs original data):
 # print(model.confint(level=0.95, method="profile", data=df))
+# Subset of coefficients by index or name (main speed lever for profile):
+# print(model.confint(level=0.95, method="profile", data=df, parms=[1]))
+# print(model.confint(level=0.95, method="profile", data=df, parms=["Days"]))
 ```
 
 Call `with_satterthwaite(data)` or `with_kenward_roger(data)` before Wald `confint()` to use t-based intervals with the corresponding denominator degrees of freedom.
@@ -346,13 +363,28 @@ print(cv.rmse, cv.mae, cv.all_converged)
 # cv.oof_predictions, cv.test_fold, cv.folds
 ```
 
-Held-out groups are predicted with population-level fixed effects only (no subject-specific random effect). **LMM only**; `n_splits` must be between 2 and the number of unique groups.
+Held-out groups are predicted with population-level fixed effects only (no subject-specific random effect). **LMM path** via `cv_grouped`; for GLMMs use `cv_grouped_glmer` (response-scale OOF; binomial folds also report `mean_log_loss`). `n_splits` must be between 2 and the number of unique groups.
 
 When `n_jobs > 1`, folds run in parallel via Rayon and BLAS/OpenMP backends are pinned to one thread per worker to avoid oversubscription.
 
-### Bootstrap refits (`boot_lmer`)
+```python
+gcv = lme_python.cv_grouped_glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    data=cbpp,
+    group="herd",
+    family_name="binomial",
+    n_splits=4,
+    n_agq=1,
+    seed=7,
+)
+print(gcv.rmse, gcv.mean_log_loss)
+```
+
+### Bootstrap refits (`boot_lmer` / `boot_glmer`)
 
 For **Gaussian LMMs**, `boot_lmer` (or `fit.boot`) mirrors R's `bootMer`: resample responses, refit on each replicate, and summarize draws. Use **`parametric`** (default) for new Gaussian responses from fitted conditional means, or **`residual`** for fitted values plus resampled residuals.
+
+For **GLMMs**, `boot_glmer` (or `fit.boot_glmer`) provides the parametric path only (residual bootstrap is rejected for discrete families). Binomial proportion + integer trial weights draw `Binom(n_i, p_i)` and return proportions on the same scale as the fit.
 
 ```python
 fit = lme_python.lmer("Reaction ~ Days + (1 | Subject)", data=df, reml=True)
@@ -374,15 +406,30 @@ print(ci.names, ci.estimate, ci.lower, ci.upper)
 
 # Module-level call:
 boot = lme_python.boot_lmer("Reaction ~ Days + (1 | Subject)", df, fit, nsim=500, seed=42)
+
+# GLMM parametric bootstrap:
+gfit = lme_python.glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    data=cbpp,
+    family_name="binomial",
+)
+gboot = lme_python.boot_glmer(
+    "y ~ period2 + period3 + period4 + (1 | herd)",
+    cbpp,
+    gfit,
+    nsim=200,
+    seed=7,
+)
+print(gboot.confint(0.95).lower)
 ```
 
-**Scope:** LMM only (not GLMM/NLMM). Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only. Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
+**Scope:** `boot_lmer` — LMM (parametric + residual). `boot_glmer` — GLMM (parametric only). Not NLMM. Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only. Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
 
-For **custom** response-resampling loops (not the standard parametric/residual paths), use `prepare_lmer` + `fit_prepared` or the Rust `fit_prepared_with_response` path — see [GUIDE.md § Custom parallel refits](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
+For **custom** response-resampling loops (not the standard parametric/residual paths), use `prepare_lmer` / `prepare_glmer` + the corresponding `fit_prepared*` paths — see [GUIDE.md § Custom parallel refits](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
 
 ## Parametric simulation at scale
 
-`simulate()` draws new response vectors from **fixed** fitted means and does **not** refit. For bootstrap inference, use [`boot_lmer`](#bootstrap-refits-boot_lmer) above. For large `nsim`, pass `n_jobs` and/or stream batches:
+`simulate()` draws new response vectors from **fixed** fitted means and does **not** refit. For bootstrap inference, use [`boot_lmer` / `boot_glmer`](#bootstrap-refits-boot_lmer--boot_glmer) above. For large `nsim`, pass `n_jobs` and/or stream batches:
 
 ```python
 # Reproducible parallel draws
@@ -437,8 +484,8 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 
 - Matrix-only `lm(y, x)` without a DataFrame is Rust-only.
 - `cv_grouped` supports LMMs; `cv_grouped_glmer` supports GLMMs; `boot_lmer` / `boot_glmer` cover LMM/GLMM bootstrap (not NLMM).
-- `boot_lmer` implements parametric and residual response bootstrap with percentile CIs; it does not cover every `bootMer` option (e.g. semiparametric, case bootstrap, BCa intervals).
-- `glmer()` currently exposes only the string family selector described above.
+- `boot_lmer` implements parametric and residual response bootstrap with percentile CIs; it does not cover every `bootMer` option (e.g. semiparametric, case bootstrap, BCa intervals). `boot_glmer` is parametric only.
+- `glmer()` takes a string `family_name` and optional `link_name` / `n_agq` (see above); non-canonical links match Rust [`family::Link`](../../src/family.rs).
 
 ## Troubleshooting
 

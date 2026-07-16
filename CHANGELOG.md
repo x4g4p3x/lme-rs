@@ -10,24 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Parametric GLMM bootstrap (`boot_glmer`)** — amortized prepare/fit; binomial proportion + integer trial weights.
-- **Built-in nlmer means `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`** — grads, selfStart, smoke tests; lme4 golden for FPL / asympOff / asympOrig (biexp/weibull: Rust smoke only).
+- **Built-in nlmer means `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`** — grads, selfStart; lme4 goldens (`ssfpl_*`, `ssasympoff_*`, `ssasymporig_*`, `ssbiexp_synthetic_truth_start`, `ssweibull_synthetic_truth_start`).
 - **GLMM scalar AGQ-in-θ** — CBPP `nAGQ=7` golden parity.
 - **GLMM group CV (`cv_grouped_glmer`)**.
 - **Profile-likelihood CIs** — LMM/GLMM; `parms=` subset; sleepstudy vs R profile fixture.
 - **`nlmer` box bounds** — population `lower`/`upper` and group-level `group_lower`/`group_upper` (`β + b`).
-- **Python `prepare_glmer` / `fit_prepared_glmer`**.
+- **Dyestuff intercept LMM golden** — `dyestuff_intercept_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) vs lme4 (`tests/data/dyestuff_intercept_reml.json`).
 
 ### Changed
 
 - Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 - **`SSbiexp` / `SSweibull` R goldens** — quiet DGP + truth starts (noisy DGPs trip `lme4` PIRLS “step factor” failures).
 - Tooling example [`examples/dump_cascade_fixtures.rs`](examples/dump_cascade_fixtures.rs) — provisional no-R fixture dump (defaults to `target/cascade_fixture_dump/`; refuses to overwrite `tests/data/` without `--write-tests-data --force`).
+- **End-user documentation** — GUIDE / PYTHON_GUIDE / USABILITY / COMPARISONS / BENCHMARKS / OPTIMIZATION / CONTRIBUTING aligned to current APIs (`prepare_glmer`, `boot_glmer`, `cv_grouped_glmer`, profile `parms=`, full `SS*` catalog + bounds, AGQ-in-θ); BENCHMARKS no longer treats v0.1.3 as the live SoT.
+- **LMM completion closeout** — golden `dyestuff_intercept_reml`; [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows **1** and **13** at **100%** (tier-A cold `lmer()` &lt;1.0× met; optional OPTIMIZATION leftovers non-blocking).
 
 ## [0.1.11] - 2026-07-14
 
 ### Added
 
-- **Bootstrap refits for LMMs (`bootMer`-style)** — [`boot_lmer`](src/bootstrap.rs) and [`LmeFit::boot`](src/lib.rs) simulate or resample responses, refit with amortized [`prepare_lmer`](src/lib.rs) + [`fit_prepared_with_response`](src/lib.rs), and expose percentile CIs via [`BootLmerResult::confint_percentile`](src/bootstrap.rs). Methods: **parametric** (Gaussian draws from fitted conditional means) and **residual** (resampled residuals added to fitted values). Parallel replicates via `n_jobs` (Rayon). **Gaussian LMMs only** (not GLMM/NLMM). Rust tests in [`tests/test_bootstrap.rs`](tests/test_bootstrap.rs). Python: `boot_lmer(...)`, `fit.boot(...)`, `PyBootLmerResult`, `PyBootConfintResult`. Documented in [GUIDE.md § Bootstrap refits](GUIDE.md#bootstrap-refits-boot_lmer) and [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
+- **Bootstrap refits for LMMs (`bootMer`-style)** — [`boot_lmer`](src/bootstrap.rs) and [`LmeFit::boot`](src/lib.rs) simulate or resample responses, refit with amortized [`prepare_lmer`](src/lib.rs) + [`fit_prepared_with_response`](src/lib.rs), and expose percentile CIs via [`BootLmerResult::confint_percentile`](src/bootstrap.rs). Methods: **parametric** (Gaussian draws from fitted conditional means) and **residual** (resampled residuals added to fitted values). Parallel replicates via `n_jobs` (Rayon). **Gaussian LMMs only** (not GLMM/NLMM). Rust tests in [`tests/test_bootstrap.rs`](tests/test_bootstrap.rs). Python: `boot_lmer(...)`, `fit.boot(...)`, `PyBootLmerResult`, `PyBootConfintResult`. Documented in [GUIDE.md § Bootstrap refits](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer) and [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
 
 ## [0.1.10] - 2026-07-10
 
