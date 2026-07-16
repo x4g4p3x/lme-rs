@@ -114,6 +114,10 @@ path = "comparisons/parity_export.rs"
 name = "batch_sspower_cpu"
 path = "examples/batch_sspower_cpu.rs"
 
+[[example]]
+name = "dump_cascade_fixtures"
+path = "examples/dump_cascade_fixtures.rs"
+
 # x86_64 (Linux, Windows, macOS x86_64 wheels via cross-compile): static Intel MKL.
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
