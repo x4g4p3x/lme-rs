@@ -28,9 +28,14 @@
     {
       "paths": [
         "tests/data/ssasymp_synthetic.csv",
+        "tests/data/ssasympoff_synthetic.csv",
+        "tests/data/ssasymporig_synthetic.csv",
+        "tests/data/ssbiexp_synthetic.csv",
+        "tests/data/ssfpl_synthetic.csv",
         "tests/data/ssgompertz_synthetic.csv",
         "tests/data/ssmicmen_synthetic.csv",
-        "tests/data/sspower_synthetic.csv"
+        "tests/data/sspower_synthetic.csv",
+        "tests/data/ssweibull_synthetic.csv"
       ],
       "origin": "Project-generated synthetic data",
       "generator": "tests/generate_nlmm_fixtures.R",
