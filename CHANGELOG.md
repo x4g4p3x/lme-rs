@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
+- **`SSbiexp` / `SSweibull` R goldens** — quiet DGP + truth starts (noisy DGPs trip `lme4` PIRLS “step factor” failures).
 
 ## [0.1.11] - 2026-07-14
 

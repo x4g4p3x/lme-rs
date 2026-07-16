@@ -909,6 +909,66 @@
       }
     },
     {
+      "id": "ssbiexp_synthetic_truth_start",
+      "description": "Synthetic grouped nlmer with SSbiexp; quiet DGP and truth start (noisy DGPs trip lme4 PIRLS).",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssbiexp_synthetic.csv",
+      "formula": "y ~ SSbiexp(x, A1, lrc1, A2, lrc2) ~ A1|id",
+      "nlmm_reml": false,
+      "nlmm_start": {
+        "A1": 5.0,
+        "lrc1": 0.1823215567939546,
+        "A2": 3.0,
+        "lrc2": -1.203972804325936
+      },
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSbiexp(x, A1, lrc1, A2, lrc2) ~ A1|id, data, start=c(A1=5,lrc1=log(1.2),A2=3,lrc2=log(0.3)))",
+        "source_fixture": "tests/data/ssbiexp_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          { "name": "A1", "value": 5.22898724475438, "tolerance": 0.5 },
+          { "name": "lrc1", "value": 0.138126080405043, "tolerance": 0.25 },
+          { "name": "A2", "value": 2.7776009691928, "tolerance": 0.5 },
+          { "name": "lrc2", "value": -1.2867378631162, "tolerance": 0.35 }
+        ],
+        "theta": [
+          { "name": "id.A1", "value": 2.02665761141033, "tolerance": 1.5 }
+        ]
+      }
+    },
+    {
+      "id": "ssweibull_synthetic_truth_start",
+      "description": "Synthetic grouped nlmer with SSweibull; quiet DGP, x>0, and truth start.",
+      "kind": "nlmm",
+      "data_path": "tests/data/ssweibull_synthetic.csv",
+      "formula": "y ~ SSweibull(x, Asym, Drop, lrc, pwr) ~ Asym|id",
+      "nlmm_reml": false,
+      "nlmm_start": {
+        "Asym": 100.0,
+        "Drop": 80.0,
+        "lrc": -1.0,
+        "pwr": 1.5
+      },
+      "reference": {
+        "engine": "lme4::nlmer",
+        "call": "nlmer(y ~ SSweibull(x, Asym, Drop, lrc, pwr) ~ Asym|id, data, start=c(Asym=100,Drop=80,lrc=-1,pwr=1.5))",
+        "source_fixture": "tests/data/ssweibull_nlmer.json"
+      },
+      "expected": {
+        "coefficients": [
+          { "name": "Asym", "value": 100.116836844596, "tolerance": 2.0 },
+          { "name": "Drop", "value": 80.0237683971329, "tolerance": 2.0 },
+          { "name": "lrc", "value": -1.00308050663686, "tolerance": 0.25 },
+          { "name": "pwr", "value": 1.5022649631538, "tolerance": 0.25 }
+        ],
+        "theta": [
+          { "name": "id.Asym", "value": 0.6649609375, "tolerance": 1.0 }
+        ]
+      }
+    },
+    {
       "id": "cbpp_binomial_agq7",
       "description": "CBPP expanded binomial with scalar AGQ nAGQ=7 (AGQ-in-θ).",
       "kind": "glmm",

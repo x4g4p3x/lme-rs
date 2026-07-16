@@ -154,20 +154,17 @@ out_fpl <- list(
 write_json(out_fpl, "tests/data/ssfpl_nlmer.json", pretty = TRUE, auto_unbox = TRUE, digits = NA)
 cat("SSfpl fixef:", paste(signif(fixef(fm_fpl), 6), collapse = ", "), "\n")
 
-# SSbiexp — easier DGP / fixed start (getInitial can struggle on noisy biexp)
-set.seed(2031)
-m_bi <- 5
-n_bi <- 12
-id_bi <- factor(rep(1:m_bi, each = n_bi))
-x_bi <- rep(seq(0, 4, length.out = n_bi), m_bi)
-b_bi <- rnorm(m_bi, 0, 0.25)
-y_bi <- SSbiexp(x_bi, 4, log(0.8), 2, log(0.2)) + b_bi[as.integer(id_bi)] + rnorm(length(x_bi), 0, 0.08)
+# SSbiexp — quiet DGP + truth start (noisy / poorly separated rates trip PIRLS)
+set.seed(42)
+m_bi <- 6
+n_bi <- 16
+id_bi <- factor(rep(seq_len(m_bi), each = n_bi))
+x_bi <- rep(seq(0.1, 5, length.out = n_bi), m_bi)
+b_bi <- rnorm(m_bi, 0, 0.08)
+y_bi <- SSbiexp(x_bi, 5, log(1.2), 3, log(0.3)) + b_bi[as.integer(id_bi)] + rnorm(length(x_bi), 0, 0.02)
 df_bi <- data.frame(y = y_bi, x = x_bi, id = id_bi)
 write.csv(df_bi, "tests/data/ssbiexp_synthetic.csv", row.names = FALSE)
-start_bi <- tryCatch(
-  getInitial(y ~ SSbiexp(x, A1, lrc1, A2, lrc2), data = df_bi),
-  error = function(e) c(A1 = 4, lrc1 = log(0.8), A2 = 2, lrc2 = log(0.2))
-)
+start_bi <- c(A1 = 5, lrc1 = log(1.2), A2 = 3, lrc2 = log(0.3))
 fm_bi <- safe_nlmer(
   nlmer(y ~ SSbiexp(x, A1, lrc1, A2, lrc2) ~ A1 | id, data = df_bi, start = start_bi),
   "SSbiexp nlmer"
@@ -190,20 +187,17 @@ if (!is.null(fm_bi)) {
   cat("SSbiexp: wrote CSV only (no nlmer golden)\n")
 }
 
-# SSweibull
-set.seed(2032)
-m_w <- 5
-n_w <- 12
-id_w <- factor(rep(1:m_w, each = n_w))
-x_w <- rep(seq(0, 4, length.out = n_w), m_w)
-b_w <- rnorm(m_w, 0, 2)
-y_w <- SSweibull(x_w, 100, 80, -1, 1.5) + b_w[as.integer(id_w)] + rnorm(length(x_w), 0, 0.8)
+# SSweibull — quiet DGP, x>0, truth start
+set.seed(99)
+m_w <- 6
+n_w <- 18
+id_w <- factor(rep(seq_len(m_w), each = n_w))
+x_w <- rep(seq(0.2, 5, length.out = n_w), m_w)
+b_w <- rnorm(m_w, 0, 0.8)
+y_w <- SSweibull(x_w, 100, 80, -1, 1.5) + b_w[as.integer(id_w)] + rnorm(length(x_w), 0, 0.3)
 df_w <- data.frame(y = y_w, x = x_w, id = id_w)
 write.csv(df_w, "tests/data/ssweibull_synthetic.csv", row.names = FALSE)
-start_w <- tryCatch(
-  getInitial(y ~ SSweibull(x, Asym, Drop, lrc, pwr), data = df_w),
-  error = function(e) c(Asym = 100, Drop = 80, lrc = -1, pwr = 1.5)
-)
+start_w <- c(Asym = 100, Drop = 80, lrc = -1, pwr = 1.5)
 fm_w <- safe_nlmer(
   nlmer(y ~ SSweibull(x, Asym, Drop, lrc, pwr) ~ Asym | id, data = df_w, start = start_w),
   "SSweibull nlmer"
@@ -222,6 +216,8 @@ if (!is.null(fm_w)) {
   )
   write_json(out_w, "tests/data/ssweibull_nlmer.json", pretty = TRUE, auto_unbox = TRUE, digits = NA)
   cat("SSweibull fixef:", paste(signif(fixef(fm_w), 6), collapse = ", "), "\n")
+} else {
+  cat("SSweibull: wrote CSV only (no nlmer golden)\n")
 }
 
 # SSasympOff
