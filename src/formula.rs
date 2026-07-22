@@ -63,9 +63,17 @@ pub fn parse(formula: &str) -> crate::Result<FiastoModel> {
     let (formula_no_offset, offset_var) = extract_offset(formula);
     let mut expanded = expand_nested_re(&formula_no_offset);
     expanded = expand_independent_re(&expanded);
-    let json_val = parse_formula(&expanded).map_err(|e| crate::LmeError::NotImplemented {
-        feature: format!("Formula parsing error: {}", e),
-    })?;
+    // fiasto 0.2.7 can panic on some malformed token sequences instead of returning
+    // its ParseError (for example `y ~ 1 (+ (1 |`). Keep untrusted formula input
+    // recoverable at this crate's public boundary.
+    let json_val =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parse_formula(&expanded)))
+            .map_err(|_| crate::LmeError::NotImplemented {
+                feature: "Formula parsing error: parser rejected malformed syntax".to_string(),
+            })?
+            .map_err(|e| crate::LmeError::NotImplemented {
+                feature: format!("Formula parsing error: {}", e),
+            })?;
 
     let mut ast: FiastoModel =
         serde_json::from_value(json_val).map_err(|e| crate::LmeError::NotImplemented {

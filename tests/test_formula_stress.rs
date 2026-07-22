@@ -63,6 +63,7 @@ fn malformed_and_incomplete_formulas_rejected() {
     assert_parse_err("y ~ ( | g)");
     assert_parse_err("y ~ x + (1 | g"); // unclosed paren
     assert_parse_err("y ~ )("); // junk parens (must not panic in expand_nested_re)
+    assert_parse_err("Rey ~ 1 (+ (1 |  "); // fiasto 0.2.7 reached an internal unreachable!()
 }
 
 #[test]

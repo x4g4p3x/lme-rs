@@ -30,8 +30,8 @@ bench = false
 members = ["."]
 
 [profile.dev]
-panic = "abort"
+panic = "unwind"
 
 [profile.release]
-panic = "abort"
+panic = "unwind"
 debug = 1

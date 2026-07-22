@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pull requests now run the hosted CI matrix; Python binding validation asserts the imported extension version and environment path, then installs and tests the wheel in a separate locked environment.
 - Python custom nonlinear-mean callback failures now propagate as recoverable Python exceptions, and Kenward-Roger matrix inversion failures return structured linear-algebra errors.
+- Malformed Wilkinson formulas that trigger an internal `fiasto` parser panic are contained at the public parser boundary and returned as formula errors.
 - GitHub Actions are pinned to immutable commit SHAs; dependency audits and libFuzzer smoke tests also run weekly.
 - The checked-in fair Rust/Julia reference now covers all 12 tier-A cases in one strict-target run; all cold-fit and measured prepared-fit gates passed.
 
