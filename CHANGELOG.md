@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Target release: **0.2.0**.
+## [0.2.0] - 2026-07-22
 
 ### Added
 
@@ -22,6 +22,7 @@ Target release: **0.2.0**.
 
 ### Changed
 
+- **Release identity and safety** — synchronized Rust/Python package identity at `0.2.0`; uv-based binding tests no longer resync over the freshly built extension; PyPI and crates.io publication now wait for the complete tag CI matrix, security audits, policy checks, and production-load gates; rustdoc warnings are release-blocking.
 - **Dependency audit hygiene** — patched `anyhow` / `memmap2`; upgraded `getset` to remove `proc-macro-error2`; disabled unused `statrs` defaults; audits now deny all warnings except the documented informational `paste` advisory inherited from `argmin` 0.11.
 - Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 - **`SSbiexp` / `SSweibull` R goldens** — quiet DGP + truth starts (noisy DGPs trip `lme4` PIRLS “step factor” failures).

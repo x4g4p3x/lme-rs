@@ -20,6 +20,25 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  release-policy:
+    name: Release policy checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate legal notices and provenance
+        run: python3 scripts/ci/lme_ci.py legal
+      - name: Validate completion score claims
+        run: python3 scripts/ci/lme_ci.py completion-check
+
+  security-audit:
+    name: Dependency security audit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/audit.yml
+
   rust-lint:
     name: Rust fmt & clippy
     runs-on: ubuntu-latest
@@ -169,6 +188,8 @@ jobs:
           key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ubuntu-cargo-
       - name: cargo test --doc
+        env:
+          RUSTDOCFLAGS: -D warnings
         run: cargo test --doc --locked --verbose
 
   python-bindings-versions:
@@ -225,4 +246,46 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - name: Build documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps --verbose --locked
+
+  publish-crate:
+    name: Publish Rust crate after CI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - release-policy
+      - security-audit
+      - rust-lint
+      - test
+      - rust-all-targets
+      - production-load
+      - rust-doctests
+      - python-bindings-versions
+      - docs
+    permissions:
+      contents: read
+    uses: ./.github/workflows/crate-publish-dry-run.yml
+    with:
+      publish: true
+    secrets: inherit
+
+  publish-python:
+    name: Publish Python artifacts after CI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - release-policy
+      - security-audit
+      - rust-lint
+      - test
+      - rust-all-targets
+      - production-load
+      - rust-doctests
+      - python-bindings-versions
+      - docs
+    permissions:
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/python-release.yml
+    with:
+      publish: true

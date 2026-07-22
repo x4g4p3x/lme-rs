@@ -1,12 +1,11 @@
 name: Security audit
 
-# Automatic runs: v* release tags only. Use workflow_dispatch for an on-demand audit.
+# Release CI calls this workflow as a required publication gate.
+# workflow_dispatch remains available for an on-demand audit.
 
 on:
+  workflow_call:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: read

@@ -1,10 +1,15 @@
 name: Build and Publish Python Wheels
 
-# Trigger automatically only for release tags; use workflow_dispatch for manual builds.
+# CI calls this workflow after every release-tag validation job succeeds.
+# workflow_dispatch remains available for non-publishing artifact builds.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
+    inputs:
+      publish:
+        description: Publish the built artifacts for a validated release tag
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
 
 permissions:
@@ -134,8 +139,8 @@ jobs:
     name: Publish to PyPI
     needs: [linux, windows, macos, sdist]
     runs-on: ubuntu-latest
-    # Only publish to PyPI on tag pushes (e.g., git tag v0.1.0 && git push origin v0.1.0)
-    if: "startsWith(github.ref, 'refs/tags/')"
+    # Only CI's validated release-tag call can enable publication.
+    if: "inputs.publish && startsWith(github.ref, 'refs/tags/v')"
     environment: pypi
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing

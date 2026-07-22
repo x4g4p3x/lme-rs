@@ -70,7 +70,7 @@ Use `--no-verify` only when explicitly necessary; report the bypass and the chec
 
 ## CI and release boundaries
 
-GitHub Actions run automatically on `v*` tags and can be manually dispatched. Ordinary branch pushes do not receive the hosted matrix automatically.
+GitHub Actions run automatically on `v*` tags and can be manually dispatched. Ordinary branch pushes do not receive the hosted matrix automatically. The tag CI calls the crates.io and PyPI workflows only after every validation job succeeds; the publishing workflows do not listen to tags independently.
 
 - `task ci` mirrors the core hosted flow: Rust tests, Python bindings, lint, all-targets check, legal checks, doctests, docs, and the completion-score check.
 - Hosted-only coverage includes the multi-OS matrix, Python 3.10/3.12/3.13, production-load gates, and `pip-audit`.

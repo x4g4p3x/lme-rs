@@ -160,9 +160,9 @@ Do not describe a feature as supported unless it is exposed by the public API an
 ## Other GitHub Actions workflows
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — release CI on `v*` tags and manual dispatch.
-- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — `cargo audit` on the root and `python/` Rust crates, plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment, on `v*` tags and manual dispatch.
-- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — `cargo publish --dry-run --locked` on `v*` tags and manual dispatch.
-- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — Python wheel builds and PyPI publish on `v*` tags; manual dispatch builds artifacts without publishing.
+- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; manual dispatch is also available.
+- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — called by release CI to publish only after the full tag matrix succeeds; manual dispatch runs `cargo publish --dry-run --locked` only.
+- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — called by release CI to build and publish only after the full tag matrix succeeds; manual dispatch builds artifacts without publishing.
 
 No GitHub Actions workflow runs automatically for ordinary branch pushes or pull requests. Use Lefthook and Task locally before pushing; use manual dispatch when a remote check is useful before tagging.
 

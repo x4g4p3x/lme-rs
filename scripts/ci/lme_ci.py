@@ -129,11 +129,17 @@ def cargo_test_fast() -> None:
 
 
 def cargo_doctest() -> None:
-    run(["cargo", "test", "--doc", "--locked", "--verbose"])
+    run(
+        ["cargo", "test", "--doc", "--locked", "--verbose"],
+        env={"RUSTDOCFLAGS": "-D warnings"},
+    )
 
 
 def cargo_doc() -> None:
-    run(["cargo", "doc", "--no-deps", "--verbose", "--locked"])
+    run(
+        ["cargo", "doc", "--no-deps", "--verbose", "--locked"],
+        env={"RUSTDOCFLAGS": "-D warnings"},
+    )
 
 
 def cargo_audit() -> None:

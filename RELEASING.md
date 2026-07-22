@@ -70,25 +70,25 @@ Update all user-visible versioned surfaces together.
 
 ### Where releases land (PyPI vs crates.io)
 
-| Surface | Registry | On `v*` tag push | Maintainer action after tag |
+| Surface | Registry | After the `v*` tag CI succeeds | Maintainer action after tag |
 |---------|----------|------------------|----------------------------|
-| Rust crate `lme-rs` | [crates.io](https://crates.io/crates/lme-rs) | [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) publishes with the `CARGO_REGISTRY_TOKEN` repository secret | Verify the workflow and crates.io listing |
-| Python `lme_python` | PyPI | [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) builds wheels and **publishes** | Wait for the workflow; no local publish step |
+| Rust crate `lme-rs` | [crates.io](https://crates.io/crates/lme-rs) | CI calls [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml), which publishes with the `CARGO_REGISTRY_TOKEN` repository secret | Verify the workflow and crates.io listing |
+| Python `lme_python` | PyPI | CI calls [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml), which builds wheels and **publishes** | Wait for the workflow; no local publish step |
 | API docs | [docs.rs](https://docs.rs/lme-rs) | Builds after the version appears on crates.io | Run `cargo publish` first |
 
-Pushing a `v*` tag publishes both PyPI wheels and the Rust crate, provided the repository has a valid `CARGO_REGISTRY_TOKEN` secret. docs.rs builds after the crate reaches crates.io.
+Pushing a `v*` tag starts the full CI matrix. Only after every CI validation job succeeds does CI call the PyPI and crates.io workflows. Publication requires a valid `CARGO_REGISTRY_TOKEN` secret; docs.rs builds after the crate reaches crates.io.
 
 ### Rust crate
 
 - bump `version` in `Cargo.toml`
 - run `cargo check` or `cargo build` to refresh `Cargo.lock` if needed
-- before tagging: optionally run `cargo publish --dry-run --locked`; the tag workflow performs the actual publish with the repository secret
+- before tagging: run `cargo publish --dry-run --locked`; validated tag CI performs the actual publish with the repository secret
 
 ### Python package
 
 - bump `version` in `python/Cargo.toml`
 - confirm `python/pyproject.toml` still matches the intended package metadata
-- no separate PyPI publish step — the tag push triggers [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml)
+- no separate PyPI publish step — successful tag CI calls [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml)
 
 ### Documentation
 
@@ -127,17 +127,17 @@ python scripts/run_cross_language_benchmarks.py
 1. Create an annotated tag:
 
 ```bash
-git tag -a v0.1.3 -m "Release v0.1.3"
+git tag -a v0.2.0 -m "Release v0.2.0"
 ```
 
 1. Push the branch and the tag:
 
 ```bash
 git push origin master
-git push origin v0.1.3
+git push origin v0.2.0
 ```
 
-1. Wait for GitHub Actions (PyPI publish, Rust crate publish, benchmarks) and verify post-release checks below.
+1. Wait for the full CI matrix; after it succeeds, verify the PyPI publish, Rust crate publish, benchmarks, and post-release checks below.
 
 ## GitHub Actions behavior
 
@@ -146,21 +146,22 @@ git push origin v0.1.3
 ### CI
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `v*` tags and manual dispatch.
-- Validates build, tests, formatting, and `clippy` across the release matrix.
+- It validates build, tests, formatting, `clippy`, security audits, legal/provenance policy, completion-score claims, production-load gates, Python versions, and docs across the release matrix.
+- On a `v*` tag, and only after all validation jobs succeed, it calls both publishing workflows with publication enabled.
 
 ### Python release workflow
 
-- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) builds wheels on `v*` tags and manual dispatch.
-- The `publish` job runs **only on tag pushes** (`if: startsWith(github.ref, 'refs/tags/')`).
-- On a tag push, the workflow **automatically publishes to PyPI** and uploads artifacts to the GitHub Release.
+- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) is called by successful release-tag CI and can be manually dispatched.
+- The `publish` job requires both CI's explicit `publish: true` input and a `v*` tag ref.
+- After validated tag CI, the workflow **automatically publishes to PyPI** and uploads artifacts to the GitHub Release.
 - Manual dispatch builds and uploads wheel artifacts only (no PyPI publish).
 
 ### Rust crate (crates.io)
 
-- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) runs on `v*` tags and manual dispatch.
-- **Tag push:** `cargo publish --locked` using the `CARGO_REGISTRY_TOKEN` repository secret.
+- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) is called by successful release-tag CI and can be manually dispatched.
+- **Validated tag CI:** `cargo publish --locked` using the `CARGO_REGISTRY_TOKEN` repository secret.
 - **Manual dispatch:** `cargo publish --dry-run --locked` only (validates the package without publishing).
-- It fails clearly if the token is missing on tag pushes; rotate the token and re-run the workflow rather than publishing from a different tree.
+- It fails clearly if the token is missing during a validated tag publish; rotate the token and re-run the workflow rather than publishing from a different tree.
 
 ### Repository metadata sync
 
@@ -182,7 +183,7 @@ If a release changes the crate description, homepage, keywords, or categories, v
 
 ## Publishing the Rust crate to crates.io
 
-Publishing is automated for `v*` tags by [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml). The repository must have a valid `CARGO_REGISTRY_TOKEN` Actions secret. Before tagging, maintainers may run `cargo publish --dry-run --locked` locally to validate the package; [docs.rs](https://docs.rs/lme-rs) builds after the workflow publishes the crate.
+Publishing is automated after successful `v*` tag CI by [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml). The repository must have a valid `CARGO_REGISTRY_TOKEN` Actions secret. Before tagging, maintainers run `cargo publish --dry-run --locked` locally to validate the package; [docs.rs](https://docs.rs/lme-rs) builds after the workflow publishes the crate.
 
 ## Post-release verification
 
