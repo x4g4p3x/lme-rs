@@ -666,8 +666,6 @@ checksum = "f8eb564c5c7423d25c886fb561d1e4ee69f72354d16918afa32c08811f6b6a55"
 [[package]]
 name = "fiasto"
 version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "385e536c5210d2b1a1ef2053bbc7dac48dea5dcd78c5eae9413110bf367f9473"
 dependencies = [
  "logos",
  "owo-colors",

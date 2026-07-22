@@ -106,7 +106,9 @@ def restage(paths: list[str]) -> None:
 
 
 def cargo_fmt(*, apply: bool) -> None:
-    cmd = ["cargo", "fmt", "--all"]
+    # Format only this package. `cargo fmt --all` also walks path dependencies
+    # (vendored crates), which should keep upstream formatting.
+    cmd = ["cargo", "fmt", "--package", "lme-rs"]
     if not apply:
         cmd.append("--check")
     run(cmd)

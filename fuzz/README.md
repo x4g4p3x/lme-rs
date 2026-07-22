@@ -51,4 +51,7 @@ cargo fuzz run formula_parse path/to/crash-file
 
 ## CI
 
-The repository workflow **Fuzz (manual)** runs a short libFuzzer smoke job from the Actions tab (`workflow_dispatch`).
+The repository workflow **Fuzz smoke** runs a short libFuzzer smoke job weekly and
+from the Actions tab (`workflow_dispatch`). Formula fuzz depends on the vendored
+`fiasto` patch in [`vendor/fiasto`](../vendor/fiasto) so malformed seeds such as
+`Rey ~ 1 (+ (1 |` return `ParseError` under cargo-fuzz's `panic=abort`.

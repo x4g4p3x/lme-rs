@@ -26,7 +26,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 argmin = "0.11.0"
 argmin-math = { version = "0.5.1", features = ["ndarray_v0_16-nolinalg"] }
-fiasto = "0.2.7"
+# Vendored patch of fiasto 0.2.7 (MIT). Upstream:
+# https://github.com/alexhallam/fiasto — see vendor/fiasto/PATCHES.md.
+# Parser fallbacks return ParseError instead of unreachable!() so cargo-fuzz
+# (panic=abort) does not abort on seeds such as `Rey ~ 1 (+ (1 |`.
+fiasto = { version = "0.2.7", path = "vendor/fiasto" }
 sprs = "0.11.4"
 sprs-ldl = "0.10.0"
 log = "0.4"
