@@ -92,8 +92,8 @@ If you are changing `python/` or verifying the Python package locally (requires 
 ```bash
 cd python
 uv sync --extra dev --no-install-project
-uv run maturin develop --release
-uv run pytest tests/
+uv run --no-sync maturin develop --release
+uv run --no-sync pytest tests/
 ```
 
 [`python/uv.lock`](python/uv.lock) pins CI and local dev dependencies from [`python/pyproject.toml`](python/pyproject.toml) (`[project.optional-dependencies] dev`). After changing those dependencies:
@@ -103,7 +103,7 @@ cd python
 uv lock
 ```
 
-Use `uv run pytest tests/` so only [`python/tests/`](python/tests/) runs (same as the tag-triggered [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
+Use `uv run --no-sync pytest tests/` after the explicit `uv sync` so only [`python/tests/`](python/tests/) runs against the extension Maturin just installed (same as the tag-triggered [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
 
 [`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) run the same uv-native flow. Tag-triggered CI also exercises Python **3.10**, **3.12**, and **3.13** on Ubuntu (job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 

@@ -1,6 +1,6 @@
 [package]
 name = "lme-rs"
-version = "0.1.11"
+version = "0.2.0"
 edition = "2021"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Rust port of R's lme4: linear, generalized, and nonlinear mixed-effects models"
@@ -19,7 +19,7 @@ slow-production-benches = []
 polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
 ndarray = "0.16"
 
-statrs = "0.18"
+statrs = { version = "0.18", default-features = false }
 thiserror = "2"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }

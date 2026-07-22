@@ -142,15 +142,27 @@ def cargo_audit() -> None:
             "cargo-audit not found on PATH. Install: cargo install cargo-audit "
             "(or see CONTRIBUTING.md / AGENTS.md)."
         )
-    run(["cargo", "audit"])
+    # `paste` is an unmaintained, build-time proc macro required by the current
+    # argmin 0.11 release. RUSTSEC-2024-0436 is informational (no vulnerability
+    # or patched argmin release). Keep this single exception narrow and deny all
+    # other audit warnings so new advisories cannot silently accumulate.
+    audit_cmd = [
+        "cargo",
+        "audit",
+        "--deny",
+        "warnings",
+        "--ignore",
+        "RUSTSEC-2024-0436",
+    ]
+    run(audit_cmd)
     if (PYTHON_DIR / "Cargo.toml").exists():
-        run(["cargo", "audit"], cwd=PYTHON_DIR)
+        run(audit_cmd, cwd=PYTHON_DIR)
 
 
 def pip_audit() -> None:
     _require_tool("uv")
     _uv_sync(python="3.11")
-    run(["uv", "run", "pip-audit"], cwd=PYTHON_DIR)
+    run(["uv", "run", "--no-sync", "pip-audit"], cwd=PYTHON_DIR)
 
 
 def audit() -> None:
@@ -538,22 +550,38 @@ def _uv_sync(*, python: str = "3.11", reuse: bool = True) -> None:
 def python_bindings(*, reuse_venv: bool = False, skip_wheel: bool = False) -> None:
     _uv_sync(python="3.11", reuse=reuse_venv)
     env = _uv_python_env()
-    run(["uv", "run", "maturin", "develop", "--release"], cwd=PYTHON_DIR, env=env)
-    run(["uv", "run", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+    run(
+        ["uv", "run", "--no-sync", "maturin", "develop", "--release"],
+        cwd=PYTHON_DIR,
+        env=env,
+    )
+    run(["uv", "run", "--no-sync", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
 
     if skip_wheel:
         return
 
-    run(["uv", "run", "maturin", "build", "--release", "-o", "dist"], cwd=PYTHON_DIR, env=env)
+    run(
+        ["uv", "run", "--no-sync", "maturin", "build", "--release", "-o", "dist"],
+        cwd=PYTHON_DIR,
+        env=env,
+    )
     wheels = sorted((PYTHON_DIR / "dist").glob("lme_python-*.whl"))
     if not wheels:
         raise CiError("no wheel under python/dist")
     run(
-        ["uv", "run", "pip", "install", "--force-reinstall", str(wheels[-1])],
+        [
+            "uv",
+            "run",
+            "--no-sync",
+            "pip",
+            "install",
+            "--force-reinstall",
+            str(wheels[-1]),
+        ],
         cwd=PYTHON_DIR,
         env=env,
     )
-    run(["uv", "run", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+    run(["uv", "run", "--no-sync", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
 
 
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:

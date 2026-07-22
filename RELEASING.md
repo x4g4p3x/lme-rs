@@ -46,13 +46,22 @@ Run `task legal` before tagging. Source releases include [`THIRD_PARTY_NOTICES.m
 
 The x86_64 wheel statically links Intel MKL and all wheels use `sprs-ldl` (LGPL-2.1). Keep [`RELINKING.md`](RELINKING.md) with any redistributed binary and review the target-specific dependency graph and third-party terms before publishing.
 
+### Security-audit exception
+
+`cargo audit` denies all warnings except `RUSTSEC-2024-0436`. That advisory is
+informational: the unmaintained `paste` procedural macro is required by the
+current `argmin` 0.11 release, and no patched `argmin` release exists. The
+unused `statrs` feature path to `paste` is disabled. Remove the exception as
+soon as `argmin` publishes a maintained replacement; do not add broader audit
+exceptions to make a release pass.
+
 ### Python validation
 
 ```bash
 cd python
 uv sync --extra dev --no-install-project
-uv run maturin develop --release
-uv run pytest tests/
+uv run --no-sync maturin develop --release
+uv run --no-sync pytest tests/
 ```
 
 ## Version bump checklist
@@ -86,6 +95,14 @@ Pushing a `v*` tag publishes both PyPI wheels and the Rust crate, provided the r
 - update `CHANGELOG.md`
 - update any README or guide snippets that mention a specific version
 - review `comparisons/COMPARISONS.md` if release notes depend on changed outputs or behavior
+
+### Immediately after release
+
+- bump both Cargo manifests to the next unique development version (for example,
+  `0.2.1-dev.0` after releasing `0.2.0`)
+- refresh the root, Python, and fuzz lockfiles
+- do not leave `master` on a version already published to crates.io or PyPI; build
+  and editable-install caches use the package version as part of artifact identity
 
 ## Benchmarks before release
 

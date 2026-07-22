@@ -90,9 +90,9 @@ jobs:
         run: |
           set -euo pipefail
           uv sync --extra dev --no-install-project
-          uv run maturin develop --release
-          uv run pytest tests/ -v
-          uv run maturin build --release -o dist
+          uv run --no-sync maturin develop --release
+          uv run --no-sync pytest tests/ -v
+          uv run --no-sync maturin build --release -o dist
           shopt -s nullglob
           wheels=(dist/lme_python-*.whl)
           if [ ${#wheels[@]} -eq 0 ]; then
@@ -100,8 +100,8 @@ jobs:
             ls -la dist 2>/dev/null || true
             exit 1
           fi
-          uv run pip install --force-reinstall "${wheels[0]}"
-          uv run pytest tests/ -v
+          uv run --no-sync pip install --force-reinstall "${wheels[0]}"
+          uv run --no-sync pytest tests/ -v
 
   rust-all-targets:
     name: Rust check (all targets)
@@ -205,9 +205,9 @@ jobs:
         run: |
           set -euo pipefail
           uv sync --extra dev --no-install-project
-          uv run maturin develop --release
-          uv run pytest tests/ -v
-          uv run maturin build --release -o dist
+          uv run --no-sync maturin develop --release
+          uv run --no-sync pytest tests/ -v
+          uv run --no-sync maturin build --release -o dist
           shopt -s nullglob
           wheels=(dist/lme_python-*.whl)
           if [ ${#wheels[@]} -eq 0 ]; then
@@ -215,8 +215,8 @@ jobs:
             ls -la dist 2>/dev/null || true
             exit 1
           fi
-          uv run pip install --force-reinstall "${wheels[0]}"
-          uv run pytest tests/ -v
+          uv run --no-sync pip install --force-reinstall "${wheels[0]}"
+          uv run --no-sync pytest tests/ -v
 
   docs:
     name: Build docs

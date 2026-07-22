@@ -22,7 +22,7 @@ This guide covers the practical Rust workflow for fitting linear and generalized
 
 ```toml
 [dependencies]
-lme-rs = "0.1.11"
+lme-rs = "0.2.0"
 polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```

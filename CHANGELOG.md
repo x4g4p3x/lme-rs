@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target release: **0.2.0**.
+
 ### Added
 
 - **Parametric GLMM bootstrap (`boot_glmer`)** — amortized prepare/fit; binomial proportion + integer trial weights.
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependency audit hygiene** — patched `anyhow` / `memmap2`; upgraded `getset` to remove `proc-macro-error2`; disabled unused `statrs` defaults; audits now deny all warnings except the documented informational `paste` advisory inherited from `argmin` 0.11.
 - Fair-harness **axis (3) cold-fit target** tightened from **1.5×** to **&lt;1.0×** Julia median on `cold_fit` ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
 - **`SSbiexp` / `SSweibull` R goldens** — quiet DGP + truth starts (noisy DGPs trip `lme4` PIRLS “step factor” failures).
 - Tooling example [`examples/dump_cascade_fixtures.rs`](examples/dump_cascade_fixtures.rs) — provisional no-R fixture dump (defaults to `target/cascade_fixture_dump/`; refuses to overwrite `tests/data/` without `--write-tests-data --force`).
