@@ -70,7 +70,7 @@ Use `--no-verify` only when explicitly necessary; report the bypass and the chec
 
 ## CI and release boundaries
 
-GitHub Actions run automatically on `v*` tags and can be manually dispatched. Ordinary branch pushes do not receive the hosted matrix automatically. The tag CI calls the crates.io and PyPI workflows only after every validation job succeeds; the publishing workflows do not listen to tags independently.
+GitHub Actions run automatically on pull requests and `v*` tags, and can be manually dispatched. Ordinary non-PR branch pushes do not receive the hosted matrix automatically. Pull requests run the full matrix except the four ignored heavy production-load cases. The tag CI calls the crates.io and PyPI workflows only after every validation job succeeds; the publishing workflows do not listen to tags independently.
 
 - `task ci` mirrors the core hosted flow: Rust tests, Python bindings, lint, all-targets check, legal checks, doctests, docs, and the completion-score check.
 - Hosted-only coverage includes the multi-OS matrix, Python 3.10/3.12/3.13, production-load gates, and `pip-audit`.
@@ -87,7 +87,7 @@ For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `ta
 | `task test:fast` / `task test` | Rust unit-only / full Rust suite |
 | `task rust` / `task python` | Rust-only CI slice / bindings build and pytest flow |
 | `task preflight` | Pre-push checks: lint, check, audit, legal, metadata |
-| `task ci` / `task ci:fast` | Core CI mirror / reuse Python environment and skip wheel reinstall pass |
+| `task ci` / `task ci:fast` | Core CI mirror / reuse the editable Python environment and skip the isolated-wheel pass |
 | `task audit` / `task legal` | Security audit / provenance and license checks |
 | `task completion:check` | Verify the manifest-derived completion score and published markers |
 | `task benchmarks:fair-rust-julia` | Fair fit-only Rust vs MixedModels.jl timing when Julia packages are installed |

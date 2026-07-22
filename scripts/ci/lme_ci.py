@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Sequence
 
@@ -518,31 +519,33 @@ def _parse_python_version(python: str) -> tuple[int, int]:
     return int(major), int(minor)
 
 
-def _uv_python_env() -> dict[str, str]:
-    venv = PYTHON_VENV
+def _uv_python_env(venv: Path = PYTHON_VENV) -> dict[str, str]:
     return {
         "PYO3_PYTHON": str(venv_python(venv)),
         "VIRTUAL_ENV": str(venv),
     }
 
 
-def _uv_sync(*, python: str = "3.11", reuse: bool = True) -> None:
-    """Install locked dev dependencies into python/.venv (uv-native flow)."""
+def _uv_sync(
+    *, python: str = "3.11", reuse: bool = True, venv: Path = PYTHON_VENV
+) -> None:
+    """Install locked dev dependencies into an explicitly selected environment."""
     _require_tool("uv")
     want = _parse_python_version(python)
-    if PYTHON_VENV.exists():
+    if venv.exists():
         if not reuse:
-            shutil.rmtree(PYTHON_VENV)
-        elif want != _venv_python_version(PYTHON_VENV):
+            shutil.rmtree(venv)
+        elif want != _venv_python_version(venv):
             print(
-                f"    (replacing python/.venv: need Python {python})",
+                f"    (replacing {venv}: need Python {python})",
                 flush=True,
             )
-            shutil.rmtree(PYTHON_VENV)
+            shutil.rmtree(venv)
     run(
         [
             "uv",
             "sync",
+            "--locked",
             "--extra",
             "dev",
             "--python",
@@ -550,44 +553,104 @@ def _uv_sync(*, python: str = "3.11", reuse: bool = True) -> None:
             "--no-install-project",
         ],
         cwd=PYTHON_DIR,
+        env={"UV_PROJECT_ENVIRONMENT": str(venv)},
     )
 
 
-def python_bindings(*, reuse_venv: bool = False, skip_wheel: bool = False) -> None:
-    _uv_sync(python="3.11", reuse=reuse_venv)
+def _python_package_version() -> str:
+    for line in (PYTHON_DIR / "Cargo.toml").read_text(encoding="utf-8").splitlines():
+        if line.startswith("version = "):
+            return line.split('"', 2)[1]
+    raise CiError("python/Cargo.toml has no package version")
+
+
+def _assert_python_artifact(python: Path, *, version: str, venv: Path) -> None:
+    script = """
+import sys
+from pathlib import Path
+
+import lme_python
+from lme_python import lme_python as native
+
+expected_version = sys.argv[1]
+expected_prefix = Path(sys.argv[2]).resolve()
+actual_version = getattr(native, "__version__", None)
+actual_prefix = Path(sys.prefix).resolve()
+module_paths = [Path(lme_python.__file__).resolve(), Path(native.__file__).resolve()]
+
+if actual_version != expected_version:
+    raise SystemExit(f"wrong lme_python version: expected {expected_version}, got {actual_version}")
+if actual_prefix != expected_prefix:
+    raise SystemExit(f"wrong Python environment: expected {expected_prefix}, got {actual_prefix}")
+for module_path in module_paths:
+    try:
+        module_path.relative_to(expected_prefix)
+    except ValueError:
+        raise SystemExit(f"lme_python loaded outside {expected_prefix}: {module_path}") from None
+
+print(f"python artifact: version={actual_version} path={module_paths[-1]}")
+"""
+    run([str(python), "-c", script, version, str(venv)], cwd=PYTHON_DIR)
+
+
+def python_bindings(
+    *, python: str = "3.11", reuse_venv: bool = False, skip_wheel: bool = False
+) -> None:
+    _uv_sync(python=python, reuse=reuse_venv)
     env = _uv_python_env()
+    expected_version = _python_package_version()
+    editable_python = venv_python()
     run(
         ["uv", "run", "--no-sync", "maturin", "develop", "--release"],
         cwd=PYTHON_DIR,
         env=env,
     )
-    run(["uv", "run", "--no-sync", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+    _assert_python_artifact(editable_python, version=expected_version, venv=PYTHON_VENV)
+    run([str(editable_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
 
     if skip_wheel:
         return
 
-    run(
-        ["uv", "run", "--no-sync", "maturin", "build", "--release", "-o", "dist"],
-        cwd=PYTHON_DIR,
-        env=env,
-    )
-    wheels = sorted((PYTHON_DIR / "dist").glob("lme_python-*.whl"))
-    if not wheels:
-        raise CiError("no wheel under python/dist")
-    run(
-        [
-            "uv",
-            "run",
-            "--no-sync",
-            "pip",
-            "install",
-            "--force-reinstall",
-            str(wheels[-1]),
-        ],
-        cwd=PYTHON_DIR,
-        env=env,
-    )
-    run(["uv", "run", "--no-sync", "pytest", "tests/", "-v"], cwd=PYTHON_DIR, env=env)
+    with tempfile.TemporaryDirectory(prefix="lme-python-wheel-") as tmp:
+        tmp_root = Path(tmp)
+        dist = tmp_root / "dist"
+        wheel_venv = tmp_root / "venv"
+        run(
+            [
+                "uv",
+                "run",
+                "--no-sync",
+                "maturin",
+                "build",
+                "--release",
+                "-o",
+                str(dist),
+            ],
+            cwd=PYTHON_DIR,
+            env=env,
+        )
+        wheels = sorted(dist.glob("lme_python-*.whl"))
+        if len(wheels) != 1:
+            raise CiError(
+                f"expected exactly one wheel under {dist}, found {len(wheels)}"
+            )
+
+        _uv_sync(python=python, reuse=False, venv=wheel_venv)
+        wheel_python = venv_python(wheel_venv)
+        run(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(wheel_python),
+                "--no-deps",
+                str(wheels[0]),
+            ],
+            cwd=PYTHON_DIR,
+        )
+        _assert_python_artifact(wheel_python, version=expected_version, venv=wheel_venv)
+        run([str(wheel_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
 
 
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
@@ -690,10 +753,17 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("rust-all", help="Rust slice without Python").set_defaults(fn=lambda _: rust_all())
 
     p_py = sub.add_parser("python", help="Python bindings CI flow")
+    p_py.add_argument("--python-version", default="3.11")
     p_py.add_argument("--reuse-venv", action="store_true")
-    p_py.add_argument("--skip-wheel-reinstall", action="store_true")
+    p_py.add_argument(
+        "--skip-isolated-wheel",
+        "--skip-wheel-reinstall",
+        dest="skip_wheel_reinstall",
+        action="store_true",
+    )
     p_py.set_defaults(
         fn=lambda a: python_bindings(
+            python=a.python_version,
             reuse_venv=a.reuse_venv,
             skip_wheel=a.skip_wheel_reinstall,
         )
@@ -732,7 +802,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p_ci = sub.add_parser("ci", help="Full core CI mirror")
     p_ci.add_argument("--reuse-venv", action="store_true")
-    p_ci.add_argument("--skip-wheel-reinstall", action="store_true")
+    p_ci.add_argument(
+        "--skip-isolated-wheel",
+        "--skip-wheel-reinstall",
+        dest="skip_wheel_reinstall",
+        action="store_true",
+    )
     p_ci.add_argument("--skip-python", action="store_true")
     p_ci.set_defaults(
         fn=lambda a: ci(

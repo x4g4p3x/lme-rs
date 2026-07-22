@@ -2118,6 +2118,7 @@ pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<PyLikelihoodRatioAn
 
 #[pymodule]
 fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<PyLmeFit>()?;
     m.add_class::<PyLmerPrepared>()?;
     m.add_class::<PyGlmerPrepared>()?;

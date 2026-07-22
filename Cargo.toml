@@ -1,6 +1,6 @@
 [package]
 name = "lme-rs"
-version = "0.2.0"
+version = "0.2.1-dev.0"
 edition = "2021"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Rust port of R's lme4: linear, generalized, and nonlinear mixed-effects models"

@@ -1,9 +1,10 @@
 name: CI
 
-# Automatic runs: v* release tags only. Use workflow_dispatch for an intentional
-# pre-release check on any branch (Actions → CI → Run workflow).
+# Automatic runs: pull requests and v* release tags. Use workflow_dispatch for
+# an intentional full check on any branch (Actions → CI → Run workflow).
 
 on:
+  pull_request:
   push:
     tags:
       - "v*"
@@ -103,24 +104,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
 
-      - name: Python bindings (maturin develop, pytest, wheel install, pytest)
-        working-directory: python
-        shell: bash
-        run: |
-          set -euo pipefail
-          uv sync --extra dev --no-install-project
-          uv run --no-sync maturin develop --release
-          uv run --no-sync pytest tests/ -v
-          uv run --no-sync maturin build --release -o dist
-          shopt -s nullglob
-          wheels=(dist/lme_python-*.whl)
-          if [ ${#wheels[@]} -eq 0 ]; then
-            echo "No wheel found under python/dist"
-            ls -la dist 2>/dev/null || true
-            exit 1
-          fi
-          uv run --no-sync pip install --force-reinstall "${wheels[0]}"
-          uv run --no-sync pytest tests/ -v
+      - name: Python bindings (editable identity + isolated wheel)
+        run: python scripts/ci/lme_ci.py python --python-version 3.11
 
   rust-all-targets:
     name: Rust check (all targets)
@@ -168,6 +153,7 @@ jobs:
         run: cargo test --release --locked --verbose --test test_production_load
 
       - name: Heavy production load tests (ignored)
+        if: github.event_name != 'pull_request'
         run: cargo test --release --locked --verbose --test test_production_load -- --ignored --test-threads=1
 
   rust-doctests:
@@ -220,24 +206,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
 
-      - name: Python bindings (maturin develop, pytest, wheel install, pytest)
-        working-directory: python
-        shell: bash
-        run: |
-          set -euo pipefail
-          uv sync --extra dev --no-install-project
-          uv run --no-sync maturin develop --release
-          uv run --no-sync pytest tests/ -v
-          uv run --no-sync maturin build --release -o dist
-          shopt -s nullglob
-          wheels=(dist/lme_python-*.whl)
-          if [ ${#wheels[@]} -eq 0 ]; then
-            echo "No wheel found under python/dist"
-            ls -la dist 2>/dev/null || true
-            exit 1
-          fi
-          uv run --no-sync pip install --force-reinstall "${wheels[0]}"
-          uv run --no-sync pytest tests/ -v
+      - name: Python bindings (editable identity + isolated wheel)
+        run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }}
 
   docs:
     name: Build docs

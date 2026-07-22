@@ -9,7 +9,7 @@ python3 scripts/ci/lme_ci.py ci
 python3 scripts/ci/lme_ci.py preflight
 python3 scripts/ci/lme_ci.py audit
 python3 scripts/ci/lme_ci.py repo-metadata
-python3 scripts/ci/lme_ci.py python --reuse-venv --skip-wheel-reinstall
+python3 scripts/ci/lme_ci.py python --reuse-venv --skip-isolated-wheel
 ```
 
 On Windows, use `python` instead of `python3`.
@@ -21,7 +21,7 @@ Prefer [`Taskfile.yml`](../../Taskfile.yml) (`task ci`, `task lint`, …) or [`l
 - **Cross-platform** — one code path for Windows, macOS, and Linux.
 - **uv** — creates `python/.venv` with Python 3.11 explicitly (avoids maturin picking an unsupported system Python).
 - **Ruff** — `uv tool run ruff` for staged Python files; config in [`python/pyproject.toml`](../python/pyproject.toml).
-- **GitHub Actions** — release-oriented workflows on `v*` tags, plus manual dispatch, call the same `lme_ci.py` subcommands as local Task/Lefthook.
+- **GitHub Actions** — pull-request and `v*` tag CI, plus manual dispatch, call the same `lme_ci.py` subcommands as local Task/Lefthook.
 - **Preflight** — `preflight` (pre-push), `audit`, and `repo-metadata` mirror the release GHA gates that are cheap to run locally.
 
 Legacy wrappers [`scripts/local_ci.sh`](../local_ci.sh) and [`scripts/local_ci.ps1`](../local_ci.ps1) delegate to `lme_ci.py ci`.

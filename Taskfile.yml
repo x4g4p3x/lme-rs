@@ -16,9 +16,9 @@ tasks:
       - '{{.RUN}} ci'
 
   ci:fast:
-    desc: CI with reused python/.venv and no wheel-reinstall pytest pass
+    desc: CI with reused python/.venv and no isolated-wheel pytest pass
     cmds:
-      - '{{.RUN}} ci --reuse-venv --skip-wheel-reinstall'
+      - '{{.RUN}} ci --reuse-venv --skip-isolated-wheel'
 
   lint:
     desc: Rust fmt/clippy + Ruff on python/tests and examples

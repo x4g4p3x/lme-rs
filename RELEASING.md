@@ -141,7 +141,7 @@ git push origin v0.2.0
 
 ## GitHub Actions behavior
 
-**No workflow runs automatically on ordinary branch pushes or pull requests.** Automatic runs are limited to **`v*` release tag pushes**. For pre-release validation on any branch, use **manual dispatch** (GitHub **Actions** tab → pick a workflow → **Run workflow**, or `gh workflow run` — see [CONTRIBUTING.md](CONTRIBUTING.md)).
+CI runs automatically on **pull requests** and **`v*` release tag pushes**. Ordinary non-PR branch pushes do not start workflows. Pull requests skip only the four ignored heavy production-load cases; tags and manual dispatch run them. For an intentional full pre-release validation on any branch, use **manual dispatch** (GitHub **Actions** tab → pick a workflow → **Run workflow**, or `gh workflow run` — see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ### CI
 

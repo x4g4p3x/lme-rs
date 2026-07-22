@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Pull requests now run the hosted CI matrix; Python binding validation asserts the imported extension version and environment path, then installs and tests the wheel in a separate locked environment.
+
 ## [0.2.0] - 2026-07-22
 
 ### Added

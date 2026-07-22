@@ -28,7 +28,7 @@ Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (Gi
 
 ### CI runner
 
-All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions run automatically only for `v*` release tags; use local Task/Lefthook checks for ordinary pushes and PR preparation, or `workflow_dispatch` for an ad hoc remote run.
+All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions run automatically for pull requests and `v*` release tags; use local Task/Lefthook checks before pushing, or `workflow_dispatch` for an ad hoc remote run.
 
 ```bash
 python3 scripts/ci/lme_ci.py ci
@@ -62,10 +62,10 @@ task preflight   # pre-push hook: lint + check + cargo audit + repo-metadata dry
 task audit       # cargo audit + pip-audit (GHA security audit mirror)
 task rust        # full Rust slice (no Python)
 task             # full core CI mirror
-task ci:fast     # reuse python/.venv, skip wheel-reinstall pytest
+task ci:fast     # reuse python/.venv, skip isolated-wheel pytest
 ```
 
-To run the same **core** checks as the tag-triggered [GitHub Actions CI](.github/workflows/ci.yml) locally:
+To run the same **core** checks as the pull-request/tag [GitHub Actions CI](.github/workflows/ci.yml) locally:
 
 ```bash
 task ci
@@ -103,9 +103,9 @@ cd python
 uv lock
 ```
 
-Use `uv run --no-sync pytest tests/` after the explicit `uv sync` so only [`python/tests/`](python/tests/) runs against the extension Maturin just installed (same as the tag-triggered [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); `pytest` alone also collects optional demos under `python/examples/`.
+Use `uv run --no-sync pytest tests/` after the explicit `uv sync` so only [`python/tests/`](python/tests/) runs against the extension Maturin just installed; `pytest` alone also collects optional demos under `python/examples/`.
 
-[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) run the same uv-native flow. Tag-triggered CI also exercises Python **3.10**, **3.12**, and **3.13** on Ubuntu (job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
+[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) assert the editable extension's version and environment path, then build, install, assert, and test the wheel in a separate locked environment. Pull-request/tag CI also exercises Python **3.10**, **3.12**, and **3.13** on Ubuntu (job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 ## Working on numerical changes
 
@@ -159,12 +159,12 @@ Do not describe a feature as supported unless it is exposed by the public API an
 
 ## Other GitHub Actions workflows
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — release CI on `v*` tags and manual dispatch.
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI on pull requests and `v*` tags, plus manual dispatch; ignored heavy production-load cases run only for tags/manual dispatch.
 - [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; manual dispatch is also available.
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — called by release CI to publish only after the full tag matrix succeeds; manual dispatch runs `cargo publish --dry-run --locked` only.
 - [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — called by release CI to build and publish only after the full tag matrix succeeds; manual dispatch builds artifacts without publishing.
 
-No GitHub Actions workflow runs automatically for ordinary branch pushes or pull requests. Use Lefthook and Task locally before pushing; use manual dispatch when a remote check is useful before tagging.
+Pull requests automatically run CI. Ordinary non-PR branch pushes do not start workflows; use Lefthook and Task locally before pushing, and use manual dispatch when a remote check is useful before tagging.
 
 ### Manual dispatch (intentional remote runs)
 
