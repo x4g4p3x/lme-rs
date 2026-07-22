@@ -1,8 +1,17 @@
-# Manual libFuzzer smoke (long compile + short run). Trigger from the Actions tab.
-name: Fuzz (manual)
+# Weekly and manually dispatched libFuzzer smoke.
+name: Fuzz smoke
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "43 3 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   libfuzzer-smoke:
@@ -13,14 +22,16 @@ jobs:
         working-directory: fuzz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@4fd1da8b0805d2d2e936788875a7d65dbd677dc2 # nightly
+        with:
+          toolchain: nightly
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        run: cargo install cargo-fuzz@0.13.2 --locked
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: fuzz
 

@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use polars::prelude::*;
 use std::io::Cursor;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use lme_rs::contrast::contrast_matrix;
 use lme_rs::family::Family;
 use lme_rs::nlmm::{parse_nlmer_custom_formula, NlmmMeanEval, NlmmStart};
@@ -624,6 +624,7 @@ fn parse_optional_nlmm_bounds(
 struct PyNlmmMeanEval {
     n_params: usize,
     callable: Py<PyAny>,
+    callback_error: Arc<Mutex<Option<PyErr>>>,
 }
 
 // Fitting is single-threaded; the GIL is acquired on each eval.
@@ -695,6 +696,7 @@ fn validate_py_nlmm_mean(
     Ok(PyNlmmMeanEval {
         n_params,
         callable: mean_fn.clone().unbind(),
+        callback_error: Arc::new(Mutex::new(None)),
     })
 }
 
@@ -704,11 +706,25 @@ impl NlmmMeanEval for PyNlmmMeanEval {
     }
 
     fn eval(&self, x: f64, params: &[f64]) -> (f64, Vec<f64>) {
+        if self
+            .callback_error
+            .lock()
+            .is_ok_and(|error| error.is_some())
+        {
+            return (f64::NAN, vec![f64::NAN; self.n_params]);
+        }
+
         Python::attach(|py| {
             let callable = self.callable.bind(py);
-            call_py_nlmm_mean(&callable, self.n_params, x, params).unwrap_or_else(|e| {
-                panic!("custom nlmer mean evaluation failed: {e}");
-            })
+            match call_py_nlmm_mean(&callable, self.n_params, x, params) {
+                Ok(result) => result,
+                Err(error) => {
+                    if let Ok(mut callback_error) = self.callback_error.lock() {
+                        callback_error.get_or_insert(error);
+                    }
+                    (f64::NAN, vec![f64::NAN; self.n_params])
+                }
+            }
         })
     }
 
@@ -2083,13 +2099,20 @@ pub fn nlmer_with_mean<'py>(
         group_upper: parse_optional_nlmm_bounds(group_upper)?,
         ..lme_rs::NlmerOptions::default()
     };
-    match lme_rs::nlmer_with_mean(
+    let callback_error = mean.callback_error.clone();
+    let fit_result = lme_rs::nlmer_with_mean(
         &parsed,
         Arc::new(mean),
         &df,
         Some(formula),
         &opts,
-    ) {
+    );
+    if let Ok(mut error) = callback_error.lock() {
+        if let Some(error) = error.take() {
+            return Err(error);
+        }
+    }
+    match fit_result {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Model fit failed: {e}"

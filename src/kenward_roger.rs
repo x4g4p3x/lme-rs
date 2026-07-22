@@ -21,6 +21,20 @@ pub struct KenwardRogerResult {
     pub(crate) modcomp: KenwardRogerModcompData,
 }
 
+fn invert_kr_matrix(matrix: &Array2<f64>, context: &str) -> crate::Result<Array2<f64>> {
+    let inverse = matrix.inv().map_err(|error| LmeError::LinearAlgebra {
+        message: format!("Kenward-Roger {context} inversion failed: {error}"),
+    })?;
+    if inverse.iter().any(|value| !value.is_finite()) {
+        return Err(LmeError::LinearAlgebra {
+            message: format!(
+                "Kenward-Roger {context} inversion produced non-finite values; data may be ill-conditioned"
+            ),
+        });
+    }
+    Ok(inverse)
+}
+
 /// Derives conservative fixed effects F-tests by accounting for the small-sample
 /// bias introduced through the estimation of variance components in Linear Mixed Models.
 pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<KenwardRogerResult> {
@@ -145,25 +159,21 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
         hessian[[j, j]] = d2f;
     }
 
-    let hess_inv = hessian.inv().map_err(|e| LmeError::NotImplemented {
-        feature: format!("Failed to invert Hessian for Kenward-Roger: {}", e),
-    })?;
+    let hess_inv = invert_kr_matrix(&hessian, "variance-parameter Hessian")?;
 
     // W is the inverse of the expected information matrix. Here we use 2 * Hessian^{-1}
     let w_mat = hess_inv * 2.0;
 
     // 4. Compute Phi = (X^T V^{-1} X)^{-1}
-    let inv_lx = base_coefs.l_x.inv().map_err(|e| LmeError::NotImplemented {
-        feature: format!("Failed to invert L_x: {}", e),
-    })?;
+    let inv_lx = invert_kr_matrix(&base_coefs.l_x, "fixed-effects Cholesky factor")?;
     let phi_unscaled = inv_lx.t().dot(&inv_lx);
     let phi = &phi_unscaled * base_sigma2;
 
     // Helper for Phi_unscaled
-    let get_phi_unscaled = |th: &[f64]| -> Array2<f64> {
+    let get_phi_unscaled = |th: &[f64]| -> crate::Result<Array2<f64>> {
         let c = lmm.evaluate(th, reml);
-        let ilx = c.l_x.inv().unwrap();
-        ilx.t().dot(&ilx)
+        let ilx = invert_kr_matrix(&c.l_x, "perturbed fixed-effects Cholesky factor")?;
+        Ok(ilx.t().dot(&ilx))
     };
 
     // 5. Compute exact derivatives of Phi w.r.t rho components
@@ -175,8 +185,8 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
             th_p[j] += h;
             th_m[j] -= h;
 
-            let phi_u_p = get_phi_unscaled(th_p.as_slice().unwrap());
-            let phi_u_m = get_phi_unscaled(th_m.as_slice().unwrap());
+            let phi_u_p = get_phi_unscaled(th_p.as_slice().unwrap())?;
+            let phi_u_m = get_phi_unscaled(th_m.as_slice().unwrap())?;
             let d_phi = (&phi_u_p - &phi_u_m) / (2.0 * h) * base_sigma2;
             phi_derivs.push(d_phi);
         } else {
@@ -204,10 +214,10 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
                 th_mm[i] -= h;
                 th_mm[j] -= h;
 
-                let pu_pp = get_phi_unscaled(th_pp.as_slice().unwrap());
-                let pu_pm = get_phi_unscaled(th_pm.as_slice().unwrap());
-                let pu_mp = get_phi_unscaled(th_mp.as_slice().unwrap());
-                let pu_mm = get_phi_unscaled(th_mm.as_slice().unwrap());
+                let pu_pp = get_phi_unscaled(th_pp.as_slice().unwrap())?;
+                let pu_pm = get_phi_unscaled(th_pm.as_slice().unwrap())?;
+                let pu_mp = get_phi_unscaled(th_mp.as_slice().unwrap())?;
+                let pu_mm = get_phi_unscaled(th_mm.as_slice().unwrap())?;
 
                 let q_ij = (&pu_pp - &pu_pm - &pu_mp + &pu_mm) / (4.0 * h * h) * base_sigma2;
                 q_mats.push(q_ij);
@@ -216,16 +226,16 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
                 let mut th_m = theta.clone();
                 th_p[i] += h;
                 th_m[i] -= h;
-                let pu_p = get_phi_unscaled(th_p.as_slice().unwrap());
-                let pu_m = get_phi_unscaled(th_m.as_slice().unwrap());
+                let pu_p = get_phi_unscaled(th_p.as_slice().unwrap())?;
+                let pu_m = get_phi_unscaled(th_m.as_slice().unwrap())?;
                 q_mats.push((&pu_p - &pu_m) / (2.0 * h));
             } else if i == n_theta && j < n_theta {
                 let mut th_p = theta.clone();
                 let mut th_m = theta.clone();
                 th_p[j] += h;
                 th_m[j] -= h;
-                let pu_p = get_phi_unscaled(th_p.as_slice().unwrap());
-                let pu_m = get_phi_unscaled(th_m.as_slice().unwrap());
+                let pu_p = get_phi_unscaled(th_p.as_slice().unwrap())?;
+                let pu_m = get_phi_unscaled(th_m.as_slice().unwrap())?;
                 q_mats.push((&pu_p - &pu_m) / (2.0 * h));
             } else {
                 q_mats.push(Array2::<f64>::zeros((p, p)));
@@ -243,7 +253,7 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
     // Their approximation is \hat{\Phi}_A = \Phi + 2 \Lambda
     // Where \Lambda = \Phi [ \sum W_{ij} (Q_{ij} - P_i \Phi P_j) ] \Phi.
     // Let's build \Lambda
-    let inv_phi = phi.inv().unwrap();
+    let inv_phi = invert_kr_matrix(&phi, "fixed-effects covariance")?;
 
     let mut bracket = Array2::<f64>::zeros((p, p));
     for i in 0..n_rho {
@@ -326,4 +336,22 @@ pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<Ke
         p_values,
         modcomp,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn singular_kr_matrix_returns_structured_linear_algebra_error() {
+        let singular = Array2::from_shape_vec((2, 2), vec![1.0, 2.0, 2.0, 4.0]).unwrap();
+        let error = invert_kr_matrix(&singular, "test matrix").unwrap_err();
+
+        match error {
+            LmeError::LinearAlgebra { message } => {
+                assert!(message.contains("Kenward-Roger test matrix inversion failed"));
+            }
+            other => panic!("expected LinearAlgebra error, got {other:?}"),
+        }
+    }
 }

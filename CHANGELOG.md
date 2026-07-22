@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Pull requests now run the hosted CI matrix; Python binding validation asserts the imported extension version and environment path, then installs and tests the wheel in a separate locked environment.
+- Python custom nonlinear-mean callback failures now propagate as recoverable Python exceptions, and Kenward-Roger matrix inversion failures return structured linear-algebra errors.
+- GitHub Actions are pinned to immutable commit SHAs; dependency audits and libFuzzer smoke tests also run weekly.
 
 ## [0.2.0] - 2026-07-22
 

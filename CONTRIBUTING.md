@@ -160,7 +160,8 @@ Do not describe a feature as supported unless it is exposed by the public API an
 ## Other GitHub Actions workflows
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI on pull requests and `v*` tags, plus manual dispatch; ignored heavy production-load cases run only for tags/manual dispatch.
-- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; manual dispatch is also available.
+- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; it also runs weekly and supports manual dispatch.
+- [`.github/workflows/fuzz-smoke.yml`](.github/workflows/fuzz-smoke.yml) — weekly and manually dispatched libFuzzer coverage for formula parsing and the formula-to-matrix pipeline.
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — called by release CI to publish only after the full tag matrix succeeds; manual dispatch runs `cargo publish --dry-run --locked` only.
 - [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — called by release CI to build and publish only after the full tag matrix succeeds; manual dispatch builds artifacts without publishing.
 
@@ -182,7 +183,7 @@ task gha:benchmarks              # optional: WARMUPS=2 REPEATS=5 task gha:benchm
 task gha:python-release          # build wheels only; no PyPI publish
 task gha:crate-publish           # cargo publish --dry-run --locked
 task gha:repo-metadata           # sync About box from Cargo.toml
-task gha:fuzz                    # short libFuzzer smoke (manual-only workflow)
+task gha:fuzz                    # manually start the scheduled libFuzzer smoke
 ```
 
 Pass a branch with `REF=my-branch task gha:ci`. Watch runs with `gh run list` or `gh run watch`.

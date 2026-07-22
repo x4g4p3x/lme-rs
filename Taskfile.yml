@@ -194,6 +194,6 @@ tasks:
       - gh workflow run repo-metadata.yml --ref {{.REF | default "master"}}
 
   gha:fuzz:
-    desc: Manually dispatch libFuzzer smoke workflow
+    desc: Manually dispatch the scheduled libFuzzer smoke workflow
     cmds:
       - gh workflow run fuzz-smoke.yml --ref {{.REF | default "master"}}

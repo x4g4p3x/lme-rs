@@ -4,6 +4,7 @@ import math
 
 import lme_python
 import polars as pl
+import pytest
 
 
 def _exponential_mean(x: float, params: list[float]) -> tuple[float, list[float]]:
@@ -52,3 +53,27 @@ def test_nlmer_with_mean_rejects_bad_grad_length():
         assert "grad length" in str(e)
     else:
         raise AssertionError("expected ValueError for mismatched grad length")
+
+
+def test_nlmer_with_mean_propagates_runtime_callback_error():
+    df = pl.DataFrame(
+        {
+            "y": [1.0, 0.8, 0.6, 0.5],
+            "x": [0.0, 0.2, 0.4, 0.6],
+            "g": ["1", "1", "2", "2"],
+        }
+    )
+
+    def failing_mean(x: float, params: list[float]) -> tuple[float, list[float]]:
+        if x > 0.0:
+            raise RuntimeError("mean callback failed after validation")
+        return params[0], [1.0]
+
+    with pytest.raises(RuntimeError, match="mean callback failed after validation"):
+        lme_python.nlmer_with_mean(
+            "y ~ x ~ a | g",
+            data=df,
+            mean_fn=failing_mean,
+            param_names=["a"],
+            start={"a": 1.0},
+        )
