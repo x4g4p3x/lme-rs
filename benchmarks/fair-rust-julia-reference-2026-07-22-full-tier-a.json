@@ -1,0 +1,1593 @@
+{
+  "generated_at": "2026-07-22T12:53:31.753989+00:00",
+  "git_sha": "95f2ba206b787bb8604829f9b39a90254dcd25f3",
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; model fit timed per metric; Julia JIT warmed up.",
+    "coverage_doc": "BENCHMARK_COVERAGE.md",
+    "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+    "rust_engine": "lme-rs lmer/glmer/lmer_weighted; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit / GeneralizedLinearMixedModel (GLM.jl)",
+    "target_ratio_cold_fit": 1.0,
+    "note": "Different optimizers and likelihood paths; compare throughput, not coefficient identity."
+  },
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "julia": "julia version 1.12.6"
+  },
+  "config": {
+    "cases": [
+      "sleepstudy_reml",
+      "sleepstudy_weighted_reml",
+      "penicillin_crossed_reml",
+      "pastes_nested_reml",
+      "random_intercept_10k",
+      "random_intercept_50k",
+      "random_intercept_100k",
+      "large_random_slopes_100k",
+      "crossed_20k",
+      "nested_10k",
+      "cbpp_binomial_ml",
+      "grouseticks_poisson_ml"
+    ],
+    "implementations": [
+      "julia",
+      "rust"
+    ],
+    "warmups": 2,
+    "repeats": 10,
+    "timeout_seconds": 3600,
+    "with_phases": true,
+    "target_ratio": 1.0,
+    "data_dir": "benchmark-results/fair-rust-julia-data"
+  },
+  "results": [
+    {
+      "implementation": "rust",
+      "case": "sleepstudy_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 180,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0007217,
+          0.0007074,
+          0.0006939,
+          0.0007352,
+          0.0008319,
+          0.0011206,
+          0.0007191,
+          0.0007241,
+          0.0010055,
+          0.0010382
+        ],
+        "summary": {
+          "min_seconds": 0.0006939,
+          "max_seconds": 0.0011206,
+          "mean_seconds": 0.0008297599999999999,
+          "median_seconds": 0.00072965,
+          "stdev_seconds": 0.00016206391194697098
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          7.16e-05,
+          4.9e-05,
+          4.63e-05,
+          4.36e-05,
+          4.33e-05,
+          4.44e-05,
+          4.42e-05,
+          4.41e-05,
+          4.43e-05,
+          4.32e-05
+        ],
+        "summary": {
+          "min_seconds": 4.32e-05,
+          "max_seconds": 7.16e-05,
+          "mean_seconds": 4.74e-05,
+          "median_seconds": 4.425e-05,
+          "stdev_seconds": 8.679733738875738e-06
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0006852,
+          0.0006668,
+          0.0006682,
+          0.000652,
+          0.0006576,
+          0.000669,
+          0.0006566,
+          0.0006614,
+          0.0006632,
+          0.0006597
+        ],
+        "summary": {
+          "min_seconds": 0.000652,
+          "max_seconds": 0.0006852,
+          "mean_seconds": 0.0006639700000000001,
+          "median_seconds": 0.0006623,
+          "stdev_seconds": 9.222683388737168e-06
+        }
+      }
+    },
+    {
+      "case": "sleepstudy_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0011814,
+          0.0008855,
+          0.0007959,
+          0.0007662,
+          0.0007557,
+          0.0007389,
+          0.000748,
+          0.0007352,
+          0.0008149,
+          0.0008885
+        ],
+        "summary": {
+          "max_seconds": 0.0011814,
+          "mean_seconds": 0.00083102,
+          "median_seconds": 0.0007810499999999999,
+          "min_seconds": 0.0007352,
+          "stdev_seconds": 0.000135386711969003
+        }
+      },
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 180,
+      "reml": true,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "sleepstudy_weighted_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "model": "lmm_weighted",
+      "reml": true,
+      "n_obs": 180,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0005893,
+          0.0005861,
+          0.0005861,
+          0.0006002,
+          0.0006247,
+          0.0005981,
+          0.0006077,
+          0.0005925,
+          0.000616,
+          0.0006248
+        ],
+        "summary": {
+          "min_seconds": 0.0005861,
+          "max_seconds": 0.0006248,
+          "mean_seconds": 0.00060255,
+          "median_seconds": 0.0005991499999999999,
+          "stdev_seconds": 1.5041442749949222e-05
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          8.56e-05,
+          6.15e-05,
+          3.81e-05,
+          3.68e-05,
+          3.94e-05,
+          3.61e-05,
+          3.5e-05,
+          3.49e-05,
+          3.44e-05,
+          3.55e-05
+        ],
+        "summary": {
+          "min_seconds": 3.44e-05,
+          "max_seconds": 8.56e-05,
+          "mean_seconds": 4.373e-05,
+          "median_seconds": 3.6450000000000005e-05,
+          "stdev_seconds": 1.678134215265407e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0005235,
+          0.0005242,
+          0.0005236,
+          0.0005254,
+          0.0005232,
+          0.0005229,
+          0.0005275,
+          0.0005219,
+          0.0005705,
+          0.0005249
+        ],
+        "summary": {
+          "min_seconds": 0.0005219,
+          "max_seconds": 0.0005705,
+          "mean_seconds": 0.00052876,
+          "median_seconds": 0.0005239,
+          "stdev_seconds": 1.4747519565450111e-05
+        }
+      }
+    },
+    {
+      "case": "sleepstudy_weighted_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0008201,
+          0.0007542,
+          0.0006956,
+          0.0006625,
+          0.0006491,
+          0.0006433,
+          0.0006439,
+          0.0006407,
+          0.0006385,
+          0.0006487
+        ],
+        "summary": {
+          "max_seconds": 0.0008201,
+          "mean_seconds": 0.00067966,
+          "median_seconds": 0.0006489,
+          "min_seconds": 0.0006385,
+          "stdev_seconds": 6.104046381067418e-05
+        }
+      },
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "julia",
+      "model": "lmm_weighted",
+      "n_obs": 180,
+      "reml": true,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "penicillin_crossed_reml",
+      "formula": "diameter ~ 1 + (1 | plate) + (1 | sample)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 144,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0001509,
+          0.0001497,
+          0.000182,
+          0.0001644,
+          0.0001573,
+          0.0001676,
+          0.000154,
+          0.0001481,
+          0.000147,
+          0.0001436
+        ],
+        "summary": {
+          "min_seconds": 0.0001436,
+          "max_seconds": 0.000182,
+          "mean_seconds": 0.00015646000000000003,
+          "median_seconds": 0.00015245,
+          "stdev_seconds": 1.1773624005471818e-05
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          2.59e-05,
+          2.53e-05,
+          2.45e-05,
+          2.4e-05,
+          2.42e-05,
+          2.43e-05,
+          2.43e-05,
+          2.41e-05,
+          2.39e-05,
+          2.4e-05
+        ],
+        "summary": {
+          "min_seconds": 2.39e-05,
+          "max_seconds": 2.59e-05,
+          "mean_seconds": 2.4449999999999998e-05,
+          "median_seconds": 2.425e-05,
+          "stdev_seconds": 6.467869303977412e-07
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0001243,
+          0.0001165,
+          0.0001168,
+          0.0001188,
+          0.000117,
+          0.0001166,
+          0.0001165,
+          0.0001161,
+          0.0001161,
+          0.000116
+        ],
+        "summary": {
+          "min_seconds": 0.000116,
+          "max_seconds": 0.0001243,
+          "mean_seconds": 0.00011747000000000001,
+          "median_seconds": 0.00011655,
+          "stdev_seconds": 2.530722338692171e-06
+        }
+      }
+    },
+    {
+      "case": "penicillin_crossed_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0004294,
+          0.000401,
+          0.0003978,
+          0.0003856,
+          0.0003741,
+          0.0003708,
+          0.0003753,
+          0.000375,
+          0.0003797,
+          0.0003946
+        ],
+        "summary": {
+          "max_seconds": 0.0004294,
+          "mean_seconds": 0.00038833,
+          "median_seconds": 0.00038265,
+          "min_seconds": 0.0003708,
+          "stdev_seconds": 1.7998336342870994e-05
+        }
+      },
+      "formula": "diameter ~ 1 + (1 | plate) + (1 | sample)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 144,
+      "reml": true,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "pastes_nested_reml",
+      "formula": "strength ~ 1 + (1 | batch/cask)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 60,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0002235,
+          0.0002168,
+          0.0002185,
+          0.0002149,
+          0.000218,
+          0.0002062,
+          0.0002016,
+          0.0002065,
+          0.0002117,
+          0.0002098
+        ],
+        "summary": {
+          "min_seconds": 0.0002016,
+          "max_seconds": 0.0002235,
+          "mean_seconds": 0.00021275,
+          "median_seconds": 0.00021329999999999998,
+          "stdev_seconds": 6.776634694136746e-06
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          2.1e-05,
+          1.82e-05,
+          1.77e-05,
+          1.75e-05,
+          1.72e-05,
+          1.8e-05,
+          1.81e-05,
+          1.74e-05,
+          1.72e-05,
+          1.72e-05
+        ],
+        "summary": {
+          "min_seconds": 1.72e-05,
+          "max_seconds": 2.1e-05,
+          "mean_seconds": 1.7950000000000003e-05,
+          "median_seconds": 1.76e-05,
+          "stdev_seconds": 1.1374923687167696e-06
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0001684,
+          0.000167,
+          0.0001706,
+          0.0001676,
+          0.0001682,
+          0.0001683,
+          0.0001669,
+          0.0001681,
+          0.0002895,
+          0.0001785
+        ],
+        "summary": {
+          "min_seconds": 0.0001669,
+          "max_seconds": 0.0002895,
+          "mean_seconds": 0.00018131,
+          "median_seconds": 0.00016825,
+          "stdev_seconds": 3.8166839883158606e-05
+        }
+      }
+    },
+    {
+      "case": "pastes_nested_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0008453,
+          0.0008243,
+          0.0007643,
+          0.000446,
+          0.0003123,
+          0.000283,
+          0.0002779,
+          0.0004227,
+          0.0004393,
+          0.0004063
+        ],
+        "summary": {
+          "max_seconds": 0.0008453,
+          "mean_seconds": 0.0005021400000000001,
+          "median_seconds": 0.00043099999999999996,
+          "min_seconds": 0.0002779,
+          "stdev_seconds": 0.0002229138956837121
+        }
+      },
+      "formula": "strength ~ 1 + (1 | batch/cask)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 60,
+      "reml": true,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "random_intercept_10k",
+      "formula": "y ~ x + (1 | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 10000,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0010059,
+          0.0013844,
+          0.001143,
+          0.0009122,
+          0.0009188,
+          0.0008847,
+          0.0008883,
+          0.0008444,
+          0.0008337,
+          0.0008446
+        ],
+        "summary": {
+          "min_seconds": 0.0008337,
+          "max_seconds": 0.0013844,
+          "mean_seconds": 0.0009660000000000002,
+          "median_seconds": 0.00090025,
+          "stdev_seconds": 0.00017409341043116925
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0006119,
+          0.000598,
+          0.0005882,
+          0.0006644,
+          0.0006213,
+          0.0006507,
+          0.0006381,
+          0.0006287,
+          0.0006637,
+          0.0006369
+        ],
+        "summary": {
+          "min_seconds": 0.0005882,
+          "max_seconds": 0.0006644,
+          "mean_seconds": 0.0006301899999999999,
+          "median_seconds": 0.0006328,
+          "stdev_seconds": 2.5898582114771383e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0002359,
+          0.0002244,
+          0.0002315,
+          0.0002442,
+          0.0002735,
+          0.0003797,
+          0.0002347,
+          0.0002744,
+          0.0002213,
+          0.000214
+        ],
+        "summary": {
+          "min_seconds": 0.000214,
+          "max_seconds": 0.0003797,
+          "mean_seconds": 0.00025336000000000005,
+          "median_seconds": 0.0002353,
+          "stdev_seconds": 4.880874693922983e-05
+        }
+      }
+    },
+    {
+      "case": "random_intercept_10k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0013253,
+          0.001211,
+          0.0013493,
+          0.0013868,
+          0.0013747,
+          0.001534,
+          0.0018811,
+          0.001376,
+          0.0013081,
+          0.0013265
+        ],
+        "summary": {
+          "max_seconds": 0.0018811,
+          "mean_seconds": 0.00140728,
+          "median_seconds": 0.001362,
+          "min_seconds": 0.001211,
+          "stdev_seconds": 0.0001849903889395338
+        }
+      },
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 10000,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "random_intercept_50k",
+      "formula": "y ~ x + (1 | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 50000,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.003925,
+          0.0041553,
+          0.0038337,
+          0.0030282,
+          0.0027853,
+          0.0027954,
+          0.003038,
+          0.0035051,
+          0.0035379,
+          0.0035111
+        ],
+        "summary": {
+          "min_seconds": 0.0027853,
+          "max_seconds": 0.0041553,
+          "mean_seconds": 0.0034115,
+          "median_seconds": 0.0035081,
+          "stdev_seconds": 0.0004816589849445121
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0022953,
+          0.0022469,
+          0.0024812,
+          0.0020657,
+          0.001961,
+          0.0019159,
+          0.0019735,
+          0.0019497,
+          0.0019832,
+          0.0019023
+        ],
+        "summary": {
+          "min_seconds": 0.0019023,
+          "max_seconds": 0.0024812,
+          "mean_seconds": 0.00207747,
+          "median_seconds": 0.0019783500000000002,
+          "stdev_seconds": 0.00019597882567030323
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0012004,
+          0.0010811,
+          0.0011492,
+          0.0010654,
+          0.0011301,
+          0.0010483,
+          0.0011336,
+          0.0010405,
+          0.0009881,
+          0.0008525
+        ],
+        "summary": {
+          "min_seconds": 0.0008525,
+          "max_seconds": 0.0012004,
+          "mean_seconds": 0.00106892,
+          "median_seconds": 0.00107325,
+          "stdev_seconds": 9.799176609400517e-05
+        }
+      }
+    },
+    {
+      "case": "random_intercept_50k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0055456,
+          0.006359,
+          0.0065974,
+          0.0063958,
+          0.005446,
+          0.0053675,
+          0.0487923,
+          0.0069085,
+          0.0059676,
+          0.0055852
+        ],
+        "summary": {
+          "max_seconds": 0.0487923,
+          "mean_seconds": 0.01029649,
+          "median_seconds": 0.0061633,
+          "min_seconds": 0.0053675,
+          "stdev_seconds": 0.013536522752863003
+        }
+      },
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 50000,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "random_intercept_100k",
+      "formula": "y ~ x + (1 | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 100000,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.008195,
+          0.0058955,
+          0.0058567,
+          0.0062376,
+          0.0062193,
+          0.0081318,
+          0.006262,
+          0.0057082,
+          0.0069511,
+          0.0073379
+        ],
+        "summary": {
+          "min_seconds": 0.0057082,
+          "max_seconds": 0.008195,
+          "mean_seconds": 0.00667951,
+          "median_seconds": 0.0062498,
+          "stdev_seconds": 0.0009267396907078777
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0050377,
+          0.0044818,
+          0.0039581,
+          0.0039147,
+          0.0040428,
+          0.0042652,
+          0.0045758,
+          0.0044887,
+          0.00472,
+          0.0043755
+        ],
+        "summary": {
+          "min_seconds": 0.0039147,
+          "max_seconds": 0.0050377,
+          "mean_seconds": 0.00438603,
+          "median_seconds": 0.00442865,
+          "stdev_seconds": 0.0003542957146854086
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0017667,
+          0.0017888,
+          0.0019414,
+          0.002104,
+          0.0021108,
+          0.0021139,
+          0.0020909,
+          0.0020601,
+          0.0023542,
+          0.0021522
+        ],
+        "summary": {
+          "min_seconds": 0.0017667,
+          "max_seconds": 0.0023542,
+          "mean_seconds": 0.0020483000000000003,
+          "median_seconds": 0.00209745,
+          "stdev_seconds": 0.00017502461414199878
+        }
+      }
+    },
+    {
+      "case": "random_intercept_100k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0106878,
+          0.0129302,
+          0.0231577,
+          0.0123152,
+          0.0112171,
+          0.0100945,
+          0.0568597,
+          0.0097855,
+          0.3143094,
+          0.0122386
+        ],
+        "summary": {
+          "max_seconds": 0.3143094,
+          "mean_seconds": 0.047359570000000004,
+          "median_seconds": 0.0122769,
+          "min_seconds": 0.0097855,
+          "stdev_seconds": 0.09488985408279141
+        }
+      },
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 100000,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "large_random_slopes_100k",
+      "formula": "y ~ x + (1 + x | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 100000,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0551088,
+          0.0564959,
+          0.0569808,
+          0.0584369,
+          0.0584331,
+          0.0567019,
+          0.0579871,
+          0.0585403,
+          0.0576081,
+          0.0590718
+        ],
+        "summary": {
+          "min_seconds": 0.0551088,
+          "max_seconds": 0.0590718,
+          "mean_seconds": 0.057536470000000006,
+          "median_seconds": 0.057797600000000005,
+          "stdev_seconds": 0.0012096590181167224
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.009863,
+          0.0104494,
+          0.0099669,
+          0.0100314,
+          0.0105694,
+          0.0110185,
+          0.0111425,
+          0.0107783,
+          0.0107385,
+          0.0109045
+        ],
+        "summary": {
+          "min_seconds": 0.009863,
+          "max_seconds": 0.0111425,
+          "mean_seconds": 0.01054624,
+          "median_seconds": 0.010653949999999999,
+          "stdev_seconds": 0.0004564534543630926
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.041171,
+          0.0428097,
+          0.0433634,
+          0.042071,
+          0.0407512,
+          0.0415481,
+          0.0416114,
+          0.040532,
+          0.0409403,
+          0.0423643
+        ],
+        "summary": {
+          "min_seconds": 0.040532,
+          "max_seconds": 0.0433634,
+          "mean_seconds": 0.04171624,
+          "median_seconds": 0.04157975,
+          "stdev_seconds": 0.0009265818824523229
+        }
+      }
+    },
+    {
+      "case": "large_random_slopes_100k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0643613,
+          0.0803468,
+          0.0649087,
+          0.0643692,
+          0.0907581,
+          0.2873617,
+          0.062341,
+          0.0631949,
+          0.0634179,
+          0.0642045
+        ],
+        "summary": {
+          "max_seconds": 0.2873617,
+          "mean_seconds": 0.09052640999999999,
+          "median_seconds": 0.06436525,
+          "min_seconds": 0.062341,
+          "stdev_seconds": 0.06979496340277236
+        }
+      },
+      "formula": "y ~ x + (1 + x | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 100000,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "crossed_20k",
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 20000,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0127199,
+          0.0129453,
+          0.0128256,
+          0.0133464,
+          0.0128217,
+          0.0127257,
+          0.0128472,
+          0.0128874,
+          0.0129235,
+          0.0130593
+        ],
+        "summary": {
+          "min_seconds": 0.0127199,
+          "max_seconds": 0.0133464,
+          "mean_seconds": 0.0129102,
+          "median_seconds": 0.0128673,
+          "stdev_seconds": 0.00018367929176208792
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0025036,
+          0.0024674,
+          0.0024763,
+          0.0024894,
+          0.0026461,
+          0.0025008,
+          0.002459,
+          0.0024463,
+          0.0024691,
+          0.002511
+        ],
+        "summary": {
+          "min_seconds": 0.0024463,
+          "max_seconds": 0.0026461,
+          "mean_seconds": 0.0024969,
+          "median_seconds": 0.00248285,
+          "stdev_seconds": 5.6411208500123903e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0098212,
+          0.0100739,
+          0.0099214,
+          0.0098325,
+          0.0098985,
+          0.0098208,
+          0.0099468,
+          0.0100166,
+          0.0098293,
+          0.0099461
+        ],
+        "summary": {
+          "min_seconds": 0.0098208,
+          "max_seconds": 0.0100739,
+          "mean_seconds": 0.00991071,
+          "median_seconds": 0.00990995,
+          "stdev_seconds": 8.787757203443164e-05
+        }
+      }
+    },
+    {
+      "case": "crossed_20k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0159951,
+          0.012978,
+          0.0143757,
+          0.0133161,
+          0.0143228,
+          0.0148902,
+          0.0402134,
+          0.0140057,
+          0.0164853,
+          0.0159664
+        ],
+        "summary": {
+          "max_seconds": 0.0402134,
+          "mean_seconds": 0.01725487,
+          "median_seconds": 0.014632949999999999,
+          "min_seconds": 0.012978,
+          "stdev_seconds": 0.00814980888338289
+        }
+      },
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 20000,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "nested_10k",
+      "formula": "y ~ x + (1 | batch/cask)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 10000,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0063348,
+          0.0061908,
+          0.0074929,
+          0.0070921,
+          0.006266,
+          0.0066331,
+          0.0067663,
+          0.0066301,
+          0.0062528,
+          0.0069283
+        ],
+        "summary": {
+          "min_seconds": 0.0061908,
+          "max_seconds": 0.0074929,
+          "mean_seconds": 0.00665872,
+          "median_seconds": 0.0066316,
+          "stdev_seconds": 0.0004232506685694005
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.00266,
+          0.0029608,
+          0.0030931,
+          0.0029619,
+          0.0028389,
+          0.0029496,
+          0.0025221,
+          0.002849,
+          0.003161,
+          0.0031164
+        ],
+        "summary": {
+          "min_seconds": 0.0025221,
+          "max_seconds": 0.003161,
+          "mean_seconds": 0.0029112800000000005,
+          "median_seconds": 0.0029552,
+          "stdev_seconds": 0.00020212653242736618
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0033941,
+          0.0033225,
+          0.0040387,
+          0.0033204,
+          0.0033969,
+          0.0033778,
+          0.0034053,
+          0.0033631,
+          0.0034535,
+          0.0034111
+        ],
+        "summary": {
+          "min_seconds": 0.0033204,
+          "max_seconds": 0.0040387,
+          "mean_seconds": 0.0034483400000000003,
+          "median_seconds": 0.0033955,
+          "stdev_seconds": 0.0002112988836274869
+        }
+      }
+    },
+    {
+      "case": "nested_10k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.006348,
+          0.0067211,
+          0.0068635,
+          0.0069662,
+          0.0069489,
+          0.0075435,
+          0.0065313,
+          0.007818,
+          0.0068581,
+          0.0069416
+        ],
+        "summary": {
+          "max_seconds": 0.007818,
+          "mean_seconds": 0.00695402,
+          "median_seconds": 0.00690255,
+          "min_seconds": 0.006348,
+          "stdev_seconds": 0.0004361288820724646
+        }
+      },
+      "formula": "y ~ x + (1 | batch/cask)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 10000,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "cbpp_binomial_ml",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "model": "glmm_binomial",
+      "reml": false,
+      "n_obs": 842,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0079178,
+          0.0081436,
+          0.0079877,
+          0.0080236,
+          0.0079931,
+          0.0081166,
+          0.0084572,
+          0.0083056,
+          0.0082297,
+          0.0081769
+        ],
+        "summary": {
+          "min_seconds": 0.0079178,
+          "max_seconds": 0.0084572,
+          "mean_seconds": 0.00813518,
+          "median_seconds": 0.008130100000000001,
+          "stdev_seconds": 0.0001651503678470018
+        }
+      }
+    },
+    {
+      "case": "cbpp_binomial_ml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0108537,
+          0.0110921,
+          0.0108333,
+          0.0106692,
+          0.0108592,
+          0.0113418,
+          0.0106516,
+          0.0108371,
+          0.0117681,
+          0.0113179
+        ],
+        "summary": {
+          "max_seconds": 0.0117681,
+          "mean_seconds": 0.011022400000000002,
+          "median_seconds": 0.01085645,
+          "min_seconds": 0.0106516,
+          "stdev_seconds": 0.00035554260566695017
+        }
+      },
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "implementation": "julia",
+      "model": "glmm_binomial",
+      "n_obs": 842,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    },
+    {
+      "implementation": "rust",
+      "case": "grouseticks_poisson_ml",
+      "formula": "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+      "model": "glmm_poisson",
+      "reml": false,
+      "n_obs": 403,
+      "warmups": 2,
+      "repeats": 10,
+      "cold_fit": {
+        "samples_seconds": [
+          0.0051573,
+          0.0051183,
+          0.0051862,
+          0.0050908,
+          0.0050773,
+          0.0050845,
+          0.0050768,
+          0.0052332,
+          0.0054118,
+          0.0052865
+        ],
+        "summary": {
+          "min_seconds": 0.0050768,
+          "max_seconds": 0.0054118,
+          "mean_seconds": 0.00517227,
+          "median_seconds": 0.0051378,
+          "stdev_seconds": 0.00011052462822576892
+        }
+      }
+    },
+    {
+      "case": "grouseticks_poisson_ml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.208223,
+          0.1963083,
+          0.1523078,
+          0.1495962,
+          0.161629,
+          0.1519038,
+          0.150846,
+          0.1504193,
+          0.1687142,
+          0.166484
+        ],
+        "summary": {
+          "max_seconds": 0.208223,
+          "mean_seconds": 0.16564316,
+          "median_seconds": 0.1569684,
+          "min_seconds": 0.1495962,
+          "stdev_seconds": 0.020694803391952177
+        }
+      },
+      "formula": "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+      "implementation": "julia",
+      "model": "glmm_poisson",
+      "n_obs": 403,
+      "reml": false,
+      "repeats": 10,
+      "warmups": 2
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "sleepstudy_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; random slopes (real fixture)",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.00072965,
+          "julia_median_seconds": 0.0007810499999999999,
+          "rust_over_julia_median": 0.9341911529351514,
+          "julia_over_rust_median": 1.0704447337764682,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0006623,
+          "julia_median_seconds": 0.0007810499999999999,
+          "rust_over_julia_median": 0.8479610780359773,
+          "julia_over_rust_median": 1.1792994111429864,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 4.425e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "sleepstudy_weighted_reml",
+      "model": "lmm_weighted",
+      "reference": "MixedModels.jl wts=\u2026",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0005991499999999999,
+          "julia_median_seconds": 0.0006489,
+          "rust_over_julia_median": 0.923331792263831,
+          "julia_over_rust_median": 1.0830342985896688,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0005239,
+          "julia_median_seconds": 0.0006489,
+          "rust_over_julia_median": 0.8073663122206811,
+          "julia_over_rust_median": 1.2385951517465166,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 3.6450000000000005e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "penicillin_crossed_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; real crossed intercept",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.00015245,
+          "julia_median_seconds": 0.00038265,
+          "rust_over_julia_median": 0.398405853913498,
+          "julia_over_rust_median": 2.510003279763857,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.00011655,
+          "julia_median_seconds": 0.00038265,
+          "rust_over_julia_median": 0.30458643669149355,
+          "julia_over_rust_median": 3.283140283140283,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 2.425e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "pastes_nested_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; real nested intercept",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.00021329999999999998,
+          "julia_median_seconds": 0.00043099999999999996,
+          "rust_over_julia_median": 0.49489559164733177,
+          "julia_over_rust_median": 2.0206282231598687,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.00016825,
+          "julia_median_seconds": 0.00043099999999999996,
+          "rust_over_julia_median": 0.3903712296983759,
+          "julia_over_rust_median": 2.5616641901931647,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 1.76e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "random_intercept_10k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.00090025,
+          "julia_median_seconds": 0.001362,
+          "rust_over_julia_median": 0.6609765051395008,
+          "julia_over_rust_median": 1.5129130797000832,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0002353,
+          "julia_median_seconds": 0.001362,
+          "rust_over_julia_median": 0.17276064610866373,
+          "julia_over_rust_median": 5.788355291117722,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0006328,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "random_intercept_50k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0035081,
+          "julia_median_seconds": 0.0061633,
+          "rust_over_julia_median": 0.5691918290526179,
+          "julia_over_rust_median": 1.7568769419343804,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.00107325,
+          "julia_median_seconds": 0.0061633,
+          "rust_over_julia_median": 0.17413560917041196,
+          "julia_over_rust_median": 5.742650826927557,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0019783500000000002,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "random_intercept_100k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0062498,
+          "julia_median_seconds": 0.0122769,
+          "rust_over_julia_median": 0.5090698792040336,
+          "julia_over_rust_median": 1.9643668597395119,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.00209745,
+          "julia_median_seconds": 0.0122769,
+          "rust_over_julia_median": 0.1708452459497104,
+          "julia_over_rust_median": 5.853250375455912,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.00442865,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "large_random_slopes_100k",
+      "model": "lmm",
+      "reference": "MixedModels.jl; synthetic correlated random slopes",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.057797600000000005,
+          "julia_median_seconds": 0.06436525,
+          "rust_over_julia_median": 0.8979627982490553,
+          "julia_over_rust_median": 1.1136318809085497,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.04157975,
+          "julia_median_seconds": 0.06436525,
+          "rust_over_julia_median": 0.6459968694287679,
+          "julia_over_rust_median": 1.5479951178157636,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.010653949999999999,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "crossed_20k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0128673,
+          "julia_median_seconds": 0.014632949999999999,
+          "rust_over_julia_median": 0.8793373858312917,
+          "julia_over_rust_median": 1.137219929588958,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.00990995,
+          "julia_median_seconds": 0.014632949999999999,
+          "rust_over_julia_median": 0.67723528065086,
+          "julia_over_rust_median": 1.4765917083335434,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.00248285,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "nested_10k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0066316,
+          "julia_median_seconds": 0.00690255,
+          "rust_over_julia_median": 0.9607463908265785,
+          "julia_over_rust_median": 1.0408574099764765,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0033955,
+          "julia_median_seconds": 0.00690255,
+          "rust_over_julia_median": 0.4919196528819059,
+          "julia_over_rust_median": 2.032852304520689,
+          "faster_implementation": "rust",
+          "meets_target": true
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0029552,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "cbpp_binomial_ml",
+      "model": "glmm_binomial",
+      "reference": "MixedModels.jl GLMM (Laplace); not lme4 AGQ-in-\u03b8",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.008130100000000001,
+          "julia_median_seconds": 0.01085645,
+          "rust_over_julia_median": 0.7488727899083034,
+          "julia_over_rust_median": 1.3353402787173587,
+          "faster_implementation": "rust",
+          "meets_target": true
+        }
+      ]
+    },
+    {
+      "case": "grouseticks_poisson_ml",
+      "model": "glmm_poisson",
+      "reference": "MixedModels.jl GLMM (Laplace)",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0051378,
+          "julia_median_seconds": 0.1569684,
+          "rust_over_julia_median": 0.032731428746168016,
+          "julia_over_rust_median": 30.55167581455098,
+          "faster_implementation": "rust",
+          "meets_target": true
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

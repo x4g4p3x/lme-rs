@@ -11,21 +11,21 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 
 ---
 
-## At a glance (2026-07-16)
+## At a glance (2026-07-22)
 
 **Goal (met):** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), tier-A `cold_fit` cases are **strictly faster than MixedModels.jl (&lt;1.0×)** **without breaking** golden parity. (Prior bars: **2×** through 2026-07-08; **1.5×** through 2026-07-15; **&lt;1.0×** locked 2026-07-16.)
 
-**Former stragglers:** `nested_10k` and `crossed_20k` — now **~0.93× / ~0.91×** after the 2026-07-16 prepare/gate pass ([reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
+**Full-suite evidence:** the current 12-case tier-A run has no gate failures; all 10 LMM cold fits and both GLMM cold fits are below **1.0× Julia**, as are all 10 measured LMM prepared fits ([2026-07-22 reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)).
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
-| `sleepstudy_reml` | **~0.8×** (Rust faster) | `fit_prepared` **~0.60 ms** (Julia ~0.81 ms) |
-| `large_random_slopes_100k` | **~0.83×** (Rust faster) | `fit_prepared` **~45.1 ms** (Julia ~69.5 ms) |
-| `crossed_20k` | **~0.91×** (Rust faster) | `fit_prepared` **~10.6 ms** (Julia ~16.4 ms) |
-| `random_intercept_10k` | **~1.02×** | `fit_prepared` **~0.31 ms** |
-| `nested_10k` | **~0.93×** (Rust faster) | `fit_prepared` **~3.5 ms** (Julia ~7.2 ms) |
+| `sleepstudy_reml` | **0.934×** (Rust faster) | **0.848×** Julia fit |
+| `large_random_slopes_100k` | **0.898×** (Rust faster) | **0.646×** Julia fit |
+| `crossed_20k` | **0.879×** (Rust faster) | **0.677×** Julia fit |
+| `random_intercept_10k` | **0.661×** (Rust faster) | **0.173×** Julia fit |
+| `nested_10k` | **0.961×** (Rust faster) | **0.492×** Julia fit |
 
-Cold `lmer()` medians for crossed/nested: [2026-07-16 cold-fit &lt;1 snapshot](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json). Other rows: [2026-07-09 reference](benchmarks/fair-rust-julia-reference-2026-07-09.json) / [sleepstudy-slopes](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
+Current medians: [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
 
 Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work**, not completion blockers for [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows 1 or 13.
 
@@ -499,14 +499,14 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Next experiments (optional polish — not completion blockers)
 
-Axis (3) tier-A cold-fit **&lt;1.0×** is **met** ([2026-07-16 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)). Items below are optional engineering / regression-guard work; they do **not** block [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows **1** or **13**.
+Axis (3) tier-A cold-fit **&lt;1.0×** is **met across the full current suite** ([2026-07-22 reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). Items below are optional engineering / regression-guard work; they do **not** block [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows **1** or **13**.
 
 1. ~~**Single-factor random-slopes throughput**~~ — **done (2026-07-09):** `SingleFactorSlopesCache` plus linear block extraction; `sleepstudy_reml` is **~0.8×** Julia cold, and `large_random_slopes_100k` is **~0.83×** cold / **~0.65×** prepared. See [BENCHMARKS.md](BENCHMARKS.md#large-random-slopes-showcase).
-2. ~~**Nested blocked path (row-grouped ColumnBlocks)**~~ — **cold &lt;1× (2026-07-16):** fair two-factor membership Gram + allocation-free blocked gate + skip duplicate gate on `ensure_blocked`; `nested_10k` cold **~0.93×** Julia. ColumnBlocks post-fit remains optional structure work.
+2. ~~**Nested blocked path (row-grouped ColumnBlocks)**~~ — **cold &lt;1×:** fair two-factor membership Gram + allocation-free blocked gate + skip duplicate gate on `ensure_blocked`; `nested_10k` cold **0.961×** Julia in the 2026-07-22 full run. ColumnBlocks post-fit remains optional structure work.
 3. ~~**Blocked post-fit backsolve**~~ — **done (2026-07-08):** `solve_profile_blocked` matches sparse LDL; wired into `InterceptLdlCache::solve_profile`.
 4. ~~**Large random-intercept setup**~~ — **done (2026-07-09):** direct single-factor `Zᵀ` CSR, diagonal single-membership `ZᵀZ`, and no-op cast avoidance make cold 50k/100k fits **~0.47× / ~0.51×** Julia; see [setup reference](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json).
 5. **Post-fit SEs (optional)** — `evaluate()` uses triangular solves for small `p` instead of a full inverse; further Cholesky-only diagonal SEs are optional micro-opts.
-6. ~~**Fair harness reference JSON**~~ — **refreshed (2026-07-16):** [cold-fit &lt;1 snapshot](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json) for `crossed_20k` / `nested_10k` at axis (3) target **1.0**.
+6. ~~**Fair harness reference JSON**~~ — **refreshed (2026-07-22):** [full 12-case tier-A snapshot](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json) at axis (3) target **1.0**.
 7. **Fix dense backend (optional)** — O(nnz) `A` assembly if revisited for non-blocked cases; currently disabled (`INTERCEPT_DENSE_MAX_Q = 0`).
 
 ---

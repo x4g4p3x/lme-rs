@@ -7,7 +7,7 @@
 
 `lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
 
-> **Repository completion (evidence-weighted): 86% (204/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
+> **Repository completion (evidence-weighted): 88% (207/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
 
 ## What it covers
 
@@ -64,7 +64,7 @@ fn main() -> anyhow::Result<()> {
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). For **whether your workflow is in scope** — and the distinction between repository test coverage and real-world field experience — see **[USABILITY.md](USABILITY.md)**.
 
-On the fair MixedModels.jl harness, **tier-A LMM cold `lmer()` beats Julia** (`crossed_20k` / `nested_10k` **~0.91× / ~0.93×**; [2026-07-16 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)). Hot `prepare_lmer` + `fit_prepared` remains faster still. **`sleepstudy_reml`** (random slopes) is **~0.8×** Julia on cold `lmer()` ([BENCHMARKS.md § 2026-07-09 random slopes](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes)). Axis (3) cold-fit target: **&lt;1.0×** Julia ([BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md)). See [OPTIMIZATION.md](OPTIMIZATION.md).
+On the fair MixedModels.jl harness, every case in the current **12-case tier-A suite** passed the strict Rust `cold_fit` **&lt;1.0× Julia** gate, including all 10 LMM and both GLMM cases ([2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). Hot `prepare_lmer` + `fit_prepared` also beat Julia on every LMM case in that run. See [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) and [OPTIMIZATION.md](OPTIMIZATION.md).
 
 [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) is an internal **coverage** map (how much of the intended API exists), not a usability score.
 

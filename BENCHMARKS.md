@@ -151,7 +151,26 @@ For **where time goes** inside a fit (Rust phase breakdown + Julia `optsum.feval
 
 ### Fair Rust vs Julia reference results
 
-Checked-in summary: [benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json) (full LMM suite at HEAD); [benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json) (GLMM suite at HEAD); [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json) (prior synthetic subset); [benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json) (prior `sleepstudy_reml` slopes run); prior datapoints [benchmarks/fair-rust-julia-reference-2026-07-08.json](benchmarks/fair-rust-julia-reference-2026-07-08.json), [benchmarks/fair-rust-julia-reference-2026-07-06.json](benchmarks/fair-rust-julia-reference-2026-07-06.json), [benchmarks/fair-rust-julia-reference-2026-07-04.json](benchmarks/fair-rust-julia-reference-2026-07-04.json).
+Current checked-in reference: [2026-07-22 full tier-A JSON](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). It covers all 12 tier-A cases on one revision and workstation using 2 warmups plus 10 measured fits per implementation, Rust phases enabled, and the strict `cold_fit < 1.0× Julia` gate. There were no failures: all cold fits and all 10 LMM prepared-fit comparisons passed.
+
+| Case | Rust / Julia cold median | Rust prepared / Julia fit |
+|:-----|-------------------------:|--------------------------:|
+| `sleepstudy_reml` | **0.934×** | **0.848×** |
+| `sleepstudy_weighted_reml` | **0.923×** | **0.807×** |
+| `penicillin_crossed_reml` | **0.398×** | **0.305×** |
+| `pastes_nested_reml` | **0.495×** | **0.390×** |
+| `random_intercept_10k` | **0.661×** | **0.173×** |
+| `random_intercept_50k` | **0.569×** | **0.174×** |
+| `random_intercept_100k` | **0.509×** | **0.171×** |
+| `large_random_slopes_100k` | **0.898×** | **0.646×** |
+| `crossed_20k` | **0.879×** | **0.677×** |
+| `nested_10k` | **0.961×** | **0.492×** |
+| `cbpp_binomial_ml` | **0.749×** | N/A |
+| `grouseticks_poisson_ml` | **0.033×** | N/A |
+
+**Recorded:** 2026-07-22 on Windows AMD64 (12 logical CPUs), `lme-rs` git `95f2ba2`, `rustc 1.96.0`, Julia 1.12.6. Ratios are workstation-specific engineering evidence; re-run the harness before making claims for other hardware.
+
+Historical checked-in summaries: [2026-07-09 full LMM](benchmarks/fair-rust-julia-reference-2026-07-09-full-lmm.json), [2026-07-09 GLMM](benchmarks/fair-rust-julia-reference-2026-07-09-glmm.json), [2026-07-09 synthetic subset](benchmarks/fair-rust-julia-reference-2026-07-09.json), and [2026-07-09 sleepstudy slopes](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json); earlier datapoints are retained for regression history.
 
 Large random-intercept update: [benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json](benchmarks/fair-rust-julia-reference-2026-07-09-large-intercept-setup.json) records the setup fast path at 50k/100k observations.
 Full per-sample JSON from the same run can be reproduced locally as `benchmark-results/fair-rust-julia-benchmarks.json`.
@@ -401,7 +420,7 @@ The repository also includes a dedicated workflow in [.github/workflows/benchmar
 
 Release-attached Criterion and cross-language JSON artifacts are uploaded by [`.github/workflows/benchmarks.yml`](../.github/workflows/benchmarks.yml) on `v*` tags (and manual dispatch). Prefer the [latest GitHub Release](https://github.com/x4g4p3x/lme-rs/releases/latest) for downloadable CI artifacts, and [`CHANGELOG.md`](CHANGELOG.md) for which crate version each tag ships.
 
-**Engineering source of truth for fair Rust vs Julia fit timing** is the checked-in reference JSON under [`benchmarks/`](benchmarks/), especially the axis-(3) cold-fit snapshot [benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json). Older tags (for example [v0.1.3](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)) still carry historical CI tarballs useful for release-to-release comparison, but they are **not** the current performance baseline.
+**Engineering source of truth for fair Rust vs Julia fit timing** is the checked-in reference JSON under [`benchmarks/`](benchmarks/), especially the full strict-target [2026-07-22 tier-A artifact](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Older tags (for example [v0.1.3](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)) still carry historical CI tarballs useful for release-to-release comparison, but they are **not** the current performance baseline.
 
 A representative older cross-language artifact set (v0.1.3) included:
 
@@ -443,8 +462,8 @@ The current benchmarking is meaningful, but not comprehensive.
 That means:
 
 - yes, keep performance as a **completion criterion** for Rust-native workflows, not only regression tracking (Criterion + fair harness)
-- yes, keep **LMM fit optimization** as a regression guard: axis (3) requires **&lt;1.0×** Julia on tier-A `cold_fit` ([2026-07-16 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json))
-- yes, tier-A hot `fit_prepared` and cold `lmer()` both beat MixedModels.jl on the 2026-07-16 crossed/nested reference; re-run before citing new speed claims
+- yes, keep **LMM fit optimization** as a regression guard: axis (3) requires **&lt;1.0×** Julia on tier-A `cold_fit` ([2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json))
+- yes, tier-A hot `fit_prepared` and cold `lmer()` both beat MixedModels.jl throughout the current full reference; re-run before citing new speed claims
 - no, Julia bindings to `lme-rs` are not justified by speed — see [fair Rust vs Julia results](BENCHMARKS.md#fair-rust-vs-julia-reference-results)
 - yes, run benchmarks for performance-sensitive changes before release
 - yes, extend the benchmark surface (GLMM fit-only, prediction sweeps) as optimization work proceeds

@@ -2,7 +2,7 @@
 
 This file maps **which parts of `lme-rs` have external performance references** (not just Rust-only Criterion benches). Use it to ground [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) and [USABILITY.md](USABILITY.md) performance posture.
 
-**Last assessed:** 2026-07-09
+**Last assessed:** 2026-07-22
 
 ---
 
@@ -23,7 +23,7 @@ This file maps **which parts of `lme-rs` have external performance references** 
 
 Default target: **Rust median &lt; 1.0× Julia median** on `cold_fit` for tier-A LMM cases on the reference workstation (strictly faster than MixedModels.jl).
 
-Prior milestones: **≤ 2×** (through 2026-07-08) while crossed/nested were multi× slower; **≤ 1.5×** (2026-07-09–15). The 2026-07-16 prepare/gate pass puts `crossed_20k` and `nested_10k` under **1.0×** ([cold-fit &lt;1 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
+Prior milestones: **≤ 2×** (through 2026-07-08) while crossed/nested were multi× slower; **≤ 1.5×** (2026-07-09–15); selected crossed/nested strict passes on 2026-07-16. The [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json) records all 12 cases at the current **1.0×** gate with no failures.
 
 ```powershell
 python scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases --repeats 10
@@ -37,18 +37,18 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 
 | Case | Model | Fixture | Reference | `cold_fit` vs Julia | `fit_prepared` vs Julia | Notes |
 |:-----|:------|:--------|:----------|:--------------------|:------------------------|:------|
-| `sleepstudy_reml` | LMM | Real (180 obs, random slopes) | MixedModels.jl | **~0.8×** (Jul 2026; [sleepstudy-slopes ref](benchmarks/fair-rust-julia-reference-2026-07-09-sleepstudy-slopes.json)) | **~0.74×** hot vs Julia `fit` | Canonical real-world LMM; block LDL fast path |
-| `sleepstudy_weighted_reml` | LMM weighted | Real | MixedModels.jl `wts` | **Measured** | Optional phases | Same weights as [`benches/bench_math.rs`](benches/bench_math.rs) |
-| `penicillin_crossed_reml` | LMM | Real crossed intercept | MixedModels.jl | **Rust faster** (Jul 2026) | Rust faster | Smaller *n* than `crossed_20k` |
-| `pastes_nested_reml` | LMM | Real nested intercept | MixedModels.jl | **Rust faster** (Jul 2026) | Rust faster | |
-| `random_intercept_10k` | LMM | Synthetic | MixedModels.jl | **Rust faster** (Jul 2026) | Rust faster | |
-| `random_intercept_50k` | LMM | Synthetic | MixedModels.jl | **~0.47×** (Jul 2026; Rust faster) | **~0.13×** hot | Single-factor setup fast path |
-| `random_intercept_100k` | LMM | Synthetic | MixedModels.jl | **~0.51×** (Jul 2026; Rust faster) | **~0.14×** hot | Single-factor setup fast path |
-| `large_random_slopes_100k` | LMM | Synthetic (100k obs; 2k groups) | MixedModels.jl | **~0.83×** (Jul 2026; Rust faster) | **~0.65×** hot | Showcase: correlated intercept/slope, 3 θ; linear cache setup |
-| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **~0.91×** (Jul 2026) | **~0.64×** hot | Direct two-factor Gram + allocation-free blocked gate |
-| `nested_10k` | LMM | Synthetic | MixedModels.jl | **~0.93×** (Jul 2026) | **~0.49×** hot | Direct slash design + membership Gram; cold &lt;1× Julia |
-| `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **~0.83×** (Jul 2026) | N/A | Laplace; not R `nAGQ`-in-θ |
-| `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **~0.04×** (Jul 2026) | N/A | Laplace |
+| `sleepstudy_reml` | LMM | Real (180 obs, random slopes) | MixedModels.jl | **0.934×** | **0.848×** | Canonical real-world LMM; block LDL fast path |
+| `sleepstudy_weighted_reml` | LMM weighted | Real | MixedModels.jl `wts` | **0.923×** | **0.807×** | Same weights as [`benches/bench_math.rs`](benches/bench_math.rs) |
+| `penicillin_crossed_reml` | LMM | Real crossed intercept | MixedModels.jl | **0.398×** | **0.305×** | Smaller *n* than `crossed_20k` |
+| `pastes_nested_reml` | LMM | Real nested intercept | MixedModels.jl | **0.495×** | **0.390×** | |
+| `random_intercept_10k` | LMM | Synthetic | MixedModels.jl | **0.661×** | **0.173×** | |
+| `random_intercept_50k` | LMM | Synthetic | MixedModels.jl | **0.569×** | **0.174×** | Single-factor setup fast path |
+| `random_intercept_100k` | LMM | Synthetic | MixedModels.jl | **0.509×** | **0.171×** | Single-factor setup fast path |
+| `large_random_slopes_100k` | LMM | Synthetic (100k obs; 2k groups) | MixedModels.jl | **0.898×** | **0.646×** | Showcase: correlated intercept/slope, 3 θ; linear cache setup |
+| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **0.879×** | **0.677×** | Direct two-factor Gram + allocation-free blocked gate |
+| `nested_10k` | LMM | Synthetic | MixedModels.jl | **0.961×** | **0.492×** | Direct slash design + membership Gram |
+| `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **0.749×** | N/A | Laplace; not R `nAGQ`-in-θ |
+| `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **0.033×** | N/A | Laplace |
 
 Cases not in tier A (no fair external fit timing yet):
 
@@ -104,6 +104,6 @@ using Pkg; Pkg.add("GLM")
 ## Maintenance
 
 1. After optimization work on a workflow, add or refresh its tier-A case.
-2. Record medians in [BENCHMARKS.md](BENCHMARKS.md) and/or commit `benchmark-results/fair-rust-julia-benchmarks.json`.
+2. Record medians in [BENCHMARKS.md](BENCHMARKS.md) and/or commit a dated reference JSON under [`benchmarks/`](benchmarks/).
 3. Update **Measured** / **Re-run** cells in the case catalog above.
 4. Adjust [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row **13** only from tier-A evidence.
