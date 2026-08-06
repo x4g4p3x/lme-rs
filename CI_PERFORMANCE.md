@@ -42,6 +42,22 @@ stale-references any integration-test file. Ubuntu keeps the canonical per-file
 populated by the default-branch primer so a debug-cache hit cannot mask a
 release-cache miss.
 
+## 2026-08-06 second optimization results
+
+The follow-up was measured on the same commit with a new cache namespace and an
+immediate rerun:
+
+| Measurement | Wall time | Runner-minutes | Reduction from original wall | Reduction from original runner |
+|---|---:|---:|---:|---:|
+| [Consolidated tests, cold cache](https://github.com/x4g4p3x/lme-rs/actions/runs/31098122206/attempts/1) | 13.55 min | 58.92 min | 72.2% | 54.4% |
+| [Consolidated tests, warm cache](https://github.com/x4g4p3x/lme-rs/actions/runs/31098122206/attempts/2) | 3.70 min | 20.55 min | 92.4% | 84.1% |
+
+Compared with the first optimized warm run, wall time fell another 41.0% and
+runner consumption fell 25.8%. Windows Rust validation remained the critical
+path at 3.68 minutes, with 2.72 minutes in the consolidated test step. The
+separate warm release cache reduced production-load validation from 5.60
+minutes to 0.97 minutes.
+
 When changing CI performance, record both cold and warm hosted runs here. Do not
 trade away assertions, supported operating systems, Python versions, doctests,
 or failure reporting for a lower timing number.
