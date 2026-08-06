@@ -14,6 +14,8 @@ categories = ["science", "mathematics"]
 [features]
 # Enables `bench_load_production` (large synthetic workloads; not run by default `cargo bench`).
 slow-production-benches = []
+# Internal hosted-CI feature used to opt into the single-binary integration-test harness.
+ci-consolidated-tests = []
 
 [dependencies]
 polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
@@ -52,6 +54,11 @@ debug = true
 [profile.test]
 inherits = "dev"
 opt-level = 2
+
+[[test]]
+name = "ci_consolidated"
+path = "tests/ci_consolidated.rs"
+required-features = ["ci-consolidated-tests"]
 
 [[bench]]
 name = "bench_math"

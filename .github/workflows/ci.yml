@@ -56,7 +56,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          shared-key: ci-${{ runner.os }}-rust
+          shared-key: ci-v2-${{ runner.os }}-rust-test
           save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
       - name: rustfmt --check
         id: rustfmt
@@ -113,7 +113,8 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          shared-key: ci-${{ runner.os }}-rust
+          shared-key: ci-v2-${{ runner.os }}-rust-test
+          cache-workspace-crates: true
           save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
 
       - name: Set OpenBLAS target (macOS)
@@ -121,7 +122,7 @@ jobs:
         run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
 
       - name: Run tests
-        run: cargo test --verbose --locked
+        run: python scripts/ci/lme_ci.py consolidated-test
 
   production-load:
     name: Production load & perf gates (ubuntu, release)
@@ -140,8 +141,9 @@ jobs:
       - name: Restore Rust dependencies
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          shared-key: ci-${{ runner.os }}-rust
-          save-if: "false"
+          shared-key: ci-v2-${{ runner.os }}-rust-release
+          cache-workspace-crates: true
+          save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
 
       - name: Production load tests (smoke + release wall-clock gates)
         run: cargo test --release --locked --verbose --test test_production_load

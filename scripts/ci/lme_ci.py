@@ -126,6 +126,68 @@ def cargo_build_test() -> None:
     run(["cargo", "test", "--verbose", "--locked"])
 
 
+def cargo_consolidated_test(*, no_run: bool = False) -> None:
+    """Run all test bodies with one integration binary, plus docs/examples."""
+    harness = ROOT / "tests" / "ci_consolidated.rs"
+    expected = sorted(
+        path.name
+        for path in (ROOT / "tests").glob("*.rs")
+        if path.name != harness.name
+    )
+    declared = sorted(
+        line.split('"', 2)[1]
+        for line in harness.read_text(encoding="utf-8").splitlines()
+        if line.startswith("#[path = ")
+    )
+    if expected != declared:
+        missing = sorted(set(expected) - set(declared))
+        stale = sorted(set(declared) - set(expected))
+        raise CiError(
+            "ci_consolidated.rs must reference every integration test; "
+            f"missing={missing}, stale={stale}"
+        )
+
+    feature = "ci-consolidated-tests"
+    test_cmd = [
+        "cargo",
+        "test",
+        "--verbose",
+        "--locked",
+        "--features",
+        feature,
+        "--lib",
+        "--test",
+        "ci_consolidated",
+    ]
+    if no_run:
+        test_cmd.append("--no-run")
+    run(test_cmd)
+    run(
+        [
+            "cargo",
+            "check",
+            "--verbose",
+            "--locked",
+            "--features",
+            feature,
+            "--examples",
+        ]
+    )
+    if not no_run:
+        run(
+            [
+                "cargo",
+                "test",
+                "--doc",
+                "--locked",
+                "--verbose",
+                "--features",
+                feature,
+            ],
+            env={"RUSTDOCFLAGS": "-D warnings"},
+        )
+
+
 def cargo_test_fast() -> None:
     """Unit tests only — skips integration/doc tests for quick feedback."""
     run(["cargo", "test", "--lib", "--locked"])
@@ -711,6 +773,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("build-test", help="cargo test (full suite)").set_defaults(
         fn=lambda _: cargo_build_test()
     )
+    p_consolidated = sub.add_parser(
+        "consolidated-test",
+        help="single-binary integration suite + doctests + example checks",
+    )
+    p_consolidated.add_argument(
+        "--no-run",
+        action="store_true",
+        help="compile the consolidated harness and examples without running tests",
+    )
+    p_consolidated.set_defaults(fn=lambda a: cargo_consolidated_test(no_run=a.no_run))
     sub.add_parser("test-fast", help="cargo test --lib only").set_defaults(
         fn=lambda _: cargo_test_fast()
     )

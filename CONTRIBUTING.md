@@ -28,7 +28,7 @@ Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (Gi
 
 ### CI runner
 
-All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions validation runs automatically for pull requests and `v*` release tags; use local Task/Lefthook checks before pushing, or `workflow_dispatch` for an ad hoc remote run. A separate lightweight workflow primes trusted Rust dependency caches on relevant `master` changes and weekly.
+All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions validation runs automatically for pull requests and `v*` release tags; use local Task/Lefthook checks before pushing, or `workflow_dispatch` for an ad hoc remote run. A separate lightweight workflow primes trusted Rust dependency caches on relevant `master` changes and weekly. Hosted timing evidence and the cache/test-layout rationale are recorded in [`CI_PERFORMANCE.md`](CI_PERFORMANCE.md).
 
 ```bash
 python3 scripts/ci/lme_ci.py ci
