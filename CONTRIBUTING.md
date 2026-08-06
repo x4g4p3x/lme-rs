@@ -28,7 +28,7 @@ Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (Gi
 
 ### CI runner
 
-All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions run automatically for pull requests and `v*` release tags; use local Task/Lefthook checks before pushing, or `workflow_dispatch` for an ad hoc remote run.
+All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions validation runs automatically for pull requests and `v*` release tags; use local Task/Lefthook checks before pushing, or `workflow_dispatch` for an ad hoc remote run. A separate lightweight workflow primes trusted Rust dependency caches on relevant `master` changes and weekly.
 
 ```bash
 python3 scripts/ci/lme_ci.py ci
@@ -105,7 +105,7 @@ uv lock
 
 Use `uv run --no-sync pytest tests/` after the explicit `uv sync` so only [`python/tests/`](python/tests/) runs against the extension Maturin just installed; `pytest` alone also collects optional demos under `python/examples/`.
 
-[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) assert the editable extension's version and environment path, then build, install, assert, and test the wheel in a separate locked environment. Pull-request/tag CI also exercises Python **3.10**, **3.12**, and **3.13** on Ubuntu (job `python-bindings-versions` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
+[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) assert the editable extension's version and environment path, then build, install, assert, and test the wheel in a separate locked environment. Pull-request/tag CI runs that full identity flow on Python **3.11**, tests isolated wheels on Python **3.10–3.13** on Ubuntu, and tests isolated Python 3.11 wheels on Windows and macOS (jobs `python-bindings-versions` and `python-bindings-os` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 ## Working on numerical changes
 

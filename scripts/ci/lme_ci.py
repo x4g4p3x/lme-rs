@@ -596,19 +596,28 @@ print(f"python artifact: version={actual_version} path={module_paths[-1]}")
 
 
 def python_bindings(
-    *, python: str = "3.11", reuse_venv: bool = False, skip_wheel: bool = False
+    *,
+    python: str = "3.11",
+    reuse_venv: bool = False,
+    skip_wheel: bool = False,
+    wheel_only: bool = False,
 ) -> None:
+    if skip_wheel and wheel_only:
+        raise CiError("--skip-isolated-wheel and --wheel-only are mutually exclusive")
+
     _uv_sync(python=python, reuse=reuse_venv)
     env = _uv_python_env()
     expected_version = _python_package_version()
     editable_python = venv_python()
-    run(
-        ["uv", "run", "--no-sync", "maturin", "develop", "--release"],
-        cwd=PYTHON_DIR,
-        env=env,
-    )
-    _assert_python_artifact(editable_python, version=expected_version, venv=PYTHON_VENV)
-    run([str(editable_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
+
+    if not wheel_only:
+        run(
+            ["uv", "run", "--no-sync", "maturin", "develop", "--release"],
+            cwd=PYTHON_DIR,
+            env=env,
+        )
+        _assert_python_artifact(editable_python, version=expected_version, venv=PYTHON_VENV)
+        run([str(editable_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
 
     if skip_wheel:
         return
@@ -757,17 +766,24 @@ def main(argv: list[str] | None = None) -> int:
     p_py = sub.add_parser("python", help="Python bindings CI flow")
     p_py.add_argument("--python-version", default="3.11")
     p_py.add_argument("--reuse-venv", action="store_true")
-    p_py.add_argument(
+    p_py_mode = p_py.add_mutually_exclusive_group()
+    p_py_mode.add_argument(
         "--skip-isolated-wheel",
         "--skip-wheel-reinstall",
         dest="skip_wheel_reinstall",
         action="store_true",
+    )
+    p_py_mode.add_argument(
+        "--wheel-only",
+        action="store_true",
+        help="Build, install, and test only the isolated wheel (skip editable install)",
     )
     p_py.set_defaults(
         fn=lambda a: python_bindings(
             python=a.python_version,
             reuse_venv=a.reuse_venv,
             skip_wheel=a.skip_wheel_reinstall,
+            wheel_only=a.wheel_only,
         )
     )
 

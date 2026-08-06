@@ -70,12 +70,12 @@ Use `--no-verify` only when explicitly necessary; report the bypass and the chec
 
 ## CI and release boundaries
 
-GitHub Actions run automatically on pull requests and `v*` tags, and can be manually dispatched. Ordinary non-PR branch pushes do not receive the hosted matrix automatically. Pull requests run the full matrix except the four ignored heavy production-load cases. The tag CI calls the crates.io and PyPI workflows only after every validation job succeeds; the publishing workflows do not listen to tags independently.
+GitHub Actions validation runs automatically on pull requests and `v*` tags, and can be manually dispatched. Ordinary non-PR branch pushes do not receive the hosted validation matrix automatically. A lightweight cache-prime workflow runs when Rust dependency inputs change on `master` and weekly so new PRs can reuse trusted dependency artifacts. Pull requests run the full matrix except the four ignored heavy production-load cases. The tag CI calls the crates.io and PyPI workflows only after every validation job succeeds; the publishing workflows do not listen to tags independently.
 
 External GitHub Actions are pinned to full commit SHAs, with the readable release line retained as a comment. Dependabot proposes grouped weekly pin updates; do not replace SHA pins with mutable tags. Dependency audits and libFuzzer smoke tests run weekly in addition to their release/manual entry points.
 
 - `task ci` mirrors the core hosted flow: Rust tests, Python bindings, lint, all-targets check, legal checks, doctests, docs, and the completion-score check.
-- Hosted-only coverage includes the multi-OS matrix, Python 3.10/3.12/3.13, production-load gates, and `pip-audit`.
+- Hosted-only coverage includes the multi-OS matrix, Python 3.10–3.13, production-load gates, and `pip-audit`.
 - After changing BLAS target tables or release workflows, run `task ci` locally or manually dispatch CI before tagging; macOS Apple Silicon BLAS is not exercised on Windows/Linux.
 - Benchmark workflow coverage requiring R or Julia belongs in the tag/manual workflow. `task benchmarks:preflight` runs the Rust smoke plus the R smoke when R/lme4 is available.
 
