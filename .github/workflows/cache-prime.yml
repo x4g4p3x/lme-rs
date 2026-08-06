@@ -56,11 +56,31 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          shared-key: ci-${{ runner.os }}-rust
-      - name: Compile test dependencies
-        run: cargo test --locked --no-run
-      - name: Compile production-load dependencies
+          shared-key: ci-v2-${{ runner.os }}-rust-test
+          cache-workspace-crates: ${{ runner.os != 'Linux' }}
+      - name: Compile canonical test dependencies
         if: matrix.os == 'ubuntu-latest'
+        run: cargo test --locked --no-run
+      - name: Compile consolidated test dependencies
+        if: matrix.os != 'ubuntu-latest'
+        run: python scripts/ci/lme_ci.py consolidated-test --no-run
+
+  production-dependencies:
+    name: Production-load dependencies (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: stable
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+      - name: Cache production-load Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          shared-key: ci-v2-${{ runner.os }}-rust-release
+          cache-workspace-crates: true
+      - name: Compile production-load dependencies
         run: cargo test --release --locked --test test_production_load --no-run
 
   python-dependencies:

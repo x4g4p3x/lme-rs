@@ -87,6 +87,7 @@ For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `ta
 |---|---|
 | `task lint` | Rust format/Clippy plus Python Ruff |
 | `task test:fast` / `task test` | Rust unit-only / full Rust suite |
+| `task test:consolidated` | Hosted non-Linux single-binary integration suite, doctests, and example checks |
 | `task rust` / `task python` | Rust-only CI slice / bindings build and pytest flow |
 | `task preflight` | Pre-push checks: lint, check, audit, legal, metadata |
 | `task ci` / `task ci:fast` | Core CI mirror / reuse the editable Python environment and skip the isolated-wheel pass |

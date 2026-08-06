@@ -132,6 +132,11 @@ tasks:
     cmds:
       - '{{.RUN}} test-fast'
 
+  test:consolidated:
+    desc: Single-binary integration suite plus doctests and example checks
+    cmds:
+      - '{{.RUN}} consolidated-test'
+
   rust:
     desc: Rust-only CI slice (fmt check, clippy, check, build/test, doctest, doc)
     cmds:
