@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "assessed_on": "2026-07-22",
+  "assessed_on": "2026-08-10",
   "scoring_rule": "Each criterion is a binary scope commitment. An area score is 100 * completed criterion weight / total criterion weight. The repository score is the same calculation across all criteria, not an average of rounded area scores. A criterion is complete only when its stated evidence exists; missing, partial, or stale evidence scores zero.",
   "areas": [
     {"id": 1, "evidence": ["src/lib.rs", "tests", "comparisons", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"], "criteria": [{"id": "lmm-api", "weight": 7, "complete": true}, {"id": "lmm-tests", "weight": 6, "complete": true}, {"id": "lmm-parity", "weight": 6, "complete": true}, {"id": "lmm-current-strict-tier-a", "weight": 1, "complete": true}]},
@@ -14,7 +14,7 @@
     {"id": 9, "evidence": ["scripts/ci/lme_ci.py", ".github/workflows/ci.yml", ".github/workflows/audit.yml", ".github/workflows/fuzz-smoke.yml", "lefthook.yml"], "criteria": [{"id": "local-ci", "weight": 10, "complete": true}, {"id": "release-ci", "weight": 10, "complete": true}, {"id": "release-and-security-automation", "weight": 4, "complete": true}, {"id": "ordinary-pr-trigger", "weight": 1, "complete": true}]},
     {"id": 10, "evidence": ["GUIDE.md", "python/PYTHON_GUIDE.md", "USABILITY.md"], "criteria": [{"id": "user-guides", "weight": 8, "complete": true}, {"id": "api-and-operations-docs", "weight": 8, "complete": true}, {"id": "limitations-and-scope", "weight": 3, "complete": true}, {"id": "automated-doc-link-example-gate", "weight": 1, "complete": false}]},
     {"id": 11, "evidence": ["Cargo.toml", "python/examples", "scripts/run_cross_language_benchmarks.py"], "criteria": [{"id": "rust-examples", "weight": 10, "complete": true}, {"id": "python-examples", "weight": 6, "complete": true}, {"id": "manual-cross-language-demos", "weight": 3, "complete": true}, {"id": "portable-automated-demo-coverage", "weight": 6, "complete": false}]},
-    {"id": 12, "evidence": ["scripts/ast_explorations"], "criteria": [{"id": "explorations-standalone", "weight": 7, "complete": true}, {"id": "explorations-integrated-and-tested", "weight": 13, "complete": false}]},
+    {"id": 12, "evidence": ["scripts"], "criteria": [{"id": "explorations-standalone", "weight": 7, "complete": false}, {"id": "explorations-integrated-and-tested", "weight": 13, "complete": false}]},
     {"id": 13, "evidence": ["BENCHMARK_COVERAGE.md", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"], "criteria": [{"id": "strict-crossed-20k", "weight": 1, "complete": true}, {"id": "strict-nested-10k", "weight": 1, "complete": true}, {"id": "strict-sleepstudy", "weight": 1, "complete": true}, {"id": "current-strict-full-tier-a", "weight": 1, "complete": true}]}
   ]
 }
