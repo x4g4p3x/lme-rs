@@ -4,9 +4,9 @@ This file gives an **evidence-weighted implementation-coverage score** for major
 
 **This is a coverage map, not a usability guide.** For “can I use this on my problem?” (workflows, validation posture, limited field experience), see **[USABILITY.md](USABILITY.md)**.
 
-**Last assessed:** 2026-07-22.
+**Last assessed:** 2026-08-10.
 
-**Versions checked:** `lme-rs` **0.2.1-dev.0** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.1-dev.0** ([`python/Cargo.toml`](python/Cargo.toml)).
+**Versions checked:** `lme-rs` **0.2.1** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.1** ([`python/Cargo.toml`](python/Cargo.toml)).
 
 Repository completion is judged on **three** axes, not features alone:
 

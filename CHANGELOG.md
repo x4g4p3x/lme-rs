@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-10
+
 ### Changed
 
 - Replaced the vendored `fiasto` parser with a panic-free, typed Wilkinson parser in `src/formula.rs`; lme-rs no longer converts parser JSON or carries a path dependency that blocks crates.io publication. Nested random effects now support arbitrary depth, and `0 + x` fixed-effect formulas are accepted.
