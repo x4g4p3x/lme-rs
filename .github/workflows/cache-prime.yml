@@ -112,6 +112,4 @@ jobs:
       - name: Compile Python binding dependencies
         env:
           PYO3_PYTHON: python
-        # Maturin normalizes the vendored fiasto entry in python/Cargo.lock before
-        # building; this cache-only compile mirrors that existing behavior.
         run: cargo build --release --manifest-path python/Cargo.toml

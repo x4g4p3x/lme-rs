@@ -1,289 +1,608 @@
-use fiasto::parse_formula;
-use serde::Deserialize;
-use std::collections::HashMap;
+//! Panic-free Wilkinson formula parsing tailored to lme-rs.
+//!
+//! The parser intentionally produces the compact, variable-centric model that the
+//! design-matrix builder consumes. It supports the formula surface exercised by
+//! lme-rs: ordered fixed effects, two-way interactions, random intercepts and
+//! slopes, crossed and nested grouping factors, `||`, and one `offset(...)` term.
 
-/// Root metadata structure holding the parsed Wilkinson AST.
-#[derive(Debug, Deserialize)]
-pub struct FiastoModel {
-    /// Array of all variable names involved in the model (response, predictors, grouping variables).
+use ahash::AHashMap;
+use smallvec::SmallVec;
+
+/// Root metadata structure holding a parsed Wilkinson formula.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FormulaModel {
+    /// Generated columns in formula order. `intercept` is metadata-only and has no [`ColumnInfo`].
     pub all_generated_columns: Vec<String>,
-    /// Detailed mapping of column names to their parsed roles and random effects mappings.
-    pub columns: HashMap<String, ColumnInfo>,
-    /// Global metadata describing model properties (e.g., intercept presence, model type).
-    pub metadata: FiastoMetadata,
-    /// The string formula that generated this AST.
+    /// Mapping of source/generated columns to their model roles and random effects.
+    pub columns: AHashMap<String, ColumnInfo>,
+    /// Global model properties.
+    pub metadata: FormulaMetadata,
+    /// The original, unmodified formula.
     pub formula: String,
-    #[serde(skip)]
-    /// Optional name of an offset variable if provided.
+    /// Optional offset expression. Simple column names are materialized by the matrix builder.
     pub offset: Option<String>,
 }
 
-/// Captures the roles and random effect mappings for a specific parsed dataframe column.
-#[derive(Debug, Deserialize)]
+/// Roles and random-effect mappings for one dataframe or generated column.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ColumnInfo {
-    #[serde(default)]
-    /// Any random effects definitions (e.g., intercepts or slopes) associated with this column.
+    /// Random-effect definitions for a grouping column.
     pub random_effects: Vec<RandomEffect>,
-    #[serde(default)]
-    /// Explicit roles parsed from the formula (e.g., "Response", "GroupingVariable", "Identity").
-    pub roles: Vec<String>,
+    /// Compact typed roles used by the design-matrix builder.
+    pub roles: ColumnRoles,
+    generated: bool,
 }
 
-/// Represents a distinct Random Effect cluster mapped from `(expr | group)`.
-#[derive(Debug, Deserialize)]
+impl ColumnInfo {
+    /// Return whether this column has the requested model role.
+    #[inline]
+    pub fn has_role(&self, role: ColumnRole) -> bool {
+        self.roles.contains(role)
+    }
+}
+
+/// A column's role in the parsed formula.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ColumnRole {
+    /// The left-hand-side response column.
+    Response,
+    /// A main fixed-effect column.
+    FixedEffect,
+    /// A generated fixed-effect interaction term.
+    Interaction,
+    /// A source column used as a random slope.
+    RandomEffect,
+    /// A random-effect grouping factor.
+    GroupingVariable,
+}
+
+/// Compact set of [`ColumnRole`] flags.
+///
+/// Formula columns usually carry one or two roles, so a bitset avoids a heap
+/// allocation per column while retaining a typed public representation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ColumnRoles(u8);
+
+impl ColumnRoles {
+    /// Return whether this set contains `role`.
+    #[inline]
+    pub const fn contains(self, role: ColumnRole) -> bool {
+        self.0 & (1 << role as u8) != 0
+    }
+
+    /// Insert `role` into this set.
+    #[inline]
+    fn insert(&mut self, role: ColumnRole) {
+        self.0 |= 1 << role as u8;
+    }
+}
+
+/// One `(expression | group)` declaration.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RandomEffect {
-    /// True if slopes are correlated with intercepts (the `(expr | group)` default in R).
+    /// Whether this declaration requests a correlated covariance block (`|`, not `||`).
     pub correlated: bool,
-    /// The name of the categorical variable representing the groups.
-    pub grouping_variable: String,
-    /// True if an intercept term should be generated for this specific random effect term.
+    /// Whether the declaration includes a random intercept.
     pub has_intercept: bool,
-    /// Describes the type of term (e.g., "grouping" for intercepts, "slope" for numeric variables).
-    pub kind: String,
-    #[serde(default)]
-    /// Names of continuous variables for random slopes, if present.
-    pub variables: Option<Vec<String>>,
+    /// Random-slope source columns. Empty for intercept-only declarations.
+    pub variables: SmallVec<[String; 2]>,
 }
 
-/// Stores top-level characteristics of the model structure.
-#[derive(Debug, Deserialize)]
-pub struct FiastoMetadata {
-    /// Global indicator if the model formula includes an intercept term.
+/// Top-level characteristics of the parsed formula.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FormulaMetadata {
+    /// Whether the fixed-effects design includes an intercept.
     pub has_intercept: bool,
-    /// True if the model specifies at least one random effect grouping structure.
+    /// Whether at least one random-effect declaration is present.
     pub is_random_effects_model: bool,
-    /// The number of response variables on the Left Hand Side of the formula (typically 1).
+    /// Number of response variables. lme-rs currently supports one.
     pub response_variable_count: usize,
 }
 
-/// Parses a Wilkinson's formula string into a structured AST metadata model.
-///
-/// Supports nested random effects: `(1|a/b)` is expanded to `(1|a) + (1|a:b)` before parsing.
-pub fn parse(formula: &str) -> crate::Result<FiastoModel> {
-    let (formula_no_offset, offset_var) = extract_offset(formula);
-    let mut expanded = expand_nested_re(&formula_no_offset);
-    expanded = expand_independent_re(&expanded);
-    // fiasto 0.2.7 can panic on some malformed token sequences instead of returning
-    // its ParseError (for example `y ~ 1 (+ (1 |`). Keep untrusted formula input
-    // recoverable at this crate's public boundary.
-    let json_val =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| parse_formula(&expanded)))
-            .map_err(|_| crate::LmeError::NotImplemented {
-                feature: "Formula parsing error: parser rejected malformed syntax".to_string(),
-            })?
-            .map_err(|e| crate::LmeError::NotImplemented {
-                feature: format!("Formula parsing error: {}", e),
-            })?;
-
-    let mut ast: FiastoModel =
-        serde_json::from_value(json_val).map_err(|e| crate::LmeError::NotImplemented {
-            feature: format!("JSON parsing error: {}", e),
-        })?;
-
-    // Store the original formula (unexpanded) for display
-    ast.formula = formula.to_string();
-    ast.offset = offset_var;
-
-    Ok(ast)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Token<'a> {
+    Ident(&'a str),
+    Number(usize),
+    Tilde,
+    Plus,
+    Minus,
+    Star,
+    Colon,
+    Slash,
+    Pipe,
+    DoublePipe,
+    LParen,
+    RParen,
+    Comma,
 }
 
-/// Extractor for `offset(...)` syntax since `fiasto` doesn't support it natively.
-/// Returns (formula_without_offset, Option<offset_variable_name>)
-fn extract_offset(formula: &str) -> (String, Option<String>) {
-    if let Some(start_idx) = formula.find("offset(") {
-        // Find the matching close parenthesis
-        let mut depth = 0;
-        let mut end_idx = None;
-        let bytes = formula.as_bytes();
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Sign {
+    Add,
+    Remove,
+}
 
-        for (i, &byte) in bytes.iter().enumerate().skip(start_idx) {
-            if byte == b'(' {
-                depth += 1;
-            }
-            if byte == b')' {
-                depth -= 1;
-                if depth == 0 {
-                    end_idx = Some(i);
-                    break;
-                }
-            }
+type Tokens<'source> = SmallVec<[Token<'source>; 16]>;
+type RandomSlopes<'source> = SmallVec<[&'source str; 4]>;
+type GroupNames = SmallVec<[String; 4]>;
+
+struct Lexed<'source> {
+    tokens: Tokens<'source>,
+    tilde: Option<usize>,
+    identifier_count: usize,
+}
+
+/// Parse a Wilkinson formula into lme-rs's typed formula model.
+///
+/// This function is total over UTF-8 input: malformed or unsupported syntax is
+/// returned as a formula error and never handled with a parser panic.
+pub fn parse(formula: &str) -> crate::Result<FormulaModel> {
+    let Lexed {
+        tokens,
+        tilde,
+        identifier_count,
+    } = lex(formula)?;
+    let tilde = tilde.ok_or_else(|| parse_error("formula must contain exactly one '~'"))?;
+    let response = match &tokens[..tilde] {
+        [Token::Ident(name)] => *name,
+        [] => return Err(parse_error("formula is missing a response variable")),
+        _ => {
+            return Err(parse_error(
+                "response must be one unquoted ASCII column name",
+            ))
         }
+    };
 
-        if let Some(end) = end_idx {
-            let inner_var = formula[start_idx + 7..end].trim().to_string();
+    let mut model = FormulaModel {
+        all_generated_columns: Vec::with_capacity(identifier_count + 1),
+        columns: AHashMap::with_capacity(identifier_count),
+        metadata: FormulaMetadata {
+            has_intercept: true,
+            is_random_effects_model: false,
+            response_variable_count: 1,
+        },
+        formula: formula.to_string(),
+        offset: None,
+    };
+    add_role(&mut model, response, ColumnRole::Response, true);
 
-            // Re-construct the formula string without the offset(...) and trim surrounding `+` operators
-            let before = &formula[..start_idx];
-            let after = &formula[end + 1..];
-
-            let mut new_formula = String::from(before);
-            new_formula.push_str(after);
-
-            // Clean up stranded `+` signs like `A + + B`
-            let cleaned = new_formula
-                .replace("  ", " ") // collapse spaces
-                .replace("++", "+")
-                .replace("+ +", "+")
-                .replace("~ +", "~")
-                .replace("+ ~", "~")
-                // Remove trailing +
-                .trim()
-                .trim_end_matches('+')
-                .trim()
-                .to_string();
-
-            return (cleaned, Some(inner_var));
+    visit_additive_terms(&tokens[tilde + 1..], |sign, term| {
+        if is_random_effect_term(term) {
+            if sign == Sign::Remove {
+                return Err(parse_error(
+                    "subtracting random-effect terms is not supported",
+                ));
+            }
+            parse_random_effect(term, &mut model)?;
+        } else {
+            parse_fixed_term(term, sign, &mut model)?;
         }
+        Ok(())
+    })?;
+
+    if model.metadata.has_intercept {
+        model.all_generated_columns.insert(
+            1.min(model.all_generated_columns.len()),
+            "intercept".to_string(),
+        );
     }
-
-    (formula.to_string(), None)
+    Ok(model)
 }
 
-/// Expand nested random effects: `(expr | a/b)` → `(expr | a) + (expr | a:b)`.
-///
-/// Also supports deeper nesting: `(1|a/b/c)` → `(1|a) + (1|a:b) + (1|a:b:c)`.
-fn expand_nested_re(formula: &str) -> String {
-    let mut result = formula.to_string();
-
-    // Keep expanding until no more nested patterns remain
-    loop {
-        let mut expanded = String::new();
-        let mut i = 0;
-        let bytes = result.as_bytes();
-        let mut changed = false;
-
-        while i < bytes.len() {
-            if bytes[i] == b'(' {
-                // Find matching closing paren
-                let start = i;
-                let mut depth = 1;
-                let mut j = i + 1;
-                while j < bytes.len() && depth > 0 {
-                    if bytes[j] == b'(' {
-                        depth += 1;
-                    }
-                    if bytes[j] == b')' {
-                        depth -= 1;
-                    }
-                    j += 1;
+fn lex(formula: &str) -> crate::Result<Lexed<'_>> {
+    let bytes = formula.as_bytes();
+    let mut tokens = if formula.len() > 128 {
+        // Large generated formulas will exceed the inline token buffer. Reserve
+        // directly so SmallVec does not first fill and copy its stack storage.
+        Tokens::with_capacity(formula.len().div_ceil(2))
+    } else {
+        Tokens::new()
+    };
+    let mut tilde = None;
+    let mut identifier_count = 0usize;
+    let mut i = 0;
+    while i < bytes.len() {
+        let byte = bytes[i];
+        if byte.is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        if byte.is_ascii_alphabetic() || byte == b'_' {
+            let start = i;
+            i += 1;
+            while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+                i += 1;
+            }
+            tokens.push(Token::Ident(&formula[start..i]));
+            identifier_count += 1;
+            continue;
+        }
+        if byte.is_ascii_digit() {
+            let mut value = usize::from(byte - b'0');
+            i += 1;
+            while i < bytes.len() && bytes[i].is_ascii_digit() {
+                value = value
+                    .checked_mul(10)
+                    .and_then(|current| current.checked_add(usize::from(bytes[i] - b'0')))
+                    .ok_or_else(|| parse_error("numeric literal is too large"))?;
+                i += 1;
+            }
+            tokens.push(Token::Number(value));
+            continue;
+        }
+        let token = match byte {
+            b'~' => {
+                if tilde.replace(tokens.len()).is_some() {
+                    return Err(parse_error("formula must contain exactly one '~'"));
                 }
-                if depth != 0 {
-                    // Unmatched `(` — leave it literal so callers never slice with start+1 > j-1.
-                    expanded.push('(');
-                    i = start + 1;
-                    continue;
-                }
-                let re_term = &result[start..j]; // includes parens
-                let inner = &result[start + 1..j - 1]; // without parens
+                Token::Tilde
+            }
+            b'+' => Token::Plus,
+            b'-' => Token::Minus,
+            b'*' => Token::Star,
+            b':' => Token::Colon,
+            b'/' => Token::Slash,
+            b'(' => Token::LParen,
+            b')' => Token::RParen,
+            b',' => Token::Comma,
+            b'|' if bytes.get(i + 1) == Some(&b'|') => {
+                i += 1;
+                Token::DoublePipe
+            }
+            b'|' => Token::Pipe,
+            _ if byte.is_ascii() => {
+                return Err(parse_error(format!(
+                    "unsupported character '{}' at byte {}",
+                    byte as char, i
+                )))
+            }
+            _ => return Err(parse_error(format!("non-ASCII identifier at byte {}", i))),
+        };
+        tokens.push(token);
+        i += 1;
+    }
+    if tokens.is_empty() {
+        return Err(parse_error("formula is empty"));
+    }
+    Ok(Lexed {
+        tokens,
+        tilde,
+        identifier_count,
+    })
+}
 
-                // Check if inner contains `|` and the grouping side contains `/`
-                if let Some(bar_pos) = inner.find('|') {
-                    let expr = inner[..bar_pos].trim();
-                    let group = inner[bar_pos + 1..].trim();
-
-                    if group.contains('/') {
-                        // Expand: (expr | a/b) → (expr | a) + (expr | a:b)
-                        // Expand: (expr | a/b/c) → (expr | a) + (expr | a:b) + (expr | a:b:c)
-                        let parts: Vec<&str> = group.split('/').map(|s| s.trim()).collect();
-                        let mut terms = Vec::new();
-                        let mut acc = String::new();
-                        for (idx, part) in parts.iter().enumerate() {
-                            if idx == 0 {
-                                acc = part.to_string();
-                            } else {
-                                acc = format!("{}:{}", acc, part);
-                            }
-                            terms.push(format!("({} | {})", expr, acc));
-                        }
-                        expanded.push_str(&terms.join(" + "));
-                        changed = true;
-                        i = j;
+fn visit_additive_terms<'source>(
+    tokens: &[Token<'source>],
+    mut visit: impl FnMut(Sign, &[Token<'source>]) -> crate::Result<()>,
+) -> crate::Result<()> {
+    if tokens.is_empty() {
+        return Ok(());
+    }
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    let mut sign = Sign::Add;
+    for (i, token) in tokens.iter().enumerate() {
+        match token {
+            Token::LParen => depth += 1,
+            Token::RParen => {
+                depth = depth
+                    .checked_sub(1)
+                    .ok_or_else(|| parse_error("unmatched ')'"))?;
+            }
+            Token::Plus | Token::Minus if depth == 0 => {
+                if i == start {
+                    if i == 0 && matches!(token, Token::Minus) {
+                        sign = Sign::Remove;
+                        start = 1;
                         continue;
                     }
+                    return Err(parse_error("empty term between additive operators"));
                 }
-
-                expanded.push_str(re_term);
-                i = j;
-            } else {
-                expanded.push(result.as_bytes()[i] as char);
-                i += 1;
+                visit(sign, &tokens[start..i])?;
+                sign = if matches!(token, Token::Plus) {
+                    Sign::Add
+                } else {
+                    Sign::Remove
+                };
+                start = i + 1;
             }
+            _ => {}
         }
-
-        if !changed {
-            break;
-        }
-        result = expanded;
     }
-
-    result
+    if depth != 0 {
+        return Err(parse_error("unclosed '('"));
+    }
+    if start == tokens.len() {
+        return Err(parse_error("formula cannot end with an additive operator"));
+    }
+    visit(sign, &tokens[start..])
 }
 
-/// Expand independent random effects: `(expr || group)` → `(1 | group) + (0 + expr | group)`.
-/// If `expr` is already `0 + ...` or `1`, we might get weird terms, but `lme4` safely parses them.
-fn expand_independent_re(formula: &str) -> String {
-    let mut result = formula.to_string();
-
-    // Keep expanding until no more `||` patterns remain
-    loop {
-        let mut expanded = String::new();
-        let mut i = 0;
-        let bytes = result.as_bytes();
-        let mut changed = false;
-
-        while i < bytes.len() {
-            if bytes[i] == b'(' {
-                // Find matching closing paren
-                let start = i;
-                let mut depth = 1;
-                let mut j = i + 1;
-                while j < bytes.len() && depth > 0 {
-                    if bytes[j] == b'(' {
-                        depth += 1;
-                    }
-                    if bytes[j] == b')' {
-                        depth -= 1;
-                    }
-                    j += 1;
-                }
-                if depth != 0 {
-                    expanded.push('(');
-                    i = start + 1;
-                    continue;
-                }
-                let re_term = &result[start..j]; // includes parens
-                let inner = &result[start + 1..j - 1]; // without parens
-
-                // Check if inner contains `||`
-                if let Some(bar_pos) = inner.find("||") {
-                    let expr = inner[..bar_pos].trim();
-                    let group = inner[bar_pos + 2..].trim();
-
-                    // Expand: (expr || group) → (1 | group) + (0 + expr | group)
-                    // If expr is empty (unlikely syntax), this would fail, but we assume valid Wilkinson.
-                    // If expr is `1`, `(1 || group)` doesn't make sense but becomes `(1 | group) + (0 + 1 | group)`
-                    let expanded_term = format!("(1 | {}) + (0 + {} | {})", group, expr, group);
-                    expanded.push_str(&expanded_term);
-                    changed = true;
-                    i = j;
-                    continue;
-                }
-
-                expanded.push_str(re_term);
-                i = j;
-            } else {
-                expanded.push(result.as_bytes()[i] as char);
-                i += 1;
-            }
+fn is_random_effect_term(tokens: &[Token<'_>]) -> bool {
+    if !matches!(tokens.first(), Some(Token::LParen))
+        || !matches!(tokens.last(), Some(Token::RParen))
+    {
+        return false;
+    }
+    let mut depth = 0usize;
+    for token in &tokens[1..tokens.len() - 1] {
+        match token {
+            Token::LParen => depth += 1,
+            Token::RParen => depth = depth.saturating_sub(1),
+            Token::Pipe | Token::DoublePipe if depth == 0 => return true,
+            _ => {}
         }
+    }
+    false
+}
 
-        if !changed {
-            break;
+fn parse_fixed_term(
+    tokens: &[Token<'_>],
+    sign: Sign,
+    model: &mut FormulaModel,
+) -> crate::Result<()> {
+    match tokens {
+        [Token::Number(0)] => {
+            model.metadata.has_intercept = false;
+            return Ok(());
         }
-        result = expanded;
+        [Token::Number(1)] => {
+            model.metadata.has_intercept = sign == Sign::Add;
+            return Ok(());
+        }
+        [Token::Number(_)] => return Err(parse_error("only 0 and 1 are valid standalone terms")),
+        [Token::Ident(name)] if sign == Sign::Add => {
+            add_role(model, name, ColumnRole::FixedEffect, true);
+            return Ok(());
+        }
+        [Token::Ident(_)] => {
+            return Err(parse_error(
+                "subtracting named fixed-effect terms is not supported",
+            ))
+        }
+        _ => {}
     }
 
-    result
+    if let Some((name, args)) = function_call(tokens) {
+        if sign == Sign::Remove {
+            return Err(parse_error("subtracting function terms is not supported"));
+        }
+        return parse_function(name, args, model);
+    }
+
+    parse_interaction(tokens, sign, model)
+}
+
+fn function_call<'tokens, 'source>(
+    tokens: &'tokens [Token<'source>],
+) -> Option<(&'source str, &'tokens [Token<'source>])> {
+    match tokens {
+        [Token::Ident(name), Token::LParen, middle @ .., Token::RParen]
+            if outer_parentheses_are_balanced(middle) =>
+        {
+            Some((name, middle))
+        }
+        _ => None,
+    }
+}
+
+fn outer_parentheses_are_balanced(tokens: &[Token<'_>]) -> bool {
+    let mut depth = 0usize;
+    for token in tokens {
+        match token {
+            Token::LParen => depth += 1,
+            Token::RParen => {
+                let Some(next) = depth.checked_sub(1) else {
+                    return false;
+                };
+                depth = next;
+            }
+            _ => {}
+        }
+    }
+    depth == 0
+}
+
+fn parse_function(name: &str, args: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
+    match (name, args) {
+        ("offset", []) => Err(parse_error("offset() requires an expression")),
+        ("offset", [Token::Ident(source)]) => {
+            if model.offset.is_some() {
+                return Err(parse_error("only one offset() term is supported"));
+            }
+            model.offset = Some((*source).to_string());
+            Ok(())
+        }
+        ("offset", _) => Err(parse_error(
+            "offset() currently requires one plain column name",
+        )),
+        _ => Err(parse_error(format!(
+            "unsupported formula function '{}()'",
+            name
+        ))),
+    }
+}
+
+fn parse_interaction(
+    tokens: &[Token<'_>],
+    sign: Sign,
+    model: &mut FormulaModel,
+) -> crate::Result<()> {
+    if sign == Sign::Remove {
+        return Err(parse_error(
+            "subtracting interaction terms is not supported",
+        ));
+    }
+    match tokens {
+        [Token::Ident(left), Token::Star, Token::Ident(right)] => {
+            add_role(model, left, ColumnRole::FixedEffect, true);
+            add_role(model, right, ColumnRole::FixedEffect, true);
+            add_role(
+                model,
+                &format!("{}_{}", left, right),
+                ColumnRole::Interaction,
+                true,
+            );
+            Ok(())
+        }
+        _ => Err(parse_error("malformed or unsupported fixed-effect term")),
+    }
+}
+
+fn parse_random_effect(tokens: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
+    let inner = &tokens[1..tokens.len() - 1];
+    let mut depth = 0usize;
+    let mut separator = None;
+    for (i, token) in inner.iter().enumerate() {
+        match token {
+            Token::LParen => depth += 1,
+            Token::RParen => {
+                depth = depth
+                    .checked_sub(1)
+                    .ok_or_else(|| parse_error("unmatched ')' in random effect"))?;
+            }
+            Token::Pipe | Token::DoublePipe if depth == 0 => {
+                if separator.is_some() {
+                    return Err(parse_error("random effect contains more than one '|'"));
+                }
+                separator = Some((i, matches!(token, Token::Pipe)));
+            }
+            _ => {}
+        }
+    }
+    let (bar, correlated) = separator.ok_or_else(|| parse_error("random effect is missing '|'"))?;
+    let lhs = &inner[..bar];
+    let rhs = &inner[bar + 1..];
+    if lhs.is_empty() || rhs.is_empty() {
+        return Err(parse_error(
+            "random effect requires an expression and grouping factor",
+        ));
+    }
+
+    let (has_intercept, slopes) = parse_random_lhs(lhs)?;
+    if !has_intercept && slopes.is_empty() {
+        return Err(parse_error("random effect cannot have zero columns"));
+    }
+    let groups = parse_grouping_expression(rhs)?;
+    for group in groups {
+        for slope in &slopes {
+            add_role(model, slope, ColumnRole::RandomEffect, false);
+        }
+        let effect = RandomEffect {
+            correlated,
+            has_intercept,
+            variables: slopes.iter().map(|slope| (*slope).to_string()).collect(),
+        };
+        add_role(model, &group, ColumnRole::GroupingVariable, true);
+        model
+            .columns
+            .get_mut(&group)
+            .expect("grouping column was inserted")
+            .random_effects
+            .push(effect);
+    }
+    model.metadata.is_random_effects_model = true;
+    Ok(())
+}
+
+fn parse_random_lhs<'source>(
+    tokens: &[Token<'source>],
+) -> crate::Result<(bool, RandomSlopes<'source>)> {
+    let mut has_intercept = true;
+    let mut slopes = RandomSlopes::new();
+    visit_additive_terms(tokens, |sign, term| {
+        match term {
+            [Token::Number(0)] => has_intercept = false,
+            [Token::Number(1)] => has_intercept = sign == Sign::Add,
+            [Token::Ident(name)] if sign == Sign::Add => {
+                if !slopes.contains(name) {
+                    slopes.push(*name);
+                }
+            }
+            [Token::Ident(_)] => {
+                return Err(parse_error("subtracting random slopes is not supported"))
+            }
+            _ => return Err(parse_error("malformed random-effect expression")),
+        }
+        Ok(())
+    })?;
+    Ok((has_intercept, slopes))
+}
+
+fn parse_grouping_expression(tokens: &[Token<'_>]) -> crate::Result<GroupNames> {
+    if tokens.is_empty() {
+        return Err(parse_error("empty grouping expression"));
+    }
+    let mut has_colon = false;
+    let mut has_slash = false;
+    let mut total_name_len = 0usize;
+    for (i, token) in tokens.iter().enumerate() {
+        if i % 2 == 0 {
+            match token {
+                Token::Ident(name) => total_name_len += name.len(),
+                _ => return Err(parse_error("grouping factors must be ASCII column names")),
+            }
+        } else {
+            match token {
+                Token::Colon => has_colon = true,
+                Token::Slash => has_slash = true,
+                _ => return Err(parse_error("grouping factors use ':' or '/' separators")),
+            }
+        }
+    }
+    if tokens.len().is_multiple_of(2) {
+        return Err(parse_error("grouping expression ends with a separator"));
+    }
+    if has_colon && has_slash {
+        return Err(parse_error(
+            "mixing ':' and '/' in one grouping expression is unsupported",
+        ));
+    }
+    let name_count = tokens.len().div_ceil(2);
+    if has_slash {
+        let mut groups = GroupNames::with_capacity(name_count);
+        let mut accumulated = String::with_capacity(total_name_len + name_count - 1);
+        for token in tokens.iter().step_by(2) {
+            let Token::Ident(name) = token else {
+                unreachable!("grouping token shape was validated")
+            };
+            if !accumulated.is_empty() {
+                accumulated.push(':');
+            }
+            accumulated.push_str(name);
+            groups.push(accumulated.clone());
+        }
+        Ok(groups)
+    } else {
+        let mut group = String::with_capacity(total_name_len + name_count - 1);
+        for token in tokens.iter().step_by(2) {
+            let Token::Ident(name) = token else {
+                unreachable!("grouping token shape was validated")
+            };
+            if !group.is_empty() {
+                group.push(':');
+            }
+            group.push_str(name);
+        }
+        let mut groups = GroupNames::new();
+        groups.push(group);
+        Ok(groups)
+    }
+}
+
+fn add_role(model: &mut FormulaModel, name: &str, role: ColumnRole, generated: bool) {
+    let info = model.columns.entry(name.to_string()).or_default();
+    info.roles.insert(role);
+    if generated && !info.generated {
+        info.generated = true;
+        model.all_generated_columns.push(name.to_string());
+    }
+}
+
+fn parse_error(message: impl Into<String>) -> crate::LmeError {
+    crate::LmeError::NotImplemented {
+        feature: format!("Formula parsing error: {}", message.into()),
+    }
 }
 
 #[cfg(test)]
@@ -291,90 +610,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_intercept_only() {
-        let ast = parse("Reaction ~ 1 + (1 | Subject)").unwrap();
-        assert!(ast.metadata.is_random_effects_model);
+    fn parses_intercept_and_correlated_slope() {
+        let ast = parse("Reaction ~ Days + (1 + Days | Subject)").unwrap();
         assert!(ast.metadata.has_intercept);
-
-        let subject_col = ast.columns.get("Subject").unwrap();
-        assert_eq!(subject_col.roles[0], "GroupingVariable");
-        assert_eq!(subject_col.random_effects[0].grouping_variable, "Subject");
-        assert_eq!(subject_col.random_effects[0].kind, "grouping");
+        assert!(ast.metadata.is_random_effects_model);
+        assert!(ast.columns["Days"].has_role(ColumnRole::FixedEffect));
+        let effect = &ast.columns["Subject"].random_effects[0];
+        assert!(effect.has_intercept);
+        assert!(effect.correlated);
+        assert_eq!(effect.variables.as_slice(), &["Days".to_string()]);
     }
 
     #[test]
-    fn test_parse_random_slope() {
-        let ast = parse("Reaction ~ Days + (Days | Subject)").unwrap();
-
-        let days_col = ast.columns.get("Days").unwrap();
-        // Should be both a fixed effect (Identity) and random slope
-        assert!(days_col.roles.contains(&"Identity".to_string()));
-        assert!(days_col.roles.contains(&"RandomEffect".to_string()));
-
-        let re = &days_col.random_effects[0];
-        assert_eq!(re.kind, "slope");
-        assert_eq!(re.grouping_variable, "Subject");
-        assert!(re.correlated);
+    fn parses_no_intercept_fixed_and_random_terms() {
+        let ast = parse("y ~ 0 + x + (0 + x | g)").unwrap();
+        assert!(!ast.metadata.has_intercept);
+        assert!(!ast.columns["g"].random_effects[0].has_intercept);
     }
 
     #[test]
-    fn test_expand_nested_two_level() {
-        let expanded = expand_nested_re("y ~ x + (1 | school/student)");
-        assert_eq!(expanded, "y ~ x + (1 | school) + (1 | school:student)");
+    fn expands_nested_grouping_to_every_level() {
+        let ast = parse("y ~ x + (1 | district/school/student)").unwrap();
+        for group in ["district", "district:school", "district:school:student"] {
+            assert!(ast.columns[group].has_role(ColumnRole::GroupingVariable));
+        }
     }
 
     #[test]
-    fn test_expand_nested_three_level() {
-        let expanded = expand_nested_re("y ~ x + (1 | district/school/student)");
-        assert_eq!(
-            expanded,
-            "y ~ x + (1 | district) + (1 | district:school) + (1 | district:school:student)"
-        );
+    fn parses_crossed_groups_and_offset() {
+        let ast = parse("y ~ x + offset(log_exposure) + (1 | A) + (1 | B)").unwrap();
+        assert_eq!(ast.offset.as_deref(), Some("log_exposure"));
+        assert!(ast.columns.contains_key("A"));
+        assert!(ast.columns.contains_key("B"));
     }
 
     #[test]
-    fn test_expand_no_nesting() {
-        let original = "y ~ x + (1 | school)";
-        let expanded = expand_nested_re(original);
-        assert_eq!(expanded, original);
-    }
-
-    #[test]
-    fn expand_nested_re_unmatched_open_paren_is_literal() {
-        assert_eq!(expand_nested_re("y ~ )("), "y ~ )(");
-    }
-
-    #[test]
-    fn expand_independent_re_unmatched_open_paren_is_literal() {
-        assert_eq!(expand_independent_re("y ~ )("), "y ~ )(");
-    }
-
-    #[test]
-    fn test_expand_nested_with_slopes() {
-        let expanded = expand_nested_re("y ~ x + (x | school/student)");
-        assert_eq!(expanded, "y ~ x + (x | school) + (x | school:student)");
-    }
-
-    #[test]
-    fn test_expand_independent_re() {
-        let expanded = expand_independent_re("y ~ x + (x || school)");
-        assert_eq!(expanded, "y ~ x + (1 | school) + (0 + x | school)");
-    }
-
-    #[test]
-    fn test_extract_offset() {
-        let (f1, o1) = extract_offset("Reaction ~ Days + offset(time) + (1 | Subject)");
-        assert_eq!(f1, "Reaction ~ Days + (1 | Subject)");
-        assert_eq!(o1, Some("time".to_string()));
-
-        // Nested function inside offset
-        let (f2, o2) = extract_offset("Reaction ~ offset(log(time)) + Days");
-        assert_eq!(f2, "Reaction ~ Days");
-        assert_eq!(o2, Some("log(time)".to_string()));
-
-        // No offset
-        let (f3, o3) = extract_offset("Reaction ~ Days");
-        assert_eq!(f3, "Reaction ~ Days");
-        assert_eq!(o3, None);
+    fn malformed_inputs_are_errors_not_panics() {
+        for formula in ["", "y", "~ y", "y ~ x + * z", "y ~ (1 |", "Rey ~ 1 (+ (1 |"] {
+            assert!(parse(formula).is_err(), "{formula:?} should be rejected");
+        }
     }
 }

@@ -24,21 +24,18 @@ ndarray = "0.16"
 statrs = { version = "0.18", default-features = false }
 thiserror = "2"
 anyhow = "1"
+ahash = "0.8.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 argmin = "0.11.0"
 argmin-math = { version = "0.5.1", features = ["ndarray_v0_16-nolinalg"] }
-# Vendored patch of fiasto 0.2.7 (MIT). Upstream:
-# https://github.com/alexhallam/fiasto — see vendor/fiasto/PATCHES.md.
-# Parser fallbacks return ParseError instead of unreachable!() so cargo-fuzz
-# (panic=abort) does not abort on seeds such as `Rey ~ 1 (+ (1 |`.
-fiasto = { version = "0.2.7", path = "vendor/fiasto" }
 sprs = "0.11.4"
 sprs-ldl = "0.10.0"
 log = "0.4"
 rand = "0.9.3"
 rand_distr = "0.5"
 rayon = "1.11"
+smallvec = "1.15"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

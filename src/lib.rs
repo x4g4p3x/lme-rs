@@ -213,7 +213,7 @@ impl LmeFit {
         // Find response variable strictly to exclude it from the Identity searches
         let mut response_col_name = String::new();
         for (name, info) in &ast.columns {
-            if info.roles.contains(&"Response".to_string()) {
+            if info.has_role(crate::formula::ColumnRole::Response) {
                 response_col_name = name.clone();
                 break;
             }

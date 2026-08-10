@@ -1,13 +1,13 @@
-# LMM fit optimization
+# Optimization engineering notes
 
-Engineering notes for **LMM variance-component (θ) search** throughput.
+Engineering notes for native formula parsing and **LMM variance-component (θ) search** throughput.
 
 | Doc | Purpose |
 |:----|:--------|
 | [BENCHMARKS.md](BENCHMARKS.md) | Harness methodology and versioned timings |
 | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13 | Completion goals |
 
-**Read this before changing** [`src/math.rs`](src/math.rs) intercept-only paths, **`SingleFactorSlopesCache`** (single-factor random slopes), or [`src/optimizer.rs`](src/optimizer.rs) θ search.
+**Read this before changing** [`src/formula.rs`](src/formula.rs), [`src/math.rs`](src/math.rs) intercept-only paths, **`SingleFactorSlopesCache`** (single-factor random slopes), or [`src/optimizer.rs`](src/optimizer.rs) θ search.
 
 ---
 
@@ -28,6 +28,89 @@ Engineering notes for **LMM variance-component (θ) search** throughput.
 Current medians: [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
 
 Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work**, not completion blockers for [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows 1 or 13.
+
+---
+
+## Native formula parser optimization (2026-08-10)
+
+The first in-tree Wilkinson parser removed the vendored `fiasto` dependency and its JSON conversion boundary. This section records the subsequent allocation and representation work. The "before" numbers are from that initial native implementation, **not** from `fiasto`; this avoids conflating dependency replacement with the later optimization pass.
+
+### Measurement method
+
+- Hardware: Windows AMD64, AMD Ryzen 5 8600G; `rustc 1.96.0`.
+- Command: `cargo bench --locked --bench bench_math formula_parsing -- --noplot`.
+- Criterion defaults: 3-second warmup, 100 samples, 5-second measurement window.
+- The same release profile and checkout were used. Each representation experiment was reversible and retained only after a focused A/B run.
+- Parser results were checked separately from `model_matrix_build`, because a smaller or faster AST is not a win if its consumer becomes slower.
+- Long aggregate benchmark runs showed workstation frequency drift. Suspicious aggregate changes were rerun as isolated cases before making a keep/revert decision.
+
+The final consistent snapshot is also recorded in [BENCHMARKS.md](BENCHMARKS.md#native-formula-parser-optimization-2026-08-10):
+
+| Formula case | Initial native parser | Final | Reduction |
+|:-------------|----------------------:|------:|----------:|
+| `y ~ x` | 652 ns | **276 ns** | **58%** |
+| Correlated random slope | 1.858 µs | **0.613 µs** | **67%** |
+| Nested random intercepts | 1.787 µs | **0.612 µs** | **66%** |
+| Crossed random intercepts | 1.719 µs | **0.666 µs** | **61%** |
+| Mixed fixed/offset/`||`/nested features | 4.232 µs | **1.272 µs** | **70%** |
+| 40 fixed terms | 12.753 µs | **3.513 µs** | **72%** |
+| Malformed nested reject path | 599 ns | **272 ns** | **55%** |
+
+The last allocation-focused pass alone reduced the same-day fresh medians by **24–32%** on the four cases sampled both before and after it:
+
+| Formula case | Fresh pre-pass | Final snapshot | Additional reduction |
+|:-------------|---------------:|---------------:|---------------------:|
+| `y ~ x` | 381.68 ns | 276.36 ns | **27.6%** |
+| Correlated random slope | 808.21 ns | 612.83 ns | **24.2%** |
+| Mixed features | 1.8657 µs | 1.2723 µs | **31.8%** |
+| 40 fixed terms | 5.0748 µs | 3.5129 µs | **30.8%** |
+
+### Accepted changes and what they taught us
+
+The percentages below are step-relative medians from focused runs, so they should not be added together. The final table above is the cumulative result.
+
+| Experiment | Focused observation | Decision and finding |
+|:-----------|:--------------------|:---------------------|
+| Borrow identifier slices from the formula and visit additive terms without temporary vectors | Removed early lexer/parser allocation pressure and established the first optimized baseline | Keep borrowed data through parsing; allocate only strings that survive in `FormulaModel` |
+| Inline common token, slope, and grouping buffers with `SmallVec` | Simple/random/mixed improved about **4–9%** | Most real formulas fit comfortably in small inline buffers |
+| Preallocate the token buffer for formulas longer than 128 bytes | The first unconditional inline-token version made the 40-term case about **20% slower** because spilling copied the inline buffer; adaptive capacity restored it to a slight win | Small-buffer optimization needs a separate large-input path |
+| Replace `Vec<ColumnRole>` with the `ColumnRoles(u8)` bitset | Step improvement of about **15%** for random slopes, **18%** for mixed features, and **30%** for 40 terms | Per-column heap allocation dominated more than role membership computation |
+| Return tilde position and identifier count from lexing | Random and long cases improved about **2–3%** | Metadata already known during lexing should not require a second token scan |
+| Use `AHashMap` for parser output lookup | Simple improved about **3.5%**, mixed about **9.8%**, and long about **6.4%**; random slopes were within noise | These short-lived, non-adversarial internal identifiers benefit from a faster hash function |
+| Remove the duplicated owned grouping-factor name from each `RandomEffect` | Isolated random-slope rerun improved about **4.5%** | The enclosing `columns` key already owns the grouping identity |
+| Store the usual zero-to-two random-slope variables inline | Random slopes improved about **10.5%** and mixed features about **3.4%** in focused runs | Optimize the emitted AST as well as temporary parser state |
+| Pre-size generated-column vectors/maps and deduplicate generated names in O(1) | Largest benefit appears in mixed and long formulas | Output construction must scale with term count rather than repeatedly scanning prior output |
+
+### Rejected experiments
+
+Two plausible allocation reductions were deliberately reverted:
+
+| Experiment | Measured result | Why it lost |
+|:-----------|:----------------|:------------|
+| Specialized borrowed lookup before adding a random-slope role | Random slopes were within noise; mixed features regressed about **4.4%** | Avoiding one temporary allocation introduced an extra hash lookup on the new-column path |
+| Boxed `None`/`One`/`Many` representation for `ColumnInfo.random_effects` | Simple formulas regressed **6.8%** and random slopes **3.7%**, with no meaningful long-form gain | Shrinking every map value did not repay the branch and pointer-indirection cost |
+
+The practical rule is to measure the whole distribution of formulas. Saving bytes in the AST or one allocation at a single call site is insufficient evidence when it adds hashing, branching, spilling, or indirection.
+
+### Downstream and correctness guards
+
+All four `model_matrix_build` benchmarks were rerun after the final metadata layout. A sustained aggregate run initially reported a uniform slowdown, but immediate isolated reruns returned the correlated, independent, and nested cases to faster timings and left the crossed case within **1.1%** noise. No downstream matrix regression was accepted.
+
+Correctness and robustness evidence for the final representation:
+
+- `formula_parse`: **100,000** libFuzzer/AddressSanitizer executions with no crash.
+- `formula_pipeline`: **50,000** parse-to-model-matrix executions with no crash.
+- `task lint`, `task test:fast`, `task rust`, `task preflight`, and `task ci` passed.
+- The integration suite includes exact typed-role/order assertions, malformed-input and deterministic parsing cases, a thousand-term scaling case, nested/crossed/`||` matrix construction, and golden model parity.
+- Generated fuzz corpus artifacts were removed after the runs; the tracked seed corpus was preserved.
+
+### Guardrails for future parser work
+
+1. Run both `formula_parsing` and `model_matrix_build` whenever public AST storage changes.
+2. Keep a long-formula case in every allocation experiment; inline storage can regress when it spills.
+3. Treat Criterion's comparison text as a signal, not a verdict, when all cases move together on a workstation. Rerun suspicious cases individually.
+4. Keep rejected designs in this record so the same hashing and boxed-representation experiments are not repeated without new evidence.
+5. Future work should start with allocation/profile evidence. Interning, arenas, or a specialized small map are not justified by the current measurements alone.
 
 ---
 
@@ -353,7 +436,7 @@ Fair harness: 2 warmups + 10 repeats (`scripts/run_fair_rust_julia_benchmark.py 
 
 ### Simple fixed-effects fast path (2026-07-08 continued)
 
-[`try_build_simple_x_matrix`](src/model_matrix.rs) bypasses the generic fiasto column loop for **`y ~ 1`**, **`y ~ x`**, and **`y ~ 1 + x`** (no interactions, no categorical fixed effects). Fair-harness fixtures and `penicillin_crossed_reml` (`diameter ~ 1 + …`) hit this path.
+[`try_build_simple_x_matrix`](src/model_matrix.rs) bypasses the generic formula column loop for **`y ~ 1`**, **`y ~ x`**, and **`y ~ 1 + x`** (no interactions, no categorical fixed effects). Fair-harness fixtures and `penicillin_crossed_reml` (`diameter ~ 1 + …`) hit this path.
 
 **Recorded** (same machine, 3 warmups + 20 repeats): `prepare_lmer` on `crossed_20k` **~4.2 ms** (was ~5–6 ms before); `random_intercept_10k` cold `lmer()` **~1.3 ms** (still **beats Julia** ~1.5 ms). Dropped a post-fit experiment (`inv_from_chol_lower` for `p = 2`) after it regressed `random_intercept_10k` ~0.3 ms in A/B — not committed.
 

@@ -4,12 +4,12 @@
 //! These tests document current behavior: some inputs are rejected at parse time, others parse
 //! but fail later with a missing-column style error when data do not match.
 
-use lme_rs::formula::parse;
+use lme_rs::formula::{parse, ColumnRole};
 use lme_rs::model_matrix::build_design_matrices;
 use lme_rs::LmeError;
 use polars::prelude::*;
 
-fn assert_parse_ok(formula: &str) -> lme_rs::formula::FiastoModel {
+fn assert_parse_ok(formula: &str) -> lme_rs::formula::FormulaModel {
     parse(formula).unwrap_or_else(|e| panic!("expected parse ok for {:?}, got {:?}", formula, e))
 }
 
@@ -18,8 +18,7 @@ fn assert_parse_err(formula: &str) {
     match err {
         LmeError::NotImplemented { ref feature } => {
             assert!(
-                feature.starts_with("Formula parsing error:")
-                    || feature.starts_with("JSON parsing error:"),
+                feature.starts_with("Formula parsing error:"),
                 "unexpected NotImplemented message: {}",
                 feature
             );
@@ -63,12 +62,12 @@ fn malformed_and_incomplete_formulas_rejected() {
     assert_parse_err("y ~ ( | g)");
     assert_parse_err("y ~ x + (1 | g"); // unclosed paren
     assert_parse_err("y ~ )("); // junk parens (must not panic in expand_nested_re)
-    assert_parse_err("Rey ~ 1 (+ (1 |"); // fiasto 0.2.7 reached an internal unreachable!()
+    assert_parse_err("Rey ~ 1 (+ (1 |"); // Regression: the former dependency panicked here.
 }
 
 #[test]
 fn bare_rhs_tilde_parses_as_intercept_only_model() {
-    // fiasto accepts `y ~` as response with implicit intercept only (no predictors).
+    // An empty RHS is an implicit intercept-only model.
     let ast = assert_parse_ok("y ~");
     assert!(ast.metadata.has_intercept);
     assert!(!ast.metadata.is_random_effects_model);
@@ -76,7 +75,7 @@ fn bare_rhs_tilde_parses_as_intercept_only_model() {
 
 #[test]
 fn empty_or_whitespace_only_strings_rejected_or_fail_parse() {
-    // `lmer` treats all-whitespace as EmptyFormula before parse; `parse` itself still runs fiasto.
+    // `lmer` treats all-whitespace as EmptyFormula before the formula parser runs.
     assert_parse_err("");
     assert_parse_err("   ");
     assert_parse_err("\t\n  \t");
@@ -122,10 +121,11 @@ fn nested_random_effect_expansion_end_to_end() {
 }
 
 #[test]
-fn three_level_nested_re_grouping_fails_after_expansion() {
-    // `expand_nested_re` produces `(1 | district:school:student)`; fiasto then treats `:`
-    // inside the grouping side as interaction syntax and errors. Document as current limitation.
-    assert_parse_err("y ~ (1 | district/school/student)");
+fn three_level_nested_re_grouping_expands_end_to_end() {
+    let ast = assert_parse_ok("y ~ (1 | district/school/student)");
+    assert!(ast.columns.contains_key("district"));
+    assert!(ast.columns.contains_key("district:school"));
+    assert!(ast.columns.contains_key("district:school:student"));
 }
 
 #[test]
@@ -151,9 +151,41 @@ fn independent_random_slopes_double_bar_expansion() {
 }
 
 #[test]
-fn fixed_effect_zero_plus_x_is_rejected_by_fiasto() {
-    // fiasto: "zero term (0) cannot be combined with other terms" for `0 + x` on the RHS.
-    assert_parse_err("y ~ 0 + x + (1 | g)");
+fn covariance_syntax_is_preserved_in_design_blocks() {
+    let data = df!(
+        "y" => [1.0, 2.0, 3.0, 4.0],
+        "x" => [0.5, 1.0, 1.5, 2.0],
+        "g" => ["a", "a", "b", "b"],
+    )
+    .unwrap();
+
+    let correlated = build_design_matrices(&assert_parse_ok("y ~ x + (x | g)"), &data).unwrap();
+    assert_eq!(correlated.re_blocks.len(), 1);
+    assert_eq!(correlated.re_blocks[0].k, 2);
+    assert_eq!(correlated.re_blocks[0].theta_len, 3);
+    assert_eq!(correlated.re_blocks[0].effect_names, ["(Intercept)", "x"]);
+
+    let independent = build_design_matrices(&assert_parse_ok("y ~ x + (x || g)"), &data).unwrap();
+    assert_eq!(independent.re_blocks.len(), 2);
+    assert!(independent
+        .re_blocks
+        .iter()
+        .all(|block| block.k == 1 && block.theta_len == 1));
+    assert_eq!(independent.re_blocks[0].effect_names, ["(Intercept)"]);
+    assert_eq!(independent.re_blocks[1].effect_names, ["x"]);
+
+    let split =
+        build_design_matrices(&assert_parse_ok("y ~ x + (1 | g) + (0 + x | g)"), &data).unwrap();
+    assert_eq!(split.re_blocks.len(), 2);
+    assert_eq!(split.re_blocks[0].effect_names, ["(Intercept)"]);
+    assert_eq!(split.re_blocks[1].effect_names, ["x"]);
+    assert_eq!(independent.zt, split.zt);
+}
+
+#[test]
+fn fixed_effect_zero_plus_x_removes_intercept() {
+    let ast = assert_parse_ok("y ~ 0 + x + (1 | g)");
+    assert!(!ast.metadata.has_intercept);
 }
 
 #[test]
@@ -179,10 +211,8 @@ fn wilkinson_star_expansion_parses() {
 }
 
 #[test]
-fn bare_colon_interaction_parses() {
-    let ast = assert_parse_ok("y ~ a:b + (1 | g)");
-    assert!(ast.columns.contains_key("a") || ast.all_generated_columns.iter().any(|c| c == "a"));
-    assert!(ast.columns.contains_key("b") || ast.all_generated_columns.iter().any(|c| c == "b"));
+fn bare_colon_interaction_is_rejected_until_it_can_be_materialized() {
+    assert_parse_err("y ~ a:b + (1 | g)");
 }
 
 #[test]
@@ -206,9 +236,8 @@ fn offset_extracted_and_rhs_still_parseable() {
 }
 
 #[test]
-fn offset_with_nested_parens_inner_preserved() {
-    let ast = assert_parse_ok("y ~ offset(log(w)) + x + (1 | g)");
-    assert_eq!(ast.offset.as_deref(), Some("log(w)"));
+fn transformed_offset_is_rejected_until_it_can_be_materialized() {
+    assert_parse_err("y ~ offset(log(w)) + x + (1 | g)");
 }
 
 #[test]
@@ -225,14 +254,9 @@ fn unsupported_or_non_wilkinson_syntax_rejected() {
 }
 
 #[test]
-fn poly_syntax_is_accepted_by_parser() {
-    // Parsed into generated basis column names; not the same as R's `poly()` evaluation.
-    let ast = assert_parse_ok("y ~ poly(x, 2) + (1 | g)");
-    assert!(ast.columns.contains_key("y"));
-    assert!(
-        ast.columns.contains_key("x")
-            || ast.all_generated_columns.iter().any(|c| c.contains("poly"))
-    );
+fn transformations_without_matrix_semantics_are_rejected() {
+    assert_parse_err("y ~ poly(x, 2) + (1 | g)");
+    assert_parse_err("y ~ log(x) + (1 | g)");
 }
 
 #[test]
@@ -296,6 +320,141 @@ fn long_formula_many_terms_still_parses() {
     assert!(ast.columns.contains_key("y"));
     assert!(ast.columns.contains_key("x0"));
     assert!(ast.columns.contains_key("x39"));
+}
+
+#[test]
+fn intercept_forms_match_wilkinson_semantics() {
+    for formula in ["y ~ 0 + x", "y ~ -1 + x", "y ~ x - 1", "y ~ 1 - 1 + x"] {
+        let ast = assert_parse_ok(formula);
+        assert!(!ast.metadata.has_intercept, "{formula}");
+        assert!(!ast
+            .all_generated_columns
+            .iter()
+            .any(|name| name == "intercept"));
+    }
+    for formula in ["y ~ x", "y ~ 1 + x", "y ~ 0 + 1 + x"] {
+        let ast = assert_parse_ok(formula);
+        assert!(ast.metadata.has_intercept, "{formula}");
+        assert_eq!(ast.all_generated_columns[1], "intercept");
+    }
+}
+
+#[test]
+fn typed_roles_and_formula_order_are_exact_and_deduplicated() {
+    let ast = assert_parse_ok("y ~ x + x + a * b + (x | g)");
+    assert_eq!(
+        ast.all_generated_columns,
+        ["y", "intercept", "x", "a", "b", "a_b", "g"]
+    );
+    assert!(ast.columns["y"].has_role(ColumnRole::Response));
+    assert!(ast.columns["x"].has_role(ColumnRole::FixedEffect));
+    assert!(ast.columns["x"].has_role(ColumnRole::RandomEffect));
+    assert!(ast.columns["a_b"].has_role(ColumnRole::Interaction));
+    assert!(ast.columns["g"].has_role(ColumnRole::GroupingVariable));
+}
+
+#[test]
+fn random_effect_metadata_distinguishes_correlation_and_intercepts() {
+    let correlated = assert_parse_ok("y ~ x + (x | g)");
+    let effect = &correlated.columns["g"].random_effects[0];
+    assert!(effect.correlated);
+    assert!(effect.has_intercept);
+    assert_eq!(effect.variables.as_slice(), &["x".to_string()]);
+
+    let independent = assert_parse_ok("y ~ x + (0 + x || g)");
+    let effect = &independent.columns["g"].random_effects[0];
+    assert!(!effect.correlated);
+    assert!(!effect.has_intercept);
+
+    let split = assert_parse_ok("y ~ x + (1 | g) + (0 + x | g)");
+    let effects = &split.columns["g"].random_effects;
+    assert_eq!(effects.len(), 2);
+    assert!(effects[0].has_intercept);
+    assert!(effects[0].variables.is_empty());
+    assert!(!effects[1].has_intercept);
+    assert_eq!(effects[1].variables.as_slice(), &["x".to_string()]);
+}
+
+#[test]
+fn deep_nesting_preserves_group_order() {
+    let ast = assert_parse_ok("y ~ x + (1 | district/school/class/student)");
+    assert_eq!(
+        ast.all_generated_columns,
+        [
+            "y",
+            "intercept",
+            "x",
+            "district",
+            "district:school",
+            "district:school:class",
+            "district:school:class:student",
+        ]
+    );
+}
+
+#[test]
+fn parser_is_deterministic() {
+    let formula = "y ~ 0 + a * b + offset(exposure) + (0 + x || g) + (1 | batch/cask)";
+    let expected = assert_parse_ok(formula);
+    for _ in 0..100 {
+        assert_eq!(assert_parse_ok(formula), expected);
+    }
+}
+
+#[test]
+fn malformed_corpus_is_rejected_without_panics() {
+    for formula in [
+        "y ~ + x",
+        "y ~ x +",
+        "y ~ x -",
+        "y ~ x + + z",
+        "y ~ x - -1",
+        "y ~ 2",
+        "y ~ a * b * c",
+        "y ~ (1)",
+        "y ~ ((1 | g))",
+        "y ~ (0 | g)",
+        "y ~ (1 ||)",
+        "y ~ (1 | g | h)",
+        "y ~ (1 | g/)",
+        "y ~ (1 | g/:h)",
+        "y ~ offset()",
+        "y ~ offset(x, z)",
+        "y ~ offset(x) + offset(z)",
+        "y ~ unknown(x)",
+        "bind(y, z) ~ x",
+    ] {
+        assert_parse_err(formula);
+    }
+}
+
+#[test]
+fn thousand_term_formula_scales_and_deduplicates() {
+    let rhs = (0..1_000)
+        .map(|index| format!("x{index}"))
+        .collect::<Vec<_>>()
+        .join(" + ");
+    let ast = assert_parse_ok(&format!("y ~ {rhs} + x999"));
+    assert_eq!(ast.columns.len(), 1_001);
+    assert_eq!(ast.all_generated_columns.len(), 1_002);
+    assert_eq!(
+        ast.all_generated_columns.last().map(String::as_str),
+        Some("x999")
+    );
+}
+
+#[test]
+fn numeric_star_interaction_materializes_expected_product() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0]).into(),
+        Series::new("a".into(), [2.0, 3.0]).into(),
+        Series::new("b".into(), [5.0, 7.0]).into(),
+    ])
+    .unwrap();
+    let matrices = build_design_matrices(&assert_parse_ok("y ~ a * b"), &df).unwrap();
+    assert_eq!(matrices.x.shape(), &[2, 4]);
+    assert_eq!(matrices.x.row(0).to_vec(), [1.0, 2.0, 5.0, 10.0]);
+    assert_eq!(matrices.x.row(1).to_vec(), [1.0, 3.0, 7.0, 21.0]);
 }
 
 #[test]

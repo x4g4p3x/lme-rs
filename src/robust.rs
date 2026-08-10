@@ -37,7 +37,7 @@ pub fn compute_robust_se(
 
     let mut response_col = String::new();
     for (name, info) in &ast.columns {
-        if info.roles.contains(&"Response".to_string()) {
+        if info.has_role(crate::formula::ColumnRole::Response) {
             response_col = name.clone();
             break;
         }

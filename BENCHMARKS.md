@@ -4,13 +4,31 @@ This repository includes Criterion benchmarks for the Rust crate. Performance is
 
 **External reference map:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) lists which workflows have tier-A (fair) MixedModels.jl timing vs Rust-only Criterion benches. Use it before raising [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) percentages.
 
+## Native formula parser optimization (2026-08-10)
+
+Criterion command: `cargo bench --locked --bench bench_math formula_parsing -- --noplot` on Windows AMD64, AMD Ryzen 5 8600G, `rustc 1.96.0`. Each result used Criterion's default 3-second warmup, 100 samples, and 5-second measurement window. The before/after runs used the same release profile and checkout; only the parser allocation/representation pass changed. "Before" is the initial in-tree native parser, not the former vendored `fiasto` implementation. The experiment-by-experiment record is in [OPTIMIZATION.md](OPTIMIZATION.md#native-formula-parser-optimization-2026-08-10).
+
+| Formula case | Before median | After median | Reduction |
+|:-------------|--------------:|-------------:|----------:|
+| `y ~ x` | 652 ns | **276 ns** | **58%** |
+| Correlated random slope | 1.858 µs | **0.613 µs** | **67%** |
+| Nested random intercepts | 1.787 µs | **0.612 µs** | **66%** |
+| Crossed random intercepts | 1.719 µs | **0.666 µs** | **61%** |
+| Mixed fixed/offset/`||`/nested features | 4.232 µs | **1.272 µs** | **70%** |
+| 40 fixed terms | 12.753 µs | **3.513 µs** | **72%** |
+| Malformed nested reject path | 599 ns | **272 ns** | **55%** |
+
+Criterion reported statistically significant improvement (`p < 0.05`) in every successful-parse case, with median reductions from **58% to 72%**; the malformed-input reject path improved by **55%**. The main changes were borrowed identifier tokens, single-pass tilde/identifier discovery, allocation-free additive-term visiting, inline token/slope buffers for common formulas, compact `ColumnRole` flags, `AHashMap` output lookup, O(1) generated-column deduplication, pre-sized output collections, and removal of duplicate random-effect metadata allocations. Parser results for the representative random-slope/nested/crossed formulas are below **0.7 µs** on this machine.
+
+The final metadata representation was also checked against all four `model_matrix_build` cases. Isolated reruns were unchanged within noise or faster; the first aggregate run's uniform slowdown disappeared on immediate rerun and was treated as workstation frequency drift rather than an accepted downstream regression.
+
 ## Current benchmark coverage
 
 The existing benchmark target is [benches/bench_math.rs](benches/bench_math.rs).
 
 It currently covers these benchmark families:
 
-- formula parsing for representative random-slope, nested, and crossed formulas
+- formula parsing for simple, random-slope, nested, crossed, mixed-feature, 40-term, and malformed formulas
 - model-matrix construction for representative random-slope, nested, and crossed datasets
 - internal REML deviance evaluation on a fixture-backed random-slopes model
 - isolated large-scale REML deviance evaluation on a synthetic sparse model (`50k` observations)
@@ -349,7 +367,7 @@ Nested `batch/cask` sparse crosses use **`ReFactor::Diagonal`** on the batch blo
 
 ### 2026-07-09 prepare fast path and blocked indexing
 
-[`try_build_fair_lmm_design`](src/model_matrix.rs) skips fiasto for fair-harness formulas `y ~ x + (1 | g)` (numeric `x` only; rejects `/` nested slash and categorical fixed effects). [`prepare_lmer`](src/lib.rs) tries the fast path before generic parse/build. **Lazy blocked init** defers `InterceptBlockedChol::try_new` from prepare to the first deviance/solve ([`src/math.rs`](src/math.rs)). Blocked gate and backsolve use **global `zt` row ranges** when Cholesky block order differs from packed RE layout ([`src/intercept_blocked.rs`](src/intercept_blocked.rs)).
+[`try_build_fair_lmm_design`](src/model_matrix.rs) skips the generic parser/matrix path for fair-harness formulas `y ~ x + (1 | g)` (numeric `x` only; rejects `/` nested slash and categorical fixed effects). [`prepare_lmer`](src/lib.rs) tries the fast path before generic parse/build. **Lazy blocked init** defers `InterceptBlockedChol::try_new` from prepare to the first deviance/solve ([`src/math.rs`](src/math.rs)). Blocked gate and backsolve use **global `zt` row ranges** when Cholesky block order differs from packed RE layout ([`src/intercept_blocked.rs`](src/intercept_blocked.rs)).
 
 **Recorded:** 2026-07-09, same Windows AMD64 workstation; `rustc 1.96.0`, Julia **1.12.6**; 2 warmups + 5 measured fits (`scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases`). Checked-in medians: [benchmarks/fair-rust-julia-reference-2026-07-09.json](benchmarks/fair-rust-julia-reference-2026-07-09.json). Measured on uncommitted WIP atop git `4cf17bf`.
 
