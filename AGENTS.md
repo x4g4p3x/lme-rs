@@ -70,7 +70,7 @@ Use `--no-verify` only when explicitly necessary; report the bypass and the chec
 
 ## CI and release boundaries
 
-GitHub Actions validation runs automatically on pull requests and `v*` tags, and can be manually dispatched. Ordinary non-PR branch pushes do not receive the hosted validation matrix automatically. A lightweight cache-prime workflow runs when Rust dependency inputs change on `master` and weekly so new PRs can reuse trusted dependency artifacts. Pull requests run the full matrix except the four ignored heavy production-load cases. The tag CI calls the crates.io and PyPI workflows only after every validation job succeeds; the publishing workflows do not listen to tags independently.
+GitHub Actions validation runs automatically on pull requests and `v*` tags, and can be manually dispatched. Ordinary non-PR branch pushes do not receive the hosted validation matrix automatically. A lightweight cache-prime workflow runs when Rust dependency inputs change on `master` and weekly so new PRs can reuse trusted dependency artifacts. Pull requests run the full matrix except the four ignored heavy production-load cases. The tag CI calls the crates.io workflow and dispatches the top-level PyPI workflow only after every validation job succeeds; the publishing workflows do not listen to tags independently. The PyPI workflow must remain top-level because Trusted Publishing attestations do not support a reusable publishing workflow.
 
 External GitHub Actions are pinned to full commit SHAs, with the readable release line retained as a comment. Dependabot proposes grouped weekly pin updates; do not replace SHA pins with mutable tags. Dependency audits and libFuzzer smoke tests run weekly in addition to their release/manual entry points.
 

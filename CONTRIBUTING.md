@@ -163,7 +163,7 @@ Do not describe a feature as supported unless it is exposed by the public API an
 - [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; it also runs weekly and supports manual dispatch.
 - [`.github/workflows/fuzz-smoke.yml`](.github/workflows/fuzz-smoke.yml) — weekly and manually dispatched libFuzzer coverage for formula parsing and the formula-to-matrix pipeline.
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — called by release CI to publish only after the full tag matrix succeeds; manual dispatch runs `cargo publish --dry-run --locked` only.
-- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — called by release CI to build and publish only after the full tag matrix succeeds; manual dispatch builds artifacts without publishing.
+- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — dispatched as a top-level workflow by release CI to verify the tag/SHA, build, and publish only after the full tag matrix succeeds; ordinary manual dispatch builds artifacts without publishing.
 
 Pull requests automatically run CI. Ordinary non-PR branch pushes do not start workflows; use Lefthook and Task locally before pushing, and use manual dispatch when a remote check is useful before tagging.
 

@@ -236,7 +236,7 @@ jobs:
     secrets: inherit
 
   publish-python:
-    name: Publish Python artifacts after CI
+    name: Dispatch Python release after CI
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - release-policy
@@ -247,8 +247,19 @@ jobs:
       - python-bindings-versions
       - python-bindings-os
     permissions:
-      contents: write
-      id-token: write
-    uses: ./.github/workflows/python-release.yml
-    with:
-      publish: true
+      actions: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch verified Python release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh workflow run python-release.yml \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref master \
+            -f release_tag="${RELEASE_TAG}" \
+            -f release_sha="${RELEASE_SHA}" \
+            -f publish=true

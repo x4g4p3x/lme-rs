@@ -1,28 +1,96 @@
 name: Build and Publish Python Wheels
 
-# CI calls this workflow after every release-tag validation job succeeds.
-# workflow_dispatch remains available for non-publishing artifact builds.
+# CI dispatches this top-level workflow after every release-tag validation job
+# succeeds. PyPI Trusted Publishing does not support publishing from a reusable
+# workflow with attestations, so this workflow must retain its own identity.
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
+      release_tag:
+        description: Validated v* tag to build; blank builds the selected ref
+        required: false
+        type: string
+        default: ""
+      release_sha:
+        description: Exact validated commit for a publishing run
+        required: false
+        type: string
+        default: ""
       publish:
-        description: Publish the built artifacts for a validated release tag
+        description: Publish the verified release tag to PyPI
         required: false
         type: boolean
         default: false
-  workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  RELEASE_REF: ${{ inputs.release_tag || github.ref }}
+
 jobs:
+  verify-release:
+    name: Verify release target
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Verify validated tag and package versions
+        if: inputs.publish
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Publishing requires an explicit semantic v* release tag." >&2
+            exit 1
+          fi
+          if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Publishing requires the exact 40-character validated commit SHA." >&2
+            exit 1
+          fi
+
+          actual_sha="$(git rev-list -n 1 "refs/tags/${RELEASE_TAG}")"
+          if [[ "${actual_sha}" != "${RELEASE_SHA}" ]]; then
+            echo "Tag ${RELEASE_TAG} resolves to ${actual_sha}, not validated SHA ${RELEASE_SHA}." >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
+            echo "Checked-out release does not match validated SHA ${RELEASE_SHA}." >&2
+            exit 1
+          fi
+
+          python - "${RELEASE_TAG#v}" <<'PY'
+          import pathlib
+          import sys
+          import tomllib
+
+          expected = sys.argv[1]
+          manifests = (pathlib.Path("Cargo.toml"), pathlib.Path("python/Cargo.toml"))
+          for manifest in manifests:
+              with manifest.open("rb") as stream:
+                  actual = tomllib.load(stream)["package"]["version"]
+              if actual != expected:
+                  raise SystemExit(
+                      f"{manifest}: package version {actual!r} does not match tag {expected!r}"
+                  )
+          PY
+
   linux:
+    needs: verify-release
     runs-on: ubuntu-latest
     strategy:
       matrix:
         target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.10'
@@ -59,12 +127,15 @@ jobs:
           path: dist
 
   windows:
+    needs: verify-release
     runs-on: windows-latest
     strategy:
       matrix:
         target: [x64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.10'
@@ -89,12 +160,15 @@ jobs:
           path: dist
 
   macos:
+    needs: verify-release
     runs-on: macos-latest
     strategy:
       matrix:
         target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.10'
@@ -124,9 +198,12 @@ jobs:
           path: dist
 
   sdist:
+    needs: verify-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: stable
@@ -147,14 +224,16 @@ jobs:
     name: Publish to PyPI
     needs: [linux, windows, macos, sdist]
     runs-on: ubuntu-latest
-    # Only CI's validated release-tag call can enable publication.
-    if: "inputs.publish && startsWith(github.ref, 'refs/tags/v')"
+    # Publication requires the explicit opt-in and exact tag/SHA verification above.
+    if: inputs.publish
     environment: pypi
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
       contents: write  # needed to create GitHub Release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -180,3 +259,4 @@ jobs:
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: dist/*
+          tag_name: ${{ inputs.release_tag }}
