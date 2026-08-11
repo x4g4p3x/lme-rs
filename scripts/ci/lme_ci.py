@@ -126,6 +126,68 @@ def cargo_build_test() -> None:
     run(["cargo", "test", "--verbose", "--locked"])
 
 
+def cargo_consolidated_test(*, no_run: bool = False) -> None:
+    """Run all test bodies with one integration binary, plus docs/examples."""
+    harness = ROOT / "tests" / "ci_consolidated.rs"
+    expected = sorted(
+        path.name
+        for path in (ROOT / "tests").glob("*.rs")
+        if path.name != harness.name
+    )
+    declared = sorted(
+        line.split('"', 2)[1]
+        for line in harness.read_text(encoding="utf-8").splitlines()
+        if line.startswith("#[path = ")
+    )
+    if expected != declared:
+        missing = sorted(set(expected) - set(declared))
+        stale = sorted(set(declared) - set(expected))
+        raise CiError(
+            "ci_consolidated.rs must reference every integration test; "
+            f"missing={missing}, stale={stale}"
+        )
+
+    feature = "ci-consolidated-tests"
+    test_cmd = [
+        "cargo",
+        "test",
+        "--verbose",
+        "--locked",
+        "--features",
+        feature,
+        "--lib",
+        "--test",
+        "ci_consolidated",
+    ]
+    if no_run:
+        test_cmd.append("--no-run")
+    run(test_cmd)
+    run(
+        [
+            "cargo",
+            "check",
+            "--verbose",
+            "--locked",
+            "--features",
+            feature,
+            "--examples",
+        ]
+    )
+    if not no_run:
+        run(
+            [
+                "cargo",
+                "test",
+                "--doc",
+                "--locked",
+                "--verbose",
+                "--features",
+                feature,
+            ],
+            env={"RUSTDOCFLAGS": "-D warnings"},
+        )
+
+
 def cargo_test_fast() -> None:
     """Unit tests only — skips integration/doc tests for quick feedback."""
     run(["cargo", "test", "--lib", "--locked"])
@@ -596,19 +658,28 @@ print(f"python artifact: version={actual_version} path={module_paths[-1]}")
 
 
 def python_bindings(
-    *, python: str = "3.11", reuse_venv: bool = False, skip_wheel: bool = False
+    *,
+    python: str = "3.11",
+    reuse_venv: bool = False,
+    skip_wheel: bool = False,
+    wheel_only: bool = False,
 ) -> None:
+    if skip_wheel and wheel_only:
+        raise CiError("--skip-isolated-wheel and --wheel-only are mutually exclusive")
+
     _uv_sync(python=python, reuse=reuse_venv)
     env = _uv_python_env()
     expected_version = _python_package_version()
     editable_python = venv_python()
-    run(
-        ["uv", "run", "--no-sync", "maturin", "develop", "--release"],
-        cwd=PYTHON_DIR,
-        env=env,
-    )
-    _assert_python_artifact(editable_python, version=expected_version, venv=PYTHON_VENV)
-    run([str(editable_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
+
+    if not wheel_only:
+        run(
+            ["uv", "run", "--no-sync", "maturin", "develop", "--release"],
+            cwd=PYTHON_DIR,
+            env=env,
+        )
+        _assert_python_artifact(editable_python, version=expected_version, venv=PYTHON_VENV)
+        run([str(editable_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
 
     if skip_wheel:
         return
@@ -702,6 +773,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("build-test", help="cargo test (full suite)").set_defaults(
         fn=lambda _: cargo_build_test()
     )
+    p_consolidated = sub.add_parser(
+        "consolidated-test",
+        help="single-binary integration suite + doctests + example checks",
+    )
+    p_consolidated.add_argument(
+        "--no-run",
+        action="store_true",
+        help="compile the consolidated harness and examples without running tests",
+    )
+    p_consolidated.set_defaults(fn=lambda a: cargo_consolidated_test(no_run=a.no_run))
     sub.add_parser("test-fast", help="cargo test --lib only").set_defaults(
         fn=lambda _: cargo_test_fast()
     )
@@ -757,17 +838,24 @@ def main(argv: list[str] | None = None) -> int:
     p_py = sub.add_parser("python", help="Python bindings CI flow")
     p_py.add_argument("--python-version", default="3.11")
     p_py.add_argument("--reuse-venv", action="store_true")
-    p_py.add_argument(
+    p_py_mode = p_py.add_mutually_exclusive_group()
+    p_py_mode.add_argument(
         "--skip-isolated-wheel",
         "--skip-wheel-reinstall",
         dest="skip_wheel_reinstall",
         action="store_true",
+    )
+    p_py_mode.add_argument(
+        "--wheel-only",
+        action="store_true",
+        help="Build, install, and test only the isolated wheel (skip editable install)",
     )
     p_py.set_defaults(
         fn=lambda a: python_bindings(
             python=a.python_version,
             reuse_venv=a.reuse_venv,
             skip_wheel=a.skip_wheel_reinstall,
+            wheel_only=a.wheel_only,
         )
     )
 

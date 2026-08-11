@@ -620,7 +620,7 @@ fn run_fold(
 fn response_column_name(formula_str: &str) -> Result<String> {
     let ast = parse(formula_str)?;
     for (name, info) in &ast.columns {
-        if info.roles.contains(&"Response".to_string()) {
+        if info.has_role(crate::formula::ColumnRole::Response) {
             return Ok(name.clone());
         }
     }

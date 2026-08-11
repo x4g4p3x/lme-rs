@@ -73,10 +73,10 @@ Update all user-visible versioned surfaces together.
 | Surface | Registry | After the `v*` tag CI succeeds | Maintainer action after tag |
 |---------|----------|------------------|----------------------------|
 | Rust crate `lme-rs` | [crates.io](https://crates.io/crates/lme-rs) | CI calls [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml), which publishes with the `CARGO_REGISTRY_TOKEN` repository secret | Verify the workflow and crates.io listing |
-| Python `lme_python` | PyPI | CI calls [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml), which builds wheels and **publishes** | Wait for the workflow; no local publish step |
+| Python `lme_python` | PyPI | CI dispatches [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) as a top-level workflow, which verifies the tag/SHA, builds wheels, and **publishes** | Wait for the workflow; no local publish step |
 | API docs | [docs.rs](https://docs.rs/lme-rs) | Builds after the version appears on crates.io | Run `cargo publish` first |
 
-Pushing a `v*` tag starts the full CI matrix. Only after every CI validation job succeeds does CI call the PyPI and crates.io workflows. Publication requires a valid `CARGO_REGISTRY_TOKEN` secret; docs.rs builds after the crate reaches crates.io.
+Pushing a `v*` tag starts the full CI matrix. Only after every CI validation job succeeds does CI dispatch the top-level PyPI workflow and call the crates.io workflow. Publication requires a valid `CARGO_REGISTRY_TOKEN` secret; docs.rs builds after the crate reaches crates.io.
 
 ### Rust crate
 
@@ -88,7 +88,7 @@ Pushing a `v*` tag starts the full CI matrix. Only after every CI validation job
 
 - bump `version` in `python/Cargo.toml`
 - confirm `python/pyproject.toml` still matches the intended package metadata
-- no separate PyPI publish step — successful tag CI calls [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml)
+- no separate PyPI publish step — successful tag CI dispatches [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml)
 
 ### Documentation
 
@@ -99,7 +99,7 @@ Pushing a `v*` tag starts the full CI matrix. Only after every CI validation job
 ### Immediately after release
 
 - bump both Cargo manifests to the next unique development version (for example,
-  `0.2.1-dev.0` after releasing `0.2.0`)
+  `0.2.2-dev.0` after releasing `0.2.1`)
 - refresh the root, Python, and fuzz lockfiles
 - do not leave `master` on a version already published to crates.io or PyPI; build
   and editable-install caches use the package version as part of artifact identity
@@ -147,14 +147,27 @@ CI runs automatically on **pull requests** and **`v*` release tag pushes**. Ordi
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `v*` tags and manual dispatch.
 - It validates build, tests, formatting, `clippy`, security audits, legal/provenance policy, completion-score claims, production-load gates, Python versions, and docs across the release matrix.
-- On a `v*` tag, and only after all validation jobs succeed, it calls both publishing workflows with publication enabled.
+- On a `v*` tag, and only after all validation jobs succeed, it calls the crates.io workflow and dispatches the top-level PyPI workflow with the validated tag and commit SHA.
 
 ### Python release workflow
 
-- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) is called by successful release-tag CI and can be manually dispatched.
-- The `publish` job requires both CI's explicit `publish: true` input and a `v*` tag ref.
+- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) is dispatched by successful release-tag CI and can be manually dispatched.
+- It intentionally remains a top-level workflow: PyPI attestation verification does not support publishing through a reusable workflow.
+- The `publish` job requires explicit `publish: true`; before any build starts, the workflow verifies that `release_tag` is a semantic `v*` tag, resolves to the exact `release_sha`, and matches both Cargo package versions.
 - After validated tag CI, the workflow **automatically publishes to PyPI** and uploads artifacts to the GitHub Release.
 - Manual dispatch builds and uploads wheel artifacts only (no PyPI publish).
+- Trusted Publisher configuration must name `python-release.yml` with environment `pypi`. The GitHub `pypi` environment permits validated publication runs dispatched from `master`.
+
+For an authorized recovery of a tag that passed CI but failed only during PyPI upload, dispatch the top-level workflow from `master` with the immutable tag and its tested SHA:
+
+```powershell
+gh workflow run python-release.yml --ref master `
+  -f release_tag=v0.2.1 `
+  -f release_sha=aaf1e200db9c9d9886b014762f15d364d9dee660 `
+  -f publish=true
+```
+
+Do not move the release tag. The verification job rejects any tag/SHA or tag/version mismatch.
 
 ### Rust crate (crates.io)
 

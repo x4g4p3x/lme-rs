@@ -4,9 +4,9 @@ This file gives an **evidence-weighted implementation-coverage score** for major
 
 **This is a coverage map, not a usability guide.** For “can I use this on my problem?” (workflows, validation posture, limited field experience), see **[USABILITY.md](USABILITY.md)**.
 
-**Last assessed:** 2026-07-22.
+**Last assessed:** 2026-08-10.
 
-**Versions checked:** `lme-rs` **0.2.1-dev.0** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.1-dev.0** ([`python/Cargo.toml`](python/Cargo.toml)).
+**Versions checked:** `lme-rs` **0.2.1** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.1** ([`python/Cargo.toml`](python/Cargo.toml)).
 
 Repository completion is judged on **three** axes, not features alone:
 
@@ -49,12 +49,12 @@ The repository score is therefore **not** the mean of rounded rows. `100%` requi
 | 9 | **CI, release, and repo automation** | **100%** | Single runner [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py) via [`.github/workflows/ci.yml`](.github/workflows/ci.yml), [`Taskfile.yml`](Taskfile.yml), Lefthook, and legacy `local_ci` scripts. CI runs automatically on pull requests and `v*` tags, with manual dispatch available. Release CI uses locked dependencies, all-target checks, doctests, multi-OS and Python-version matrices, and an isolated installed-wheel test. External Actions are pinned to immutable SHAs; Dependabot tracks their updates; security audit and fuzz smoke workflows run weekly. |
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`USABILITY.md`](USABILITY.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md), [`OPTIMIZATION.md`](OPTIMIZATION.md) | **95%** | Documentation is broad and current for the checked APIs: the README map, guides, prepare/CV/boot (LMM+GLMM), profile `parms=`, AGQ-in-θ, built-in `SS*` catalog + bounds, and usability guidance are covered. It should not be called 100% without a repeatable documentation/link/API-example verification gate. |
 | 11 | **Examples & optional demos** — Cargo `[[example]]` entries in [`Cargo.toml`](Cargo.toml) under `comparisons/`, [`python/examples/`](python/examples/), [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | **76%** | Comparison binaries are first-class; plotting and cross-language scripts are useful but partly manual or environment-dependent. |
-| 12 | **Experimental / exploratory code** — [`scripts/ast_explorations/`](scripts/ast_explorations/) | **35%** | Standalone Rust snippets; not wired into the crate or CI. Other `scripts/` helpers (benchmark drivers, R dumps) are **tooling**, not “library completion.” |
+| 12 | **Experimental / exploratory code** — [`scripts/`](scripts/) | **0%** | The obsolete fiasto AST probes were removed with the native parser replacement. Remaining `scripts/` helpers (benchmark drivers, R dumps) are **tooling**, not “library completion.” |
 | 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **100%** | The current full tier-A artifact covers all 10 LMM cases plus both GLMM cases with 2 warmups and 10 measured fits per implementation. Every `cold_fit` ratio is below the strict **1.0×** gate; every measured LMM `fit_prepared` ratio is also below 1.0× ([2026-07-22 reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). |
 
 ## Overall completion
 
-**Evidence-weighted overall: 88% (207/236 scope units).**
+**Evidence-weighted overall: 85% (200/236 scope units).**
 
 The Jul 22 axis-(3) run records all 12 tier-A cases on one workstation and revision. All cold fits passed the strict target; ratios ranged from **~0.03× to ~0.96×** Julia, and all 10 measured LMM prepared fits passed. These are versioned engineering measurements, not machine-independent speed guarantees.
 

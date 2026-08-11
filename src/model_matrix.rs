@@ -1,4 +1,4 @@
-use crate::formula::FiastoModel;
+use crate::formula::{ColumnRole, FormulaModel};
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use std::collections::HashMap;
@@ -48,14 +48,17 @@ pub struct DesignMatrices {
     pub precomputed_zt_z: Option<sprs::CsMat<f64>>,
 }
 
-/// Constructs structural matrices formatting Fixed Effects ($X$) and Random Effects ($Z$) bounds out of `fiasto` inputs.
-pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Result<DesignMatrices> {
+/// Constructs fixed-effects ($X$) and random-effects ($Z$) matrices from a parsed formula.
+pub fn build_design_matrices(
+    ast: &FormulaModel,
+    data: &DataFrame,
+) -> crate::Result<DesignMatrices> {
     let n_obs = data.height();
 
     // 1. Determine Response (y)
     let mut response_col_name = None;
     for (name, info) in &ast.columns {
-        if info.roles.contains(&"Response".to_string()) {
+        if info.has_role(ColumnRole::Response) {
             response_col_name = Some(name.clone());
             break;
         }
@@ -129,41 +132,12 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
     let mut re_blocks = Vec::new();
     let mut current_q_offset = 0;
 
-    for (name, info) in &ast.columns {
-        if info.roles.contains(&"GroupingVariable".to_string()) {
+    for name in &ast.all_generated_columns {
+        let Some(info) = ast.columns.get(name) else {
+            continue;
+        };
+        if info.has_role(ColumnRole::GroupingVariable) {
             let g_var = name;
-            let mut slope_vars = Vec::new();
-
-            for re in &info.random_effects {
-                if let Some(vars) = &re.variables {
-                    slope_vars.extend(vars.clone());
-                }
-            }
-
-            // Deduplicate slope vars
-            slope_vars.sort();
-            slope_vars.dedup();
-
-            // Determine has_intercept for this RE group.
-            // fiasto's `has_intercept` on `RandomEffect` means "intercept-only RE" (true only
-            // for `(1|g)`), NOT "RE group includes an intercept alongside slopes".
-            // R convention: intercept is always included unless explicitly suppressed with `0 +`.
-            // We detect suppression by scanning the raw formula for patterns like `(0 + ... | g)`
-            // or `(0+ ... | g)`.
-            let suppress_pattern = format!("| {}", g_var);
-            let has_zero_suppression = ast
-                .formula
-                .split(&suppress_pattern)
-                .next() // text before `| group`
-                .and_then(|before| before.rfind('(')) // find the opening `(`
-                .map(|paren_pos| {
-                    let inside = &ast.formula[paren_pos + 1..];
-                    let trimmed = inside.trim_start();
-                    trimmed.starts_with("0 +") || trimmed.starts_with("0+")
-                })
-                .unwrap_or(false);
-            let has_intercept = !has_zero_suppression;
-
             // Handle interaction grouping variables (e.g., "school:student")
             // created by nested RE expansion: paste column values to create interaction groups
             let (obs_group_idx, unique_groups, group_map) = if g_var.contains(':') {
@@ -178,61 +152,79 @@ pub fn build_design_matrices(ast: &FiastoModel, data: &DataFrame) -> crate::Resu
             };
 
             let m = unique_groups.len();
-            let k = if has_intercept {
-                1 + slope_vars.len()
-            } else {
-                slope_vars.len()
-            };
-            let q_block = m * k;
-            triplet_rows.reserve(n_obs * k);
-            triplet_cols.reserve(n_obs * k);
-            triplet_vals.reserve(n_obs * k);
-
-            let mut slope_data: Vec<Vec<f64>> = Vec::new();
-            for s_var in &slope_vars {
-                let s_series = data
-                    .column(s_var)
-                    .unwrap()
-                    .cast(&DataType::Float64)
-                    .unwrap();
-                let s_f64_series = s_series.f64().unwrap();
-                slope_data.push(s_f64_series.into_no_null_iter().collect());
-            }
-
-            for (i, &group_idx) in obs_group_idx.iter().enumerate() {
-                let offset = current_q_offset + group_idx * k;
-
-                let mut current_k = 0;
-                if has_intercept {
-                    triplet_rows.push(i);
-                    triplet_cols.push(offset);
-                    triplet_vals.push(1.0);
-                    current_k += 1;
+            for effect in &info.random_effects {
+                let mut components =
+                    Vec::with_capacity(usize::from(effect.has_intercept) + effect.variables.len());
+                if effect.has_intercept {
+                    components.push(None);
+                }
+                components.extend(effect.variables.iter().map(|name| Some(name.as_str())));
+                if components.is_empty() {
+                    return Err(crate::LmeError::NotImplemented {
+                        feature: format!(
+                            "Random-effect declaration for '{}' has no columns",
+                            g_var
+                        ),
+                    });
                 }
 
-                for (slope_idx, s_vec) in slope_data.iter().enumerate() {
-                    triplet_rows.push(i);
-                    triplet_cols.push(offset + current_k + slope_idx);
-                    triplet_vals.push(s_vec[i]);
+                // A `||` declaration is a diagonal covariance structure. Represent
+                // each component as its own k=1 block; correlated `|` declarations
+                // remain one triangular block. Keeping declarations separate also
+                // preserves `(1|g) + (0+x|g)` rather than merging it into `(1+x|g)`.
+                let block_width = if effect.correlated {
+                    components.len()
+                } else {
+                    1
+                };
+                for component_start in (0..components.len()).step_by(block_width) {
+                    let block_components = &components
+                        [component_start..(component_start + block_width).min(components.len())];
+                    let k = block_components.len();
+                    let mut component_data = Vec::with_capacity(k);
+                    let mut effect_names = Vec::with_capacity(k);
+                    for component in block_components {
+                        if let Some(slope_name) = component {
+                            let values = numeric_column_f64(data, slope_name)?;
+                            if values.len() != n_obs {
+                                return Err(crate::LmeError::NotImplemented {
+                                    feature: format!(
+                                        "Random slope column '{}' contains nulls or invalid values",
+                                        slope_name
+                                    ),
+                                });
+                            }
+                            component_data.push(Some(values));
+                            effect_names.push((*slope_name).to_string());
+                        } else {
+                            component_data.push(None);
+                            effect_names.push("(Intercept)".to_string());
+                        }
+                    }
+
+                    triplet_rows.reserve(n_obs * k);
+                    triplet_cols.reserve(n_obs * k);
+                    triplet_vals.reserve(n_obs * k);
+                    for (obs, &group_idx) in obs_group_idx.iter().enumerate() {
+                        let offset = current_q_offset + group_idx * k;
+                        for (component_idx, values) in component_data.iter().enumerate() {
+                            triplet_rows.push(obs);
+                            triplet_cols.push(offset + component_idx);
+                            triplet_vals.push(values.as_ref().map_or(1.0, |values| values[obs]));
+                        }
+                    }
+
+                    re_blocks.push(ReBlock {
+                        m,
+                        k,
+                        theta_len: k * (k + 1) / 2,
+                        group_name: g_var.to_string(),
+                        effect_names,
+                        group_map: group_map.clone(),
+                    });
+                    current_q_offset += m * k;
                 }
             }
-            let theta_len = k * (k + 1) / 2;
-
-            let mut effect_names = Vec::new();
-            if has_intercept {
-                effect_names.push("(Intercept)".to_string());
-            }
-            effect_names.extend(slope_vars.iter().map(|s| s.to_string()));
-
-            re_blocks.push(ReBlock {
-                m,
-                k,
-                theta_len,
-                group_name: g_var.to_string(),
-                effect_names,
-                group_map,
-            });
-            current_q_offset += q_block;
         }
     }
 
@@ -471,7 +463,7 @@ fn build_intercept_slope_zt_csr(
 /// Fast path for `y ~ 1`, `y ~ x`, and `y ~ 1 + x` without interactions or categorical fixed effects.
 #[allow(clippy::type_complexity)]
 fn try_build_simple_x_matrix(
-    ast: &FiastoModel,
+    ast: &FormulaModel,
     data: &DataFrame,
     response_name: &str,
     n_obs: usize,
@@ -491,7 +483,7 @@ fn try_build_simple_x_matrix(
         if !is_fixed_effect_column(info, col_name, response_name) {
             continue;
         }
-        if info.roles.contains(&"InteractionTerm".to_string()) {
+        if info.has_role(ColumnRole::Interaction) {
             return Ok(None);
         }
         let s = match data.column(col_name) {
@@ -594,12 +586,10 @@ fn is_fixed_effect_column(
     if col_name == response_name || col_name == "intercept" {
         return false;
     }
-    info.roles
-        .iter()
-        .any(|r| matches!(r.as_str(), "Identity" | "FixedEffect" | "InteractionTerm"))
+    info.has_role(ColumnRole::FixedEffect) || info.has_role(ColumnRole::Interaction)
 }
 
-/// Map fiasto interaction column name (`trt_blk`) to R-style term label (`trt:blk`).
+/// Map the parser's interaction column name (`trt_blk`) to R-style term label (`trt:blk`).
 fn interaction_term_label(col_name: &str, factor_names: &[String]) -> String {
     if col_name.contains(':') {
         return col_name.to_string();
@@ -635,7 +625,7 @@ fn interaction_factor_names(col_name: &str, factor_names: &[String]) -> Option<V
 /// Evaluates the `ast` structural formula to isolate and resolve pure population-level ($X$) design matrices.
 #[allow(clippy::type_complexity)]
 pub fn build_x_matrix(
-    ast: &FiastoModel,
+    ast: &FormulaModel,
     data: &DataFrame,
     response_name: &str,
     n_obs: usize,
@@ -663,7 +653,7 @@ pub fn build_x_matrix(
         .iter()
         .filter(|(name, info)| {
             *name != response_name
-                && !info.roles.contains(&"InteractionTerm".to_string())
+                && !info.has_role(ColumnRole::Interaction)
                 && is_fixed_effect_column(info, name, response_name)
         })
         .map(|(n, _)| n.clone())
@@ -686,7 +676,7 @@ pub fn build_x_matrix(
             continue;
         }
 
-        if info.roles.contains(&"InteractionTerm".to_string()) {
+        if info.has_role(ColumnRole::Interaction) {
             let factors = interaction_factor_names(col_name, &factor_names).ok_or_else(|| {
                 crate::LmeError::NotImplemented {
                     feature: format!("Cannot resolve interaction factors for '{}'", col_name),
@@ -1296,7 +1286,7 @@ mod tests {
         let fast = try_build_fair_lmm_design("strength ~ cask + (1 | batch)", &df).unwrap();
         assert!(
             fast.is_none(),
-            "categorical fixed effect must use generic fiasto path"
+            "categorical fixed effect must use generic formula path"
         );
     }
 
@@ -1425,7 +1415,7 @@ mod tests {
         // Nested random effect: formula syntax translates `(1 | group / subgroup)`
         // effectively to `(1 | group) + (1 | group:subgroup)` conceptually,
         // but here we just test if `group:subgroup` directly works if we parse it.
-        // Fiasto transforms `(1 | group / subgroup)` into `1 | subgroup:group`
+        // The native parser also accepts the explicit interaction grouping name.
         let ast = crate::formula::parse("y ~ x + (1 | group:subgroup)").unwrap();
         let matrices = build_design_matrices(&ast, &df).unwrap();
 

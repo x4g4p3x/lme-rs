@@ -11,7 +11,7 @@ This directory follows the [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz)
 
 | Target               | What it exercises |
 |----------------------|-------------------|
-| `formula_parse`      | `lme_rs::formula::parse` only (fiasto + nested/`||` expansion + offset stripping). |
+| `formula_parse`      | The native `lme_rs::formula::parse` lexer and typed parser. |
 | `formula_pipeline`   | Successful parses additionally run `build_design_matrices` on a small synthetic `DataFrame` built from AST column names. |
 
 ## Build
@@ -52,6 +52,6 @@ cargo fuzz run formula_parse path/to/crash-file
 ## CI
 
 The repository workflow **Fuzz smoke** runs a short libFuzzer smoke job weekly and
-from the Actions tab (`workflow_dispatch`). Formula fuzz depends on the vendored
-`fiasto` patch in [`vendor/fiasto`](../vendor/fiasto) so malformed seeds such as
-`Rey ~ 1 (+ (1 |` return `ParseError` under cargo-fuzz's `panic=abort`.
+from the Actions tab (`workflow_dispatch`). The native parser is panic-free by
+construction, so malformed seeds such as `Rey ~ 1 (+ (1 |` return an error even
+under cargo-fuzz's `panic=abort`.

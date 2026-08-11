@@ -261,20 +261,39 @@ fn generate_large_nested_df(
 }
 
 fn bench_formula_parsing(c: &mut Criterion) {
+    let long_fixed = format!(
+        "y ~ {}",
+        (0..40)
+            .map(|index| format!("x{index}"))
+            .collect::<Vec<_>>()
+            .join(" + ")
+    );
     let mut group = c.benchmark_group("formula_parsing");
     for (name, formula) in [
+        ("simple_fixed", "y ~ x"),
         ("random_slopes", "Reaction ~ Days + (Days | Subject)"),
         ("nested_intercepts", "strength ~ 1 + (1 | batch/cask)"),
         (
             "crossed_intercepts",
             "diameter ~ 1 + (1 | plate) + (1 | sample)",
         ),
+        (
+            "mixed_features",
+            "y ~ 0 + a * b + offset(exposure) + (0 + x || group) + (1 | batch/cask)",
+        ),
+        ("long_40_fixed", long_fixed.as_str()),
     ] {
         group.bench_function(name, |b| {
             b.iter(|| black_box(lme_rs::formula::parse(black_box(formula))).unwrap())
         });
     }
     group.finish();
+
+    let mut reject_group = c.benchmark_group("formula_parsing_reject");
+    reject_group.bench_function("malformed_nested", |b| {
+        b.iter(|| black_box(lme_rs::formula::parse(black_box("Rey ~ 1 (+ (1 |"))).unwrap_err())
+    });
+    reject_group.finish();
 }
 
 fn bench_model_matrix_building(c: &mut Criterion) {
@@ -283,6 +302,8 @@ fn bench_model_matrix_building(c: &mut Criterion) {
     let penicillin = load_csv("tests/data/penicillin.csv");
 
     let sleepstudy_ast = lme_rs::formula::parse("Reaction ~ Days + (Days | Subject)").unwrap();
+    let sleepstudy_independent_ast =
+        lme_rs::formula::parse("Reaction ~ Days + (Days || Subject)").unwrap();
     let pastes_ast = lme_rs::formula::parse("strength ~ 1 + (1 | batch/cask)").unwrap();
     let penicillin_ast =
         lme_rs::formula::parse("diameter ~ 1 + (1 | plate) + (1 | sample)").unwrap();
@@ -292,6 +313,15 @@ fn bench_model_matrix_building(c: &mut Criterion) {
         b.iter(|| {
             black_box(lme_rs::model_matrix::build_design_matrices(
                 black_box(&sleepstudy_ast),
+                black_box(&sleepstudy),
+            ))
+            .unwrap()
+        })
+    });
+    group.bench_function("sleepstudy_independent_slopes", |b| {
+        b.iter(|| {
+            black_box(lme_rs::model_matrix::build_design_matrices(
+                black_box(&sleepstudy_independent_ast),
                 black_box(&sleepstudy),
             ))
             .unwrap()

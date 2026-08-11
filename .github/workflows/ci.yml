@@ -19,6 +19,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
   release-policy:
@@ -40,8 +43,8 @@ jobs:
       contents: read
     uses: ./.github/workflows/audit.yml
 
-  rust-lint:
-    name: Rust fmt & clippy
+  rust-ubuntu:
+    name: Rust validation (ubuntu)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,19 +53,46 @@ jobs:
           toolchain: stable
       - name: Install OpenBLAS
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ubuntu-lint-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ubuntu-lint-
+          shared-key: ci-v2-${{ runner.os }}-rust-test
+          save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
       - name: rustfmt --check
+        id: rustfmt
+        continue-on-error: true
         run: python3 scripts/ci/lme_ci.py fmt-check
       - name: clippy
+        id: clippy
+        continue-on-error: true
         run: python3 scripts/ci/lme_ci.py clippy
+      - name: cargo check --workspace --all-targets
+        id: check
+        continue-on-error: true
+        run: python3 scripts/ci/lme_ci.py check
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: python3 scripts/ci/lme_ci.py build-test
+      - name: Run doctests
+        id: doctests
+        continue-on-error: true
+        run: python3 scripts/ci/lme_ci.py doctest
+      - name: Build documentation
+        id: docs
+        continue-on-error: true
+        run: python3 scripts/ci/lme_ci.py doc
+      - name: Report Rust validation failures
+        if: >-
+          ${{ !cancelled() && (
+            steps.rustfmt.outcome == 'failure' ||
+            steps.clippy.outcome == 'failure' ||
+            steps.check.outcome == 'failure' ||
+            steps.tests.outcome == 'failure' ||
+            steps.doctests.outcome == 'failure' ||
+            steps.docs.outcome == 'failure'
+          ) }}
+        run: exit 1
 
   test:
     name: Test (${{ matrix.os }})
@@ -70,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -80,58 +110,19 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install OpenBLAS (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+          shared-key: ci-v2-${{ runner.os }}-rust-test
+          cache-workspace-crates: true
+          save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
 
       - name: Set OpenBLAS target (macOS)
         if: matrix.os == 'macos-latest'
         run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
 
       - name: Run tests
-        run: cargo test --verbose --locked
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: "3.11"
-          enable-cache: true
-          cache-dependency-glob: "python/uv.lock"
-
-      - name: Python bindings (editable identity + isolated wheel)
-        run: python scripts/ci/lme_ci.py python --python-version 3.11
-
-  rust-all-targets:
-    name: Rust check (all targets)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-        with:
-          toolchain: stable
-      - name: Install OpenBLAS
-        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ubuntu-cargo-
-      - name: cargo check --workspace --all-targets
-        run: cargo check --workspace --all-targets --locked -v
+        run: python scripts/ci/lme_ci.py consolidated-test
 
   production-load:
     name: Production load & perf gates (ubuntu, release)
@@ -147,15 +138,12 @@ jobs:
       - name: Install OpenBLAS (Ubuntu)
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
 
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ubuntu-prodload-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ubuntu-prodload-
+          shared-key: ci-v2-${{ runner.os }}-rust-release
+          cache-workspace-crates: true
+          save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
 
       - name: Production load tests (smoke + release wall-clock gates)
         run: cargo test --release --locked --verbose --test test_production_load
@@ -164,37 +152,13 @@ jobs:
         if: github.event_name != 'pull_request'
         run: cargo test --release --locked --verbose --test test_production_load -- --ignored --test-threads=1
 
-  rust-doctests:
-    name: Rust doctests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-        with:
-          toolchain: stable
-      - name: Install OpenBLAS
-        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ubuntu-cargo-
-      - name: cargo test --doc
-        env:
-          RUSTDOCFLAGS: -D warnings
-        run: cargo test --doc --locked --verbose
-
   python-bindings-versions:
     name: Python ${{ matrix.python-version }} (ubuntu)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -202,15 +166,12 @@ jobs:
           toolchain: stable
       - name: Install OpenBLAS
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-      - name: Cache cargo registry & build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Cache Python Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ubuntu-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ubuntu-cargo-
+          shared-key: ci-${{ runner.os }}-python
+          workspaces: python -> target
+          save-if: ${{ matrix.python-version == '3.11' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/master') }}
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
@@ -218,21 +179,43 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
 
-      - name: Python bindings (editable identity + isolated wheel)
+      - name: Python bindings (canonical editable identity + isolated wheel)
+        if: matrix.python-version == '3.11'
         run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }}
 
-  docs:
-    name: Build docs
-    runs-on: ubuntu-latest
+      - name: Python bindings (isolated wheel compatibility)
+        if: matrix.python-version != '3.11'
+        run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }} --wheel-only
+
+  python-bindings-os:
+    name: Python 3.11 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: stable
-      - name: Build documentation
-        env:
-          RUSTDOCFLAGS: -D warnings
-        run: cargo doc --no-deps --verbose --locked
+      - name: Set OpenBLAS target (macOS)
+        if: matrix.os == 'macos-latest'
+        run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
+      - name: Cache Python Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          shared-key: ci-${{ runner.os }}-python
+          workspaces: python -> target
+          save-if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/master' }}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "python/uv.lock"
+      - name: Python bindings (isolated wheel OS compatibility)
+        run: python scripts/ci/lme_ci.py python --python-version 3.11 --wheel-only
 
   publish-crate:
     name: Publish Rust crate after CI
@@ -240,13 +223,11 @@ jobs:
     needs:
       - release-policy
       - security-audit
-      - rust-lint
+      - rust-ubuntu
       - test
-      - rust-all-targets
       - production-load
-      - rust-doctests
       - python-bindings-versions
-      - docs
+      - python-bindings-os
     permissions:
       contents: read
     uses: ./.github/workflows/crate-publish-dry-run.yml
@@ -255,21 +236,30 @@ jobs:
     secrets: inherit
 
   publish-python:
-    name: Publish Python artifacts after CI
+    name: Dispatch Python release after CI
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - release-policy
       - security-audit
-      - rust-lint
+      - rust-ubuntu
       - test
-      - rust-all-targets
       - production-load
-      - rust-doctests
       - python-bindings-versions
-      - docs
+      - python-bindings-os
     permissions:
-      contents: write
-      id-token: write
-    uses: ./.github/workflows/python-release.yml
-    with:
-      publish: true
+      actions: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch verified Python release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh workflow run python-release.yml \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref master \
+            -f release_tag="${RELEASE_TAG}" \
+            -f release_sha="${RELEASE_SHA}" \
+            -f publish=true
