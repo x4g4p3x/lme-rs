@@ -5,6 +5,7 @@ build-backend = "maturin"
 [project]
 name = "lme_python"
 description = "Rust port of R's lme4: linear mixed-effects models"
+readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
@@ -15,6 +16,13 @@ dynamic = ["version"]
 dependencies = [
     "polars>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/x4g4p3x/lme-rs"
+Documentation = "https://github.com/x4g4p3x/lme-rs/blob/master/python/PYTHON_GUIDE.md"
+Repository = "https://github.com/x4g4p3x/lme-rs"
+Changelog = "https://github.com/x4g4p3x/lme-rs/blob/master/CHANGELOG.md"
+Issues = "https://github.com/x4g4p3x/lme-rs/issues"
 
 [project.optional-dependencies]
 dev = [

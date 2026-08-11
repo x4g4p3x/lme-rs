@@ -60,6 +60,8 @@ task test:fast   # cargo test --lib only (quick unit tests)
 task test        # full Rust test suite
 task preflight   # pre-push hook: lint + check + cargo audit + repo-metadata dry-run
 task audit       # cargo audit + pip-audit (GHA security audit mirror)
+task docs:check  # local Markdown links + Rust examples/doctests + generated docs
+task consumer:smoke # Rust quick-start + clean-wheel Python examples
 task rust        # full Rust slice (no Python)
 task             # full core CI mirror
 task ci:fast     # reuse python/.venv, skip isolated-wheel pytest
@@ -105,7 +107,7 @@ uv lock
 
 Use `uv run --no-sync pytest tests/` after the explicit `uv sync` so only [`python/tests/`](python/tests/) runs against the extension Maturin just installed; `pytest` alone also collects optional demos under `python/examples/`.
 
-[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) assert the editable extension's version and environment path, then build, install, assert, and test the wheel in a separate locked environment. Pull-request/tag CI runs that full identity flow on Python **3.11**, tests isolated wheels on Python **3.10–3.13** on Ubuntu, and tests isolated Python 3.11 wheels on Windows and macOS (jobs `python-bindings-versions` and `python-bindings-os` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
+[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) assert the editable extension's version and environment path, then build, install, assert, and test the wheel in a separate locked environment. `task consumer:smoke` adds a dependency-only clean environment and runs the portable examples against the installed wheel. Pull-request/tag CI runs the full identity and consumer-example flow on Python **3.11**, tests isolated wheels on Python **3.10–3.13** on Ubuntu, and runs the consumer examples against isolated Python 3.11 wheels on Windows and macOS (jobs `python-bindings-versions` and `python-bindings-os` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
 
 ## Working on numerical changes
 

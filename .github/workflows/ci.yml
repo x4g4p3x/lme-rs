@@ -34,6 +34,8 @@ jobs:
           python-version: "3.11"
       - name: Validate legal notices and provenance
         run: python3 scripts/ci/lme_ci.py legal
+      - name: Validate Markdown links
+        run: python3 scripts/ci/lme_ci.py docs-links
       - name: Validate completion score claims
         run: python3 scripts/ci/lme_ci.py completion-check
 
@@ -181,7 +183,7 @@ jobs:
 
       - name: Python bindings (canonical editable identity + isolated wheel)
         if: matrix.python-version == '3.11'
-        run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }}
+        run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }} --examples
 
       - name: Python bindings (isolated wheel compatibility)
         if: matrix.python-version != '3.11'
@@ -215,7 +217,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
       - name: Python bindings (isolated wheel OS compatibility)
-        run: python scripts/ci/lme_ci.py python --python-version 3.11 --wheel-only
+        run: python scripts/ci/lme_ci.py python --python-version 3.11 --wheel-only --examples
 
   publish-crate:
     name: Publish Rust crate after CI

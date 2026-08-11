@@ -312,9 +312,9 @@ let fit = fit_prepared(&prepared, false)?;  // ~12–14 ms on crossed_20k
 
 `LmerPrepared` exposes `blocked_kernel` and `blocked_kernel_detail` (`blocked_active`, `blocked_unavailable_*`) for diagnostics.
 
-For **grouped k-fold CV** on different train subsets (not the same data), use [`cv_grouped`](../src/cv.rs) / [`cv_grouped_glmer`](../src/cv.rs) — they split by grouping unit, fit each train fold with amortized prepare/fit (folds in parallel when `n_jobs > 1`), and assemble out-of-fold predictions. See [GUIDE.md § Repeated fits and cross-validation](GUIDE.md#repeated-fits-and-cross-validation).
+For **grouped k-fold CV** on different train subsets (not the same data), use [`cv_grouped`](src/cv.rs) / [`cv_grouped_glmer`](src/cv.rs) — they split by grouping unit, fit each train fold with amortized prepare/fit (folds in parallel when `n_jobs > 1`), and assemble out-of-fold predictions. See [GUIDE.md § Repeated fits and cross-validation](GUIDE.md#repeated-fits-and-cross-validation).
 
-For **bootstrap refits** on the same formula and data, use [`boot_lmer`](../src/bootstrap.rs) (LMM) or [`boot_glmer`](../src/bootstrap.rs) (GLMM) — they amortize `prepare_lmer` / `prepare_glmer`, swap bootstrap responses via the prepared fit path, and refit replicates in parallel. See [GUIDE.md § Bootstrap refits](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer).
+For **bootstrap refits** on the same formula and data, use [`boot_lmer`](src/bootstrap.rs) (LMM) or [`boot_glmer`](src/bootstrap.rs) (GLMM) — they amortize `prepare_lmer` / `prepare_glmer`, swap bootstrap responses via the prepared fit path, and refit replicates in parallel. See [GUIDE.md § Bootstrap refits](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer).
 
 **Post-fit fix:** `fit_prepared` reuses `coefs.fitted` and `coefs.reml_crit` from a single `evaluate()` — removed duplicate `log_reml_deviance` and redundant `Z*b` assembly (~5 ms → ~2 ms post-fit).
 

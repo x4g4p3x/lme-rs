@@ -111,17 +111,19 @@ def verify_pastes_nested_lmm() -> None:
     """Nested batch/cask model: intercept matches lme4 ballpark (~60.05)."""
     df = pl.read_csv(tests_data("pastes.csv"))
     fit = lme_python.lmer("strength ~ 1 + (1 | batch/cask)", data=df, reml=True)
-    assert fit.converged
     _close("pastes_intercept", fit.coefficients[0], 60.0533, 0.05)
+    th = fit.theta
+    assert th is not None and len(th) == 2 and all(value > 0 for value in th)
+    assert fit.sigma2 is not None and fit.sigma2 > 0
 
 
 def verify_penicillin_crossed() -> None:
     """Crossed RE: two theta components, positive variances on summary."""
     df = pl.read_csv(tests_data("penicillin.csv"))
     fit = lme_python.lmer("diameter ~ 1 + (1 | plate) + (1 | sample)", data=df, reml=True)
-    assert fit.converged
+    _close("penicillin_intercept", fit.coefficients[0], 22.9722, 0.05)
     th = fit.theta
-    assert th is not None and len(th) >= 2
+    assert th is not None and len(th) == 2 and all(value > 0 for value in th)
     assert fit.sigma2 is not None and fit.sigma2 > 0
 
 

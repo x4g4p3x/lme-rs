@@ -195,7 +195,7 @@ probit_fit = lme_python.glmer(
 )
 ```
 
-Supported links per family match Rust [`family::Link`](../../src/family.rs): binomial — logit (default), probit, cloglog; poisson — log, identity, sqrt; gaussian — identity, log, inverse; gamma — inverse, identity, log.
+Supported links per family match Rust [`family::Link`](../src/family.rs): binomial — logit (default), probit, cloglog; poisson — log, identity, sqrt; gaussian — identity, log, inverse; gamma — inverse, identity, log.
 
 Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer_weighted`). For binomial proportions, integer trial sizes enable `Binom(n, p)` simulation and `boot_glmer`.
 
@@ -485,7 +485,7 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 - Matrix-only `lm(y, x)` without a DataFrame is Rust-only.
 - `cv_grouped` supports LMMs; `cv_grouped_glmer` supports GLMMs; `boot_lmer` / `boot_glmer` cover LMM/GLMM bootstrap (not NLMM).
 - `boot_lmer` implements parametric and residual response bootstrap with percentile CIs; it does not cover every `bootMer` option (e.g. semiparametric, case bootstrap, BCa intervals). `boot_glmer` is parametric only.
-- `glmer()` takes a string `family_name` and optional `link_name` / `n_agq` (see above); non-canonical links match Rust [`family::Link`](../../src/family.rs).
+- `glmer()` takes a string `family_name` and optional `link_name` / `n_agq` (see above); non-canonical links match Rust [`family::Link`](../src/family.rs).
 
 ## Troubleshooting
 

@@ -436,7 +436,7 @@ The repository also includes a dedicated workflow in [.github/workflows/benchmar
 
 ## Latest published results
 
-Release-attached Criterion and cross-language JSON artifacts are uploaded by [`.github/workflows/benchmarks.yml`](../.github/workflows/benchmarks.yml) on `v*` tags (and manual dispatch). Prefer the [latest GitHub Release](https://github.com/x4g4p3x/lme-rs/releases/latest) for downloadable CI artifacts, and [`CHANGELOG.md`](CHANGELOG.md) for which crate version each tag ships.
+Release-attached Criterion and cross-language JSON artifacts are uploaded by [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) on `v*` tags (and manual dispatch). Prefer the [latest GitHub Release](https://github.com/x4g4p3x/lme-rs/releases/latest) for downloadable CI artifacts, and [`CHANGELOG.md`](CHANGELOG.md) for which crate version each tag ships.
 
 **Engineering source of truth for fair Rust vs Julia fit timing** is the checked-in reference JSON under [`benchmarks/`](benchmarks/), especially the full strict-target [2026-07-22 tier-A artifact](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Older tags (for example [v0.1.3](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.1.3)) still carry historical CI tarballs useful for release-to-release comparison, but they are **not** the current performance baseline.
 

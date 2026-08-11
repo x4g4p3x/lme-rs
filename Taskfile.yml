@@ -50,6 +50,16 @@ tasks:
     cmds:
       - '{{.RUN}} completion-check'
 
+  docs:check:
+    desc: Validate Markdown links, Rust examples/doctests, and generated docs
+    cmds:
+      - '{{.RUN}} docs-check'
+
+  consumer:smoke:
+    desc: Run the Rust quick-start and clean-wheel Python examples
+    cmds:
+      - '{{.RUN}} consumer-smoke'
+
   benchmarks:smoke:
     desc: Release examples + sleepstudy Rust cross-language benchmark smoke
     cmds:

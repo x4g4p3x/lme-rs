@@ -26,7 +26,7 @@ def main() -> int:
             print(f"  OK   {name}")
         else:
             failed += 1
-            print(f"  FAIL {name}: {err}")
+            print(f"  FAIL {name}: {type(err).__name__}: {err}")
     print()
     if failed:
         print(f"{failed} check(s) failed.")

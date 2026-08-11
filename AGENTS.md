@@ -10,6 +10,7 @@ Use the smallest validation tier that proves the change is sound, then run the e
 | Python bindings | `task lint:python`, `task python` |
 | CI, manifests, release tooling | `task preflight`; use `task ci` before a release or broad refactor |
 | R / Julia comparison scripts | `task lint:comparisons`; use `task lint:comparisons:required` when the formatters are installed |
+| Documentation or portable examples | `task docs:check`; use `task consumer:smoke` when install or example behavior changes |
 | LMM throughput paths (`src/math.rs`, `src/optimizer.rs`) | Read [OPTIMIZATION.md](OPTIMIZATION.md) and run the applicable fair-harness cases |
 | Completion score files: `README.md`, `REPO_COMPLETION_BY_AREA.md`, `completion_manifest.json`, or `scripts/ci/check_completion_score.py` | `task completion:check` |
 
@@ -74,7 +75,7 @@ GitHub Actions validation runs automatically on pull requests and `v*` tags, and
 
 External GitHub Actions are pinned to full commit SHAs, with the readable release line retained as a comment. Dependabot proposes grouped weekly pin updates; do not replace SHA pins with mutable tags. Dependency audits and libFuzzer smoke tests run weekly in addition to their release/manual entry points.
 
-- `task ci` mirrors the core hosted flow: Rust tests, Python bindings, lint, all-targets check, legal checks, doctests, docs, and the completion-score check.
+- `task ci` mirrors the core hosted flow: Rust tests, Python bindings, portable consumer examples, lint, all-targets check, legal checks, documentation/link verification, and the completion-score check.
 - Hosted-only coverage includes the multi-OS matrix, Python 3.10–3.13, production-load gates, and `pip-audit`.
 - After changing BLAS target tables or release workflows, run `task ci` locally or manually dispatch CI before tagging; macOS Apple Silicon BLAS is not exercised on Windows/Linux.
 - Benchmark workflow coverage requiring R or Julia belongs in the tag/manual workflow. `task benchmarks:preflight` runs the Rust smoke plus the R smoke when R/lme4 is available.
@@ -93,6 +94,7 @@ For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `ta
 | `task ci` / `task ci:fast` | Core CI mirror / reuse the editable Python environment and skip the isolated-wheel pass |
 | `task audit` / `task legal` | Security audit / provenance and license checks |
 | `task completion:check` | Verify the manifest-derived completion score and published markers |
+| `task docs:check` / `task consumer:smoke` | Validate docs/links/API examples / run clean-install Rust and Python workflows |
 | `task benchmarks:fair-rust-julia` | Fair fit-only Rust vs MixedModels.jl timing when Julia packages are installed |
 | `task benchmarks:perf-breakdown` | Rust phase timings against Julia optimizer evaluation counts |
 | `task lint:comparisons` | Optional R/Julia comparison formatting check |

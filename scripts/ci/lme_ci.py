@@ -9,18 +9,30 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Sequence
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON_DIR = ROOT / "python"
 PYTHON_VENV = PYTHON_DIR / ".venv"
 JULIA_FORMAT_SCRIPT = ROOT / "scripts" / "ci" / "julia_format.jl"
 R_FORMAT_SCRIPT = ROOT / "scripts" / "ci" / "r_format.R"
+PORTABLE_PYTHON_EXAMPLES = [
+    PYTHON_DIR / "examples" / "lm_basics.py",
+    PYTHON_DIR / "examples" / "lmer_sleepstudy.py",
+    PYTHON_DIR / "examples" / "glmer_cbpp.py",
+    PYTHON_DIR / "examples" / "glmer_grouseticks.py",
+    PYTHON_DIR / "examples" / "model_comparison.py",
+    PYTHON_DIR / "examples" / "verification_project" / "run.py",
+]
+MARKDOWN_INLINE_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+MARKDOWN_REFERENCE_LINK = re.compile(r"^\s*\[[^\]]+\]:\s*(\S+)", re.MULTILINE)
 
 
 class CiError(Exception):
@@ -205,6 +217,80 @@ def cargo_doc() -> None:
         ["cargo", "doc", "--no-deps", "--verbose", "--locked"],
         env={"RUSTDOCFLAGS": "-D warnings"},
     )
+
+
+def cargo_examples_check() -> None:
+    run(["cargo", "check", "--locked", "--examples", "--verbose"])
+
+
+def _markdown_target(raw: str) -> str:
+    """Return the destination portion of an inline/reference Markdown link."""
+    target = raw.strip()
+    if target.startswith("<") and ">" in target:
+        target = target[1 : target.index(">")]
+    else:
+        target = target.split(' "', 1)[0].split(" '", 1)[0].strip()
+    return target
+
+
+def markdown_links_check() -> None:
+    """Fail when a tracked Markdown document points at a missing local path."""
+    result = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "*.md",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    markdown_files = [
+        ROOT / path
+        for path in result.stdout.split("\0")
+        if path and (ROOT / path).exists()
+    ]
+    checked = 0
+    failures: list[str] = []
+
+    for document in markdown_files:
+        text = document.read_text(encoding="utf-8")
+        matches = [*MARKDOWN_INLINE_LINK.finditer(text), *MARKDOWN_REFERENCE_LINK.finditer(text)]
+        for match in matches:
+            target = _markdown_target(match.group(1))
+            if not target or target.startswith(("#", "http://", "https://", "mailto:", "data:")):
+                continue
+
+            local_part = unquote(target.split("#", 1)[0].split("?", 1)[0])
+            if not local_part:
+                continue
+            checked += 1
+            resolved = (document.parent / local_part).resolve()
+            if not resolved.exists():
+                line = text.count("\n", 0, match.start()) + 1
+                relative_document = document.relative_to(ROOT)
+                failures.append(f"{relative_document}:{line}: missing local link target {target!r}")
+
+    if failures:
+        raise CiError("Markdown link check failed:\n  " + "\n  ".join(failures))
+    print(
+        f"Markdown links: {len(markdown_files)} documents, {checked} local targets OK",
+        flush=True,
+    )
+
+
+def documentation_check() -> None:
+    """Validate local links, Rust API examples/doctests, and generated documentation."""
+    markdown_links_check()
+    cargo_examples_check()
+    cargo_doctest()
+    cargo_doc()
 
 
 def cargo_audit() -> None:
@@ -657,12 +743,30 @@ print(f"python artifact: version={actual_version} path={module_paths[-1]}")
     run([str(python), "-c", script, version, str(venv)], cwd=PYTHON_DIR)
 
 
+def _create_uv_venv(*, python: str, venv: Path) -> Path:
+    """Create an empty consumer environment without the repository's dev extras."""
+    _require_tool("uv")
+    if venv.exists():
+        shutil.rmtree(venv)
+    run(["uv", "venv", "--python", python, str(venv)], cwd=PYTHON_DIR)
+    return venv_python(venv)
+
+
+def _run_portable_python_examples(python: Path) -> None:
+    env = {"PYTHONUTF8": "1"}
+    for example in PORTABLE_PYTHON_EXAMPLES:
+        if not example.exists():
+            raise CiError(f"portable Python example is missing: {example.relative_to(ROOT)}")
+        run([str(python), str(example)], cwd=ROOT, env=env)
+
+
 def python_bindings(
     *,
     python: str = "3.11",
     reuse_venv: bool = False,
     skip_wheel: bool = False,
     wheel_only: bool = False,
+    run_examples: bool = False,
 ) -> None:
     if skip_wheel and wheel_only:
         raise CiError("--skip-isolated-wheel and --wheel-only are mutually exclusive")
@@ -725,17 +829,53 @@ def python_bindings(
         _assert_python_artifact(wheel_python, version=expected_version, venv=wheel_venv)
         run([str(wheel_python), "-m", "pytest", "tests/", "-v"], cwd=PYTHON_DIR)
 
+        if run_examples:
+            consumer_venv = tmp_root / "consumer-venv"
+            consumer_python = _create_uv_venv(python=python, venv=consumer_venv)
+            run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    str(consumer_python),
+                    str(wheels[0]),
+                ],
+                cwd=PYTHON_DIR,
+            )
+            _assert_python_artifact(
+                consumer_python,
+                version=expected_version,
+                venv=consumer_venv,
+            )
+            _run_portable_python_examples(consumer_python)
+
+
+def consumer_smoke(*, python: str = "3.11", reuse_venv: bool = False) -> None:
+    """Run representative Rust and clean-wheel Python workflows end to end."""
+    run(["cargo", "run", "--locked", "--example", "sleepstudy"])
+    python_bindings(
+        python=python,
+        reuse_venv=reuse_venv,
+        wheel_only=True,
+        run_examples=True,
+    )
+
 
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
     completion_check()
     cargo_build_test()
+    run(["cargo", "run", "--locked", "--example", "sleepstudy"])
     if not skip_python:
-        python_bindings(reuse_venv=reuse_venv, skip_wheel=skip_wheel)
+        python_bindings(
+            reuse_venv=reuse_venv,
+            skip_wheel=skip_wheel,
+            run_examples=not skip_wheel,
+        )
     lint()
     cargo_check()
     legal_compliance()
-    cargo_doctest()
-    cargo_doc()
+    documentation_check()
     print(
         "lme_ci.py ci: OK (core jobs; multi-OS matrix, Python 3.10/3.12/3.13, "
         "production-load gates are CI-only)",
@@ -788,6 +928,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub.add_parser("doctest", help="cargo test --doc").set_defaults(fn=lambda _: cargo_doctest())
     sub.add_parser("doc", help="cargo doc").set_defaults(fn=lambda _: cargo_doc())
+    sub.add_parser(
+        "docs-links",
+        help="Validate local link targets in tracked Markdown documents",
+    ).set_defaults(fn=lambda _: markdown_links_check())
+    sub.add_parser(
+        "docs-check",
+        help="Validate Markdown links, Rust examples/doctests, and generated docs",
+    ).set_defaults(fn=lambda _: documentation_check())
     sub.add_parser("rust-lint", help="fmt --check + clippy").set_defaults(fn=lambda _: rust_lint())
     sub.add_parser("ruff-lint", help="Ruff check/format on python/tests + examples").set_defaults(
         fn=lambda _: ruff_lint()
@@ -838,6 +986,11 @@ def main(argv: list[str] | None = None) -> int:
     p_py = sub.add_parser("python", help="Python bindings CI flow")
     p_py.add_argument("--python-version", default="3.11")
     p_py.add_argument("--reuse-venv", action="store_true")
+    p_py.add_argument(
+        "--examples",
+        action="store_true",
+        help="Install the wheel in a clean consumer venv and run portable examples",
+    )
     p_py_mode = p_py.add_mutually_exclusive_group()
     p_py_mode.add_argument(
         "--skip-isolated-wheel",
@@ -856,6 +1009,20 @@ def main(argv: list[str] | None = None) -> int:
             reuse_venv=a.reuse_venv,
             skip_wheel=a.skip_wheel_reinstall,
             wheel_only=a.wheel_only,
+            run_examples=a.examples,
+        )
+    )
+
+    p_consumer = sub.add_parser(
+        "consumer-smoke",
+        help="Run the Rust quick-start and clean-wheel Python examples",
+    )
+    p_consumer.add_argument("--python-version", default="3.11")
+    p_consumer.add_argument("--reuse-venv", action="store_true")
+    p_consumer.set_defaults(
+        fn=lambda a: consumer_smoke(
+            python=a.python_version,
+            reuse_venv=a.reuse_venv,
         )
     )
 
