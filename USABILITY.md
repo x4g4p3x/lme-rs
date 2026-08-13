@@ -90,7 +90,7 @@ Statuses are **practical**, not formal support tiers.
 | Nested model LRT (`anova`) | ✓ | ✓ | |
 | Group-preserving CV (`cv_grouped` / `cv_grouped_glmer`) | ✓ | ✓ | LMM + GLMM; population / response-scale OOF on held-out groups |
 | Bootstrap refits (`boot_lmer` / `boot_glmer`) | ✓ | ✓ | LMM parametric & residual; GLMM parametric (incl. binomial trials); percentile CIs |
-| GLMM: binomial / Poisson / gamma / gaussian | ✓ | ✓ | Coeffs & variance params; Laplace default; scalar AGQ via `n_agq ≥ 2`. Gamma: mean/dispersion golden (`gamma_dyestuff_log_laplace`); RE θ may hit the boundary vs lme4 |
+| GLMM: binomial / Poisson / gamma / gaussian | ✓ | ✓ | Coeffs & variance params; Laplace default; AGQ-in-θ via `n_agq ≥ 2` (scalar, vector product, small-`q` joint). Gamma: mean/dispersion golden (`gamma_dyestuff_log_laplace`); RE θ may hit the boundary vs lme4 |
 | Profile CIs (`confint_profile` / `parms=`) | ✓ | ✓ | LMM/GLMM; sleepstudy vs R fixture; subset via `parms` |
 | `confint` (Wald), `simulate`, robust SE | ✓ | ✓ | LMM-focused Wald/t paths; GLMM z / profile as documented |
 
@@ -108,7 +108,7 @@ Statuses are **practical**, not formal support tiers.
 | Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population and group-level (`β+b`) bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
 | `nlmer_with_mean` (custom μ) | No R `selfStart` for arbitrary custom means; defaults are naive | Supply `start`; verify predictions |
-| Scalar AGQ (`n_agq ≥ 2`) | Inside θ search for scalar RE; CBPP AGQ-7 golden | Same for `nlmer` scalar RE |
+| Scalar / vector AGQ (`n_agq ≥ 2`) | Inside θ search when the GH grid fits; CBPP AGQ-7 golden (scalar) | Same for `nlmer` (scalar + product for `k_re > 1`) |
 | Python bindings | Polars, pandas, or PyArrow `Table` accepted; Polars canonical internally | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
 
 ### Red — not a substitute yet

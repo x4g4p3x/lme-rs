@@ -1347,7 +1347,9 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
 ///
 /// GLMMs extend LMMs to non-Gaussian responses using a family/link system.
 /// Uses Penalized Iteratively Reweighted Least Squares (PIRLS) with
-/// Laplace approximation for the marginal likelihood.
+/// Laplace approximation for the marginal likelihood by default (`n_agq = 1`).
+/// For `n_agq ≥ 2`, θ is refined under adaptive Gauss–Hermite quadrature when
+/// the grid fits (scalar RE, product rule for vector RE, or joint AGQ for small `q`).
 ///
 /// **Gaussian family:** With the identity link, the model coincides with a linear mixed model
 /// fit by **ML** (same target as `lme4::glmer` with `family = gaussian(identity)`). In that case

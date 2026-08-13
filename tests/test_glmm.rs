@@ -299,3 +299,49 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
     assert!(sigma2 > 0.0);
     assert!(sigma2 < 1e6, "Gamma sigma2 implausibly large: {}", sigma2);
 }
+
+/// Vector RE (`k = 2`) with `n_agq > 1` refines θ under product AGQ.
+#[test]
+fn test_glmm_poisson_random_slope_agq_in_theta() {
+    let _ = env_logger::try_init();
+    let mut y = Vec::new();
+    let mut x = Vec::new();
+    let mut g = Vec::new();
+    for gi in 0..5 {
+        for t in 0..4 {
+            let xv = t as f64;
+            y.push((1.0 + xv + 0.2 * (gi as f64)).max(0.0));
+            x.push(xv);
+            g.push(format!("g{gi}"));
+        }
+    }
+    let df = DataFrame::new(vec![
+        Column::new("y".into(), y),
+        Column::new("x".into(), x),
+        Column::new("g".into(), g),
+    ])
+    .unwrap();
+
+    let fit_laplace = glmer("y ~ x + (x | g)", &df, Family::Poisson, 1).unwrap();
+    let fit_agq = glmer("y ~ x + (x | g)", &df, Family::Poisson, 3).unwrap();
+
+    let tl = fit_laplace.theta.as_ref().unwrap();
+    let ta = fit_agq.theta.as_ref().unwrap();
+    assert_eq!(tl.len(), 3, "intercept+slope RE packs 3 θ parameters");
+    assert_eq!(ta.len(), 3);
+    assert!(fit_agq.deviance.unwrap().is_finite());
+    for i in 0..tl.len() {
+        assert!(
+            ta[i].is_finite() && tl[i].is_finite(),
+            "theta non-finite: laplace={} agq={}",
+            tl[i],
+            ta[i]
+        );
+        assert!(
+            (ta[i] - tl[i]).abs() < (5.0_f64).max(10.0 * tl[i].abs()),
+            "theta drifted too far: laplace={} agq={}",
+            tl[i],
+            ta[i]
+        );
+    }
+}
