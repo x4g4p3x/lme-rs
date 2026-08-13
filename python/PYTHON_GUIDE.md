@@ -39,8 +39,8 @@ The Python module mirrors the Rust crate: formula fits, matrix OLS, contrasts, i
 
 Top-level functions:
 
-- `lme_python.lm(formula, data)`
-- `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
+- `lme_python.lm(formula, data)` — Wilkinson formula OLS
+- `lme_python.lm(y, x)` / `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
 - `lme_python.lmer(formula, data, reml=True)`
 - `lme_python.prepare_lmer(formula, data)` → `PyLmerPrepared`
 - `lme_python.fit_prepared(prepared, reml=True)` → `PyLmeFit`
@@ -142,6 +142,14 @@ fit0 = lme_python.lm("Reaction ~ 1", data=df)
 
 # Suppress intercept
 fit_no_int = lme_python.lm("Reaction ~ 0 + Days", data=df)
+```
+
+Numeric design-matrix OLS (same as Rust `lm(y, x)`; `lm_matrix` is an alias):
+
+```python
+y = [1.0, 2.0, 3.0, 4.0]
+x = [[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]
+fit_xy = lme_python.lm(y, x)
 ```
 
 ### Linear mixed models
@@ -484,7 +492,6 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 
 ## Current limitations
 
-- Matrix-only `lm(y, x)` without a DataFrame is Rust-only.
 - `cv_grouped` supports LMMs; `cv_grouped_glmer` supports GLMMs; `boot_lmer` / `boot_glmer` cover LMM/GLMM bootstrap (not NLMM).
 - `boot_lmer` implements parametric and residual response bootstrap with percentile CIs; it does not cover every `bootMer` option (e.g. semiparametric, case bootstrap, BCa intervals). `boot_glmer` is parametric only.
 - `glmer()` takes a string `family_name` and optional `link_name` / `n_agq` (see above); non-canonical links match Rust [`family::Link`](../src/family.rs).

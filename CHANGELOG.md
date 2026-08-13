@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Formula materialization for two-way colon interactions (`a:b`), unary column transforms (`log`, `sqrt`, `exp`), `I()` arithmetic, and `offset(log(x))`-style transformed offsets. These terms are now built into the design matrix instead of being rejected at parse time. `poly()`, `ns()`, and `y ~ .` remain unsupported.
+- Python `lm(y, x)` for numeric OLS (same calling shape as Rust `lm(y, x)`). `lm(formula, data)` is unchanged; `lm_matrix` remains an alias.
 
 ### Changed
 

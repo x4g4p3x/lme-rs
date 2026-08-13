@@ -168,10 +168,20 @@ def test_anova_type_i_and_linear_hypothesis():
 def test_lm_matrix():
     y = [1.0, 2.0, 3.0, 4.0]
     x = [[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]
-    fit = lme_python.lm_matrix(y, x)
+    via_alias = lme_python.lm_matrix(y, x)
+    via_lm = lme_python.lm(y, x)
+    assert len(via_alias.coefficients) == 2
+    assert via_alias.num_obs == 4
+    assert all(math.isfinite(c) for c in via_alias.coefficients)
+    assert via_lm.coefficients == via_alias.coefficients
+    assert via_lm.num_obs == via_alias.num_obs
+
+
+def test_lm_formula_data_keyword():
+    df = pl.read_csv("../tests/data/sleepstudy.csv")
+    fit = lme_python.lm("Reaction ~ Days", data=df)
     assert len(fit.coefficients) == 2
-    assert fit.num_obs == 4
-    assert all(math.isfinite(c) for c in fit.coefficients)
+    assert fit.num_obs == df.height
 
 
 def test_contrast_matrix_indices():

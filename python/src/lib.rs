@@ -1859,30 +1859,72 @@ pub fn boot_glmer<'py>(
     }
 }
 
-/// Fit a fixed-effects-only linear model from a Wilkinson formula string.
-///
-/// Parameters
-/// ----------
-/// formula : str
-///     Wilkinson formula, e.g. ``"y ~ x1 + x2"`` or ``"y ~ 1"``.
-/// data : polars.DataFrame, pandas.DataFrame, or pyarrow.Table
-///     Tabular data containing the variables referenced in the formula.
-///
-/// Returns
-/// -------
-/// PyLmeFit
-///     Fitted model with ``.coefficients``, ``.fixed_names``, ``.aic``,
-///     ``.bic``, ``.log_likelihood``, ``.fitted``, ``.residuals``,
-///     ``.std_errors``, and ``.summary()``.
-#[pyfunction]
-#[pyo3(signature = (formula, data))]
-pub fn lm<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>) -> PyResult<PyLmeFit> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    match lme_rs::lm_df(formula, &df) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Model fit failed: {}", e))),
+fn extract_f64_vec(obj: &Bound<'_, PyAny>) -> PyResult<Vec<f64>> {
+    if let Ok(v) = obj.extract::<Vec<f64>>() {
+        return Ok(v);
     }
+    if obj.hasattr("tolist")? {
+        return obj.call_method0("tolist")?.extract();
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(
+        "expected a 1-D numeric sequence",
+    ))
+}
+
+fn extract_f64_matrix(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<f64>>> {
+    if let Ok(m) = obj.extract::<Vec<Vec<f64>>>() {
+        return Ok(m);
+    }
+    if obj.hasattr("tolist")? {
+        let listed = obj.call_method0("tolist")?;
+        if let Ok(m) = listed.extract::<Vec<Vec<f64>>>() {
+            return Ok(m);
+        }
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(
+        "expected a 2-D numeric matrix (list of rows)",
+    ))
+}
+
+/// Fit a fixed-effects-only linear model.
+///
+/// Two calling conventions:
+///
+/// * ``lm(formula, data)`` — Wilkinson formula and a tabular frame
+///   (Polars / pandas / PyArrow).
+/// * ``lm(y, x)`` — numeric response and dense design matrix (same as Rust
+///   ``lm(y, x)``). ``x`` is ``n_obs × p`` as a list of rows, or any object
+///   with ``.tolist()`` (NumPy arrays).
+///
+/// ``lm_matrix(y, x)`` remains an explicit alias for the numeric path.
+#[pyfunction]
+#[pyo3(signature = (formula_or_y, data))]
+pub fn lm<'py>(
+    py: Python<'py>,
+    formula_or_y: &Bound<'py, PyAny>,
+    data: &Bound<'py, PyAny>,
+) -> PyResult<PyLmeFit> {
+    if let Ok(formula) = formula_or_y.extract::<&str>() {
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        return match lme_rs::lm_df(formula, &df) {
+            Ok(fit) => Ok(PyLmeFit { inner: fit }),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Model fit failed: {e}"
+            ))),
+        };
+    }
+    let y = extract_f64_vec(formula_or_y).map_err(|_| {
+        pyo3::exceptions::PyTypeError::new_err(
+            "lm() expects lm(formula, data) or lm(y, x) with a numeric response vector",
+        )
+    })?;
+    let x = extract_f64_matrix(data).map_err(|_| {
+        pyo3::exceptions::PyTypeError::new_err(
+            "when the first argument is numeric, the second must be a 2-D design matrix",
+        )
+    })?;
+    lm_matrix(y, x)
 }
 
 /// Fit OLS from numeric **y** and design matrix **X** (mirrors Rust `lm(y, x)`).
