@@ -100,3 +100,11 @@ For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `ta
 | `task lint:comparisons` | Optional R/Julia comparison formatting check |
 
 Run `python scripts/ci/lme_ci.py --help` for the complete command list. See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor workflow and [RELEASING.md](RELEASING.md) for release steps.
+
+## Cursor Cloud specific instructions
+
+This repo is a pure Rust library (`lme-rs`) plus a PyO3/maturin Python binding (`lme_python`); there are no servers or long-running services. "Running the app" means building the crate and running examples/tests. See the command reference above for the canonical `task` aliases.
+
+- Toolchain comes from `mise` (per [mise.toml](mise.toml): Rust stable, Python 3.11, `uv`, `task`, `lefthook`). The startup update script runs `mise install`. Interactive shells auto-activate mise via `~/.bashrc`. In a non-interactive shell where `mise`/`task`/`uv` aren't on `PATH`, run `eval "$($HOME/.local/bin/mise activate bash --shims)"` first (or invoke tools with `$HOME/.local/bin/mise exec -- <cmd>`).
+- On x86_64 the core crate links Intel MKL statically via `ndarray-linalg`, so no `gfortran`/system BLAS is needed; the first `cargo build`/`task test:fast` compiles MKL and takes a few minutes (subsequent builds are cached). Examples must be run with `--release` (e.g. `cargo run --release --example sleepstudy`) — a debug build is very slow.
+- Python bindings gotcha: `uv sync` / `task ci` / `task python` reinstall the venv and **uninstall** the maturin-built `lme_python` before rebuilding it. If you run a bare `uv sync` (or interrupt `task python` before its maturin step), `import lme_python` breaks; restore it with `cd python && uv run --no-sync maturin develop --release` (or re-run `task python`). Run Python examples from `python/` via `uv run --no-sync python examples/<name>.py`.
