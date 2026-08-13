@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [`FormulaModel::offset`](src/formula.rs) is now `Option<NumericExpr>` so transformed offsets can be represented. Plain column offsets still work; use [`FormulaModel::offset_column`](src/formula.rs) when you need the old string form.
 
+### Fixed
+
+- Non-numeric `offset()` columns (and other numeric formula terms) are rejected again when values cannot be parsed as floats. Formula materialization had dropped invalid entries instead of erroring, which let string offsets fit.
+
 ## [0.2.1] - 2026-08-10
 
 ### Changed
