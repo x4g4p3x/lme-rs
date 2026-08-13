@@ -142,7 +142,7 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 
 | Concern | Rust (`lme-rs`) | Python (`lme_python`) |
 |:--------|:----------------|:----------------------|
-| API breadth | Full formula + matrix paths | Formula mirror + `lm_matrix`; matrix `lm(y, x)` Rust-only |
+| API breadth | Full formula + matrix paths | Formula `lm(formula, data)` plus numeric `lm(y, x)` / `lm_matrix` |
 | Data | `polars::DataFrame` | Polars / pandas / PyArrow `Table` (normalized to Polars IPC) |
 | Maturity | Same engine | Same engine; stubs in [`python/lme_python.pyi`](python/lme_python.pyi) |
 | When to prefer | Native pipelines, amortized `fit_prepared` / `fit_prepared_glmer`, `cv_grouped*`, embedding in Rust services | Notebooks, Polars-centric Python stacks; prepare/CV/boot/GLMM APIs exposed |

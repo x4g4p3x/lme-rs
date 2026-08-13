@@ -1,6 +1,6 @@
 """Type stubs for the ``lme_python`` PyO3 extension."""
 
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, overload
 
 import polars as pl
 
@@ -223,7 +223,10 @@ class PyCvGroupedResult:
     n_splits: int
     group_col: str
 
+@overload
 def lm(formula: str, data: DataFrameInput) -> PyLmeFit: ...
+@overload
+def lm(y: Sequence[float], x: Sequence[Sequence[float]]) -> PyLmeFit: ...
 def lm_matrix(y: list[float], x: list[list[float]]) -> PyLmeFit: ...
 def lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
 def prepare_lmer(formula: str, data: DataFrameInput) -> PyLmerPrepared: ...

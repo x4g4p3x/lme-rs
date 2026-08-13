@@ -642,7 +642,7 @@ Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type
 
 ### Python bindings
 
-The Python package mirrors most of the Rust formula API, including `prepare_lmer` / `fit_prepared`, `prepare_glmer` / `fit_prepared_glmer`, `cv_grouped` / `cv_grouped_glmer`, `boot_lmer` / `boot_glmer`, profile `confint(..., parms=)`, and `nlmer` (built-in `SS*` means, bounds, AGQ). Matrix-only `lm(y, x)` without a DataFrame remains Rust-only. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
+The Python package mirrors most of the Rust formula API, including `prepare_lmer` / `fit_prepared`, `prepare_glmer` / `fit_prepared_glmer`, `cv_grouped` / `cv_grouped_glmer`, `boot_lmer` / `boot_glmer`, profile `confint(..., parms=)`, `nlmer` (built-in `SS*` means, bounds, AGQ), and numeric `lm(y, x)` / `lm_matrix`. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
 
 ## Troubleshooting
 
