@@ -529,8 +529,9 @@ fn string_offset_column_errors() {
         Series::new("off".into(), ["bad", "type", "string"]).into(),
     ])
     .unwrap();
-    let err = build_design_matrices(&assert_parse_ok("y ~ x + offset(off) + (1 | g)"), &df)
-        .expect_err("string offset must be rejected");
+    let res = build_design_matrices(&assert_parse_ok("y ~ x + offset(off) + (1 | g)"), &df);
+    assert!(res.is_err(), "string offset must be rejected");
+    let err = res.err().expect("checked is_err");
     let msg = err.to_string();
     assert!(
         msg.contains("off") && msg.contains("invalid"),
