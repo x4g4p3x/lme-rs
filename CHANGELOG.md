@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Formula materialization for two-way colon interactions (`a:b`), unary column transforms (`log`, `sqrt`, `exp`), `I()` arithmetic, and `offset(log(x))`-style transformed offsets. These terms are now built into the design matrix instead of being rejected at parse time. `poly()`, `ns()`, and `y ~ .` remain unsupported.
+- Multivariate **AGQ-in-θ** for GLMMs and `nlmer`: when `n_agq ≥ 2`, the outer θ search uses adaptive Gauss–Hermite quadrature for vector random effects (product rule per group) and for multiple RE terms when total `q` is small enough. Scalar `k = 1` still matches `lme4`; vector/joint AGQ-in-θ goes beyond lme4 (which stays Laplace for multivariate RE). Large crossed models remain Laplace-in-θ.
 
 ### Changed
 

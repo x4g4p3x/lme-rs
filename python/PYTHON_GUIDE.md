@@ -184,7 +184,7 @@ model = lme_python.glmer(
     "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
     data=df,
     family_name="poisson",
-    # n_agq=1 is Laplace (default); use n_agq≥2 for scalar AGQ-in-θ
+    # n_agq=1 is Laplace (default); n_agq≥2 uses AGQ-in-θ when the quadrature grid fits
 )
 
 # Optional non-canonical link (logit, probit, cloglog, log, identity, inverse, sqrt)
@@ -248,7 +248,7 @@ Requires **x > 0** for `SSpower`. `SSpower` is not in R `stats::SS*`; lme4 parit
 
 Explicit `start` overrides `selfStart`; partial dicts merge with defaults for missing parameter names.
 
-Set `n_agq` to a value `≥ 2` for adaptive Gauss–Hermite quadrature on scalar random effects (`k = 1`); default `1` is Laplace only (same convention as `glmer`).
+Set `n_agq` to a value `≥ 2` for adaptive Gauss–Hermite quadrature on the θ profile (scalar `k = 1`, or product quadrature for vector RE when the node-count cap allows); default `1` is Laplace only (same convention as `glmer`).
 
 `predict()` and `predict_conditional()` work on NLMM fits: population predictions use fixed nonlinear parameters only; conditional predictions add stored random effects, including multivariate nonlinear-parameter effects such as `Asym + xmid | Tree`.
 

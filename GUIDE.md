@@ -178,7 +178,7 @@ let fit = nlmer(
 )?;
 ```
 
-For scalar adaptive quadrature on a single random effect (`k = 1`), use [`nlmer_with_options`](src/nlmm/mod.rs) and set [`NlmerOptions::n_agq`](src/nlmm/fit.rs) to a value `≥ 2` (default `1` is Laplace only). Python: `nlmer(..., n_agq=7)`.
+For adaptive quadrature, use [`nlmer_with_options`](src/nlmm/mod.rs) and set [`NlmerOptions::n_agq`](src/nlmm/fit.rs) to a value `≥ 2` (default `1` is Laplace only). Scalar `k = 1` matches `lme4`; vector RE (`k_re > 1`) uses product Gauss–Hermite quadrature per group when the node-count cap allows. Python: `nlmer(..., n_agq=7)`.
 
 Optional **population** box bounds on nonlinear coefficients: set [`NlmerOptions::lower` / `upper`](src/nlmm/fit.rs) (named maps). Bounds are projected in the inner Gauss–Newton. Optional **group-level** bounds on `β + b` use `group_lower` / `group_upper` (RE parameters only): after each trial step, `b` is adjusted so each group's parameter stays in range. Python: `nlmer(..., lower={"a": 0.1}, upper={"a": 5.0}, group_lower={"c": 0.0}, group_upper={"c": 10.0})`.
 
@@ -191,14 +191,14 @@ Current limitations:
 - Random effects: one grouping factor; multiple parameters before `|` use a multivariate Cholesky covariance (`Asym + xmid | Tree`). θ matches `lme4::getME(., "theta")` (relative Λ; VarCorr SDs are reported through `σ²ΛΛᵀ`). Orange scalar and correlated multi-RE fits, plus `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / **`SSpower`**, are covered by lme4 parity tests (`SSpower` via custom R `selfStart`; see [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md)).
 - **`SSpower`:** μ = `a * x^b + c` (MATLAB Curve Fitter `power2`). Requires **covariate x > 0**. Not in R `stats::SS*`; grouped calibration only — not bounded single-curve NLS (lmfit / MATLAB Curve Fitter). For **independent per-sensor fits** vs **pooled** `nlmer`, and why CUDA batch fitters are a different lane, see [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md).
 - `predict()` evaluates the mean at fixed parameters only (`re.form = NA`); `predict_conditional()` adds stored random effects (`re.form = NULL`).
-- Scalar AGQ (`n_agq ≥ 2`, `k = 1` RE) is folded into the θ profile objective (same pattern as `glmer` scalar AGQ-in-θ). Default `n_agq = 1` is Laplace / penalized Gauss–Newton (`nAGQ = 0` style).
+- AGQ (`n_agq ≥ 2`) is folded into the θ profile objective: scalar `k = 1` matches `glmer` / `lme4`; vector RE uses a product rule per group when the grid fits. Default `n_agq = 1` is Laplace / penalized Gauss–Newton (`nAGQ = 0` style).
 
 ### `glmer()` for generalized linear mixed models
 
 ```rust
 use lme_rs::{family::Family, glmer};
 
-// Fourth argument is n_agq: 1 = Laplace (default in examples); ≥2 = scalar AGQ-in-θ.
+// Fourth argument is n_agq: 1 = Laplace (default in examples); ≥2 = AGQ-in-θ when the grid fits.
 let poisson_fit = glmer(
     "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
     &df,
@@ -221,6 +221,7 @@ let gamma_fit = glmer(
 )?;
 
 // Scalar RE + n_agq ≥ 2: θ is refined under AGQ after a Laplace warm-start (lme4 nAGQ).
+// Vector RE uses the same path with a product Gauss–Hermite grid per group.
 let agq_fit = glmer(
     "y ~ period2 + period3 + period4 + (1 | herd)",
     &df,
@@ -280,7 +281,7 @@ Weights must be strictly positive and match the number of rows. For binomial **p
 
 ### Adaptive Gauss–Hermite quadrature (`n_agq ≥ 2`)
 
-For **scalar** random effects (`q = 1` RE column), `n_agq ≥ 2` matches `lme4::glmer(..., nAGQ = k)`: after a Laplace warm-start, θ is refined by minimizing the AGQ-approximated deviance. Multivariate RE stays on the Laplace θ path (`n_agq` is used for the final evaluation when applicable). Golden: `cbpp_binomial_agq7` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (parity vs R `nAGQ = 7`).
+For **scalar** random effects (`k = 1`), `n_agq ≥ 2` matches `lme4::glmer(..., nAGQ = k)`: after a Laplace warm-start, θ is refined by minimizing the AGQ-approximated deviance. For **vector** RE (one block with `k > 1`), the same θ path uses a product Gauss–Hermite rule per group when the node-count cap allows. Multiple RE terms use joint AGQ-in-θ only when total `q` is small; otherwise θ stays Laplace and AGQ may still be applied in the final PIRLS evaluation. Golden: `cbpp_binomial_agq7` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (parity vs R `nAGQ = 7`).
 
 ### Understanding model output
 
@@ -703,7 +704,7 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `nlmer(formula, data, start, reml)` | nonlinear mixed model (`SSlogis`…`SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`; multivariate RE; empty `start` → `selfStart`) |
 | `nlmer_with_options(formula, data, opts)` | `nlmer` with [`NlmerOptions`](src/nlmm/fit.rs) (`n_agq`, bounds, `max_inner`, …) |
 | `nlmer_with_mean(parsed, mean, data, formula_label, opts)` | `nlmer` with a custom [`NlmmMeanEval`](src/nlmm/mean_fn.rs) |
-| `glmer(formula, data, family, n_agq)` | generalized linear mixed model (canonical link; `n_agq ≥ 2` = scalar AGQ-in-θ) |
+| `glmer(formula, data, family, n_agq)` | generalized linear mixed model (canonical link; `n_agq ≥ 2` = AGQ-in-θ when the grid fits) |
 | `glmer_with_link(formula, data, family, link, n_agq)` | GLMM with explicit link |
 | `glmer_weighted(formula, data, family, n_agq, weights)` | GLMM with prior observation weights |
 | `anova(fit_a, fit_b)` | likelihood ratio test between nested models |

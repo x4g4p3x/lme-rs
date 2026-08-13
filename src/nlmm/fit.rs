@@ -1,4 +1,4 @@
-//! Nonlinear mixed-model fitting (Laplace / penalized Gauss–Newton, optional scalar AGQ).
+//! Nonlinear mixed-model fitting (Laplace / penalized Gauss–Newton, optional AGQ).
 
 use std::sync::Arc;
 
@@ -9,11 +9,11 @@ use crate::nlmm::re_cov::{
     log_det_sigma, re_penalty, sigma_from_theta, sigma_inv_from_theta, theta_len,
 };
 use crate::optimizer::{compute_theta_lower_bounds, nelder_mead_optimize};
-use crate::quadrature::{gh_rule, log_sum_exp, resolve_gh_order};
+use crate::quadrature::{gh_rule, log_sum_exp, resolve_gh_order, resolve_gh_order_product};
 use crate::{LmeError, LmeFit};
 use argmin::core::CostFunction;
 use ndarray::{Array1, Array2};
-use ndarray_linalg::{Cholesky, Solve, UPLO};
+use ndarray_linalg::{Cholesky, Inverse, Solve, UPLO};
 
 /// Starting values for fixed nonlinear parameters (by name).
 pub type NlmmStart = std::collections::HashMap<String, f64>;
@@ -40,8 +40,9 @@ pub struct NlmerOptions {
     pub max_inner: usize,
     /// Reserved for future multi-θ optimizers.
     pub max_outer_iters: u64,
-    /// Adaptive Gauss–Hermite quadrature order for scalar random effects (`k = 1`).
-    /// `1` (default) uses Laplace only; values `≥ 2` enable AGQ (mirrors `nAGQ` in `lme4`).
+    /// Adaptive Gauss–Hermite quadrature order. `1` (default) uses Laplace only;
+    /// values `≥ 2` enable AGQ on the θ profile (scalar `k = 1`, or product quadrature
+    /// for `k_re > 1` when the node-count cap allows). Scalar AGQ mirrors `nAGQ` in `lme4`.
     pub n_agq: usize,
 }
 
@@ -406,7 +407,10 @@ impl NlmmProblem {
         (crit, params, sigma2, b)
     }
 
-    /// Scalar AGQ correction to the deviance (`k = 1` random effects only).
+    /// AGQ correction to the Laplace profile criterion.
+    ///
+    /// Scalar (`k_re = 1`) uses the same 1-D rule as `lme4::nlmer`. Vector RE uses a
+    /// product Gauss–Hermite grid per group when the node-count cap allows it.
     fn agq_correction(
         &self,
         n_agq: usize,
@@ -415,8 +419,11 @@ impl NlmmProblem {
         theta: &[f64],
         sigma2: f64,
     ) -> Option<f64> {
-        if n_agq < 2 || self.k_re != 1 {
+        if n_agq < 2 {
             return None;
+        }
+        if self.k_re != 1 {
+            return self.agq_correction_product(n_agq, params, b, theta, sigma2);
         }
         let order = resolve_gh_order(n_agq)?;
         let (z, w) = gh_rule(order)?;
@@ -477,6 +484,115 @@ impl NlmmProblem {
                 let pen_diff = pen_quad - pen_hat;
                 let delta = -0.5 * rss_diff - 0.5 * pen_diff;
                 log_terms.push(w[ki].ln() + delta);
+            }
+            let log_inner = log_sum_exp(&log_terms);
+            if !log_inner.is_finite() {
+                return None;
+            }
+            total_q += -2.0 * log_inner;
+        }
+        Some(total_q)
+    }
+
+    /// Product AGQ over a `k_re > 1` random-effect vector (one grouping factor).
+    ///
+    /// Uses the Gauss–Newton Hessian `A_g = Σ⁻¹ + Σ_i (∂μ/∂b)(∂μ/∂b)ᵀ / σ²` and
+    /// `b_quad = b_hat + L z` with `L Lᵀ = A_g⁻¹`, matching the GLMM `k > 1` product rule.
+    fn agq_correction_product(
+        &self,
+        n_agq: usize,
+        params: &[f64],
+        b: &Array1<f64>,
+        theta: &[f64],
+        sigma2: f64,
+    ) -> Option<f64> {
+        let k = self.k_re;
+        let order = resolve_gh_order_product(n_agq, k)?;
+        let (z, w) = gh_rule(order)?;
+        let n_nodes = z.len();
+        let ncomb = n_nodes.pow(k as u32);
+        let inv_sigma = if k <= 2 {
+            sigma_inv_from_theta(k, theta)
+        } else {
+            sigma_from_theta(k, theta).inv().ok()?
+        };
+
+        let mut group_obs: Vec<Vec<usize>> = vec![vec![]; self.m];
+        for (i, &g) in self.group.iter().enumerate() {
+            group_obs[g].push(i);
+        }
+
+        let mu_hat = self.predict(params, b);
+        let mut total_q = 0.0;
+        for g in 0..self.m {
+            let obs_idx = &group_obs[g];
+            if obs_idx.is_empty() {
+                continue;
+            }
+
+            let re_off = self.re_offsets_for_group(b, g);
+            let mut a_g = inv_sigma.clone();
+            for &i in obs_idx {
+                let (_, grad) = eval_mean_with_re(
+                    self.mean.as_ref(),
+                    self.x[i],
+                    params,
+                    &self.re_indices,
+                    &re_off,
+                );
+                for r in 0..k {
+                    let gr = grad[self.re_indices[r]];
+                    for s in 0..k {
+                        a_g[[r, s]] += gr * grad[self.re_indices[s]] / sigma2;
+                    }
+                }
+            }
+            let sigma_hess = a_g.inv().ok()?;
+            let l_sigma = sigma_hess.cholesky(UPLO::Lower).ok()?;
+
+            let mut b_hat_g = vec![0.0_f64; k];
+            for r in 0..k {
+                b_hat_g[r] = b[self.b_index(g, r)];
+            }
+            let pen_hat = re_penalty(k, theta, &b_hat_g);
+
+            let mut rss_g_hat = 0.0;
+            for &i in obs_idx {
+                let resid = self.y[i] - mu_hat[i];
+                rss_g_hat += resid * resid;
+            }
+
+            let mut log_terms = Vec::with_capacity(ncomb);
+            let mut b_trial = b.clone();
+            let mut z_vec = vec![0.0_f64; k];
+            let mut b_quad = vec![0.0_f64; k];
+            for t in 0..ncomb {
+                let mut rem = t;
+                let mut log_w = 0.0_f64;
+                for z_dim in &mut z_vec {
+                    let idx = rem % n_nodes;
+                    rem /= n_nodes;
+                    *z_dim = z[idx];
+                    log_w += w[idx].ln();
+                }
+                for r in 0..k {
+                    let mut s = 0.0_f64;
+                    for j in 0..k {
+                        s += l_sigma[[r, j]] * z_vec[j];
+                    }
+                    b_quad[r] = b_hat_g[r] + s;
+                    b_trial[self.b_index(g, r)] = b_quad[r];
+                }
+                let mu_quad = self.predict(params, &b_trial);
+                let mut rss_g_quad = 0.0;
+                for &i in obs_idx {
+                    let resid = self.y[i] - mu_quad[i];
+                    rss_g_quad += resid * resid;
+                }
+                let rss_diff = (rss_g_quad - rss_g_hat) / sigma2;
+                let pen_quad = re_penalty(k, theta, &b_quad);
+                let delta = -0.5 * rss_diff - 0.5 * (pen_quad - pen_hat);
+                log_terms.push(log_w + delta);
             }
             let log_inner = log_sum_exp(&log_terms);
             if !log_inner.is_finite() {

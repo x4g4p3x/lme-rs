@@ -1,5 +1,6 @@
 use crate::math::LmmData;
 use crate::model_matrix::ReBlock;
+use crate::quadrature::{resolve_gh_order_joint, resolve_gh_order_product};
 use argmin::core::{CostFunction, Error, Executor, State};
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
@@ -489,8 +490,8 @@ struct GlmmObjective {
     lower_bounds: Vec<f64>,
     zt_z: CsMat<f64>,
     zt_w_z_map: Vec<(usize, usize, f64)>,
-    /// Quadrature order for the θ objective (`1` = Laplace). AGQ-in-θ is used only for
-    /// scalar random effects (`one block with k = 1`); otherwise forced to Laplace.
+    /// Quadrature order for the θ objective (`1` = Laplace). AGQ-in-θ is used when
+    /// PIRLS can apply product (single block) or joint (small `q`) quadrature.
     n_agq: usize,
 }
 
@@ -530,10 +531,11 @@ impl CostFunction for GlmmObjective {
 ///
 /// Enforces lower bounds on θ: diagonal elements of the Cholesky factor ≥ 0.
 ///
-/// When `n_agq > 1` and the model has a single scalar random-effect block (`k = 1`),
-/// the outer θ objective uses AGQ deviance (matching `lme4::glmer` / `nlmer` behavior).
-/// Otherwise the outer objective stays Laplace; AGQ may still be applied in the final
-/// [`crate::glmm_math::GlmmData::pirls`] pass for eligible models.
+/// When `n_agq > 1` and PIRLS can apply AGQ (one RE block with a product Gauss–Hermite
+/// grid, or multiple blocks with total `q` small enough for joint AGQ), the outer θ
+/// objective uses AGQ deviance after a Laplace warm-start. Scalar `k = 1` matches
+/// `lme4::glmer` / `nlmer`; vector and small-`q` joint AGQ-in-θ go beyond lme4 (which
+/// stays Laplace for multivariate RE). Otherwise the outer objective stays Laplace.
 #[allow(clippy::too_many_arguments)]
 pub fn optimize_theta_glmm(
     x: Array2<f64>,
@@ -589,7 +591,7 @@ pub fn optimize_theta_glmm_with_maps(
         return Ok(laplace_result);
     }
 
-    // Refine θ under AGQ deviance for scalar RE (lme4-style AGQ-in-θ).
+    // Refine θ under AGQ deviance (scalar, product, or small-q joint).
     let agq = GlmmObjective {
         x,
         zt,
@@ -623,12 +625,21 @@ pub fn optimize_theta_glmm_with_maps(
     }
 }
 
-/// AGQ inside the θ search only for a single scalar RE block (`k = 1`).
+/// AGQ inside the θ search when PIRLS can apply the same quadrature rule.
 fn n_agq_for_theta_objective(n_agq: usize, re_blocks: &[ReBlock]) -> usize {
-    if n_agq > 1 && re_blocks.len() == 1 && re_blocks[0].k == 1 {
-        n_agq
-    } else {
-        1
+    if n_agq <= 1 || re_blocks.is_empty() {
+        return 1;
+    }
+    if re_blocks.len() == 1 {
+        return match resolve_gh_order_product(n_agq, re_blocks[0].k) {
+            Some(_) => n_agq,
+            None => 1,
+        };
+    }
+    let q: usize = re_blocks.iter().map(|b| b.m.saturating_mul(b.k)).sum();
+    match resolve_gh_order_joint(n_agq, q) {
+        Some(_) => n_agq,
+        None => 1,
     }
 }
 
@@ -713,6 +724,37 @@ mod tests {
             res
         );
         assert!(res.iterations >= 1, "iterations={}", res.iterations);
+    }
+
+    fn dummy_re_block(m: usize, k: usize) -> ReBlock {
+        ReBlock {
+            m,
+            k,
+            theta_len: k * (k + 1) / 2,
+            group_name: "G".to_string(),
+            effect_names: (0..k).map(|i| format!("e{i}")).collect(),
+            group_map: std::collections::HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn n_agq_for_theta_uses_product_and_joint_when_grids_fit() {
+        assert_eq!(n_agq_for_theta_objective(7, &[dummy_re_block(10, 1)]), 7);
+        assert_eq!(n_agq_for_theta_objective(5, &[dummy_re_block(8, 2)]), 5);
+        assert_eq!(
+            n_agq_for_theta_objective(5, &[dummy_re_block(2, 1), dummy_re_block(2, 1)]),
+            5
+        );
+        assert_eq!(
+            n_agq_for_theta_objective(5, &[dummy_re_block(20, 1), dummy_re_block(20, 1)]),
+            1
+        );
+        assert_eq!(n_agq_for_theta_objective(1, &[dummy_re_block(8, 2)]), 1);
+        assert_eq!(
+            n_agq_for_theta_objective(3, &[dummy_re_block(2, 8)]),
+            1,
+            "product grid for k=8 exceeds the node cap"
+        );
     }
 
     #[test]
