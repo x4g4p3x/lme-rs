@@ -521,6 +521,40 @@ fn offset_log_matches_precomputed_column() {
 }
 
 #[test]
+fn string_offset_column_errors() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0, 3.0]).into(),
+        Series::new("x".into(), [1.0, 2.0, 3.0]).into(),
+        Series::new("g".into(), ["A", "A", "B"]).into(),
+        Series::new("off".into(), ["bad", "type", "string"]).into(),
+    ])
+    .unwrap();
+    let err = build_design_matrices(&assert_parse_ok("y ~ x + offset(off) + (1 | g)"), &df)
+        .expect_err("string offset must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("off") && msg.contains("invalid"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn integer_offset_column_is_accepted() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0]).into(),
+        Series::new("x".into(), [1.0, 1.0]).into(),
+        Series::new("off".into(), [2i32, 3]).into(),
+        Series::new("g".into(), ["a", "b"]).into(),
+    ])
+    .unwrap();
+    let matrices =
+        build_design_matrices(&assert_parse_ok("y ~ x + offset(off) + (1 | g)"), &df).unwrap();
+    let offset = matrices.offset.expect("offset");
+    assert!((offset[0] - 2.0).abs() < 1e-12);
+    assert!((offset[1] - 3.0).abs() < 1e-12);
+}
+
+#[test]
 fn categorical_colon_drops_reference_cell_with_intercept() {
     let df = DataFrame::new(vec![
         Series::new("y".into(), [1.0, 2.0, 3.0, 4.0]).into(),

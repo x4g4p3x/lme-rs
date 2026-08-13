@@ -551,6 +551,11 @@ fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<
             feature: format!("Missing or invalid column: {}", col_name),
         })?
     };
+    if s.null_count() > 0 {
+        return Err(crate::LmeError::NotImplemented {
+            feature: format!("Column '{col_name}' contains nulls or invalid floats"),
+        });
+    }
     Ok(Array1::from_vec(s.into_no_null_iter().collect()))
 }
 
