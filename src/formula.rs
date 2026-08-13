@@ -2,8 +2,10 @@
 //!
 //! The parser intentionally produces the compact, variable-centric model that the
 //! design-matrix builder consumes. It supports the formula surface exercised by
-//! lme-rs: ordered fixed effects, two-way interactions, random intercepts and
-//! slopes, crossed and nested grouping factors, `||`, and one `offset(...)` term.
+//! lme-rs: ordered fixed effects, two-way `*` and colon `:` interactions, unary
+//! column transforms (`log`, `sqrt`, `exp`), `I()` arithmetic, random intercepts
+//! and slopes, crossed and nested grouping factors, `||`, and one `offset(...)`
+//! term (plain column or unary transform).
 
 use ahash::AHashMap;
 use smallvec::SmallVec;
@@ -19,8 +21,8 @@ pub struct FormulaModel {
     pub metadata: FormulaMetadata,
     /// The original, unmodified formula.
     pub formula: String,
-    /// Optional offset expression. Simple column names are materialized by the matrix builder.
-    pub offset: Option<String>,
+    /// Optional offset expression. A plain column or a unary transform such as `log(w)`.
+    pub offset: Option<NumericExpr>,
 }
 
 /// Roles and random-effect mappings for one dataframe or generated column.
@@ -31,6 +33,8 @@ pub struct ColumnInfo {
     /// Compact typed roles used by the design-matrix builder.
     pub roles: ColumnRoles,
     generated: bool,
+    /// Evaluated expression when this generated column is not a raw DataFrame column.
+    pub expr: Option<NumericExpr>,
 }
 
 impl ColumnInfo {
@@ -99,6 +103,159 @@ pub struct FormulaMetadata {
     pub response_variable_count: usize,
 }
 
+/// A numeric expression materialized from a formula term (`log(x)`, `I(x^2)`, …).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NumericExpr {
+    /// A DataFrame column.
+    Column(String),
+    /// An integer literal from `I()` arithmetic.
+    Literal(i64),
+    /// `log`, `sqrt`, `exp`, or unary minus.
+    Unary {
+        /// Transform applied to [`arg`](Self::Unary::arg).
+        op: UnaryOp,
+        /// Inner expression.
+        arg: Box<NumericExpr>,
+    },
+    /// `+`, `-`, `*`, `/`, or `^` inside `I()`.
+    Binary {
+        /// Operator.
+        op: BinaryOp,
+        /// Left operand.
+        left: Box<NumericExpr>,
+        /// Right operand.
+        right: Box<NumericExpr>,
+    },
+}
+
+/// Unary numeric transform.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnaryOp {
+    /// Natural logarithm.
+    Log,
+    /// Square root.
+    Sqrt,
+    /// Exponential.
+    Exp,
+    /// Arithmetic negation.
+    Neg,
+}
+
+/// Binary arithmetic operator inside `I()`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BinaryOp {
+    /// Addition.
+    Add,
+    /// Subtraction.
+    Sub,
+    /// Multiplication.
+    Mul,
+    /// Division.
+    Div,
+    /// Exponentiation.
+    Pow,
+}
+
+impl UnaryOp {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Log => "log",
+            Self::Sqrt => "sqrt",
+            Self::Exp => "exp",
+            Self::Neg => "-",
+        }
+    }
+}
+
+impl NumericExpr {
+    /// Plain column name when this expression is a single DataFrame column.
+    #[must_use]
+    pub fn as_column_name(&self) -> Option<&str> {
+        match self {
+            Self::Column(name) => Some(name.as_str()),
+            _ => None,
+        }
+    }
+
+    /// Printable formula label (`log(x)`, `I(x^2)`, …).
+    #[must_use]
+    pub fn label(&self) -> String {
+        self.fmt_prec(0)
+    }
+
+    fn fmt_prec(&self, parent_prec: u8) -> String {
+        match self {
+            Self::Column(name) => name.clone(),
+            Self::Literal(value) => value.to_string(),
+            Self::Unary {
+                op: UnaryOp::Neg,
+                arg,
+            } => {
+                let inner = arg.fmt_prec(3);
+                wrap_prec(format!("-{inner}"), 3, parent_prec)
+            }
+            Self::Unary { op, arg } => format!("{}({})", op.name(), arg.fmt_prec(0)),
+            Self::Binary { op, left, right } => {
+                let prec = binary_prec(*op);
+                let text = format!(
+                    "{}{}{}",
+                    left.fmt_prec(prec),
+                    binary_symbol(*op),
+                    right.fmt_prec(if *op == BinaryOp::Pow { prec } else { prec + 1 })
+                );
+                wrap_prec(text, prec, parent_prec)
+            }
+        }
+    }
+
+    /// Visit every DataFrame column referenced by this expression.
+    pub fn for_each_column(&self, visit: &mut impl FnMut(&str)) {
+        match self {
+            Self::Column(name) => visit(name),
+            Self::Literal(_) => {}
+            Self::Unary { arg, .. } => arg.for_each_column(visit),
+            Self::Binary { left, right, .. } => {
+                left.for_each_column(visit);
+                right.for_each_column(visit);
+            }
+        }
+    }
+}
+
+impl FormulaModel {
+    /// Offset column name when the offset is a plain DataFrame column.
+    #[must_use]
+    pub fn offset_column(&self) -> Option<&str> {
+        self.offset.as_ref().and_then(NumericExpr::as_column_name)
+    }
+}
+
+fn binary_prec(op: BinaryOp) -> u8 {
+    match op {
+        BinaryOp::Add | BinaryOp::Sub => 1,
+        BinaryOp::Mul | BinaryOp::Div => 2,
+        BinaryOp::Pow => 4,
+    }
+}
+
+fn binary_symbol(op: BinaryOp) -> &'static str {
+    match op {
+        BinaryOp::Add => " + ",
+        BinaryOp::Sub => " - ",
+        BinaryOp::Mul => "*",
+        BinaryOp::Div => "/",
+        BinaryOp::Pow => "^",
+    }
+}
+
+fn wrap_prec(text: String, prec: u8, parent_prec: u8) -> String {
+    if prec < parent_prec {
+        format!("({text})")
+    } else {
+        text
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Token<'a> {
     Ident(&'a str),
@@ -107,6 +264,7 @@ enum Token<'a> {
     Plus,
     Minus,
     Star,
+    Caret,
     Colon,
     Slash,
     Pipe,
@@ -240,6 +398,7 @@ fn lex(formula: &str) -> crate::Result<Lexed<'_>> {
             b'+' => Token::Plus,
             b'-' => Token::Minus,
             b'*' => Token::Star,
+            b'^' => Token::Caret,
             b':' => Token::Colon,
             b'/' => Token::Slash,
             b'(' => Token::LParen,
@@ -404,22 +563,220 @@ fn outer_parentheses_are_balanced(tokens: &[Token<'_>]) -> bool {
 }
 
 fn parse_function(name: &str, args: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
-    match (name, args) {
-        ("offset", []) => Err(parse_error("offset() requires an expression")),
-        ("offset", [Token::Ident(source)]) => {
-            if model.offset.is_some() {
-                return Err(parse_error("only one offset() term is supported"));
-            }
-            model.offset = Some((*source).to_string());
-            Ok(())
-        }
-        ("offset", _) => Err(parse_error(
-            "offset() currently requires one plain column name",
-        )),
+    match name {
+        "offset" => parse_offset(args, model),
+        "log" => add_unary_transform(UnaryOp::Log, args, model),
+        "sqrt" => add_unary_transform(UnaryOp::Sqrt, args, model),
+        "exp" => add_unary_transform(UnaryOp::Exp, args, model),
+        "I" => add_identity_term(args, model),
         _ => Err(parse_error(format!(
             "unsupported formula function '{}()'",
             name
         ))),
+    }
+}
+
+fn parse_offset(args: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
+    if model.offset.is_some() {
+        return Err(parse_error("only one offset() term is supported"));
+    }
+    let expr = match args {
+        [] => return Err(parse_error("offset() requires an expression")),
+        [Token::Ident(source)] => NumericExpr::Column((*source).to_string()),
+        _ => match function_call(args) {
+            Some((func, inner)) => unary_column_transform(func, inner)?,
+            None => {
+                return Err(parse_error(
+                    "offset() requires a column name or a unary transform of one column",
+                ))
+            }
+        },
+    };
+    expr.for_each_column(&mut |column| {
+        ensure_column(model, column);
+    });
+    model.offset = Some(expr);
+    Ok(())
+}
+
+fn add_unary_transform(
+    op: UnaryOp,
+    args: &[Token<'_>],
+    model: &mut FormulaModel,
+) -> crate::Result<()> {
+    let expr = unary_column_transform(op.name(), args)?;
+    add_generated_expr(model, expr, ColumnRole::FixedEffect)
+}
+
+fn unary_column_transform(name: &str, args: &[Token<'_>]) -> crate::Result<NumericExpr> {
+    let op = match name {
+        "log" => UnaryOp::Log,
+        "sqrt" => UnaryOp::Sqrt,
+        "exp" => UnaryOp::Exp,
+        _ => {
+            return Err(parse_error(format!(
+                "offset() does not support '{name}()' transforms"
+            )))
+        }
+    };
+    match args {
+        [Token::Ident(source)] => Ok(NumericExpr::Unary {
+            op,
+            arg: Box::new(NumericExpr::Column((*source).to_string())),
+        }),
+        _ => Err(parse_error(format!(
+            "{name}() currently requires one plain column name"
+        ))),
+    }
+}
+
+fn add_identity_term(args: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
+    if args.is_empty() {
+        return Err(parse_error("I() requires an arithmetic expression"));
+    }
+    let inner = parse_numeric_expr(args)?;
+    if matches!(&inner, NumericExpr::Column(_)) {
+        return Err(parse_error(
+            "I() requires arithmetic; use the column name directly",
+        ));
+    }
+    add_i_expr(model, inner)
+}
+
+fn add_i_expr(model: &mut FormulaModel, inner: NumericExpr) -> crate::Result<()> {
+    inner.for_each_column(&mut |column| {
+        ensure_column(model, column);
+    });
+    let name = format!("I({})", inner.label());
+    add_role(model, &name, ColumnRole::FixedEffect, true);
+    model
+        .columns
+        .get_mut(&name)
+        .expect("generated column was inserted")
+        .expr = Some(inner);
+    Ok(())
+}
+
+fn add_generated_expr(
+    model: &mut FormulaModel,
+    expr: NumericExpr,
+    role: ColumnRole,
+) -> crate::Result<()> {
+    expr.for_each_column(&mut |column| {
+        ensure_column(model, column);
+    });
+    let name = expr.label();
+    add_role(model, &name, role, true);
+    model
+        .columns
+        .get_mut(&name)
+        .expect("generated column was inserted")
+        .expr = Some(expr);
+    Ok(())
+}
+
+fn parse_numeric_expr(tokens: &[Token<'_>]) -> crate::Result<NumericExpr> {
+    let (expr, end) = parse_sum(tokens, 0)?;
+    if end != tokens.len() {
+        return Err(parse_error("malformed I() arithmetic expression"));
+    }
+    Ok(expr)
+}
+
+fn parse_sum(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
+    let (mut expr, mut i) = parse_product(tokens, start)?;
+    while i < tokens.len() {
+        let op = match tokens[i] {
+            Token::Plus => BinaryOp::Add,
+            Token::Minus => BinaryOp::Sub,
+            _ => break,
+        };
+        let (right, next) = parse_product(tokens, i + 1)?;
+        expr = NumericExpr::Binary {
+            op,
+            left: Box::new(expr),
+            right: Box::new(right),
+        };
+        i = next;
+    }
+    Ok((expr, i))
+}
+
+fn parse_product(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
+    let (mut expr, mut i) = parse_power(tokens, start)?;
+    while i < tokens.len() {
+        let op = match tokens[i] {
+            Token::Star => BinaryOp::Mul,
+            Token::Slash => BinaryOp::Div,
+            _ => break,
+        };
+        let (right, next) = parse_power(tokens, i + 1)?;
+        expr = NumericExpr::Binary {
+            op,
+            left: Box::new(expr),
+            right: Box::new(right),
+        };
+        i = next;
+    }
+    Ok((expr, i))
+}
+
+fn parse_power(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
+    let (left, i) = parse_unary(tokens, start)?;
+    if i < tokens.len() && matches!(tokens[i], Token::Caret) {
+        let (right, next) = parse_power(tokens, i + 1)?;
+        return Ok((
+            NumericExpr::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            next,
+        ));
+    }
+    Ok((left, i))
+}
+
+fn parse_unary(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
+    if start >= tokens.len() {
+        return Err(parse_error("I() arithmetic expression is incomplete"));
+    }
+    if matches!(tokens[start], Token::Minus) {
+        let (arg, next) = parse_unary(tokens, start + 1)?;
+        return Ok((
+            NumericExpr::Unary {
+                op: UnaryOp::Neg,
+                arg: Box::new(arg),
+            },
+            next,
+        ));
+    }
+    parse_primary(tokens, start)
+}
+
+fn parse_primary(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
+    match tokens.get(start) {
+        Some(Token::Ident(name)) => {
+            if tokens.get(start + 1) == Some(&Token::LParen) {
+                return Err(parse_error(
+                    "I() does not support nested function calls; use log()/sqrt()/exp() terms",
+                ));
+            }
+            Ok((NumericExpr::Column((*name).to_string()), start + 1))
+        }
+        Some(Token::Number(value)) => {
+            let literal = i64::try_from(*value)
+                .map_err(|_| parse_error("numeric literal in I() is too large"))?;
+            Ok((NumericExpr::Literal(literal), start + 1))
+        }
+        Some(Token::LParen) => {
+            let (expr, next) = parse_sum(tokens, start + 1)?;
+            if tokens.get(next) != Some(&Token::RParen) {
+                return Err(parse_error("unclosed '(' in I()"));
+            }
+            Ok((expr, next + 1))
+        }
+        _ => Err(parse_error("malformed I() arithmetic expression")),
     }
 }
 
@@ -440,6 +797,17 @@ fn parse_interaction(
             add_role(
                 model,
                 &format!("{}_{}", left, right),
+                ColumnRole::Interaction,
+                true,
+            );
+            Ok(())
+        }
+        [Token::Ident(left), Token::Colon, Token::Ident(right)] => {
+            ensure_column(model, left);
+            ensure_column(model, right);
+            add_role(
+                model,
+                &format!("{}:{}", left, right),
                 ColumnRole::Interaction,
                 true,
             );
@@ -599,6 +967,10 @@ fn add_role(model: &mut FormulaModel, name: &str, role: ColumnRole, generated: b
     }
 }
 
+fn ensure_column(model: &mut FormulaModel, name: &str) {
+    model.columns.entry(name.to_string()).or_default();
+}
+
 fn parse_error(message: impl Into<String>) -> crate::LmeError {
     crate::LmeError::NotImplemented {
         feature: format!("Formula parsing error: {}", message.into()),
@@ -639,9 +1011,41 @@ mod tests {
     #[test]
     fn parses_crossed_groups_and_offset() {
         let ast = parse("y ~ x + offset(log_exposure) + (1 | A) + (1 | B)").unwrap();
-        assert_eq!(ast.offset.as_deref(), Some("log_exposure"));
+        assert_eq!(
+            ast.offset.as_ref().and_then(NumericExpr::as_column_name),
+            Some("log_exposure")
+        );
         assert!(ast.columns.contains_key("A"));
         assert!(ast.columns.contains_key("B"));
+    }
+
+    #[test]
+    fn parses_colon_interaction_without_mains() {
+        let ast = parse("y ~ a:b + (1 | g)").unwrap();
+        assert!(ast.columns["a:b"].has_role(ColumnRole::Interaction));
+        assert!(!ast.columns["a"].has_role(ColumnRole::FixedEffect));
+        assert!(!ast.columns["b"].has_role(ColumnRole::FixedEffect));
+    }
+
+    #[test]
+    fn parses_log_and_identity_terms() {
+        let ast = parse("y ~ log(x) + I(x^2) + (1 | g)").unwrap();
+        assert!(ast.columns["log(x)"].expr.is_some());
+        assert!(ast.columns["I(x^2)"].expr.is_some());
+        assert!(ast.columns.contains_key("x"));
+    }
+
+    #[test]
+    fn parses_transformed_offset() {
+        let ast = parse("y ~ x + offset(log(w)) + (1 | g)").unwrap();
+        assert!(matches!(
+            ast.offset,
+            Some(NumericExpr::Unary {
+                op: UnaryOp::Log,
+                ..
+            })
+        ));
+        assert!(ast.columns.contains_key("w"));
     }
 
     #[test]

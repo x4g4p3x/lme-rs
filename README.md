@@ -18,7 +18,7 @@
 - `boot_lmer()` / `boot_glmer()` for parametric (and LMM residual) bootstrap refits with percentile CIs (see [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer))
 - `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / `SSpower` / `SSfpl` / `SSbiexp` / `SSweibull` / `SSasympOff` / `SSasympOrig`; optional population and group-level bounds; optional scalar AGQ; `nlmer_with_mean` for custom μ; scalar or multivariate RE)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models (Laplace or scalar AGQ via `n_agq`)
-- Wilkinson formulas with nested and crossed random effects
+- Wilkinson formulas with nested and crossed random effects, two-way `*` / `:` interactions, `log`/`sqrt`/`exp`, `I()` arithmetic, and transformed `offset()` terms
 - Population-level and conditional prediction APIs
 - Wald and **profile-likelihood** confidence intervals (`parms=` subset), parametric simulation, bootstrap refits, robust standard errors, Satterthwaite / Kenward–Roger dfs
 - Likelihood ratio tests between nested models and Type I / II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)

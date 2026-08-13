@@ -19,7 +19,7 @@ fn grouseticks_poisson_offset_matches_r_reference() {
         .unwrap();
 
     let ast = formula::parse(FORMULA).unwrap();
-    assert_eq!(ast.offset.as_deref(), Some("log_height"));
+    assert_eq!(ast.offset_column(), Some("log_height"));
     let mats = model_matrix::build_design_matrices(&ast, &df).unwrap();
     let offset = mats.offset.as_ref().expect("offset vector");
     let mean_off = offset.mean().unwrap();
@@ -27,6 +27,16 @@ fn grouseticks_poisson_offset_matches_r_reference() {
         mean_off > 5.0 && mean_off < 7.0,
         "mean log_height={mean_off}"
     );
+
+    let via_transform =
+        formula::parse("TICKS ~ YEAR96 + YEAR97 + offset(log(HEIGHT)) + (1 | BROOD)").unwrap();
+    let via_transform_mats = model_matrix::build_design_matrices(&via_transform, &df).unwrap();
+    let log_height = mats.offset.as_ref().unwrap();
+    let log_height_expr = via_transform_mats.offset.as_ref().unwrap();
+    assert_eq!(log_height.len(), log_height_expr.len());
+    for (left, right) in log_height.iter().zip(log_height_expr.iter()) {
+        assert!((left - right).abs() < 1e-10);
+    }
 
     let fit = glmer(FORMULA, &df, Family::Poisson, 1).unwrap();
 

@@ -211,8 +211,11 @@ fn wilkinson_star_expansion_parses() {
 }
 
 #[test]
-fn bare_colon_interaction_is_rejected_until_it_can_be_materialized() {
-    assert_parse_err("y ~ a:b + (1 | g)");
+fn bare_colon_interaction_parses_without_mains() {
+    let ast = assert_parse_ok("y ~ a:b + (1 | g)");
+    assert!(ast.columns["a:b"].has_role(ColumnRole::Interaction));
+    assert!(!ast.columns["a"].has_role(ColumnRole::FixedEffect));
+    assert!(!ast.columns["b"].has_role(ColumnRole::FixedEffect));
 }
 
 #[test]
@@ -232,12 +235,14 @@ fn ascii_identifiers_with_underscore_parse() {
 #[test]
 fn offset_extracted_and_rhs_still_parseable() {
     let ast = assert_parse_ok("y ~ x + offset(off) + (1 | g)");
-    assert_eq!(ast.offset.as_deref(), Some("off"));
+    assert_eq!(ast.offset_column(), Some("off"));
 }
 
 #[test]
-fn transformed_offset_is_rejected_until_it_can_be_materialized() {
-    assert_parse_err("y ~ offset(log(w)) + x + (1 | g)");
+fn transformed_offset_parses() {
+    let ast = assert_parse_ok("y ~ offset(log(w)) + x + (1 | g)");
+    assert!(ast.offset_column().is_none());
+    assert!(ast.offset.is_some());
 }
 
 #[test]
@@ -249,14 +254,13 @@ fn offset_does_not_clean_double_plus_before_tokenize() {
 fn unsupported_or_non_wilkinson_syntax_rejected() {
     assert_parse_err("y ~ ."); // dot expansion
     assert_parse_err("cbind(y1, y2) ~ x"); // multivariate
-    assert_parse_err("y ~ I(x^2)"); // inline I()
     assert_parse_err("y ~ ns(x, df = 3)"); // splines
+    assert_parse_err("y ~ x^2"); // Wilkinson power; use I(x^2)
 }
 
 #[test]
-fn transformations_without_matrix_semantics_are_rejected() {
+fn poly_is_still_rejected() {
     assert_parse_err("y ~ poly(x, 2) + (1 | g)");
-    assert_parse_err("y ~ log(x) + (1 | g)");
 }
 
 #[test]
@@ -455,6 +459,120 @@ fn numeric_star_interaction_materializes_expected_product() {
     assert_eq!(matrices.x.shape(), &[2, 4]);
     assert_eq!(matrices.x.row(0).to_vec(), [1.0, 2.0, 5.0, 10.0]);
     assert_eq!(matrices.x.row(1).to_vec(), [1.0, 3.0, 7.0, 21.0]);
+}
+
+#[test]
+fn numeric_colon_interaction_materializes_product_only() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0]).into(),
+        Series::new("a".into(), [2.0, 3.0]).into(),
+        Series::new("b".into(), [5.0, 7.0]).into(),
+    ])
+    .unwrap();
+    let matrices = build_design_matrices(&assert_parse_ok("y ~ a:b"), &df).unwrap();
+    assert_eq!(matrices.x.shape(), &[2, 2]);
+    assert_eq!(matrices.fixed_names, ["(Intercept)", "a:b"]);
+    assert_eq!(matrices.x.row(0).to_vec(), [1.0, 10.0]);
+    assert_eq!(matrices.x.row(1).to_vec(), [1.0, 21.0]);
+}
+
+#[test]
+fn log_sqrt_exp_and_identity_materialize() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0]).into(),
+        Series::new("x".into(), [4.0, 9.0]).into(),
+        Series::new("z".into(), [1.0, 2.0]).into(),
+    ])
+    .unwrap();
+    let matrices = build_design_matrices(
+        &assert_parse_ok("y ~ log(x) + sqrt(x) + exp(z) + I(x^2 + z)"),
+        &df,
+    )
+    .unwrap();
+    assert_eq!(
+        matrices.fixed_names,
+        ["(Intercept)", "log(x)", "sqrt(x)", "exp(z)", "I(x^2 + z)"]
+    );
+    let row0 = matrices.x.row(0);
+    assert!((row0[1] - 4.0_f64.ln()).abs() < 1e-12);
+    assert!((row0[2] - 2.0).abs() < 1e-12);
+    assert!((row0[3] - 1.0_f64.exp()).abs() < 1e-12);
+    assert!((row0[4] - 17.0).abs() < 1e-12);
+}
+
+#[test]
+fn offset_log_matches_precomputed_column() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0]).into(),
+        Series::new("x".into(), [1.0, 1.0]).into(),
+        Series::new(
+            "w".into(),
+            [std::f64::consts::E, std::f64::consts::E.powi(2)],
+        )
+        .into(),
+        Series::new("g".into(), ["a", "b"]).into(),
+    ])
+    .unwrap();
+    let matrices =
+        build_design_matrices(&assert_parse_ok("y ~ x + offset(log(w)) + (1 | g)"), &df).unwrap();
+    let offset = matrices.offset.expect("offset");
+    assert!((offset[0] - 1.0).abs() < 1e-12);
+    assert!((offset[1] - 2.0).abs() < 1e-12);
+}
+
+#[test]
+fn categorical_colon_drops_reference_cell_with_intercept() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0, 3.0, 4.0]).into(),
+        Series::new("a".into(), ["A", "A", "B", "B"]).into(),
+        Series::new("b".into(), ["X", "Y", "X", "Y"]).into(),
+    ])
+    .unwrap();
+    let with_intercept = build_design_matrices(&assert_parse_ok("y ~ a:b"), &df).unwrap();
+    assert_eq!(with_intercept.x.nrows(), 4);
+    assert_eq!(with_intercept.x.ncols(), 4); // intercept + 3 cells
+    assert_eq!(with_intercept.x.row(0).to_vec(), [1.0, 0.0, 0.0, 0.0]);
+    assert_eq!(with_intercept.x.row(1).to_vec(), [1.0, 1.0, 0.0, 0.0]);
+    assert_eq!(with_intercept.x.row(2).to_vec(), [1.0, 0.0, 1.0, 0.0]);
+    assert_eq!(with_intercept.x.row(3).to_vec(), [1.0, 0.0, 0.0, 1.0]);
+
+    let no_intercept = build_design_matrices(&assert_parse_ok("y ~ 0 + a:b"), &df).unwrap();
+    assert_eq!(no_intercept.x.ncols(), 4); // all cells
+    assert_eq!(no_intercept.x.row(0).to_vec(), [1.0, 0.0, 0.0, 0.0]);
+    assert_eq!(no_intercept.x.row(1).to_vec(), [0.0, 1.0, 0.0, 0.0]);
+}
+
+#[test]
+fn numeric_by_factor_colon_uses_all_levels() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0, 3.0, 4.0]).into(),
+        Series::new("x".into(), [1.0, 2.0, 3.0, 4.0]).into(),
+        Series::new("f".into(), ["U", "U", "V", "V"]).into(),
+        Series::new("g".into(), ["a", "a", "b", "b"]).into(),
+    ])
+    .unwrap();
+    let matrices = build_design_matrices(&assert_parse_ok("y ~ x:f"), &df).unwrap();
+    assert_eq!(matrices.fixed_names, ["(Intercept)", "x:fU", "x:fV"]);
+    assert_eq!(matrices.x.row(0).to_vec(), [1.0, 1.0, 0.0]);
+    assert_eq!(matrices.x.row(2).to_vec(), [1.0, 0.0, 3.0]);
+}
+
+#[test]
+fn lmer_fits_log_and_colon_formulas() {
+    let df = DataFrame::new(vec![
+        Series::new("y".into(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),
+        Series::new("x".into(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),
+        Series::new("a".into(), ["A", "A", "B", "B", "A", "A", "B", "B"]).into(),
+        Series::new("b".into(), ["X", "Y", "X", "Y", "X", "Y", "X", "Y"]).into(),
+        Series::new("g".into(), ["g1", "g1", "g1", "g1", "g2", "g2", "g2", "g2"]).into(),
+    ])
+    .unwrap();
+    let log_fit = lme_rs::lmer("y ~ log(x) + (1 | g)", &df, true).unwrap();
+    assert_eq!(log_fit.coefficients.len(), 2);
+    assert_eq!(log_fit.predict(&df).unwrap().len(), 8);
+    let colon_fit = lme_rs::lmer("y ~ a:b + (1 | g)", &df, true).unwrap();
+    assert_eq!(colon_fit.coefficients.len(), 4);
+    assert_eq!(colon_fit.predict(&df).unwrap().len(), 8);
 }
 
 #[test]

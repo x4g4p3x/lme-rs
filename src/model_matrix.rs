@@ -1,4 +1,4 @@
-use crate::formula::{ColumnRole, FormulaModel};
+use crate::formula::{BinaryOp, ColumnRole, FormulaModel, NumericExpr, UnaryOp};
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use std::collections::HashMap;
@@ -94,32 +94,8 @@ pub fn build_design_matrices(
         build_x_matrix(ast, data, &response_name, n_obs, None)?;
 
     // 2. Extract Offset (if any)
-    let offset = if let Some(off_name) = &ast.offset {
-        let off_series = data
-            .column(off_name)
-            .map_err(|e| crate::LmeError::NotImplemented {
-                feature: format!("Data missing offset column '{}': {}", off_name, e),
-            })?
-            .cast(&DataType::Float64)
-            .map_err(|e| crate::LmeError::NotImplemented {
-                feature: format!("Offset must be castable to float: {}", e),
-            })?;
-        if off_series.null_count() > 0 {
-            return Err(crate::LmeError::NotImplemented {
-                feature: format!(
-                    "Offset column '{}' contains nulls or invalid floats",
-                    off_name
-                ),
-            });
-        }
-        let off_vec: Vec<f64> = off_series
-            .f64()
-            .map_err(|_| crate::LmeError::NotImplemented {
-                feature: "Offset must be float".to_string(),
-            })?
-            .into_no_null_iter()
-            .collect();
-        Some(Array1::from_vec(off_vec))
+    let offset = if let Some(off_expr) = &ast.offset {
+        Some(eval_numeric_expr(off_expr, data, n_obs)?)
     } else {
         None
     };
@@ -483,7 +459,7 @@ fn try_build_simple_x_matrix(
         if !is_fixed_effect_column(info, col_name, response_name) {
             continue;
         }
-        if info.has_role(ColumnRole::Interaction) {
+        if info.has_role(ColumnRole::Interaction) || info.expr.is_some() {
             return Ok(None);
         }
         let s = match data.column(col_name) {
@@ -576,6 +552,212 @@ fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<
         })?
     };
     Ok(Array1::from_vec(s.into_no_null_iter().collect()))
+}
+
+struct EncodedTerm {
+    cols: Vec<Array1<f64>>,
+    suffixes: Vec<String>,
+    levels: Option<Vec<String>>,
+}
+
+fn encode_column(
+    data: &DataFrame,
+    col_name: &str,
+    n_obs: usize,
+    drop_first: bool,
+    training_levels: Option<&HashMap<String, Vec<String>>>,
+) -> crate::Result<EncodedTerm> {
+    let s = data
+        .column(col_name)
+        .map_err(|_| crate::LmeError::NotImplemented {
+            feature: format!("Missing or invalid column: {}", col_name),
+        })?;
+
+    if is_categorical_series(s.dtype()) {
+        let unique_vals = if let Some(tr_levels) = training_levels {
+            tr_levels.get(col_name).cloned().unwrap_or_default()
+        } else {
+            let unique_series = s.unique().map_err(|e| crate::LmeError::NotImplemented {
+                feature: format!("Failed to compute unique values for {}: {}", col_name, e),
+            })?;
+            let unique_cast = unique_series.cast(&DataType::String).map_err(|e| {
+                crate::LmeError::NotImplemented {
+                    feature: format!("Cannot cast unique values of {} to string: {}", col_name, e),
+                }
+            })?;
+            let unique_str = unique_cast.str().unwrap();
+            let mut vals: Vec<String> = unique_str
+                .into_iter()
+                .flatten()
+                .map(|x| x.to_string())
+                .collect();
+            vals.sort();
+            vals
+        };
+
+        let start_idx = if drop_first && unique_vals.len() > 1 {
+            1
+        } else {
+            0
+        };
+        let full_str_col =
+            s.cast(&DataType::String)
+                .map_err(|e| crate::LmeError::NotImplemented {
+                    feature: format!("Cannot cast {} to string: {}", col_name, e),
+                })?;
+        let str_data: Vec<&str> = full_str_col
+            .str()
+            .unwrap()
+            .into_iter()
+            .map(|o| o.unwrap_or(""))
+            .collect();
+
+        let mut level_index = std::collections::HashMap::with_capacity(unique_vals.len());
+        for (li, val) in unique_vals.iter().enumerate() {
+            level_index.insert(val.as_str(), li);
+        }
+        let mut level_id = vec![usize::MAX; n_obs];
+        for (i, &obs) in str_data.iter().enumerate() {
+            if let Some(&li) = level_index.get(obs) {
+                level_id[i] = li;
+            }
+        }
+
+        let mut cols = Vec::new();
+        let mut suffixes = Vec::new();
+        for (dummy_j, val) in unique_vals.iter().skip(start_idx).enumerate() {
+            let lvl = start_idx + dummy_j;
+            let mut col_data = ndarray::Array1::<f64>::zeros(n_obs);
+            for i in 0..n_obs {
+                if level_id[i] == lvl {
+                    col_data[i] = 1.0;
+                }
+            }
+            cols.push(col_data);
+            suffixes.push(val.clone());
+        }
+        Ok(EncodedTerm {
+            cols,
+            suffixes,
+            levels: Some(unique_vals),
+        })
+    } else {
+        let col = numeric_column_f64(data, col_name)?;
+        Ok(EncodedTerm {
+            cols: vec![col],
+            suffixes: vec![String::new()],
+            levels: None,
+        })
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encode_interaction_factor(
+    data: &DataFrame,
+    col_name: &str,
+    n_obs: usize,
+    has_main: bool,
+    partner_has_main: bool,
+    has_intercept: bool,
+    training_levels: Option<&HashMap<String, Vec<String>>>,
+    extracted_levels: &mut HashMap<String, Vec<String>>,
+) -> crate::Result<EncodedTerm> {
+    let drop_first = if has_main {
+        false
+    } else {
+        partner_has_main && has_intercept
+    };
+    let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels)?;
+    if let Some(levels) = encoded.levels.clone() {
+        extracted_levels
+            .entry(col_name.to_string())
+            .or_insert(levels);
+    }
+    Ok(encoded)
+}
+
+fn interaction_colon_name(
+    left: &str,
+    left_suffix: &str,
+    right: &str,
+    right_suffix: &str,
+) -> String {
+    match (left_suffix.is_empty(), right_suffix.is_empty()) {
+        (true, true) => format!("{left}:{right}"),
+        (true, false) => format!("{left}:{right}{right_suffix}"),
+        (false, true) => format!("{left}{left_suffix}:{right}"),
+        (false, false) => format!("{left}{left_suffix}:{right}{right_suffix}"),
+    }
+}
+
+fn eval_numeric_expr(
+    expr: &NumericExpr,
+    data: &DataFrame,
+    n_obs: usize,
+) -> crate::Result<Array1<f64>> {
+    match expr {
+        NumericExpr::Column(name) => numeric_column_f64(data, name),
+        NumericExpr::Literal(value) => Ok(Array1::from_elem(n_obs, *value as f64)),
+        NumericExpr::Unary { op, arg } => {
+            let values = eval_numeric_expr(arg, data, n_obs)?;
+            match op {
+                UnaryOp::Log => {
+                    if values.iter().any(|&v| !(v > 0.0 && v.is_finite())) {
+                        return Err(crate::LmeError::NotImplemented {
+                            feature: "log() requires positive finite values".to_string(),
+                        });
+                    }
+                    Ok(values.mapv(f64::ln))
+                }
+                UnaryOp::Sqrt => {
+                    if values.iter().any(|&v| !(v >= 0.0 && v.is_finite())) {
+                        return Err(crate::LmeError::NotImplemented {
+                            feature: "sqrt() requires non-negative finite values".to_string(),
+                        });
+                    }
+                    Ok(values.mapv(f64::sqrt))
+                }
+                UnaryOp::Exp => {
+                    if values.iter().any(|v| !v.is_finite()) {
+                        return Err(crate::LmeError::NotImplemented {
+                            feature: "exp() requires finite values".to_string(),
+                        });
+                    }
+                    Ok(values.mapv(f64::exp))
+                }
+                UnaryOp::Neg => Ok(-values),
+            }
+        }
+        NumericExpr::Binary { op, left, right } => {
+            let left_vals = eval_numeric_expr(left, data, n_obs)?;
+            let right_vals = eval_numeric_expr(right, data, n_obs)?;
+            match op {
+                BinaryOp::Add => Ok(&left_vals + &right_vals),
+                BinaryOp::Sub => Ok(&left_vals - &right_vals),
+                BinaryOp::Mul => Ok(&left_vals * &right_vals),
+                BinaryOp::Div => {
+                    if right_vals.iter().any(|&v| v == 0.0) {
+                        return Err(crate::LmeError::NotImplemented {
+                            feature: "division by zero in I()".to_string(),
+                        });
+                    }
+                    Ok(&left_vals / &right_vals)
+                }
+                BinaryOp::Pow => {
+                    let mut out = Array1::zeros(n_obs);
+                    for i in 0..n_obs {
+                        out[i] = left_vals[i].powf(right_vals[i]);
+                        if !out[i].is_finite() {
+                            return Err(crate::LmeError::NotImplemented {
+                                feature: "non-finite value in I() exponentiation".to_string(),
+                            });
+                        }
+                    }
+                    Ok(out)
+                }
+            }
+        }
+    }
 }
 
 fn is_fixed_effect_column(
@@ -682,65 +864,129 @@ pub fn build_x_matrix(
                     feature: format!("Cannot resolve interaction factors for '{}'", col_name),
                 }
             })?;
-            let term_label = interaction_term_label(col_name, &factor_names);
-            let mut factor_dummy_cols: Vec<Vec<Array1<f64>>> = Vec::new();
-            for f in &factors {
-                let cols =
-                    term_col_arrays
-                        .get(f)
-                        .ok_or_else(|| crate::LmeError::NotImplemented {
-                            feature: format!(
-                            "Interaction '{}' requires main effect '{}' in the design matrix first",
-                            col_name, f
-                        ),
-                        })?;
-                factor_dummy_cols.push(cols.clone());
+            if factors.len() != 2 {
+                return Err(crate::LmeError::NotImplemented {
+                    feature: format!(
+                        "Interactions with {} factors are not supported yet",
+                        factors.len()
+                    ),
+                });
             }
-            let mut interaction_cols: Vec<Array1<f64>> = Vec::new();
-            if factor_dummy_cols.len() == 2 {
+            let term_label = interaction_term_label(col_name, &factor_names);
+            let left = &factors[0];
+            let right = &factors[1];
+            let left_main = term_col_arrays.contains_key(left);
+            let right_main = term_col_arrays.contains_key(right);
+
+            let (interaction_cols, dummy_names) = if left_main && right_main {
+                let factor_dummy_cols = [
+                    term_col_arrays.get(left).cloned().ok_or_else(|| {
+                        crate::LmeError::NotImplemented {
+                            feature: format!(
+                                "Interaction '{}' requires main effect '{}' in the design matrix first",
+                                col_name, left
+                            ),
+                        }
+                    })?,
+                    term_col_arrays.get(right).cloned().ok_or_else(|| {
+                        crate::LmeError::NotImplemented {
+                            feature: format!(
+                                "Interaction '{}' requires main effect '{}' in the design matrix first",
+                                col_name, right
+                            ),
+                        }
+                    })?,
+                ];
+                let mut interaction_cols: Vec<Array1<f64>> = Vec::new();
                 for a_col in &factor_dummy_cols[0] {
                     for b_col in &factor_dummy_cols[1] {
                         interaction_cols.push(a_col * b_col);
                     }
                 }
-            } else {
-                return Err(crate::LmeError::NotImplemented {
-                    feature: format!(
-                        "Interactions with {} factors are not supported yet",
-                        factor_dummy_cols.len()
-                    ),
-                });
-            }
-            let mut dummy_names: Vec<String> = Vec::new();
-            if factor_dummy_cols.len() == 2 && !factor_dummy_cols[0].is_empty() {
-                let a_prefix = &factors[0];
-                let b_prefix = &factors[1];
-                let a_levels = extracted_levels.get(a_prefix).cloned().unwrap_or_default();
-                let b_levels = extracted_levels.get(b_prefix).cloned().unwrap_or_default();
-                let a_start = if intercept_handled && a_levels.len() > 1 {
-                    1
-                } else {
-                    0
-                };
-                let b_start = if intercept_handled && b_levels.len() > 1 {
-                    1
-                } else {
-                    0
-                };
-                for (ai, _) in factor_dummy_cols[0].iter().enumerate() {
-                    for (bi, _) in factor_dummy_cols[1].iter().enumerate() {
-                        let av = a_levels.get(a_start + ai).map(|s| s.as_str()).unwrap_or("");
-                        let bv = b_levels.get(b_start + bi).map(|s| s.as_str()).unwrap_or("");
-                        dummy_names.push(format!("{}:{}", av, bv));
+                let mut dummy_names: Vec<String> = Vec::new();
+                if !factor_dummy_cols[0].is_empty() {
+                    let a_levels = extracted_levels.get(left).cloned().unwrap_or_default();
+                    let b_levels = extracted_levels.get(right).cloned().unwrap_or_default();
+                    let a_start = if intercept_handled && a_levels.len() > 1 {
+                        1
+                    } else {
+                        0
+                    };
+                    let b_start = if intercept_handled && b_levels.len() > 1 {
+                        1
+                    } else {
+                        0
+                    };
+                    for (ai, _) in factor_dummy_cols[0].iter().enumerate() {
+                        for (bi, _) in factor_dummy_cols[1].iter().enumerate() {
+                            let av = a_levels.get(a_start + ai).map(|s| s.as_str()).unwrap_or("");
+                            let bv = b_levels.get(b_start + bi).map(|s| s.as_str()).unwrap_or("");
+                            dummy_names.push(format!("{}:{}", av, bv));
+                        }
                     }
                 }
-            }
+                (interaction_cols, dummy_names)
+            } else {
+                let left_enc = encode_interaction_factor(
+                    data,
+                    left,
+                    n_obs,
+                    left_main,
+                    right_main,
+                    ast.metadata.has_intercept,
+                    training_levels,
+                    &mut extracted_levels,
+                )?;
+                let right_enc = encode_interaction_factor(
+                    data,
+                    right,
+                    n_obs,
+                    right_main,
+                    left_main,
+                    ast.metadata.has_intercept,
+                    training_levels,
+                    &mut extracted_levels,
+                )?;
+                let drop_reference = !left_main
+                    && !right_main
+                    && ast.metadata.has_intercept
+                    && left_enc.levels.is_some()
+                    && right_enc.levels.is_some();
+                let mut interaction_cols = Vec::new();
+                let mut dummy_names = Vec::new();
+                for (ai, a_col) in left_enc.cols.iter().enumerate() {
+                    for (bi, b_col) in right_enc.cols.iter().enumerate() {
+                        if drop_reference && ai == 0 && bi == 0 {
+                            continue;
+                        }
+                        interaction_cols.push(a_col * b_col);
+                        dummy_names.push(interaction_colon_name(
+                            left,
+                            &left_enc.suffixes[ai],
+                            right,
+                            &right_enc.suffixes[bi],
+                        ));
+                    }
+                }
+                (interaction_cols, dummy_names)
+            };
+
             let int_start = fixed_cols.len();
             for (k, col) in interaction_cols.into_iter().enumerate() {
-                let name = dummy_names
-                    .get(k)
-                    .map(|d| format!("{}{}", term_label, d))
-                    .unwrap_or_else(|| format!("{}{}_i{}", term_label, col_name, k));
+                let name = if left_main && right_main {
+                    dummy_names
+                        .get(k)
+                        .map(|d| format!("{}{}", term_label, d))
+                        .unwrap_or_else(|| format!("{}{}_i{}", term_label, col_name, k))
+                } else {
+                    dummy_names.get(k).cloned().unwrap_or_else(|| {
+                        if k == 0 {
+                            term_label.clone()
+                        } else {
+                            format!("{term_label}_{k}")
+                        }
+                    })
+                };
                 fixed_cols.push(col);
                 fixed_names.push(name);
                 fixed_term_assign.push(term_label.clone());
@@ -749,109 +995,35 @@ pub fn build_x_matrix(
             continue;
         }
 
-        let s = data
-            .column(col_name)
-            .map_err(|_| crate::LmeError::NotImplemented {
-                feature: format!("Missing or invalid column: {}", col_name),
-            })?;
-
-        let is_categorical = is_categorical_series(s.dtype());
-
-        if is_categorical {
-            let unique_vals = if let Some(tr_levels) = training_levels {
-                // If predicting, strictly use the training levels
-                tr_levels.get(col_name).cloned().unwrap_or_else(Vec::new)
-            } else {
-                let unique_series = s.unique().map_err(|e| crate::LmeError::NotImplemented {
-                    feature: format!("Failed to compute unique values for {}: {}", col_name, e),
-                })?;
-                let unique_cast = unique_series.cast(&DataType::String).map_err(|e| {
-                    crate::LmeError::NotImplemented {
-                        feature: format!(
-                            "Cannot cast unique values of {} to string: {}",
-                            col_name, e
-                        ),
-                    }
-                })?;
-                let unique_str = unique_cast.str().unwrap();
-
-                let mut vals: Vec<String> = unique_str
-                    .into_iter()
-                    .flatten()
-                    .map(|x| x.to_string())
-                    .collect();
-                vals.sort();
-                vals
-            };
-
-            // Store for returning if we are training
-            extracted_levels.insert(col_name.clone(), unique_vals.clone());
-
-            let drop_first = intercept_handled;
-            intercept_handled = true;
-
-            let start_idx = if drop_first && unique_vals.len() > 1 {
-                1
-            } else {
-                0
-            };
-
-            let full_str_col =
-                s.cast(&DataType::String)
-                    .map_err(|e| crate::LmeError::NotImplemented {
-                        feature: format!("Cannot cast {} to string: {}", col_name, e),
-                    })?;
-            let str_data: Vec<&str> = full_str_col
-                .str()
-                .unwrap()
-                .into_iter()
-                .map(|o| o.unwrap_or(""))
-                .collect();
-
-            let mut level_index = std::collections::HashMap::with_capacity(unique_vals.len());
-            for (li, val) in unique_vals.iter().enumerate() {
-                level_index.insert(val.as_str(), li);
-            }
-            let mut level_id = vec![usize::MAX; n_obs];
-            for (i, &obs) in str_data.iter().enumerate() {
-                if let Some(&li) = level_index.get(obs) {
-                    level_id[i] = li;
-                }
-            }
-
-            let mut term_cols: Vec<Array1<f64>> = Vec::new();
-            for (dummy_j, val) in unique_vals.iter().skip(start_idx).enumerate() {
-                let lvl = start_idx + dummy_j;
-                let mut col_data = ndarray::Array1::<f64>::zeros(n_obs);
-                for i in 0..n_obs {
-                    if level_id[i] == lvl {
-                        col_data[i] = 1.0;
-                    }
-                }
-                term_cols.push(col_data.clone());
-                fixed_cols.push(col_data);
-                fixed_names.push(format!("{}{}", col_name, val));
-                fixed_term_assign.push(col_name.clone());
-            }
-            if !term_cols.is_empty() {
-                term_col_arrays.insert(col_name.clone(), term_cols);
-            }
-        } else {
-            let s_cast =
-                s.cast(&DataType::Float64)
-                    .map_err(|_| crate::LmeError::NotImplemented {
-                        feature: format!("Missing or invalid column: {}", col_name),
-                    })?;
-            let s_f64 = s_cast.f64().map_err(|_| crate::LmeError::NotImplemented {
-                feature: format!("Missing or invalid column: {}", col_name),
-            })?;
-
-            let vec: Vec<f64> = s_f64.into_no_null_iter().collect();
-            let col = Array1::from_vec(vec);
+        if let Some(expr) = &info.expr {
+            let col = eval_numeric_expr(expr, data, n_obs)?;
+            let name = col_name.clone();
             fixed_cols.push(col.clone());
-            fixed_names.push(col_name.clone());
+            fixed_names.push(name.clone());
+            fixed_term_assign.push(name.clone());
+            term_col_arrays.insert(name, vec![col]);
+            continue;
+        }
+
+        let encoded = encode_column(data, col_name, n_obs, intercept_handled, training_levels)?;
+        if let Some(levels) = encoded.levels.clone() {
+            extracted_levels.insert(col_name.clone(), levels);
+            intercept_handled = true;
+        }
+        let mut term_cols: Vec<Array1<f64>> = Vec::new();
+        for (col, suffix) in encoded.cols.into_iter().zip(encoded.suffixes) {
+            let name = if suffix.is_empty() {
+                col_name.clone()
+            } else {
+                format!("{}{}", col_name, suffix)
+            };
+            term_cols.push(col.clone());
+            fixed_cols.push(col);
+            fixed_names.push(name);
             fixed_term_assign.push(col_name.clone());
-            term_col_arrays.insert(col_name.clone(), vec![col]);
+        }
+        if !term_cols.is_empty() {
+            term_col_arrays.insert(col_name.clone(), term_cols);
         }
     }
 
@@ -1099,6 +1271,9 @@ fn parse_fair_lmm_formula(formula: &str) -> Option<FairLmmFormula<'_>> {
         } else if term.contains('|')
             || term.contains(':')
             || term.contains('*')
+            || term.contains('(')
+            || term.contains('^')
+            || term.starts_with("offset")
             || fixed_x.is_some()
         {
             return None;

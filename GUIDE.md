@@ -74,6 +74,12 @@ The parser supports the standard R-style Wilkinson syntax used by `lme4` for the
 - `y ~ x + (x | group)`
 - `y ~ x + (1 | a) + (1 | b)`
 - `y ~ x + (1 | a/b)`
+- `y ~ a * b` (mains plus two-way interaction) and `y ~ a:b` (interaction without mains)
+- `y ~ log(x) + sqrt(x) + exp(z)` (natural log, square root, exponential of a numeric column)
+- `y ~ I(x^2)` / `y ~ I(x^2 + z)` (arithmetic in `I()`)
+- `y ~ x + offset(exposure)` or `offset(log(exposure))`
+
+Transforms apply to **fixed effects and offsets**. Random-slope terms still need a DataFrame column; precompute `log(x)` if you want it as a slope. `poly()`, `ns()`, and `y ~ .` remain unsupported.
 
 ### Practical advice
 

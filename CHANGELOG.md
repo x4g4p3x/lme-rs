@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Formula materialization for two-way colon interactions (`a:b`), unary column transforms (`log`, `sqrt`, `exp`), `I()` arithmetic, and `offset(log(x))`-style transformed offsets. These terms are now built into the design matrix instead of being rejected at parse time. `poly()`, `ns()`, and `y ~ .` remain unsupported.
+
+### Changed
+
+- [`FormulaModel::offset`](src/formula.rs) is now `Option<NumericExpr>` so transformed offsets can be represented. Plain column offsets still work; use [`FormulaModel::offset_column`](src/formula.rs) when you need the old string form.
+
 ## [0.2.1] - 2026-08-10
 
 ### Changed

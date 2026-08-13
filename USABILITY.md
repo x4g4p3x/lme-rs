@@ -116,7 +116,7 @@ Statuses are **practical**, not formal support tiers.
 | Expectation | Reality |
 |:------------|:--------|
 | Drop-in replacement for all of `lme4` + `lmerTest` + `car` + `nlme` | Intentionally partial API |
-| Arbitrary R formula edge cases | Wilkinson coverage is broad but not universal |
+| Arbitrary R formula edge cases | Wilkinson coverage is broad (`a:b`, `log`/`I()`, nested/crossed RE) but not universal (`poly()`, `ns()`, `y ~ .`) |
 | Full `stats::SS*` / general nonlinear mixed modeling | Eleven built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
 | Identical GLMM AIC/BIC / log-likelihood to R | Deviance omits data-dependent constants |
 | “Proven in production” without your own validation | 0.1.x; limited public field track record |

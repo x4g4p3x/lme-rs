@@ -16,11 +16,26 @@ const N_OBS: usize = 6;
 /// Collect names that may be read from `data` during matrix construction.
 fn referenced_column_names(ast: &FormulaModel) -> HashSet<String> {
     let mut out = HashSet::new();
-    if let Some(o) = ast.offset.as_ref() {
-        out.insert(o.clone());
+    if let Some(offset) = ast.offset.as_ref() {
+        offset.for_each_column(&mut |name| {
+            out.insert(name.to_string());
+        });
     }
     for (name, info) in &ast.columns {
-        out.insert(name.clone());
+        if let Some(expr) = &info.expr {
+            expr.for_each_column(&mut |column| {
+                out.insert(column.to_string());
+            });
+        } else if info.has_role(ColumnRole::Interaction) && name.contains(':') {
+            for part in name.split(':') {
+                let p = part.trim();
+                if !p.is_empty() {
+                    out.insert(p.to_string());
+                }
+            }
+        } else {
+            out.insert(name.clone());
+        }
         if info.has_role(ColumnRole::GroupingVariable) && name.contains(':') {
             for part in name.split(':') {
                 let p = part.trim();
