@@ -3,9 +3,10 @@
 //! The parser intentionally produces the compact, variable-centric model that the
 //! design-matrix builder consumes. It supports the formula surface exercised by
 //! lme-rs: ordered fixed effects, two-way `*` and colon `:` interactions, unary
-//! column transforms (`log`, `sqrt`, `exp`), `I()` arithmetic, random intercepts
-//! and slopes, crossed and nested grouping factors, `||`, and one `offset(...)`
-//! term (plain column or unary transform).
+//! column transforms (`log`, `sqrt`, `exp`), `I()` arithmetic, `poly()` / `ns()`,
+//! `y ~ .` expansion at matrix build, random intercepts and slopes, crossed and
+//! nested grouping factors, `||`, and one `offset(...)` term (plain column or
+//! unary transform).
 
 use ahash::AHashMap;
 use smallvec::SmallVec;
@@ -35,6 +36,71 @@ pub struct ColumnInfo {
     generated: bool,
     /// Evaluated expression when this generated column is not a raw DataFrame column.
     pub expr: Option<NumericExpr>,
+    /// Multi-column generated term (`poly`, `ns`, or `.` expansion).
+    pub basis: Option<BasisSpec>,
+}
+
+/// A generated multi-column fixed-effect basis.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BasisSpec {
+    /// Orthogonal or raw polynomial of a numeric column.
+    Poly {
+        /// Source DataFrame column.
+        source: String,
+        /// Polynomial degree (number of columns).
+        degree: usize,
+        /// When true, materialize \(x, x^2, \ldots\) instead of an orthogonal basis.
+        raw: bool,
+    },
+    /// Natural cubic spline of a numeric column.
+    Ns {
+        /// Source DataFrame column.
+        source: String,
+        /// Number of spline columns (`df` in R `splines::ns`).
+        df: usize,
+        /// When true, keep the intercept spline column.
+        intercept: bool,
+    },
+    /// Expand to remaining DataFrame columns at matrix-build time.
+    Dot,
+}
+
+impl BasisSpec {
+    /// Canonical generated-column label stored on [`FormulaModel`].
+    #[must_use]
+    pub fn label(&self) -> String {
+        match self {
+            Self::Poly {
+                source,
+                degree,
+                raw: false,
+            } => format!("poly({source}, {degree})"),
+            Self::Poly {
+                source,
+                degree,
+                raw: true,
+            } => format!("poly({source}, {degree}, raw = TRUE)"),
+            Self::Ns {
+                source,
+                df,
+                intercept: false,
+            } => format!("ns({source}, {df})"),
+            Self::Ns {
+                source,
+                df,
+                intercept: true,
+            } => format!("ns({source}, {df}, intercept = TRUE)"),
+            Self::Dot => ".".to_string(),
+        }
+    }
+
+    /// Source columns this basis reads from the DataFrame.
+    pub fn for_each_column(&self, visit: &mut impl FnMut(&str)) {
+        match self {
+            Self::Poly { source, .. } | Self::Ns { source, .. } => visit(source),
+            Self::Dot => {}
+        }
+    }
 }
 
 impl ColumnInfo {
@@ -272,6 +338,8 @@ enum Token<'a> {
     LParen,
     RParen,
     Comma,
+    Dot,
+    Eq,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -404,6 +472,8 @@ fn lex(formula: &str) -> crate::Result<Lexed<'_>> {
             b'(' => Token::LParen,
             b')' => Token::RParen,
             b',' => Token::Comma,
+            b'.' => Token::Dot,
+            b'=' => Token::Eq,
             b'|' if bytes.get(i + 1) == Some(&b'|') => {
                 i += 1;
                 Token::DoublePipe
@@ -510,6 +580,11 @@ fn parse_fixed_term(
             return Ok(());
         }
         [Token::Number(_)] => return Err(parse_error("only 0 and 1 are valid standalone terms")),
+        [Token::Dot] if sign == Sign::Add => {
+            add_basis_term(model, BasisSpec::Dot)?;
+            return Ok(());
+        }
+        [Token::Dot] => return Err(parse_error("subtracting '.' is not supported")),
         [Token::Ident(name)] if sign == Sign::Add => {
             add_role(model, name, ColumnRole::FixedEffect, true);
             return Ok(());
@@ -569,6 +644,8 @@ fn parse_function(name: &str, args: &[Token<'_>], model: &mut FormulaModel) -> c
         "sqrt" => add_unary_transform(UnaryOp::Sqrt, args, model),
         "exp" => add_unary_transform(UnaryOp::Exp, args, model),
         "I" => add_identity_term(args, model),
+        "poly" => add_poly_term(args, model),
+        "ns" => add_ns_term(args, model),
         _ => Err(parse_error(format!(
             "unsupported formula function '{}()'",
             name
@@ -673,6 +750,204 @@ fn add_generated_expr(
         .expect("generated column was inserted")
         .expr = Some(expr);
     Ok(())
+}
+
+fn add_basis_term(model: &mut FormulaModel, spec: BasisSpec) -> crate::Result<()> {
+    spec.for_each_column(&mut |column| {
+        ensure_column(model, column);
+    });
+    let name = spec.label();
+    add_role(model, &name, ColumnRole::FixedEffect, true);
+    model
+        .columns
+        .get_mut(&name)
+        .expect("generated column was inserted")
+        .basis = Some(spec);
+    Ok(())
+}
+
+fn split_top_level_args<'tokens, 'source>(
+    tokens: &'tokens [Token<'source>],
+) -> crate::Result<Vec<&'tokens [Token<'source>]>> {
+    if tokens.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut args = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    for (i, token) in tokens.iter().enumerate() {
+        match token {
+            Token::LParen => depth += 1,
+            Token::RParen => {
+                depth = depth
+                    .checked_sub(1)
+                    .ok_or_else(|| parse_error("unmatched ')' in function arguments"))?;
+            }
+            Token::Comma if depth == 0 => {
+                if start == i {
+                    return Err(parse_error("empty function argument"));
+                }
+                args.push(&tokens[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    if start >= tokens.len() {
+        return Err(parse_error("trailing comma in function arguments"));
+    }
+    args.push(&tokens[start..]);
+    Ok(args)
+}
+
+struct CallArg<'tokens, 'source> {
+    name: Option<&'source str>,
+    tokens: &'tokens [Token<'source>],
+}
+
+fn parse_call_args<'tokens, 'source>(
+    tokens: &'tokens [Token<'source>],
+) -> crate::Result<Vec<CallArg<'tokens, 'source>>> {
+    split_top_level_args(tokens)?
+        .into_iter()
+        .map(|arg| match arg {
+            [Token::Ident(name), Token::Eq, rest @ ..] => {
+                if rest.is_empty() {
+                    Err(parse_error(format!("'{name} =' is missing a value")))
+                } else {
+                    Ok(CallArg {
+                        name: Some(*name),
+                        tokens: rest,
+                    })
+                }
+            }
+            _ => Ok(CallArg {
+                name: None,
+                tokens: arg,
+            }),
+        })
+        .collect()
+}
+
+fn ident_arg(tokens: &[Token<'_>]) -> crate::Result<String> {
+    match tokens {
+        [Token::Ident(name)] => Ok((*name).to_string()),
+        _ => Err(parse_error("expected a plain column name")),
+    }
+}
+
+fn usize_arg(tokens: &[Token<'_>]) -> crate::Result<usize> {
+    match tokens {
+        [Token::Number(value)] => Ok(*value),
+        _ => Err(parse_error("expected a positive integer")),
+    }
+}
+
+fn bool_arg(tokens: &[Token<'_>]) -> crate::Result<bool> {
+    match tokens {
+        [Token::Ident("TRUE" | "T" | "true")] => Ok(true),
+        [Token::Ident("FALSE" | "F" | "false")] => Ok(false),
+        _ => Err(parse_error("expected TRUE or FALSE")),
+    }
+}
+
+fn add_poly_term(args: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
+    let parsed = parse_call_args(args)?;
+    if parsed.is_empty() {
+        return Err(parse_error("poly() requires a column and a degree"));
+    }
+    let mut source = None;
+    let mut degree = None;
+    let mut raw = false;
+    let mut positional = 0usize;
+    for arg in parsed {
+        match arg.name {
+            None => {
+                match positional {
+                    0 => source = Some(ident_arg(arg.tokens)?),
+                    1 => degree = Some(usize_arg(arg.tokens)?),
+                    _ => {
+                        return Err(parse_error(
+                            "poly() accepts column, degree, and optional raw = TRUE",
+                        ))
+                    }
+                }
+                positional += 1;
+            }
+            Some("degree") => degree = Some(usize_arg(arg.tokens)?),
+            Some("raw") => raw = bool_arg(arg.tokens)?,
+            Some(other) => {
+                return Err(parse_error(format!(
+                    "poly() does not support the '{other}' argument"
+                )))
+            }
+        }
+    }
+    let source = source.ok_or_else(|| parse_error("poly() requires a column name"))?;
+    let degree = degree.ok_or_else(|| parse_error("poly() requires a degree"))?;
+    if !(1..=32).contains(&degree) {
+        return Err(parse_error("poly() degree must be between 1 and 32"));
+    }
+    add_basis_term(
+        model,
+        BasisSpec::Poly {
+            source,
+            degree,
+            raw,
+        },
+    )
+}
+
+fn add_ns_term(args: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {
+    let parsed = parse_call_args(args)?;
+    if parsed.is_empty() {
+        return Err(parse_error("ns() requires a column and df"));
+    }
+    let mut source = None;
+    let mut df = None;
+    let mut intercept = false;
+    let mut positional = 0usize;
+    for arg in parsed {
+        match arg.name {
+            None => {
+                match positional {
+                    0 => source = Some(ident_arg(arg.tokens)?),
+                    1 => df = Some(usize_arg(arg.tokens)?),
+                    _ => {
+                        return Err(parse_error(
+                            "ns() accepts column, df, and optional intercept = TRUE",
+                        ))
+                    }
+                }
+                positional += 1;
+            }
+            Some("df") => df = Some(usize_arg(arg.tokens)?),
+            Some("intercept") => intercept = bool_arg(arg.tokens)?,
+            Some("knots") | Some("Boundary.knots") => {
+                return Err(parse_error(
+                    "ns() currently supports df-based knots; pass df rather than knots",
+                ))
+            }
+            Some(other) => {
+                return Err(parse_error(format!(
+                    "ns() does not support the '{other}' argument"
+                )))
+            }
+        }
+    }
+    let source = source.ok_or_else(|| parse_error("ns() requires a column name"))?;
+    let df = df.ok_or_else(|| parse_error("ns() requires df"))?;
+    if !(1..=32).contains(&df) {
+        return Err(parse_error("ns() df must be between 1 and 32"));
+    }
+    add_basis_term(
+        model,
+        BasisSpec::Ns {
+            source,
+            df,
+            intercept,
+        },
+    )
 }
 
 fn parse_numeric_expr(tokens: &[Token<'_>]) -> crate::Result<NumericExpr> {
@@ -1046,6 +1321,34 @@ mod tests {
             })
         ));
         assert!(ast.columns.contains_key("w"));
+    }
+
+    #[test]
+    fn parses_poly_ns_and_dot() {
+        let ast = parse("y ~ poly(x, 2) + ns(z, df = 3) + (1 | g)").unwrap();
+        assert!(matches!(
+            ast.columns["poly(x, 2)"].basis,
+            Some(BasisSpec::Poly {
+                degree: 2,
+                raw: false,
+                ..
+            })
+        ));
+        assert!(matches!(
+            ast.columns["ns(z, 3)"].basis,
+            Some(BasisSpec::Ns {
+                df: 3,
+                intercept: false,
+                ..
+            })
+        ));
+        let raw = parse("y ~ poly(x, 2, raw = TRUE)").unwrap();
+        assert!(matches!(
+            raw.columns["poly(x, 2, raw = TRUE)"].basis,
+            Some(BasisSpec::Poly { raw: true, .. })
+        ));
+        let dot = parse("y ~ . + (1 | g)").unwrap();
+        assert!(matches!(dot.columns["."].basis, Some(BasisSpec::Dot)));
     }
 
     #[test]

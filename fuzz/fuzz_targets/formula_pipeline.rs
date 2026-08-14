@@ -26,6 +26,10 @@ fn referenced_column_names(ast: &FormulaModel) -> HashSet<String> {
             expr.for_each_column(&mut |column| {
                 out.insert(column.to_string());
             });
+        } else if let Some(basis) = &info.basis {
+            basis.for_each_column(&mut |column| {
+                out.insert(column.to_string());
+            });
         } else if info.has_role(ColumnRole::Interaction) && name.contains(':') {
             for part in name.split(':') {
                 let p = part.trim();

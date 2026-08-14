@@ -10,6 +10,8 @@
 pub mod anova;
 /// Type II / III contrast construction for fixed-effects ANOVA.
 pub mod anova_contrasts;
+/// Orthogonal polynomials and natural cubic splines for formula terms.
+pub(crate) mod basis;
 /// Parametric and residual bootstrap refits for LMMs (`bootMer`-style).
 pub mod bootstrap;
 /// User-defined fixed-effects contrast tests (Wald F-tests).
@@ -180,6 +182,8 @@ pub struct LmeFit {
     pub robust: Option<RobustResult>,
     /// Stored levels for categorical dummy encoding
     pub categorical_levels: Option<std::collections::HashMap<String, Vec<String>>>,
+    /// Training encodings for `poly()` / `ns()` terms used by [`LmeFit::predict`].
+    pub basis_encodings: Option<std::collections::HashMap<String, crate::basis::BasisEncoding>>,
     /// Nonlinear mean evaluator for `nlmer` fits (built-in or custom).
     pub nlmm_mean: Option<std::sync::Arc<dyn nlmm::NlmmMeanEval>>,
     /// Parsed `nlmer` formula metadata (covariate, RE structure, parameter names).
@@ -220,12 +224,13 @@ impl LmeFit {
         }
 
         let n_obs = newdata.height();
-        let (x_new, x_names, _assign, _levels) = crate::model_matrix::build_x_matrix(
+        let (x_new, x_names, _assign, _levels, _basis) = crate::model_matrix::build_x_matrix(
             &ast,
             newdata,
             &response_col_name,
             n_obs,
             self.categorical_levels.as_ref(),
+            self.basis_encodings.as_ref(),
         )
         .map_err(|e| anyhow::anyhow!("Failed building X matrix for predictions: {}", e))?;
 
@@ -1002,6 +1007,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         v_beta_unscaled: None,
         robust: None,
         categorical_levels: None,
+        basis_encodings: None,
         nlmm_mean: None,
         nlmm_formula: None,
         weights: None,
@@ -1239,6 +1245,7 @@ fn assemble_lme_fit(
             v_beta_unscaled: Some(coefs.v_beta_unscaled),
             robust: None,
             categorical_levels: Some(matrices.categorical_levels.clone()),
+            basis_encodings: Some(matrices.basis_encodings.clone()),
             nlmm_mean: None,
             nlmm_formula: None,
             weights: lmm.weights.clone(),
@@ -1347,6 +1354,7 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     fit.aic = Some(aic);
     fit.bic = Some(bic);
     fit.categorical_levels = Some(matrices.categorical_levels);
+    fit.basis_encodings = Some(matrices.basis_encodings);
 
     Ok(fit)
 }
@@ -1648,6 +1656,7 @@ pub fn fit_prepared_glmer_with_response(
         v_beta_unscaled: Some(coefs.v_beta_unscaled),
         robust: None,
         categorical_levels: Some(prepared.matrices.categorical_levels.clone()),
+        basis_encodings: Some(prepared.matrices.basis_encodings.clone()),
         nlmm_mean: None,
         nlmm_formula: None,
         weights: prepared.weights.clone(),

@@ -1101,6 +1101,7 @@ pub fn fit_nlmer(
         v_beta_unscaled: None,
         robust: None,
         categorical_levels: None,
+        basis_encodings: None,
         nlmm_mean: Some(mean),
         nlmm_formula: Some(parsed.clone()),
         weights: None,

@@ -252,15 +252,21 @@ fn offset_does_not_clean_double_plus_before_tokenize() {
 
 #[test]
 fn unsupported_or_non_wilkinson_syntax_rejected() {
-    assert_parse_err("y ~ ."); // dot expansion
     assert_parse_err("cbind(y1, y2) ~ x"); // multivariate
-    assert_parse_err("y ~ ns(x, df = 3)"); // splines
     assert_parse_err("y ~ x^2"); // Wilkinson power; use I(x^2)
 }
 
 #[test]
-fn poly_is_still_rejected() {
-    assert_parse_err("y ~ poly(x, 2) + (1 | g)");
+fn poly_ns_and_dot_parse() {
+    let poly = assert_parse_ok("y ~ poly(x, 2) + (1 | g)");
+    assert!(poly.columns["poly(x, 2)"].basis.is_some());
+    let ns = assert_parse_ok("y ~ ns(x, df = 3)");
+    assert!(ns.columns["ns(x, 3)"].basis.is_some());
+    let dot = assert_parse_ok("y ~ . + (1 | g)");
+    assert!(matches!(
+        dot.columns["."].basis,
+        Some(lme_rs::formula::BasisSpec::Dot)
+    ));
 }
 
 #[test]
