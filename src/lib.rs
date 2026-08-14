@@ -34,6 +34,8 @@ pub(crate) mod kr_modcomp;
 pub(crate) mod kr_vcov_adj;
 /// Core linear algebra evaluation routines for generalized models.
 pub mod math;
+/// Multiple comparisons for categorical fixed effects (`glht` / `mcp`).
+pub mod mcp;
 /// Building design matrices (X, Z) from DataFrames.
 pub mod model_matrix;
 /// Nonlinear mixed-effects models (`nlmer`-style).
@@ -50,6 +52,7 @@ pub mod robust;
 /// Satterthwaite denominator degrees of freedom approximation.
 pub mod satterthwaite;
 pub mod simulate;
+pub(crate) mod studentized_range;
 
 pub use anova::{DdfMethod, FixedEffectsAnovaResult};
 pub use anova_contrasts::AnovaType;
@@ -60,6 +63,7 @@ pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
 pub use cv::{cv_grouped, cv_grouped_glmer, refit_lmer, CvFoldMetric, CvGroupedResult};
+pub use mcp::{mcp_contrast_matrix, GlhtResult, McpAdjust, McpType};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmStart};

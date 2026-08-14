@@ -1,13 +1,15 @@
-use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
-use polars::prelude::*;
-use std::io::Cursor;
-use std::sync::{Arc, Mutex};
 use lme_rs::contrast::contrast_matrix;
 use lme_rs::family::Family;
 use lme_rs::nlmm::{parse_nlmer_custom_formula, NlmmMeanEval, NlmmStart};
-use lme_rs::{AnovaType, ConfintScope, DdfMethod, GlmerPrepared, LmeFit, LmerPrepared};
+use lme_rs::{
+    AnovaType, ConfintScope, DdfMethod, GlmerPrepared, LmeFit, LmerPrepared, McpAdjust, McpType,
+};
 use ndarray::Array2;
+use polars::prelude::*;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
+use std::io::Cursor;
+use std::sync::{Arc, Mutex};
 
 #[pyclass]
 pub struct PyLmeFit {
@@ -250,12 +252,15 @@ pub struct PyConfintResult {
 #[pymethods]
 impl PyConfintResult {
     fn __str__(&self) -> String {
-        format!("{}", lme_rs::ConfintResult {
-            lower: ndarray::Array1::from_vec(self.lower.clone()),
-            upper: ndarray::Array1::from_vec(self.upper.clone()),
-            names: self.names.clone(),
-            level: self.level,
-        })
+        format!(
+            "{}",
+            lme_rs::ConfintResult {
+                lower: ndarray::Array1::from_vec(self.lower.clone()),
+                upper: ndarray::Array1::from_vec(self.upper.clone()),
+                names: self.names.clone(),
+                level: self.level,
+            }
+        )
     }
 
     /// List of `(lower, upper)` pairs (legacy tuple API).
@@ -398,6 +403,48 @@ impl PyContrastTest {
     }
 }
 
+/// Multiple-comparison table (`LmeFit::glht`).
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyGlhtResult {
+    #[pyo3(get)]
+    pub term: String,
+    #[pyo3(get)]
+    pub mcp: String,
+    #[pyo3(get)]
+    pub adjust: String,
+    #[pyo3(get)]
+    pub statistic: String,
+    #[pyo3(get)]
+    pub comparisons: Vec<String>,
+    #[pyo3(get)]
+    pub estimate: Vec<f64>,
+    #[pyo3(get)]
+    pub std_error: Vec<f64>,
+    #[pyo3(get)]
+    pub statistic_values: Vec<f64>,
+    #[pyo3(get)]
+    pub den_df: Vec<f64>,
+    #[pyo3(get)]
+    pub p_value: Vec<f64>,
+    #[pyo3(get)]
+    pub p_adjust: Vec<f64>,
+}
+
+#[pymethods]
+impl PyGlhtResult {
+    fn __str__(&self) -> String {
+        format!(
+            "GLHT {} MCP on {} ({}, {}): {} comparisons",
+            self.mcp,
+            self.term,
+            self.statistic,
+            self.adjust,
+            self.comparisons.len()
+        )
+    }
+}
+
 /// Likelihood-ratio test between nested models (`lme_rs::anova`).
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
@@ -425,17 +472,20 @@ pub struct PyLikelihoodRatioAnova {
 #[pymethods]
 impl PyLikelihoodRatioAnova {
     fn __str__(&self) -> String {
-        format!("{}", lme_rs::AnovaResult {
-            n_params_0: self.n_params_0,
-            n_params_1: self.n_params_1,
-            deviance_0: self.deviance_0,
-            deviance_1: self.deviance_1,
-            chi_sq: self.chi_sq,
-            df: self.df,
-            p_value: self.p_value,
-            formula_0: self.formula_0.clone(),
-            formula_1: self.formula_1.clone(),
-        })
+        format!(
+            "{}",
+            lme_rs::AnovaResult {
+                n_params_0: self.n_params_0,
+                n_params_1: self.n_params_1,
+                deviance_0: self.deviance_0,
+                deviance_1: self.deviance_1,
+                chi_sq: self.chi_sq,
+                df: self.df,
+                p_value: self.p_value,
+                formula_0: self.formula_0.clone(),
+                formula_1: self.formula_1.clone(),
+            }
+        )
     }
 }
 
@@ -523,9 +573,8 @@ fn parse_link(link_name: Option<&str>, family: Family) -> PyResult<lme_rs::famil
     use lme_rs::family::Link;
     match link_name {
         None => Ok(Link::default_for(family)),
-        Some(name) => Link::parse(name).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Invalid link: {e}"))
-        }),
+        Some(name) => Link::parse(name)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid link: {e}"))),
     }
 }
 
@@ -629,9 +678,7 @@ fn parse_nlmm_start(start: Option<&Bound<'_, PyDict>>) -> PyResult<NlmmStart> {
     Ok(map)
 }
 
-fn parse_optional_nlmm_bounds(
-    bounds: Option<&Bound<'_, PyDict>>,
-) -> PyResult<Option<NlmmStart>> {
+fn parse_optional_nlmm_bounds(bounds: Option<&Bound<'_, PyDict>>) -> PyResult<Option<NlmmStart>> {
     match bounds {
         None => Ok(None),
         Some(d) if d.is_empty() => Ok(None),
@@ -697,10 +744,7 @@ fn call_py_nlmm_mean(
     Ok((mu, grads))
 }
 
-fn validate_py_nlmm_mean(
-    mean_fn: &Bound<'_, PyAny>,
-    n_params: usize,
-) -> PyResult<PyNlmmMeanEval> {
+fn validate_py_nlmm_mean(mean_fn: &Bound<'_, PyAny>, n_params: usize) -> PyResult<PyNlmmMeanEval> {
     if !mean_fn.is_callable() {
         return Err(pyo3::exceptions::PyTypeError::new_err(
             "mean_fn must be callable",
@@ -775,10 +819,74 @@ fn parse_ddf_method(ddf_method: &str) -> PyResult<DdfMethod> {
     }
 }
 
+fn parse_glht_ddf(ddf_method: Option<&str>) -> PyResult<Option<DdfMethod>> {
+    match ddf_method {
+        None => Ok(None),
+        Some(s) => match s.to_lowercase().as_str() {
+            "wald" | "z" | "none" | "" => Ok(None),
+            other => Ok(Some(parse_ddf_method(other)?)),
+        },
+    }
+}
+
+fn parse_mcp_type(mcp: &str, control: Option<&str>) -> PyResult<McpType> {
+    match mcp.to_lowercase().as_str() {
+        "tukey" => Ok(McpType::Tukey),
+        "dunnett" => Ok(McpType::Dunnett {
+            control: control.map(str::to_string),
+        }),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Unsupported mcp '{other}' (use 'tukey' or 'dunnett')"
+        ))),
+    }
+}
+
+fn parse_mcp_adjust(adjust: &str) -> PyResult<McpAdjust> {
+    match adjust.to_lowercase().as_str() {
+        "none" | "raw" => Ok(McpAdjust::None),
+        "bonferroni" | "bonf" => Ok(McpAdjust::Bonferroni),
+        "holm" => Ok(McpAdjust::Holm),
+        "tukey" | "tukey-kramer" | "tukeykramer" => Ok(McpAdjust::Tukey),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Unsupported adjust '{other}' (use 'none', 'bonferroni', 'holm', or 'tukey')"
+        ))),
+    }
+}
+
+fn glht_to_py(res: lme_rs::GlhtResult) -> PyGlhtResult {
+    let mcp = match &res.mcp {
+        McpType::Tukey => "tukey".to_string(),
+        McpType::Dunnett { .. } => "dunnett".to_string(),
+    };
+    let adjust = match res.adjust {
+        McpAdjust::None => "none".to_string(),
+        McpAdjust::Bonferroni => "bonferroni".to_string(),
+        McpAdjust::Holm => "holm".to_string(),
+        McpAdjust::Tukey => "tukey".to_string(),
+    };
+    PyGlhtResult {
+        term: res.term,
+        mcp,
+        adjust,
+        statistic: res.statistic,
+        comparisons: res.comparisons,
+        estimate: res.estimate.to_vec(),
+        std_error: res.std_error.to_vec(),
+        statistic_values: res.statistic_values.to_vec(),
+        den_df: res.den_df.to_vec(),
+        p_value: res.p_value.to_vec(),
+        p_adjust: res.p_adjust.to_vec(),
+    }
+}
+
 fn read_ipc_bytes(data: &[u8]) -> PyResult<DataFrame> {
     let cursor = Cursor::new(data);
-    IpcReader::new(cursor).finish()
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to parse dataframe from IPC: {}", e)))
+    IpcReader::new(cursor).finish().map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Failed to parse dataframe from IPC: {}",
+            e
+        ))
+    })
 }
 
 #[pymethods]
@@ -787,15 +895,17 @@ impl PyLmeFit {
     pub fn summary(&self) -> String {
         format!("{}", self.inner)
     }
-    
+
     fn __str__(&self) -> String {
         self.summary()
     }
 
     fn __repr__(&self) -> String {
-        format!("PyLmeFit(formula={:?}, n_obs={})", 
+        format!(
+            "PyLmeFit(formula={:?}, n_obs={})",
             self.inner.formula.as_deref().unwrap_or("?"),
-            self.inner.num_obs)
+            self.inner.num_obs
+        )
     }
 
     /// Fixed-effects coefficients (β).
@@ -948,11 +1058,10 @@ impl PyLmeFit {
     /// Unscaled covariance of **β** (V matrix before df scaling).
     #[getter]
     pub fn v_beta_unscaled(&self) -> Option<Vec<Vec<f64>>> {
-        self.inner.v_beta_unscaled.as_ref().map(|v| {
-            (0..v.nrows())
-                .map(|i| v.row(i).to_vec())
-                .collect()
-        })
+        self.inner
+            .v_beta_unscaled
+            .as_ref()
+            .map(|v| (0..v.nrows()).map(|i| v.row(i).to_vec()).collect())
     }
 
     /// Residuals (y - fitted).
@@ -983,17 +1092,15 @@ impl PyLmeFit {
         let grouping_series = df
             .column("Grouping")
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
-        let grouping_series = grouping_series
-            .cast(&DataType::String)
-            .map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!(
-                    "ranef: failed casting Grouping to String: {}",
-                    e
-                ))
-            })?;
-        let grouping = grouping_series.str().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
+        let grouping_series = grouping_series.cast(&DataType::String).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "ranef: failed casting Grouping to String: {}",
+                e
+            ))
         })?;
+        let grouping = grouping_series
+            .str()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
 
         let group_series = df
             .column("Group")
@@ -1004,9 +1111,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let group = group_series.str().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
-        })?;
+        let group = group_series
+            .str()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
 
         let effect_series = df
             .column("Effect")
@@ -1017,9 +1124,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let effect = effect_series.str().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
-        })?;
+        let effect = effect_series
+            .str()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
 
         let value_series = df
             .column("Value")
@@ -1030,9 +1137,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let value = value_series.f64().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e))
-        })?;
+        let value = value_series
+            .f64()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("ranef: {}", e)))?;
 
         let n = df.height();
         let mut out = Vec::with_capacity(n);
@@ -1050,12 +1157,7 @@ impl PyLmeFit {
                 pyo3::exceptions::PyValueError::new_err(format!("ranef: missing row {}", i))
             })?;
 
-            out.push((
-                g0.to_string(),
-                g1.to_string(),
-                e.to_string(),
-                v,
-            ));
+            out.push((g0.to_string(), g1.to_string(), e.to_string(), v));
         }
 
         Ok(Some(out))
@@ -1083,9 +1185,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let group = group_series.str().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
-        })?;
+        let group = group_series
+            .str()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
 
         let effect1_series = df
             .column("Effect1")
@@ -1096,9 +1198,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let effect1 = effect1_series.str().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
-        })?;
+        let effect1 = effect1_series
+            .str()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
 
         let effect2_series = df
             .column("Effect2")
@@ -1109,9 +1211,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let effect2 = effect2_series.str().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
-        })?;
+        let effect2 = effect2_series
+            .str()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
 
         let variance_series = df
             .column("Variance")
@@ -1122,9 +1224,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let variance = variance_series.f64().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
-        })?;
+        let variance = variance_series
+            .f64()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
 
         let stddev_series = df
             .column("StdDev")
@@ -1135,9 +1237,9 @@ impl PyLmeFit {
                 e
             ))
         })?;
-        let stddev = stddev_series.f64().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e))
-        })?;
+        let stddev = stddev_series
+            .f64()
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("var_corr: {}", e)))?;
 
         let n = df.height();
         let mut out = Vec::with_capacity(n);
@@ -1170,18 +1272,29 @@ impl PyLmeFit {
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.predict(&df) {
             Ok(arr) => Ok(arr.to_vec()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Predict failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Predict failed: {}",
+                e
+            ))),
         }
     }
 
     /// Conditional predictions including random effects (Xβ + Zb).
     #[pyo3(signature = (newdata, allow_new_levels=false))]
-    pub fn predict_conditional<'py>(&self, py: Python<'py>, newdata: &Bound<'py, PyAny>, allow_new_levels: bool) -> PyResult<Vec<f64>> {
+    pub fn predict_conditional<'py>(
+        &self,
+        py: Python<'py>,
+        newdata: &Bound<'py, PyAny>,
+        allow_new_levels: bool,
+    ) -> PyResult<Vec<f64>> {
         let bytes = get_ipc_bytes(py, newdata)?;
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.predict_conditional(&df, allow_new_levels) {
             Ok(arr) => Ok(arr.to_vec()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Predict failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Predict failed: {}",
+                e
+            ))),
         }
     }
 
@@ -1205,17 +1318,27 @@ impl PyLmeFit {
             .predict_conditional_response(&df, allow_new_levels)
         {
             Ok(arr) => Ok(arr.to_vec()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Predict failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Predict failed: {}",
+                e
+            ))),
         }
     }
 
     /// Population-level predictions on the response scale (for GLMMs).
-    pub fn predict_response<'py>(&self, py: Python<'py>, newdata: &Bound<'py, PyAny>) -> PyResult<Vec<f64>> {
+    pub fn predict_response<'py>(
+        &self,
+        py: Python<'py>,
+        newdata: &Bound<'py, PyAny>,
+    ) -> PyResult<Vec<f64>> {
         let bytes = get_ipc_bytes(py, newdata)?;
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.predict_response(&df) {
             Ok(arr) => Ok(arr.to_vec()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Predict failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Predict failed: {}",
+                e
+            ))),
         }
     }
 
@@ -1307,19 +1430,13 @@ impl PyLmeFit {
     /// Robust standard errors (requires `with_robust_se()`).
     #[getter]
     pub fn robust_se(&self) -> Option<Vec<f64>> {
-        self.inner
-            .robust
-            .as_ref()
-            .map(|r| r.robust_se.to_vec())
+        self.inner.robust.as_ref().map(|r| r.robust_se.to_vec())
     }
 
     /// Robust t-values (requires `with_robust_se()`).
     #[getter]
     pub fn robust_t(&self) -> Option<Vec<f64>> {
-        self.inner
-            .robust
-            .as_ref()
-            .map(|r| r.robust_t.to_vec())
+        self.inner.robust.as_ref().map(|r| r.robust_t.to_vec())
     }
 
     /// Robust p-values (requires `with_robust_se()`).
@@ -1334,10 +1451,7 @@ impl PyLmeFit {
     /// Satterthwaite denominator degrees of freedom (requires `with_satterthwaite()`).
     #[getter]
     pub fn satterthwaite_dfs(&self) -> Option<Vec<f64>> {
-        self.inner
-            .satterthwaite
-            .as_ref()
-            .map(|r| r.dfs.to_vec())
+        self.inner.satterthwaite.as_ref().map(|r| r.dfs.to_vec())
     }
 
     /// Satterthwaite p-values (requires `with_satterthwaite()`).
@@ -1352,10 +1466,7 @@ impl PyLmeFit {
     /// Kenward-Roger denominator degrees of freedom (requires `with_kenward_roger()`).
     #[getter]
     pub fn kenward_roger_dfs(&self) -> Option<Vec<f64>> {
-        self.inner
-            .kenward_roger
-            .as_ref()
-            .map(|r| r.dfs.to_vec())
+        self.inner.kenward_roger.as_ref().map(|r| r.dfs.to_vec())
     }
 
     /// Kenward-Roger p-values (requires `with_kenward_roger()`).
@@ -1375,11 +1486,7 @@ impl PyLmeFit {
     ///
     /// `anova_type` can be `"III"` (default), `"II"`, or `"I"`.
     #[pyo3(signature = (ddf_method="satterthwaite", anova_type="III"))]
-    pub fn anova(
-        &self,
-        ddf_method: &str,
-        anova_type: &str,
-    ) -> PyResult<PyFixedEffectsAnova> {
+    pub fn anova(&self, ddf_method: &str, anova_type: &str) -> PyResult<PyFixedEffectsAnova> {
         let method = parse_ddf_method(ddf_method)?;
         let atype = parse_anova_type(anova_type)?;
         match self.inner.anova_typed(atype, method) {
@@ -1393,11 +1500,7 @@ impl PyLmeFit {
 
     /// Wald F-test for one fixed-effect term (`car::linearHypothesis` on a term name).
     #[pyo3(signature = (term, ddf_method="satterthwaite"))]
-    pub fn linear_hypothesis(
-        &self,
-        term: &str,
-        ddf_method: &str,
-    ) -> PyResult<PyContrastTest> {
+    pub fn linear_hypothesis(&self, term: &str, ddf_method: &str) -> PyResult<PyContrastTest> {
         let method = parse_ddf_method(ddf_method)?;
         match self.inner.linear_hypothesis(term, method) {
             Ok(r) => Ok(PyContrastTest {
@@ -1473,6 +1576,31 @@ impl PyLmeFit {
         let l = matrix_from_rows(l_matrix, p)?;
         let h = ndarray::Array1::from_vec(beta_h);
         self.run_test_contrast(&l, Some(&h), method)
+    }
+
+    /// Multiple comparisons for a categorical term (`multcomp::glht` / `mcp`).
+    ///
+    /// `mcp` is `"tukey"` (all pairwise) or `"dunnett"` (vs `control`, default first level).
+    /// `adjust` is `"none"`, `"bonferroni"`, `"holm"`, or `"tukey"` (Tukey–Kramer; pairwise only).
+    /// `ddf_method` is `None` / `"wald"` for asymptotic z, or `"satterthwaite"` / `"kenward_roger"`.
+    #[pyo3(signature = (term, mcp="tukey", adjust="tukey", ddf_method=None, control=None))]
+    pub fn glht(
+        &self,
+        term: &str,
+        mcp: &str,
+        adjust: &str,
+        ddf_method: Option<&str>,
+        control: Option<&str>,
+    ) -> PyResult<PyGlhtResult> {
+        let kind = parse_mcp_type(mcp, control)?;
+        let adj = parse_mcp_adjust(adjust)?;
+        let ddf = parse_glht_ddf(ddf_method)?;
+        match self.inner.glht(term, kind, adj, ddf) {
+            Ok(res) => Ok(glht_to_py(res)),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "glht failed: {e}"
+            ))),
+        }
     }
 
     /// Parametric simulation from the fitted model (fixed means; does not refit).
@@ -1589,7 +1717,10 @@ impl PyLmeFit {
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.with_robust_se(&df, cluster_col) {
             Ok(_) => Ok(()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("with_robust_se failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "with_robust_se failed: {}",
+                e
+            ))),
         }
     }
 
@@ -1604,7 +1735,10 @@ impl PyLmeFit {
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.with_satterthwaite(&df) {
             Ok(_) => Ok(()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("with_satterthwaite failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "with_satterthwaite failed: {}",
+                e
+            ))),
         }
     }
 
@@ -1621,7 +1755,10 @@ impl PyLmeFit {
         let df = read_ipc_bytes(&bytes)?;
         match self.inner.with_kenward_roger(&df) {
             Ok(_) => Ok(()),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("with_kenward_roger failed: {}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "with_kenward_roger failed: {}",
+                e
+            ))),
         }
     }
 }
@@ -1677,24 +1814,38 @@ fn matrix_from_rows(l_matrix: Vec<Vec<f64>>, p: usize) -> PyResult<ndarray::Arra
 
 #[pyfunction]
 #[pyo3(signature = (formula, data, reml=true))]
-pub fn lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml: bool) -> PyResult<PyLmeFit> {
+pub fn lmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    reml: bool,
+) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     match lme_rs::lmer(formula, &df, reml) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Model fit failed: {}", e))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Model fit failed: {}",
+            e
+        ))),
     }
 }
 
 /// Prepare an LMM for repeated fits on the same formula and data.
 #[pyfunction]
 #[pyo3(signature = (formula, data))]
-pub fn prepare_lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>) -> PyResult<PyLmerPrepared> {
+pub fn prepare_lmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+) -> PyResult<PyLmerPrepared> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     match lme_rs::prepare_lmer(formula, &df) {
         Ok(prepared) => Ok(PyLmerPrepared { inner: prepared }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("prepare_lmer failed: {e}"))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "prepare_lmer failed: {e}"
+        ))),
     }
 }
 
@@ -1704,7 +1855,9 @@ pub fn prepare_lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny
 pub fn fit_prepared(prepared: &PyLmerPrepared, reml: bool) -> PyResult<PyLmeFit> {
     match lme_rs::fit_prepared(&prepared.inner, reml) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("fit_prepared failed: {e}"))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "fit_prepared failed: {e}"
+        ))),
     }
 }
 
@@ -1748,12 +1901,19 @@ pub fn fit_prepared_glmer(prepared: &PyGlmerPrepared) -> PyResult<PyLmeFit> {
 /// Refit an LMM on the same formula and data (prepare + fit).
 #[pyfunction]
 #[pyo3(signature = (formula, data, reml=true))]
-pub fn refit_lmer<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml: bool) -> PyResult<PyLmeFit> {
+pub fn refit_lmer<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    reml: bool,
+) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     match lme_rs::refit_lmer(formula, &df, reml) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("refit_lmer failed: {e}"))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "refit_lmer failed: {e}"
+        ))),
     }
 }
 
@@ -1774,7 +1934,9 @@ pub fn cv_grouped<'py>(
     let df = read_ipc_bytes(&bytes)?;
     match lme_rs::cv_grouped(formula, &df, group, n_splits, reml, seed, n_jobs) {
         Ok(res) => Ok(cv_result_to_py(res)),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("cv_grouped failed: {e}"))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "cv_grouped failed: {e}"
+        ))),
     }
 }
 
@@ -2059,13 +2221,22 @@ pub fn glmer_weighted<'py>(
 
 #[pyfunction]
 #[pyo3(signature = (formula, data, reml=true, weights=None))]
-pub fn lmer_weighted<'py>(py: Python<'py>, formula: &str, data: &Bound<'py, PyAny>, reml: bool, weights: Option<Vec<f64>>) -> PyResult<PyLmeFit> {
+pub fn lmer_weighted<'py>(
+    py: Python<'py>,
+    formula: &str,
+    data: &Bound<'py, PyAny>,
+    reml: bool,
+    weights: Option<Vec<f64>>,
+) -> PyResult<PyLmeFit> {
     let bytes = get_ipc_bytes(py, data)?;
     let df = read_ipc_bytes(&bytes)?;
     let weights_arr = weights.map(ndarray::Array1::from_vec);
     match lme_rs::lmer_weighted(formula, &df, reml, weights_arr) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("Model fit failed: {}", e))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Model fit failed: {}",
+            e
+        ))),
     }
 }
 
@@ -2093,9 +2264,7 @@ fn contrast_matrix_from_names_py(
         index_rows.push(idx_row);
     }
     let mat = contrast_matrix(p, &index_rows);
-    Ok((0..mat.nrows())
-        .map(|i| mat.row(i).to_vec())
-        .collect())
+    Ok((0..mat.nrows()).map(|i| mat.row(i).to_vec()).collect())
 }
 
 /// Build a **q × p** contrast matrix from `(column_index, weight)` rows (Rust `contrast_matrix`).
@@ -2103,9 +2272,7 @@ fn contrast_matrix_from_names_py(
 #[pyo3(name = "contrast_matrix")]
 pub fn contrast_matrix_py(p: usize, rows: Vec<Vec<(usize, f64)>>) -> PyResult<Vec<Vec<f64>>> {
     let mat = contrast_matrix(p, &rows);
-    Ok((0..mat.nrows())
-        .map(|i| mat.row(i).to_vec())
-        .collect())
+    Ok((0..mat.nrows()).map(|i| mat.row(i).to_vec()).collect())
 }
 
 /// Fit a nonlinear mixed-effects model (`SSlogis` mean; random effect on one NL parameter).
@@ -2189,13 +2356,7 @@ pub fn nlmer_with_mean<'py>(
         ..lme_rs::NlmerOptions::default()
     };
     let callback_error = mean.callback_error.clone();
-    let fit_result = lme_rs::nlmer_with_mean(
-        &parsed,
-        Arc::new(mean),
-        &df,
-        Some(formula),
-        &opts,
-    );
+    let fit_result = lme_rs::nlmer_with_mean(&parsed, Arc::new(mean), &df, Some(formula), &opts);
     if let Ok(mut error) = callback_error.lock() {
         if let Some(error) = error.take() {
             return Err(error);
@@ -2224,7 +2385,10 @@ pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<PyLikelihoodRatioAn
             formula_0: res.formula_0,
             formula_1: res.formula_1,
         }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("anova failed: {}", e))),
+        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "anova failed: {}",
+            e
+        ))),
     }
 }
 
@@ -2244,6 +2408,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySimulateBatches>()?;
     m.add_class::<PyFixedEffectsAnova>()?;
     m.add_class::<PyContrastTest>()?;
+    m.add_class::<PyGlhtResult>()?;
     m.add_class::<PyLikelihoodRatioAnova>()?;
     m.add_class::<PyFamily>()?;
     m.add_function(wrap_pyfunction!(lm, m)?)?;
@@ -2282,6 +2447,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "PySimulateBatches",
             "PyFixedEffectsAnova",
             "PyContrastTest",
+            "PyGlhtResult",
             "PyLikelihoodRatioAnova",
             "PyFamily",
             "lm",

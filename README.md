@@ -7,7 +7,7 @@
 
 `lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
 
-> **Repository completion (evidence-weighted): 89% (211/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
+> **Repository completion (evidence-weighted): 90% (212/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
 
 ## What it covers
 
@@ -21,7 +21,7 @@
 - Wilkinson formulas with nested and crossed random effects, two-way `*` / `:` interactions, `log`/`sqrt`/`exp`, `I()` arithmetic, `poly()` / `ns()`, `y ~ .`, and transformed `offset()` terms
 - Population-level and conditional prediction APIs
 - Wald and **profile-likelihood** confidence intervals (`parms=` subset), parametric simulation, bootstrap refits, robust standard errors, Satterthwaite / Kenward–Roger dfs
-- Likelihood ratio tests between nested models and Type I / II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)
+- Likelihood ratio tests between nested models, Type I / II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects), and Tukey / Dunnett multiple comparisons (`glht`)
 
 ## Quick start
 
@@ -72,7 +72,7 @@ On the fair MixedModels.jl harness, every case in the current **12-case tier-A s
 
 - Numerical parity is the goal for the covered LMM and GLMM workflows, but the guarantee is scoped to the models and examples exercised by the repository tests and comparison fixtures.
 - `glmer()` uses Laplace by default (`n_agq = 1`). For `n_agq ≥ 2`, θ is optimized under adaptive Gauss–Hermite quadrature when the quadrature grid fits: scalar RE (matching `lme4`), vector RE via a product rule per group, and multiple RE terms when total `q` is small. Larger crossed models stay on the Laplace θ path. Absolute AIC, BIC, and log-likelihood values can differ from R because `lme-rs` optimizes a deviance expression that omits data-dependent constants. Coefficients and variance parameters are the quantities to compare.
-- Fixed-effects ANOVA supports **Type I**, **II**, and **III** (`anova_typed` / `AnovaType`). Continuous fixed effects use 1-DoF tests where applicable; categorical predictors encoded as multiple dummies use **joint multi-DoF Wald F-tests**, with multi-DoF Satterthwaite denominator df following **`lmerTest::contestMD()`** (see [GUIDE.md](GUIDE.md) and [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) §4). Arbitrary user-defined **q × p** contrast matrices are supported via `test_contrast()` (Rust) / `fit.test_contrast()` (Python); named-term tests via `linear_hypothesis()` / `fit.linear_hypothesis()`.
+- Fixed-effects ANOVA supports **Type I**, **II**, and **III** (`anova_typed` / `AnovaType`). Continuous fixed effects use 1-DoF tests where applicable; categorical predictors encoded as multiple dummies use **joint multi-DoF Wald F-tests**, with multi-DoF Satterthwaite denominator df following **`lmerTest::contestMD()`** (see [GUIDE.md](GUIDE.md) and [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) §4). Arbitrary user-defined **q × p** contrast matrices are supported via `test_contrast()` (Rust) / `fit.test_contrast()` (Python); named-term tests via `linear_hypothesis()` / `fit.linear_hypothesis()`. Tukey and Dunnett multiple comparisons (`glht`, Bonferroni / Holm / Tukey–Kramer) cover the `multcomp::mcp` pairwise family; they are not a full `multcomp` / `emmeans` replacement (no single-step `mvtnorm`, no compact-letter display).
 - `with_kenward_roger()` produces denominator degrees of freedom that match R's `pbkrtest` to within the precision of numerical differentiation on the covered LMM models.
 - The Python bindings mirror the Rust API (`lm`, `lm_matrix`, `lmer`, `prepare_lmer` / `fit_prepared`, `prepare_glmer` / `fit_prepared_glmer`, `cv_grouped` / `cv_grouped_glmer`, `boot_lmer` / `boot_glmer`, `glmer`, `nlmer`, contrasts, ANOVA, prediction, simulation, profile CIs) with structured result types and [`lme_python.pyi`](python/lme_python.pyi) stubs.
 - Built-in GLMM families cover binomial, Poisson, Gaussian, and gamma with canonical links; non-canonical links are selectable via `glmer_with_link` / `link_name=` ([`GUIDE.md`](GUIDE.md)).

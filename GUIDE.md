@@ -481,14 +481,16 @@ Use the first form for observation-level HC0 robust errors and the second for cl
 ### Fixed-effects ANOVA (Type I / II / III)
 
 ```rust
-use lme_rs::{AnovaType, DdfMethod};
+use lme_rs::{AnovaType, DdfMethod, McpAdjust, McpType};
 
 fit.with_satterthwaite(&df)?;
 let table = fit.anova(DdfMethod::Satterthwaite)?; // Type III (default)
 let table_ii = fit.anova_typed(AnovaType::Type2, DdfMethod::Satterthwaite)?;
 let table_i = fit.anova_typed(AnovaType::Type1, DdfMethod::Satterthwaite)?;
 let cask_test = fit.linear_hypothesis("cask", DdfMethod::Satterthwaite)?;
+let tukey = fit.glht("cask", McpType::Tukey, McpAdjust::Tukey, None)?;
 println!("{}", table);
+println!("{}", tukey);
 ```
 
 Current scope:
@@ -500,6 +502,7 @@ Current scope:
 - Kenward–Roger multi-DoF rows use `pbkrtest::KRmodcomp` / `.KR_adjust` via [`kr_modcomp`](src/kr_modcomp.rs) and `vcovAdj16` via [`kr_vcov_adj`](src/kr_vcov_adj.rs); when `vcovAdj` ≈ `vcov`, DenDF matches marginal KR pooling (pastes `cask` reference)
 - Golden regression for categorical multi-DoF ANOVA: manifest case `pastes_cask_multi_dof_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (pastes / `cask`)
 - **User-defined contrasts:** any **q × p** matrix `L` via [`LmeFit::test_contrast`](src/contrast.rs) / [`test_contrast_vs`](src/contrast.rs) (`lmerTest::contestMD` / `KRmodcomp`); helpers [`contrast_matrix`](src/contrast.rs) and [`contrast_matrix_from_names`](src/contrast.rs). Python: `fit.test_contrast(l_matrix, ddf_method=...)`.
+- **Multiple comparisons:** [`LmeFit::glht`](src/mcp.rs) for Tukey (all pairwise) and Dunnett (vs control) on a categorical term. Default is Wald `z`; pass `Some(DdfMethod::Satterthwaite)` for `t`. Adjustments: none, Bonferroni, Holm, Tukey–Kramer (`stats::ptukey`). Python: `fit.glht("cask", mcp="tukey", adjust="tukey")`. Not a full `multcomp`/`emmeans` replacement (no single-step `mvtnorm`).
 
 ## Model Comparison
 
@@ -643,7 +646,7 @@ For GLMMs, `lme-rs` computes the optimization target from a Laplace-approximated
 
 ### ANOVA scope
 
-Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary **q × p** contrast matrices are supported via [`test_contrast`](src/contrast.rs); named-term tests via [`linear_hypothesis`](src/anova.rs).
+Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type II uses `lmerTest`-style contrasts (marginal for non-contained terms, Doolittle reordering for contained terms). Continuous terms use 1-DoF tests where applicable; categorical predictors use joint multi-DoF Wald rows. Arbitrary **q × p** contrast matrices are supported via [`test_contrast`](src/contrast.rs); named-term tests via [`linear_hypothesis`](src/anova.rs). Tukey and Dunnett multiple comparisons via [`glht`](src/mcp.rs) (`multcomp::mcp`-style; Tukey–Kramer uses `stats::ptukey`, not single-step `mvtnorm`).
 
 ### Kenward-Roger status
 
