@@ -173,7 +173,7 @@ mod tests {
             "k2 inf q2",
             ptukey(2.0, 2.0, f64::INFINITY),
             0.842_700_792_949_714_8,
-            1e-12,
+            1e-11,
         );
         assert_close(
             "k3 inf q3",

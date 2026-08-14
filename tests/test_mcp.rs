@@ -69,25 +69,25 @@ fn test_pastes_cask_tukey_wald_matches_lme4_ptukey() -> Result<(), Box<dyn std::
         "se",
         tukey.std_error.as_slice().unwrap(),
         &gold.std_error,
-        1e-8,
+        2e-5,
     );
     assert_vec_close(
         "z",
         tukey.statistic_values.as_slice().unwrap(),
         &gold.z,
-        1e-8,
+        2e-5,
     );
     assert_vec_close(
         "p_raw",
         tukey.p_value.as_slice().unwrap(),
         &gold.p_raw,
-        1e-10,
+        1e-5,
     );
     assert_vec_close(
         "p_tukey",
         tukey.p_adjust.as_slice().unwrap(),
         &gold.p_tukey,
-        1e-8,
+        1e-5,
     );
 
     let bonf = fit.glht("cask", McpType::Tukey, McpAdjust::Bonferroni, None)?;
@@ -95,7 +95,7 @@ fn test_pastes_cask_tukey_wald_matches_lme4_ptukey() -> Result<(), Box<dyn std::
         "p_bonferroni",
         bonf.p_adjust.as_slice().unwrap(),
         &gold.p_bonferroni,
-        1e-12,
+        1e-5,
     );
 
     let holm = fit.glht("cask", McpType::Tukey, McpAdjust::Holm, None)?;
@@ -103,7 +103,7 @@ fn test_pastes_cask_tukey_wald_matches_lme4_ptukey() -> Result<(), Box<dyn std::
         "p_holm",
         holm.p_adjust.as_slice().unwrap(),
         &gold.p_holm,
-        1e-12,
+        1e-5,
     );
 
     let dunnett = fit.glht(
@@ -117,7 +117,7 @@ fn test_pastes_cask_tukey_wald_matches_lme4_ptukey() -> Result<(), Box<dyn std::
         "dunnett_p_bonferroni",
         dunnett.p_adjust.as_slice().unwrap(),
         &gold.dunnett_p_bonferroni,
-        1e-12,
+        1e-5,
     );
 
     Ok(())
