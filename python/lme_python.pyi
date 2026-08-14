@@ -66,10 +66,11 @@ class PyBootLmerResult:
     nsim: int
     fixed_names: list[str]
     t0: list[float]
+    t0_theta: Optional[list[float]]
     t0_sigma2: Optional[float]
     replicates: list[PyBootReplicate]
     prop_converged: float
-    def confint(self, level: float = 0.95) -> PyBootConfintResult: ...
+    def confint(self, level: float = 0.95, which: str = "fixed") -> PyBootConfintResult: ...
 
 class PyBootConfintResult:
     names: list[str]
@@ -136,6 +137,7 @@ class PyLmeFit:
         method: str = "wald",
         data: DataFrameLike | None = None,
         parms: list[int | str] | None = None,
+        which: str = "fixed",
     ) -> PyConfintResult: ...
     def anova(
         self, ddf_method: str = "satterthwaite", anova_type: str = "III"

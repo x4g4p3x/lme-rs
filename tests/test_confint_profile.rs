@@ -1,7 +1,7 @@
 //! Profile-likelihood confidence intervals for fixed effects.
 
 use lme_rs::family::Family;
-use lme_rs::{glmer, lmer, ConfintMethod};
+use lme_rs::{glmer, lmer, ConfintMethod, ConfintScope};
 use polars::prelude::*;
 use std::fs::File;
 
@@ -36,6 +36,71 @@ fn test_confint_profile_sleepstudy_contains_estimate() {
             pw > 0.5 * ww && pw < 2.5 * ww,
             "coef {i}: profile width {pw} vs Wald {ww}"
         );
+    }
+}
+
+#[test]
+fn test_confint_profile_vc_sleepstudy_matches_r_fixture() {
+    let df = load_sleepstudy();
+    let fit = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    let vc = fit.confint_profile_vc(0.95, &df).unwrap();
+    assert_eq!(vc.names, vec![".sig01".to_string(), ".sigma".to_string()]);
+    let sigma = fit.sigma2.unwrap().sqrt();
+    let sig01 = fit.theta.as_ref().unwrap()[0] * sigma;
+    assert!(vc.lower[0] < sig01 && sig01 < vc.upper[0]);
+    assert!(vc.lower[1] < sigma && sigma < vc.upper[1]);
+
+    let file = File::open("tests/data/sleepstudy_confint_profile_vc.json")
+        .expect("sleepstudy_confint_profile_vc.json");
+    let raw: serde_json::Value = serde_json::from_reader(file).unwrap();
+    let outs = &raw["outputs"];
+    let r_lo = outs["lower"].as_array().unwrap();
+    let r_hi = outs["upper"].as_array().unwrap();
+    for i in 0..2 {
+        let lo = r_lo[i].as_f64().unwrap();
+        let hi = r_hi[i].as_f64().unwrap();
+        assert!(
+            (vc.lower[i] - lo).abs() < 1.5,
+            "VC lower[{i}]: rust={} r={}",
+            vc.lower[i],
+            lo
+        );
+        assert!(
+            (vc.upper[i] - hi).abs() < 1.5,
+            "VC upper[{i}]: rust={} r={}",
+            vc.upper[i],
+            hi
+        );
+    }
+
+    let all = fit.confint_profile_all(0.95, &df).unwrap();
+    assert_eq!(
+        all.names,
+        vec![
+            ".sig01".to_string(),
+            ".sigma".to_string(),
+            "(Intercept)".to_string(),
+            "Days".to_string()
+        ]
+    );
+    assert!((all.lower[0] - vc.lower[0]).abs() < 1e-8);
+    let fe = fit.confint_profile(0.95, &df).unwrap();
+    assert!((all.lower[2] - fe.lower[0]).abs() < 1e-8);
+    assert!((all.upper[3] - fe.upper[1]).abs() < 1e-8);
+}
+
+#[test]
+fn test_confint_profile_scope_matches_helpers() {
+    let df = load_sleepstudy();
+    let fit = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    let vc = fit.confint_profile_vc(0.90, &df).unwrap();
+    let scoped = fit
+        .confint_profile_scope(0.90, &df, ConfintScope::Variance)
+        .unwrap();
+    assert_eq!(vc.names, scoped.names);
+    for i in 0..vc.lower.len() {
+        assert!((vc.lower[i] - scoped.lower[i]).abs() < 1e-8);
+        assert!((vc.upper[i] - scoped.upper[i]).abs() < 1e-8);
     }
 }
 
@@ -116,4 +181,17 @@ fn test_confint_profile_glmm_binomial_smoke() {
         assert!(pw.is_finite() && pw > 0.0);
         assert!(pw > 0.25 * ww, "profile width suspiciously small vs Wald");
     }
+}
+
+#[test]
+fn test_confint_profile_vc_glmm_binomial_smoke() {
+    let df = load_cbpp();
+    let formula = "y ~ period2 + period3 + period4 + (1 | herd)";
+    let fit = glmer(formula, &df, Family::Binomial, 1).unwrap();
+    let vc = fit.confint_profile_vc(0.90, &df).unwrap();
+    assert_eq!(vc.names.len(), 1);
+    assert_eq!(vc.names[0], ".sig01");
+    let theta = fit.theta.as_ref().unwrap()[0];
+    assert!(vc.lower[0] < theta && theta < vc.upper[0]);
+    assert!(vc.lower[0] < vc.upper[0]);
 }

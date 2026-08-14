@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use lme_rs::contrast::contrast_matrix;
 use lme_rs::family::Family;
 use lme_rs::nlmm::{parse_nlmer_custom_formula, NlmmMeanEval, NlmmStart};
-use lme_rs::{AnovaType, DdfMethod, GlmerPrepared, LmeFit, LmerPrepared};
+use lme_rs::{AnovaType, ConfintScope, DdfMethod, GlmerPrepared, LmeFit, LmerPrepared};
 use ndarray::Array2;
 
 #[pyclass]
@@ -149,6 +149,11 @@ impl PyBootLmerResult {
     }
 
     #[getter]
+    fn t0_theta(&self) -> Option<Vec<f64>> {
+        self.inner.t0_theta.as_ref().map(|t| t.to_vec())
+    }
+
+    #[getter]
     fn t0_sigma2(&self) -> Option<f64> {
         self.inner.t0_sigma2
     }
@@ -173,10 +178,13 @@ impl PyBootLmerResult {
             .collect()
     }
 
-    /// Percentile bootstrap confidence intervals for fixed effects.
-    #[pyo3(signature = (level=0.95))]
-    fn confint(&self, level: f64) -> PyResult<PyBootConfintResult> {
-        match self.inner.confint_percentile(level) {
+    /// Percentile bootstrap confidence intervals.
+    ///
+    /// `which` is `"fixed"` (default), `"vc"` (`.sig01`… / `.sigma`), or `"all"`.
+    #[pyo3(signature = (level=0.95, which="fixed"))]
+    fn confint(&self, level: f64, which: &str) -> PyResult<PyBootConfintResult> {
+        let scope = parse_confint_scope(which)?;
+        match self.inner.confint_percentile_scope(level, scope) {
             Ok(ci) => Ok(PyBootConfintResult {
                 names: ci.names,
                 estimate: ci.estimate.to_vec(),
@@ -460,6 +468,17 @@ fn parse_family(family_name: &str) -> PyResult<Family> {
         "gaussian" => Ok(Family::Gaussian),
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Unsupported or invalid family: {other}"
+        ))),
+    }
+}
+
+fn parse_confint_scope(which: &str) -> PyResult<ConfintScope> {
+    match which.to_ascii_lowercase().as_str() {
+        "fixed" | "beta" | "fe" => Ok(ConfintScope::Fixed),
+        "vc" | "variance" | "theta" => Ok(ConfintScope::Variance),
+        "all" | "full" => Ok(ConfintScope::All),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "confint which must be 'fixed', 'vc', or 'all', got '{other}'"
         ))),
     }
 }
@@ -1200,14 +1219,18 @@ impl PyLmeFit {
         }
     }
 
-    /// Wald or profile-likelihood confidence intervals for fixed effects.
+    /// Wald or profile-likelihood confidence intervals.
     ///
     /// `method` is `"wald"` (default) or `"profile"`. Profile requires `data`
     /// (same frame used to fit) and is slower (many θ refits).
     ///
     /// `parms` optionally selects coefficients by 0-based index or fixed-effect
-    /// name (profile and Wald).
-    #[pyo3(signature = (level=0.95, method="wald", data=None, parms=None))]
+    /// name (profile and Wald; only with `which="fixed"`).
+    ///
+    /// `which` is `"fixed"` (default), `"vc"` (variance components), or `"all"`
+    /// (VC then fixed effects, matching lme4 `confint.merMod` order). Wald
+    /// intervals are fixed-effect only.
+    #[pyo3(signature = (level=0.95, method="wald", data=None, parms=None, which="fixed"))]
     pub fn confint<'py>(
         &self,
         py: Python<'py>,
@@ -1215,6 +1238,7 @@ impl PyLmeFit {
         method: &str,
         data: Option<&Bound<'py, PyAny>>,
         parms: Option<&Bound<'py, PyAny>>,
+        which: &str,
     ) -> PyResult<PyConfintResult> {
         let method = match method.to_ascii_lowercase().as_str() {
             "wald" => lme_rs::ConfintMethod::Wald,
@@ -1225,6 +1249,18 @@ impl PyLmeFit {
                 )))
             }
         };
+        let scope = parse_confint_scope(which)?;
+        if !matches!(scope, ConfintScope::Fixed) && matches!(method, lme_rs::ConfintMethod::Wald) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Wald confint supports which='fixed' only; use method='profile' for VC intervals",
+            ));
+        }
+        let parms_idx = resolve_confint_parms(&self.inner, parms)?;
+        if parms_idx.is_some() && !matches!(scope, ConfintScope::Fixed) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "confint parms= is only supported with which='fixed'",
+            ));
+        }
         let df;
         let data_ref = if matches!(method, lme_rs::ConfintMethod::Profile) {
             let raw = data.ok_or_else(|| {
@@ -1238,12 +1274,23 @@ impl PyLmeFit {
         } else {
             None
         };
-        let parms_idx = resolve_confint_parms(&self.inner, parms)?;
-        let parms_ref = parms_idx.as_deref();
-        match self
-            .inner
-            .confint_with_parms(level, method, data_ref, parms_ref)
-        {
+        let result = if matches!(method, lme_rs::ConfintMethod::Profile) {
+            let frame = data_ref.expect("profile data checked above");
+            match scope {
+                ConfintScope::Fixed => {
+                    let parms_ref = parms_idx.as_deref();
+                    self.inner
+                        .confint_with_parms(level, method, Some(frame), parms_ref)
+                }
+                ConfintScope::Variance => self.inner.confint_profile_vc(level, frame),
+                ConfintScope::All => self.inner.confint_profile_all(level, frame),
+            }
+        } else {
+            let parms_ref = parms_idx.as_deref();
+            self.inner
+                .confint_with_parms(level, method, data_ref, parms_ref)
+        };
+        match result {
             Ok(ci) => Ok(PyConfintResult {
                 lower: ci.lower.to_vec(),
                 upper: ci.upper.to_vec(),

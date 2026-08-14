@@ -18,7 +18,7 @@ use crate::family::{Family, Link};
 use crate::simulate;
 use crate::{
     fit_prepared_glmer_with_response, fit_prepared_with_response, prepare_glmer_weighted_with_link,
-    prepare_lmer, GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
+    prepare_lmer, ConfintScope, GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
 };
 
 /// Bootstrap resampling strategy for [`boot_lmer`].
@@ -56,6 +56,8 @@ pub struct BootLmerResult {
     pub fixed_names: Vec<String>,
     /// Original (t₀) fixed-effect estimates from the reference fit.
     pub t0: Array1<f64>,
+    /// Original θ from the reference fit.
+    pub t0_theta: Option<Array1<f64>>,
     /// Original σ² from the reference fit.
     pub t0_sigma2: Option<f64>,
     /// Per-replicate refit summaries.
@@ -107,11 +109,45 @@ impl BootLmerResult {
     ///
     /// Uses only converged replicates. `level` must be in `(0, 1)` (e.g. `0.95`).
     pub fn confint_percentile(&self, level: f64) -> Result<BootConfintResult> {
+        self.confint_percentile_scope(level, ConfintScope::Fixed)
+    }
+
+    /// Percentile CIs for variance components (`.sig01`… and `.sigma` when present).
+    ///
+    /// For a scalar θ LMM replicate, `.sig01` is the RE standard deviation `θ·σ`.
+    /// GLMMs without a residual variance report θ as `.sig01`….
+    pub fn confint_percentile_vc(&self, level: f64) -> Result<BootConfintResult> {
+        self.confint_percentile_scope(level, ConfintScope::Variance)
+    }
+
+    /// Variance-component percentile CIs followed by fixed-effect CIs.
+    pub fn confint_percentile_all(&self, level: f64) -> Result<BootConfintResult> {
+        self.confint_percentile_scope(level, ConfintScope::All)
+    }
+
+    /// Percentile CIs for [`ConfintScope::Fixed`], [`ConfintScope::Variance`], or [`ConfintScope::All`].
+    pub fn confint_percentile_scope(
+        &self,
+        level: f64,
+        scope: ConfintScope,
+    ) -> Result<BootConfintResult> {
         if level <= 0.0 || level >= 1.0 {
             return Err(LmeError::NotImplemented {
                 feature: format!("Bootstrap confint level must be in (0, 1), got {level}"),
             });
         }
+        match scope {
+            ConfintScope::Fixed => self.percentile_fixed(level),
+            ConfintScope::Variance => self.percentile_vc(level),
+            ConfintScope::All => {
+                let vc = self.percentile_vc(level)?;
+                let fe = self.percentile_fixed(level)?;
+                Ok(concat_boot_confint(vc, fe))
+            }
+        }
+    }
+
+    fn percentile_fixed(&self, level: f64) -> Result<BootConfintResult> {
         let p = self.t0.len();
         let converged: Vec<&BootReplicate> = self
             .replicates
@@ -123,29 +159,115 @@ impl BootLmerResult {
                 feature: "No converged bootstrap replicates for confint".to_string(),
             });
         }
-
-        let alpha = 1.0 - level;
-        let lower_q = alpha / 2.0;
-        let upper_q = 1.0 - alpha / 2.0;
-
-        let mut lower = Array1::<f64>::zeros(p);
-        let mut upper = Array1::<f64>::zeros(p);
-
-        for j in 0..p {
-            let mut vals: Vec<f64> = converged.iter().map(|r| r.coefficients[j]).collect();
-            vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            lower[j] = percentile_sorted(&vals, lower_q);
-            upper[j] = percentile_sorted(&vals, upper_q);
-        }
-
-        Ok(BootConfintResult {
-            names: self.fixed_names.clone(),
-            estimate: self.t0.clone(),
-            lower,
-            upper,
+        percentile_from_columns(
+            self.fixed_names.clone(),
+            self.t0.clone(),
+            converged.iter().map(|r| r.coefficients.to_vec()).collect(),
             level,
-        })
+        )
     }
+
+    fn percentile_vc(&self, level: f64) -> Result<BootConfintResult> {
+        let t0_row = vc_row(self.t0_theta.as_ref(), self.t0_sigma2).ok_or(LmeError::NotImplemented {
+            feature: "Bootstrap VC confint requires theta on the reference fit".to_string(),
+        })?;
+        let names: Vec<String> = t0_row.iter().map(|(n, _)| n.clone()).collect();
+        let estimate = Array1::from_vec(t0_row.iter().map(|(_, v)| *v).collect());
+        let mut rows = Vec::new();
+        for r in &self.replicates {
+            if !r.converged {
+                continue;
+            }
+            if let Some(row) = vc_row(r.theta.as_ref(), r.sigma2) {
+                if row.len() == names.len() {
+                    rows.push(row.into_iter().map(|(_, v)| v).collect());
+                }
+            }
+        }
+        if rows.is_empty() {
+            return Err(LmeError::NotImplemented {
+                feature: "No converged bootstrap replicates with variance components".to_string(),
+            });
+        }
+        percentile_from_columns(names, estimate, rows, level)
+    }
+}
+
+fn concat_boot_confint(first: BootConfintResult, second: BootConfintResult) -> BootConfintResult {
+    let mut names = first.names;
+    names.extend(second.names);
+    let mut estimate = first.estimate.to_vec();
+    estimate.extend(second.estimate.iter().copied());
+    let mut lower = first.lower.to_vec();
+    lower.extend(second.lower.iter().copied());
+    let mut upper = first.upper.to_vec();
+    upper.extend(second.upper.iter().copied());
+    BootConfintResult {
+        names,
+        estimate: Array1::from_vec(estimate),
+        lower: Array1::from_vec(lower),
+        upper: Array1::from_vec(upper),
+        level: first.level,
+    }
+}
+
+fn vc_row(theta: Option<&Array1<f64>>, sigma2: Option<f64>) -> Option<Vec<(String, f64)>> {
+    let theta = theta?;
+    if theta.is_empty() {
+        return None;
+    }
+    let mut out = Vec::new();
+    match sigma2 {
+        Some(s2) if s2.is_finite() && s2 > 0.0 => {
+            let sigma = s2.sqrt();
+            if theta.len() == 1 {
+                out.push((".sig01".to_string(), theta[0] * sigma));
+            } else {
+                for (i, &t) in theta.iter().enumerate() {
+                    out.push((format!(".sig{:02}", i + 1), t));
+                }
+            }
+            out.push((".sigma".to_string(), sigma));
+        }
+        _ => {
+            for (i, &t) in theta.iter().enumerate() {
+                out.push((format!(".sig{:02}", i + 1), t));
+            }
+        }
+    }
+    Some(out)
+}
+
+fn percentile_from_columns(
+    names: Vec<String>,
+    estimate: Array1<f64>,
+    rows: Vec<Vec<f64>>,
+    level: f64,
+) -> Result<BootConfintResult> {
+    let p = names.len();
+    if rows.iter().any(|r| r.len() != p) || estimate.len() != p {
+        return Err(LmeError::NotImplemented {
+            feature: "Bootstrap confint column length mismatch".to_string(),
+        });
+    }
+    let alpha = 1.0 - level;
+    let lower_q = alpha / 2.0;
+    let upper_q = 1.0 - alpha / 2.0;
+    let mut lower = Array1::<f64>::zeros(p);
+    let mut upper = Array1::<f64>::zeros(p);
+    for j in 0..p {
+        let mut vals: Vec<f64> = rows.iter().map(|r| r[j]).collect();
+        vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        lower[j] = percentile_sorted(&vals, lower_q);
+        upper[j] = percentile_sorted(&vals, upper_q);
+    }
+    Ok(BootConfintResult {
+        names,
+        estimate,
+        lower,
+        upper,
+        level,
+    })
 }
 
 /// Parametric or residual bootstrap for a fitted LMM.
@@ -236,6 +358,7 @@ pub fn boot_lmer(
         nsim,
         fixed_names,
         t0: fit.coefficients.clone(),
+        t0_theta: fit.theta.clone(),
         t0_sigma2: fit.sigma2,
         prop_converged: n_conv as f64 / nsim as f64,
         replicates,
@@ -342,6 +465,7 @@ pub fn boot_glmer(
         nsim,
         fixed_names,
         t0: fit.coefficients.clone(),
+        t0_theta: fit.theta.clone(),
         t0_sigma2: fit.sigma2,
         prop_converged: n_conv as f64 / nsim as f64,
         replicates,

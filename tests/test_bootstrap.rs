@@ -41,6 +41,21 @@ fn test_boot_lmer_parametric_sleepstudy() {
         assert!(ci.lower[i] <= ci.estimate[i]);
         assert!(ci.upper[i] >= ci.estimate[i]);
     }
+
+    let vc = boot.confint_percentile_vc(0.95).unwrap();
+    assert_eq!(vc.names, vec![".sig01".to_string(), ".sigma".to_string()]);
+    assert!(boot.t0_theta.is_some());
+    for i in 0..vc.estimate.len() {
+        assert!(vc.lower[i] <= vc.upper[i]);
+        assert!(
+            vc.lower[i] <= vc.estimate[i] && vc.estimate[i] <= vc.upper[i],
+            "{} not inside bootstrap VC CI",
+            vc.names[i]
+        );
+    }
+    let all = boot.confint_percentile_all(0.90).unwrap();
+    assert_eq!(all.names.len(), vc.names.len() + ci.names.len());
+    assert_eq!(all.names[0], ".sig01");
 }
 
 #[test]

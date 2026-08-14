@@ -360,12 +360,16 @@ let mu_cond = poisson_fit.predict_conditional_response(&newdata, true)?;
 
 Profile-likelihood intervals: `confint_profile(level, &data)` or `confint_with(level, ConfintMethod::Profile, Some(&data))`. They need the original data, refit θ many times per coefficient, and are slower than Wald. LMM profiles use the ML deviance scale (even if the reference fit was REML). Use `confint_profile_parms(level, &data, &[j, …])` (or `confint_with_parms(..., Some(&[j]))`) to profile a subset — the main speed lever when only a few coefficients matter.
 
+Variance-component profile intervals: `confint_profile_vc(level, &data)` returns `.sig01`… and `.sigma` on the same scale as `lme4::confint.merMod(..., method = "profile", oldNames = TRUE)`. For a scalar random intercept, `.sig01` is the RE standard deviation (`θ·σ`) and `.sigma` is the residual SD. `confint_profile_all` concatenates those rows with the fixed-effect profile (lme4 order). Vector θ is profiled on the relative Cholesky scale. GLMMs report `.sig01`… and omit `.sigma` unless the family has a free dispersion. `nlmer` is not supported.
+
 ```rust
 let mut fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
 fit.with_satterthwaite(&df)?;
 let ci = fit.confint(0.95)?;
 let ci_prof = fit.confint_profile(0.95, &df)?;
 let ci_days = fit.confint_profile_parms(0.95, &df, &[1])?;
+let ci_vc = fit.confint_profile_vc(0.95, &df)?;
+let ci_all = fit.confint_profile_all(0.95, &df)?;
 println!("{}", ci);
 ```
 
@@ -440,7 +444,7 @@ let g_ci = gboot.confint_percentile(0.95)?;
 | `BootLmerMethod::Residual` (LMM only) | Fitted values + resampled residuals (with replacement) | `bootMer(..., type = "residual")` |
 | `BootLmerMethod::Parametric` (GLMM via `boot_glmer`) | Family draws from fitted μ (binomial trials → `Binom(n_i, p_i)`) | `bootMer` parametric analogue |
 
-**Result fields:** `t0` (original fixed effects), `replicates` (per-draw `coefficients`, `theta`, `sigma2`, `converged`), `prop_converged`, and `confint_percentile(level)` for percentile intervals on converged draws.
+**Result fields:** `t0` (original fixed effects), `t0_theta`, `replicates` (per-draw `coefficients`, `theta`, `sigma2`, `converged`), `prop_converged`, `confint_percentile(level)` for fixed-effect percentile intervals, and `confint_percentile_vc` / `confint_percentile_all` for `.sig01`… / `.sigma` (scalar-θ LMMs report `.sig01` as the RE SD `θ·σ`).
 
 **Scope:** `boot_lmer` — Gaussian LMMs (parametric + residual). `boot_glmer` — GLMMs (parametric only; not NLMM). Requires the same `formula` and `DataFrame` used for the reference fit. Does not resample fixed-effect or variance-component parameters directly (parametric draws are on the **response** scale, then the model is refit). Validate against R `bootMer` on publication-critical workflows.
 
@@ -723,8 +727,10 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `predict_response(newdata)` | GLMM response-scale prediction |
 | `predict_conditional_response(newdata, allow_new_levels)` | conditional response-scale GLMM prediction |
 | `confint(level)` | Wald CIs; uses t with KR/Satterthwaite dfs when stored on fit |
-| `confint_profile(level, data)` | profile-likelihood CIs (LMM/GLMM; slower) |
+| `confint_profile(level, data)` | profile-likelihood CIs for fixed effects (LMM/GLMM; slower) |
 | `confint_profile_parms(level, data, parms)` | profile CIs for a coefficient subset (by index) |
+| `confint_profile_vc(level, data)` | profile CIs for `.sig01`… / `.sigma` (lme4 `oldNames` scale) |
+| `confint_profile_all(level, data)` | VC profile rows followed by fixed-effect profile rows |
 | `simulate(nsim)` | parametric simulation (sequential; use `simulate_with` for parallel) |
 | `simulate_with(nsim, n_jobs, seed)` | parallel parametric simulation |
 | `simulate_batched(nsim, batch_size, n_jobs, seed, on_batch)` | stream simulation batches |
