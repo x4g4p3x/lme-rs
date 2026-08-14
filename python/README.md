@@ -8,7 +8,7 @@ Native Python bindings for [`lme-rs`](https://github.com/x4g4p3x/lme-rs), a Rust
 pip install lme-python
 ```
 
-Published wheels are available for CPython 3.10 on Windows, macOS, and Linux; CI also builds and tests wheels from source on Python 3.10–3.13. The package imports as `lme_python` and uses Polars DataFrames.
+The latest published version is **[0.2.2](https://pypi.org/project/lme-python/0.2.2/)**. Published wheels are available for CPython 3.10 on Windows, macOS, and Linux; CI also builds and tests wheels from source on Python 3.10–3.13. The package imports as `lme_python` and uses Polars DataFrames. See the [changelog](https://github.com/x4g4p3x/lme-rs/blob/master/CHANGELOG.md) for what 0.2.2 ships.
 
 ## Quick start
 

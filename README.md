@@ -2,10 +2,14 @@
 
 [![crates.io](https://img.shields.io/crates/v/lme-rs.svg)](https://crates.io/crates/lme-rs)
 [![docs.rs](https://docs.rs/lme-rs/badge.svg)](https://docs.rs/lme-rs/latest/lme_rs/)
+[![PyPI](https://img.shields.io/pypi/v/lme-python.svg)](https://pypi.org/project/lme-python/)
+[![GitHub release](https://img.shields.io/github/v/release/x4g4p3x/lme-rs.svg)](https://github.com/x4g4p3x/lme-rs/releases/latest)
 [![Release CI](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/x4g4p3x/lme-rs/actions/workflows/ci.yml)
 [![license](https://img.shields.io/crates/l/lme-rs.svg)](LICENSE)
 
 `lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
+
+The latest published release is **[0.2.2](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.2.2)** (2026-08-14). It adds LMM estimated marginal means, Tukey / Dunnett `glht`, profile CIs for variance components, Wilkinson `poly()` / `ns()` / `y ~ .` (and related transforms), multivariate AGQ-in-θ, Python `lm(y, x)`, and Gamma GLMM θ parity with lme4. Install with `cargo add lme-rs` or `pip install lme-python`. Full notes: [CHANGELOG.md](CHANGELOG.md).
 
 > **Repository completion (evidence-weighted): 100% (236/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
 
