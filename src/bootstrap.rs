@@ -168,9 +168,10 @@ impl BootLmerResult {
     }
 
     fn percentile_vc(&self, level: f64) -> Result<BootConfintResult> {
-        let t0_row = vc_row(self.t0_theta.as_ref(), self.t0_sigma2).ok_or(LmeError::NotImplemented {
-            feature: "Bootstrap VC confint requires theta on the reference fit".to_string(),
-        })?;
+        let t0_row =
+            vc_row(self.t0_theta.as_ref(), self.t0_sigma2).ok_or(LmeError::NotImplemented {
+                feature: "Bootstrap VC confint requires theta on the reference fit".to_string(),
+            })?;
         let names: Vec<String> = t0_row.iter().map(|(n, _)| n.clone()).collect();
         let estimate = Array1::from_vec(t0_row.iter().map(|(_, v)| *v).collect());
         let mut rows = Vec::new();
