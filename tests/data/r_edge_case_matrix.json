@@ -1,0 +1,416 @@
+{
+  "schema_version": 1,
+  "generator": "tests/generate_r_edge_case_matrix.R",
+  "assessed_on": "2026-08-14",
+  "reference_environment": {
+    "engine": "R",
+    "r_version": "R version 4.3.3 (2024-02-29)",
+    "platform": "x86_64-pc-linux-gnu",
+    "packages": {
+      "lme4": "1.1.35.1",
+      "splines": "4.3.3",
+      "jsonlite": "1.8.8"
+    },
+    "notes": [
+      "Fit-level parity for Wilkinson / RE edge cases not covered by the main golden manifest.",
+      "Orthogonal poly() / ns() compare coefficients in the R column space; sign conventions may require the Rust test to align columns."
+    ]
+  },
+  "cases": [
+    {
+      "id": "sleepstudy_independent_slopes_reml",
+      "description": "Independent random intercept and slope via Wilkinson || (lme4 expands to two RE blocks).",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ Days + (Days || Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ Days + (Days || Subject), sleepstudy, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 251.405104848483,
+            "tolerance": 0.05
+          },
+          {
+            "name": "Days",
+            "value": 10.467285959596,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 0.979896527914237,
+            "tolerance": 0.02
+          },
+          {
+            "name": "Subject.Days",
+            "value": 0.234231225347045,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 653.583500654207,
+          "tolerance": 0.15
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1743.66929358148,
+          "tolerance": 0.15
+        }
+      }
+    },
+    {
+      "id": "sleepstudy_quadratic_i_reml",
+      "description": "Identity-protected quadratic I(Days^2) with a random intercept.",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ Days + I(Days^2) + (1 | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ Days + I(Days^2) + (1 | Subject), sleepstudy, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 255.449372777778,
+            "tolerance": 0.05
+          },
+          {
+            "name": "Days",
+            "value": 7.43408501262551,
+            "tolerance": 0.05
+          },
+          {
+            "name": "I(Days^2)",
+            "value": 0.337022327441154,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 1.19837813396081,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 959.712539438478,
+          "tolerance": 0.15
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1785.79527202737,
+          "tolerance": 0.15
+        }
+      }
+    },
+    {
+      "id": "sleepstudy_sqrt_days_reml",
+      "description": "Unary sqrt(Days) transform (Days includes 0, so log() is undefined).",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ sqrt(Days) + (1 | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ sqrt(Days) + (1 | Subject), sleepstudy, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 236.850737920535,
+            "tolerance": 0.05
+          },
+          {
+            "name": "sqrt(Days)",
+            "value": 31.9367823817161,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 1.11925806244885,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 1089.80716724221,
+          "tolerance": 0.15
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1804.4390277025,
+          "tolerance": 0.15
+        }
+      }
+    },
+    {
+      "id": "sleepstudy_poly_raw_reml",
+      "description": "Raw polynomial poly(Days, 2, raw = TRUE) plus a random intercept.",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ poly(Days, 2, raw = TRUE) + (1 | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ poly(Days, 2, raw = TRUE) + (1 | Subject), sleepstudy, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 255.449372777778,
+            "tolerance": 0.05
+          },
+          {
+            "name": "poly(Days, 2, raw = TRUE)1",
+            "value": 7.43408501262551,
+            "tolerance": 0.05
+          },
+          {
+            "name": "poly(Days, 2, raw = TRUE)2",
+            "value": 0.337022327441154,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 1.19837813396081,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 959.712539438478,
+          "tolerance": 0.15
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1785.79527202737,
+          "tolerance": 0.15
+        }
+      }
+    },
+    {
+      "id": "sleepstudy_poly_orthogonal_reml",
+      "description": "Orthogonal poly(Days, 2) plus a random intercept (column space of stats::poly).",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ poly(Days, 2) + (1 | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ poly(Days, 2) + (1 | Subject), sleepstudy, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 298.507891666667,
+            "tolerance": 0.08
+          },
+          {
+            "name": "poly(Days, 2)1",
+            "value": 403.364167855218,
+            "tolerance": 0.08
+          },
+          {
+            "name": "poly(Days, 2)2",
+            "value": 32.8557879762132,
+            "tolerance": 0.08
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 1.19837813392672,
+            "tolerance": 0.03
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 959.712539443381,
+          "tolerance": 0.2
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1769.33263393453,
+          "tolerance": 0.2
+        }
+      }
+    },
+    {
+      "id": "sleepstudy_ns_df3_reml",
+      "description": "Natural cubic spline ns(Days, 3) plus a random intercept (column space of splines::ns).",
+      "kind": "lmm",
+      "data_path": "tests/data/sleepstudy.csv",
+      "formula": "Reaction ~ ns(Days, 3) + (1 | Subject)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(Reaction ~ ns(Days, 3) + (1 | Subject), sleepstudy, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 255.525371465501,
+            "tolerance": 0.15
+          },
+          {
+            "name": "ns(Days, 3)1",
+            "value": 50.1779910211423,
+            "tolerance": 0.15
+          },
+          {
+            "name": "ns(Days, 3)2",
+            "value": 100.650691089969,
+            "tolerance": 0.15
+          },
+          {
+            "name": "ns(Days, 3)3",
+            "value": 80.3087594883004,
+            "tolerance": 0.15
+          }
+        ],
+        "theta": [
+          {
+            "name": "Subject.(Intercept)",
+            "value": 1.19402673093565,
+            "tolerance": 0.05
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 966.260949895586,
+          "tolerance": 0.25
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 1767.42021667122,
+          "tolerance": 0.25
+        }
+      }
+    },
+    {
+      "id": "pastes_no_intercept_cask_reml",
+      "description": "Cell-means coding: strength ~ 0 + cask with a batch random intercept.",
+      "kind": "lmm",
+      "data_path": "tests/data/pastes.csv",
+      "formula": "strength ~ 0 + cask + (1 | batch)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(strength ~ 0 + cask + (1 | batch), pastes, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "caska",
+            "value": 59.295,
+            "tolerance": 0.05
+          },
+          {
+            "name": "caskb",
+            "value": 60.145,
+            "tolerance": 0.05
+          },
+          {
+            "name": "caskc",
+            "value": 60.72,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "batch.(Intercept)",
+            "value": 0.678545717363697,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 7.30600693839021,
+          "tolerance": 0.15
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 296.027773744451,
+          "tolerance": 0.15
+        }
+      }
+    },
+    {
+      "id": "pastes_nested_slash_reml",
+      "description": "Nested grouping via slash: strength ~ 1 + (1 | batch/cask).",
+      "kind": "lmm",
+      "data_path": "tests/data/pastes.csv",
+      "formula": "strength ~ 1 + (1 | batch/cask)",
+      "reml": true,
+      "reference": {
+        "engine": "lme4::lmer",
+        "call": "lmer(strength ~ 1 + (1 | batch/cask), pastes, REML = TRUE)",
+        "r_version": "R version 4.3.3 (2024-02-29)",
+        "lme4_version": "1.1.35.1"
+      },
+      "expected": {
+        "coefficients": [
+          {
+            "name": "(Intercept)",
+            "value": 60.0533333333354,
+            "tolerance": 0.05
+          }
+        ],
+        "theta": [
+          {
+            "name": "cask:batch.(Intercept)",
+            "value": 3.52690178773174,
+            "tolerance": 0.02
+          },
+          {
+            "name": "batch.(Intercept)",
+            "value": 1.56346140209686,
+            "tolerance": 0.02
+          }
+        ],
+        "sigma2": {
+          "name": "sigma2",
+          "value": 0.677999949668756,
+          "tolerance": 0.15
+        },
+        "deviance": {
+          "name": "REML criterion",
+          "value": 246.990745853487,
+          "tolerance": 0.15
+        }
+      }
+    }
+  ]
+}

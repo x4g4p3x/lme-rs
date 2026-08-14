@@ -62,6 +62,7 @@ task preflight   # pre-push hook: lint + check + cargo audit + repo-metadata dry
 task audit       # cargo audit + pip-audit (GHA security audit mirror)
 task docs:check  # local Markdown links + Rust examples/doctests + generated docs
 task consumer:smoke # Rust quick-start + clean-wheel Python examples
+task explorations # native-parser AST / θ-grid / MCP probes
 task rust        # full Rust slice (no Python)
 task             # full core CI mirror
 task ci:fast     # reuse python/.venv, skip isolated-wheel pytest

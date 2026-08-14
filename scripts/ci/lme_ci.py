@@ -23,6 +23,11 @@ PYTHON_DIR = ROOT / "python"
 PYTHON_VENV = PYTHON_DIR / ".venv"
 JULIA_FORMAT_SCRIPT = ROOT / "scripts" / "ci" / "julia_format.jl"
 R_FORMAT_SCRIPT = ROOT / "scripts" / "ci" / "r_format.R"
+EXPLORATION_EXAMPLES = [
+    "explore_formula_ast",
+    "explore_theta_grid",
+    "explore_mcp_adjust",
+]
 PORTABLE_PYTHON_EXAMPLES = [
     PYTHON_DIR / "examples" / "lm_basics.py",
     PYTHON_DIR / "examples" / "lmer_sleepstudy.py",
@@ -422,6 +427,27 @@ def _resolve_julia_bin() -> str | None:
 def perf_breakdown() -> None:
     """Rust LME_PERF_DIAG vs Julia optsum.feval on fair fixtures."""
     run([sys.executable, "scripts/run_perf_breakdown.py", "--cases", "crossed_20k"])
+
+
+def run_explorations() -> None:
+    """Run standalone native-parser / θ-grid / MCP exploration examples."""
+    for name in EXPLORATION_EXAMPLES:
+        run(["cargo", "run", "--locked", "--example", name])
+
+
+def external_timings(*, rust_only: bool = False, repeats: int = 5) -> None:
+    """Time nlmer, post-fit inference, and optional Python FFI vs R."""
+    cmd = [
+        sys.executable,
+        "scripts/run_external_timings.py",
+        "--repeats",
+        str(repeats),
+        "--warmups",
+        "1",
+    ]
+    if rust_only:
+        cmd.append("--rust-only")
+    run(cmd)
 
 
 def benchmarks_fair_rust_julia() -> None:
@@ -866,6 +892,7 @@ def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool 
     completion_check()
     cargo_build_test()
     run(["cargo", "run", "--locked", "--example", "sleepstudy"])
+    run_explorations()
     if not skip_python:
         python_bindings(
             reuse_venv=reuse_venv,
@@ -975,6 +1002,17 @@ def main(argv: list[str] | None = None) -> int:
         "perf-breakdown",
         help="Rust LME_PERF_DIAG vs Julia optsum.feval on crossed_20k fair fixture",
     ).set_defaults(fn=lambda _: perf_breakdown())
+    sub.add_parser(
+        "explorations",
+        help="Run standalone formula AST / θ-grid / MCP exploration examples",
+    ).set_defaults(fn=lambda _: run_explorations())
+    p_ext = sub.add_parser(
+        "external-timings",
+        help="Time nlmer, post-fit inference, and Python FFI (R when available)",
+    )
+    p_ext.add_argument("--rust-only", action="store_true")
+    p_ext.add_argument("--repeats", type=int, default=5)
+    p_ext.set_defaults(fn=lambda a: external_timings(rust_only=a.rust_only, repeats=a.repeats))
     p_bench_fail = sub.add_parser(
         "benchmark-failures",
         help="Print cross-language benchmark failure details from JSON",

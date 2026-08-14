@@ -11,6 +11,7 @@ python3 scripts/ci/lme_ci.py audit
 python3 scripts/ci/lme_ci.py repo-metadata
 python3 scripts/ci/lme_ci.py docs-check
 python3 scripts/ci/lme_ci.py consumer-smoke
+python3 scripts/ci/lme_ci.py explorations
 python3 scripts/ci/lme_ci.py python --reuse-venv --skip-isolated-wheel
 ```
 

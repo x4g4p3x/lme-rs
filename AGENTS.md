@@ -97,6 +97,8 @@ For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `ta
 | `task docs:check` / `task consumer:smoke` | Validate docs/links/API examples / run clean-install Rust and Python workflows |
 | `task benchmarks:fair-rust-julia` | Fair fit-only Rust vs MixedModels.jl timing when Julia packages are installed |
 | `task benchmarks:perf-breakdown` | Rust phase timings against Julia optimizer evaluation counts |
+| `task benchmarks:external-timings` | Fair-ish `nlmer`, post-fit inference, and Python FFI timings vs R when available |
+| `task explorations` | Standalone native-parser AST, θ-grid, and MCP exploration examples |
 | `task lint:comparisons` | Optional R/Julia comparison formatting check |
 
 Run `python scripts/ci/lme_ci.py --help` for the complete command list. See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor workflow and [RELEASING.md](RELEASING.md) for release steps.
