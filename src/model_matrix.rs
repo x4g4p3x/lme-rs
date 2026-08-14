@@ -1,4 +1,4 @@
-use crate::formula::{BinaryOp, ColumnRole, FormulaModel, NumericExpr, UnaryOp};
+use crate::formula::{BasisSpec, BinaryOp, ColumnRole, FormulaModel, NumericExpr, UnaryOp};
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use std::collections::HashMap;
@@ -44,6 +44,8 @@ pub struct DesignMatrices {
     pub offset: Option<Array1<f64>>,
     /// Saved categorical dummy variable levels during training.
     pub categorical_levels: HashMap<String, Vec<String>>,
+    /// Training encodings for `poly()` / `ns()` so prediction reuses the fit basis.
+    pub basis_encodings: HashMap<String, crate::basis::BasisEncoding>,
     /// Optional precomputed \(Z^T Z\) from the fair design path (avoids rescanning \(Z^T\)).
     pub precomputed_zt_z: Option<sprs::CsMat<f64>>,
 }
@@ -90,8 +92,8 @@ pub fn build_design_matrices(
         .collect();
     let y = Array1::from_vec(y_vec);
 
-    let (x, fixed_names, fixed_term_assign, categorical_levels) =
-        build_x_matrix(ast, data, &response_name, n_obs, None)?;
+    let (x, fixed_names, fixed_term_assign, categorical_levels, basis_encodings) =
+        build_x_matrix(ast, data, &response_name, n_obs, None, None)?;
 
     // 2. Extract Offset (if any)
     let offset = if let Some(off_expr) = &ast.offset {
@@ -226,6 +228,7 @@ pub fn build_design_matrices(
         fixed_term_assign,
         offset,
         categorical_levels,
+        basis_encodings,
         precomputed_zt_z: None,
     })
 }
@@ -449,6 +452,7 @@ fn try_build_simple_x_matrix(
         Vec<String>,
         Vec<String>,
         HashMap<String, Vec<String>>,
+        HashMap<String, crate::basis::BasisEncoding>,
     )>,
 > {
     let mut numeric_name: Option<&str> = None;
@@ -459,7 +463,7 @@ fn try_build_simple_x_matrix(
         if !is_fixed_effect_column(info, col_name, response_name) {
             continue;
         }
-        if info.has_role(ColumnRole::Interaction) || info.expr.is_some() {
+        if info.has_role(ColumnRole::Interaction) || info.expr.is_some() || info.basis.is_some() {
             return Ok(None);
         }
         let s = match data.column(col_name) {
@@ -483,6 +487,7 @@ fn try_build_simple_x_matrix(
                 vec!["(Intercept)".to_string()],
                 vec!["(Intercept)".to_string()],
                 HashMap::new(),
+                HashMap::new(),
             )))
         }
         (true, Some(col_name)) => {
@@ -495,6 +500,7 @@ fn try_build_simple_x_matrix(
                 vec!["(Intercept)".to_string(), col_name.to_string()],
                 vec!["(Intercept)".to_string(), col_name.to_string()],
                 HashMap::new(),
+                HashMap::new(),
             )))
         }
         (false, Some(col_name)) => {
@@ -505,6 +511,7 @@ fn try_build_simple_x_matrix(
                 x,
                 vec![col_name.to_string()],
                 vec![col_name.to_string()],
+                HashMap::new(),
                 HashMap::new(),
             )))
         }
@@ -776,6 +783,144 @@ fn is_fixed_effect_column(
     info.has_role(ColumnRole::FixedEffect) || info.has_role(ColumnRole::Interaction)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn push_basis_term(
+    basis: &BasisSpec,
+    col_name: &str,
+    data: &DataFrame,
+    n_obs: usize,
+    ast: &FormulaModel,
+    response_name: &str,
+    training_levels: Option<&HashMap<String, Vec<String>>>,
+    training_basis: Option<&HashMap<String, crate::basis::BasisEncoding>>,
+    fixed_cols: &mut Vec<Array1<f64>>,
+    fixed_names: &mut Vec<String>,
+    fixed_term_assign: &mut Vec<String>,
+    term_col_arrays: &mut HashMap<String, Vec<Array1<f64>>>,
+    extracted_levels: &mut HashMap<String, Vec<String>>,
+    intercept_handled: &mut bool,
+    basis_encodings: &mut HashMap<String, crate::basis::BasisEncoding>,
+) -> crate::Result<()> {
+    match basis {
+        BasisSpec::Dot => {
+            let existing: std::collections::HashSet<&str> =
+                ast.columns.keys().map(String::as_str).collect();
+            for column in data.get_columns() {
+                let name = column.name().as_str();
+                if name == response_name || name == "." || existing.contains(name) {
+                    continue;
+                }
+                append_encoded_column(
+                    data,
+                    name,
+                    n_obs,
+                    *intercept_handled,
+                    training_levels,
+                    fixed_cols,
+                    fixed_names,
+                    fixed_term_assign,
+                    term_col_arrays,
+                    extracted_levels,
+                    intercept_handled,
+                )?;
+            }
+        }
+        BasisSpec::Poly {
+            source,
+            degree,
+            raw,
+        } => {
+            let values = numeric_column_f64(data, source)?;
+            let training = training_basis.and_then(|enc| enc.get(col_name));
+            let (cols, encoding) = crate::basis::eval_poly(&values, *degree, *raw, training)?;
+            push_multi_columns(
+                col_name,
+                cols,
+                fixed_cols,
+                fixed_names,
+                fixed_term_assign,
+                term_col_arrays,
+            );
+            basis_encodings.insert(col_name.to_string(), encoding);
+        }
+        BasisSpec::Ns {
+            source,
+            df,
+            intercept,
+        } => {
+            let values = numeric_column_f64(data, source)?;
+            let training = training_basis.and_then(|enc| enc.get(col_name));
+            let (cols, encoding) = crate::basis::eval_ns(&values, *df, *intercept, training)?;
+            push_multi_columns(
+                col_name,
+                cols,
+                fixed_cols,
+                fixed_names,
+                fixed_term_assign,
+                term_col_arrays,
+            );
+            basis_encodings.insert(col_name.to_string(), encoding);
+        }
+    }
+    Ok(())
+}
+
+fn push_multi_columns(
+    term: &str,
+    cols: Vec<Array1<f64>>,
+    fixed_cols: &mut Vec<Array1<f64>>,
+    fixed_names: &mut Vec<String>,
+    fixed_term_assign: &mut Vec<String>,
+    term_col_arrays: &mut HashMap<String, Vec<Array1<f64>>>,
+) {
+    let mut stored = Vec::with_capacity(cols.len());
+    for (i, col) in cols.into_iter().enumerate() {
+        let name = format!("{}{}", term, i + 1);
+        stored.push(col.clone());
+        fixed_cols.push(col);
+        fixed_names.push(name);
+        fixed_term_assign.push(term.to_string());
+    }
+    term_col_arrays.insert(term.to_string(), stored);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn append_encoded_column(
+    data: &DataFrame,
+    col_name: &str,
+    n_obs: usize,
+    drop_first: bool,
+    training_levels: Option<&HashMap<String, Vec<String>>>,
+    fixed_cols: &mut Vec<Array1<f64>>,
+    fixed_names: &mut Vec<String>,
+    fixed_term_assign: &mut Vec<String>,
+    term_col_arrays: &mut HashMap<String, Vec<Array1<f64>>>,
+    extracted_levels: &mut HashMap<String, Vec<String>>,
+    intercept_handled: &mut bool,
+) -> crate::Result<()> {
+    let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels)?;
+    if let Some(levels) = encoded.levels.clone() {
+        extracted_levels.insert(col_name.to_string(), levels);
+        *intercept_handled = true;
+    }
+    let mut term_cols: Vec<Array1<f64>> = Vec::new();
+    for (col, suffix) in encoded.cols.into_iter().zip(encoded.suffixes) {
+        let name = if suffix.is_empty() {
+            col_name.to_string()
+        } else {
+            format!("{col_name}{suffix}")
+        };
+        term_cols.push(col.clone());
+        fixed_cols.push(col);
+        fixed_names.push(name);
+        fixed_term_assign.push(col_name.to_string());
+    }
+    if !term_cols.is_empty() {
+        term_col_arrays.insert(col_name.to_string(), term_cols);
+    }
+    Ok(())
+}
+
 /// Map the parser's interaction column name (`trt_blk`) to R-style term label (`trt:blk`).
 fn interaction_term_label(col_name: &str, factor_names: &[String]) -> String {
     if col_name.contains(':') {
@@ -817,13 +962,15 @@ pub fn build_x_matrix(
     response_name: &str,
     n_obs: usize,
     training_levels: Option<&HashMap<String, Vec<String>>>,
+    training_basis: Option<&HashMap<String, crate::basis::BasisEncoding>>,
 ) -> crate::Result<(
     Array2<f64>,
     Vec<String>,
     Vec<String>,
     HashMap<String, Vec<String>>,
+    HashMap<String, crate::basis::BasisEncoding>,
 )> {
-    if training_levels.is_none() {
+    if training_levels.is_none() && training_basis.is_none() {
         if let Some(fast) = try_build_simple_x_matrix(ast, data, response_name, n_obs)? {
             return Ok(fast);
         }
@@ -834,6 +981,7 @@ pub fn build_x_matrix(
     let mut fixed_term_assign = Vec::new();
     let mut intercept_handled = ast.metadata.has_intercept;
     let mut extracted_levels: HashMap<String, Vec<String>> = HashMap::new();
+    let mut basis_encodings: HashMap<String, crate::basis::BasisEncoding> = HashMap::new();
 
     let factor_names: Vec<String> = ast
         .columns
@@ -1000,6 +1148,27 @@ pub fn build_x_matrix(
             continue;
         }
 
+        if let Some(basis) = &info.basis {
+            push_basis_term(
+                basis,
+                col_name,
+                data,
+                n_obs,
+                ast,
+                response_name,
+                training_levels,
+                training_basis,
+                &mut fixed_cols,
+                &mut fixed_names,
+                &mut fixed_term_assign,
+                &mut term_col_arrays,
+                &mut extracted_levels,
+                &mut intercept_handled,
+                &mut basis_encodings,
+            )?;
+            continue;
+        }
+
         if let Some(expr) = &info.expr {
             let col = eval_numeric_expr(expr, data, n_obs)?;
             let name = col_name.clone();
@@ -1038,7 +1207,13 @@ pub fn build_x_matrix(
         x.column_mut(j).assign(col);
     }
 
-    Ok((x, fixed_names, fixed_term_assign, extracted_levels))
+    Ok((
+        x,
+        fixed_names,
+        fixed_term_assign,
+        extracted_levels,
+        basis_encodings,
+    ))
 }
 
 fn build_grouping_from_string_column(
@@ -1437,6 +1612,7 @@ pub fn try_build_fair_lmm_design(
         fixed_term_assign,
         offset: None,
         categorical_levels: HashMap::new(),
+        basis_encodings: HashMap::new(),
         precomputed_zt_z,
     }))
 }

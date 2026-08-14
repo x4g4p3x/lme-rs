@@ -7,7 +7,7 @@
 
 `lme-rs` is a Rust library for linear and generalized linear mixed-effects models, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes several downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R.
 
-> **Repository completion (evidence-weighted): 89% (209/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
+> **Repository completion (evidence-weighted): 89% (210/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
 
 ## What it covers
 
@@ -18,7 +18,7 @@
 - `boot_lmer()` / `boot_glmer()` for parametric (and LMM residual) bootstrap refits with percentile CIs (see [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer))
 - `nlmer()` for nonlinear mixed models (`SSlogis` / `SSasymp` / `SSfol` / `SSmicmen` / `SSgompertz` / `SSpower` / `SSfpl` / `SSbiexp` / `SSweibull` / `SSasympOff` / `SSasympOrig`; optional population and group-level bounds; optional AGQ including vector RE; `nlmer_with_mean` for custom μ; scalar or multivariate RE)
 - `glmer()` and `glmer_weighted()` for binomial, poisson, gaussian, and gamma mixed models (Laplace or AGQ via `n_agq`)
-- Wilkinson formulas with nested and crossed random effects, two-way `*` / `:` interactions, `log`/`sqrt`/`exp`, `I()` arithmetic, and transformed `offset()` terms
+- Wilkinson formulas with nested and crossed random effects, two-way `*` / `:` interactions, `log`/`sqrt`/`exp`, `I()` arithmetic, `poly()` / `ns()`, `y ~ .`, and transformed `offset()` terms
 - Population-level and conditional prediction APIs
 - Wald and **profile-likelihood** confidence intervals (`parms=` subset), parametric simulation, bootstrap refits, robust standard errors, Satterthwaite / Kenward–Roger dfs
 - Likelihood ratio tests between nested models and Type I / II / III fixed-effects ANOVA (1-DoF tests for continuous terms; joint multi-DoF Wald tests for grouped categorical fixed effects)

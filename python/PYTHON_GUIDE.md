@@ -162,7 +162,7 @@ df = pl.read_csv("tests/data/sleepstudy.csv")
 model = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df)
 ```
 
-The same Wilkinson formulas as Rust are accepted, including `a:b` interactions, `log(x)` / `sqrt(x)` / `exp(x)`, `I(x^2)`, and `offset(log(exposure))`. Random slopes still need a real column; precompute transforms if you want them in `(log_x | group)`.
+The same Wilkinson formulas as Rust are accepted, including `a:b` interactions, `log(x)` / `sqrt(x)` / `exp(x)`, `I(x^2)`, `poly(x, 2)`, `ns(x, 3)`, `y ~ .`, and `offset(log(exposure))`. Random slopes still need a real column; precompute transforms if you want them in `(log_x | group)`.
 
 Set `reml=False` when you want ML instead of REML:
 
