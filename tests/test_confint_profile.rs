@@ -59,14 +59,15 @@ fn test_confint_profile_vc_sleepstudy_matches_r_fixture() {
     for i in 0..2 {
         let lo = r_lo[i].as_f64().unwrap();
         let hi = r_hi[i].as_f64().unwrap();
+        let tol = if i == 1 { 0.05 } else { 1.0 };
         assert!(
-            (vc.lower[i] - lo).abs() < 1.5,
+            (vc.lower[i] - lo).abs() < tol,
             "VC lower[{i}]: rust={} r={}",
             vc.lower[i],
             lo
         );
         assert!(
-            (vc.upper[i] - hi).abs() < 1.5,
+            (vc.upper[i] - hi).abs() < tol,
             "VC upper[{i}]: rust={} r={}",
             vc.upper[i],
             hi

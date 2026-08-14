@@ -35,7 +35,7 @@ pub enum ConfintMethod {
 pub enum ConfintScope {
     /// Fixed-effect coefficients only (default).
     Fixed,
-    /// Variance components: `.sig01`… (RE SD when θ is scalar; otherwise θ) and `.sigma` for LMMs.
+    /// Variance components: `.sig01`… (RE SD `θ·σ(θ)` when θ is scalar; otherwise θ) and `.sigma` for LMMs.
     Variance,
     /// Variance components followed by fixed effects (lme4 `confint.merMod` order).
     All,
@@ -117,11 +117,16 @@ impl LmeFit {
 
     /// Profile-likelihood CIs for variance components (lme4 `oldNames=TRUE` scale).
     ///
-    /// For a scalar random intercept, `.sig01` is the RE standard deviation (θ·σ) and
-    /// `.sigma` is the residual SD. Vector θ is profiled on the relative Cholesky scale
-    /// as `.sig01`, `.sig02`, …. GLMMs omit `.sigma` unless the family has a free
-    /// dispersion. LMM profiles use the ML deviance even if the reference fit was REML.
-    pub fn confint_profile_vc(&self, level: f64, data: &DataFrame) -> anyhow::Result<ConfintResult> {
+    /// For a scalar random intercept, `.sig01` is the RE standard deviation (θ·σ(θ)
+    /// along the θ profile, matching lme4) and `.sigma` is the residual SD. Vector θ
+    /// is profiled on the relative Cholesky scale as `.sig01`, `.sig02`, …. GLMMs omit
+    /// `.sigma` unless the family has a free dispersion. LMM profiles use the ML
+    /// deviance even if the reference fit was REML.
+    pub fn confint_profile_vc(
+        &self,
+        level: f64,
+        data: &DataFrame,
+    ) -> anyhow::Result<ConfintResult> {
         profile_confint_vc(self, level, data)
     }
 
@@ -639,14 +644,21 @@ fn profile_confint_vc_lmm(
     let mut upper = Array1::zeros(hats.len());
 
     if scalar_re_sd {
-        let eval_sd = |sd: f64| -> anyhow::Result<f64> {
-            let d = profile_deviance_re_sd(lmm, sd, false, sigma_hat);
-            finite_deviance(d)
+        // lme4 profiles θ (relative Cholesky) and reports `.sig01` = θ·σ(θ)
+        // on that profile, not a direct profile of the RE SD.
+        let eval_th = |th: f64| -> anyhow::Result<f64> {
+            finite_deviance(lmm.log_reml_deviance(&[th], false))
         };
-        let d0 = eval_sd(hats[0])?;
-        let (lo, hi) = find_profile_interval_log(hats[0], d0 + delta, eval_sd)?;
-        lower[0] = lo;
-        upper[0] = hi;
+        let d0 = eval_th(theta_hat[0])?;
+        let (th_lo, th_hi) =
+            find_profile_interval_log(theta_hat[0].max(1e-8), d0 + delta, eval_th)?;
+        let mut sd_lo = re_sd_at_theta(lmm, th_lo, false)?;
+        let mut sd_hi = re_sd_at_theta(lmm, th_hi, false)?;
+        if sd_lo > sd_hi {
+            std::mem::swap(&mut sd_lo, &mut sd_hi);
+        }
+        lower[0] = sd_lo;
+        upper[0] = sd_hi;
     } else {
         let bounds = optimizer::compute_theta_lower_bounds(&lmm.re_blocks);
         for j in 0..theta_hat.len() {
@@ -773,6 +785,17 @@ fn finite_deviance(d: f64) -> anyhow::Result<f64> {
     }
 }
 
+fn re_sd_at_theta(lmm: &LmmData, theta: f64, reml: bool) -> anyhow::Result<f64> {
+    let coefs = lmm
+        .try_evaluate(&[theta], reml)
+        .map_err(|_| anyhow::anyhow!("evaluate failed at theta={theta}"))?;
+    if coefs.sigma2 > 0.0 && coefs.sigma2.is_finite() {
+        Ok(theta * coefs.sigma2.sqrt())
+    } else {
+        Err(anyhow::anyhow!("non-positive sigma2 at theta={theta}"))
+    }
+}
+
 fn lmm_unprofiled_deviance(lmm: &LmmData, theta: &[f64], sigma2: f64, reml: bool) -> f64 {
     if !(sigma2 > 0.0 && sigma2.is_finite()) {
         return f64::MAX;
@@ -792,25 +815,6 @@ fn lmm_unprofiled_deviance(lmm: &LmmData, theta: &[f64], sigma2: f64, reml: bool
     let r2 = s2_hat * reml_df;
     let base_term = d_prof - reml_df * (twopi * s2_hat).ln() - reml_df;
     reml_df * (twopi * sigma2).ln() + base_term + r2 / sigma2
-}
-
-fn profile_deviance_re_sd(lmm: &LmmData, sd: f64, reml: bool, sigma0: f64) -> f64 {
-    if !(sd > 0.0 && sd.is_finite()) {
-        return f64::MAX;
-    }
-    let sigma0 = if sigma0.is_finite() && sigma0 > 0.0 {
-        sigma0
-    } else {
-        1.0
-    };
-    minimize_positive(
-        |sig| {
-            let th = sd / sig;
-            lmm_unprofiled_deviance(lmm, &[th], sig * sig, reml)
-        },
-        sigma0,
-    )
-    .1
 }
 
 fn profile_deviance_sigma(lmm: &LmmData, sigma: f64, reml: bool, theta0: &Array1<f64>) -> f64 {
@@ -866,12 +870,7 @@ fn profile_deviance_theta_held(
     lmm.log_reml_deviance(theta.as_slice().unwrap(), reml)
 }
 
-fn min_unprofiled_theta_vec(
-    lmm: &LmmData,
-    sigma2: f64,
-    reml: bool,
-    init: &Array1<f64>,
-) -> f64 {
+fn min_unprofiled_theta_vec(lmm: &LmmData, sigma2: f64, reml: bool, init: &Array1<f64>) -> f64 {
     let mut theta = init.clone();
     let bounds = optimizer::compute_theta_lower_bounds(&lmm.re_blocks);
     for _ in 0..6 {
@@ -1032,15 +1031,15 @@ fn finite_or_max(v: f64) -> f64 {
     }
 }
 
-fn find_profile_interval_log<F>(
-    hat: f64,
-    target: f64,
-    mut eval: F,
-) -> anyhow::Result<(f64, f64)>
+fn find_profile_interval_log<F>(hat: f64, target: f64, mut eval: F) -> anyhow::Result<(f64, f64)>
 where
     F: FnMut(f64) -> anyhow::Result<f64>,
 {
-    let hat = if hat.is_finite() && hat > 0.0 { hat } else { 1.0 };
+    let hat = if hat.is_finite() && hat > 0.0 {
+        hat
+    } else {
+        1.0
+    };
     let lower = find_one_bound_log(hat, -1.0, target, &mut eval)?;
     let upper = find_one_bound_log(hat, 1.0, target, &mut eval)?;
     if !upper.is_finite() || lower >= upper {
@@ -1051,12 +1050,7 @@ where
     Ok((lower, upper))
 }
 
-fn find_one_bound_log<F>(
-    hat: f64,
-    direction: f64,
-    target: f64,
-    eval: &mut F,
-) -> anyhow::Result<f64>
+fn find_one_bound_log<F>(hat: f64, direction: f64, target: f64, eval: &mut F) -> anyhow::Result<f64>
 where
     F: FnMut(f64) -> anyhow::Result<f64>,
 {
@@ -1066,11 +1060,9 @@ where
     }
     let log_hat = hat.ln();
     let mut log_inner = log_hat;
-    let mut d_inner = d_hat;
-    let mut step = 0.2_f64;
+    let mut step = 0.08_f64;
     let mut found = false;
     let mut log_outer = log_hat;
-    let mut d_outer = d_hat;
     const LOG_FLOOR: f64 = -16.0;
     const LOG_CEIL: f64 = 8.0;
     for _ in 0..40 {
@@ -1081,21 +1073,20 @@ where
         if direction > 0.0 && log_outer > LOG_CEIL {
             log_outer = LOG_CEIL;
         }
-        d_outer = eval(log_outer.exp())?;
+        let d_outer = eval(log_outer.exp())?;
         if d_outer.is_finite() && d_outer >= target {
             found = true;
             break;
         }
         if d_outer.is_finite() && d_outer < target {
             log_inner = log_outer;
-            d_inner = d_outer;
         }
         if (direction < 0.0 && log_outer <= LOG_FLOOR + 1e-12)
             || (direction > 0.0 && log_outer >= LOG_CEIL - 1e-12)
         {
             break;
         }
-        step *= 1.5;
+        step *= 1.4;
     }
     if !found {
         if direction < 0.0 {
@@ -1105,32 +1096,23 @@ where
             "profile CI: could not find deviance crossing on log scale (direction={direction})"
         ));
     }
-    let mut a = log_inner;
-    let mut b = log_outer;
-    let mut da = d_inner;
-    let mut db = d_outer;
-    if a > b {
-        std::mem::swap(&mut a, &mut b);
-        std::mem::swap(&mut da, &mut db);
-    }
+    // `inner` is the last point with d < target (toward the MLE);
+    // `outer` is the first point with d >= target.
     for _ in 0..60 {
-        let mid = 0.5 * (a + b);
+        let mid = 0.5 * (log_inner + log_outer);
         let dm = eval(mid.exp())?;
         if !dm.is_finite() {
-            b = mid;
+            log_outer = mid;
             continue;
         }
         if dm < target {
-            a = mid;
-            da = dm;
+            log_inner = mid;
         } else {
-            b = mid;
-            db = dm;
+            log_outer = mid;
         }
-        if (b - a).abs() < 1e-6 {
+        if (log_outer - log_inner).abs() < 1e-6 {
             break;
         }
-        let _ = (da, db);
     }
-    Ok((0.5 * (a + b)).exp())
+    Ok((0.5 * (log_inner + log_outer)).exp())
 }
