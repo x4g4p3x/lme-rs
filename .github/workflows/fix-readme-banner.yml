@@ -1,0 +1,43 @@
+name: Fix README banner
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/fix-readme-banner.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Reconstruct banner
+        shell: bash
+        run: |
+          cat .tmp-banner/part0.b64 \
+              .tmp-banner/part1.b64 \
+              .tmp-banner/part2.b64 \
+              .tmp-banner/part3.b64 \
+              .tmp-banner/part4.b64 \
+              .tmp-banner/part5.b64 \
+              .tmp-banner/part6.b64 | base64 -d > lme-rs.png
+          test "$(git hash-object lme-rs.png)" = "9b8f0e3bb6a3c070537c2561953236b189b1469a"
+
+      - name: Commit repaired banner
+        shell: bash
+        run: |
+          rm -rf .tmp-banner
+          rm -f .github/workflows/fix-readme-banner.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix README banner image"
+          git push origin HEAD:master
