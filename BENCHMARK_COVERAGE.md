@@ -2,7 +2,7 @@
 
 This file maps **which parts of `lme-rs` have external performance references** (not just Rust-only Criterion benches). Use it to ground [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) and [USABILITY.md](USABILITY.md) performance posture.
 
-**Last assessed:** 2026-07-22
+**Last assessed:** 2026-08-14
 
 ---
 
@@ -50,14 +50,14 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 | `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **0.749×** | N/A | Laplace; not R `nAGQ`-in-θ |
 | `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **0.033×** | N/A | Laplace |
 
-Cases not in tier A (no fair external fit timing yet):
+Cases not in tier A (no fair MixedModels.jl fit timing yet):
 
 | Area | Rust bench | Comparable | Status |
 |:-----|:-----------|:-----------|:-------|
-| `nlmer` / Orange | Golden parity only | `lme4::nlmer` | **No** fair harness |
+| `nlmer` / Orange | Golden parity + [`scripts/run_external_timings.py`](scripts/run_external_timings.py) | `lme4::nlmer` | **External R timing** (not Julia) |
 | GLMM AGQ (`n_agq > 1`) | Criterion | R semantics differ | **No** apples-to-apples |
-| Post-fit inference (KR, ANOVA, predict) | Criterion | `lmerTest` / MixedModels | **No** external timing |
-| Python `lme_python` FFI | None | N/A | **No** |
+| Post-fit inference (KR, ANOVA, predict) | Criterion + external harness | `lmerTest` when installed | **External R timing** for KR / Satterthwaite ANOVA |
+| Python `lme_python` FFI | External harness | Rust `lmer` | **External Python timing** |
 | `lm` / `lm_df` | Minimal | R `lm` | **No** (usually negligible) |
 
 ---
@@ -98,6 +98,19 @@ using Pkg; Pkg.add("GLM")
 ```
 
 [`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl) lazy-loads **GLM** only when `--model` is `glmm_*`, so LMM-only runs do not require GLM installed.
+
+---
+
+### External nlmer / inference / Python timings
+
+Julia is not required. Times Rust and R `nlmer`, Rust Kenward–Roger / Satterthwaite ANOVA (and `lmerTest` when installed), and `lme_python.lmer` FFI overhead:
+
+```powershell
+python scripts/run_external_timings.py --repeats 5 --output benchmarks/external-nlmm-inference-python-timings.json
+task benchmarks:external-timings
+```
+
+A dated reference JSON lives under [`benchmarks/`](benchmarks/). Use `--rust-only` for a smoke that skips R and Python.
 
 ---
 

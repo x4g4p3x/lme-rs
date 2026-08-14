@@ -34,6 +34,10 @@ mod test_e2e_lmer;
 mod test_edge_cases;
 #[path = "test_errors.rs"]
 mod test_errors;
+#[path = "test_explorations.rs"]
+mod test_explorations;
+#[path = "test_external_timings_artifact.rs"]
+mod test_external_timings_artifact;
 #[path = "test_failure_modes.rs"]
 mod test_failure_modes;
 #[path = "test_formula.rs"]
@@ -94,6 +98,8 @@ mod test_numerical_parity;
 mod test_predict;
 #[path = "test_production_load.rs"]
 mod test_production_load;
+#[path = "test_r_edge_case_matrix.rs"]
+mod test_r_edge_case_matrix;
 #[path = "test_random_slopes.rs"]
 mod test_random_slopes;
 #[path = "test_robust.rs"]

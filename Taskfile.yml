@@ -80,6 +80,16 @@ tasks:
     cmds:
       - '{{.RUN}} perf-breakdown'
 
+  benchmarks:external-timings:
+    desc: Time nlmer, post-fit inference, and Python FFI (R when available)
+    cmds:
+      - '{{.RUN}} external-timings'
+
+  explorations:
+    desc: Run standalone formula AST / θ-grid / MCP exploration examples
+    cmds:
+      - '{{.RUN}} explorations'
+
   lint:rust:
     desc: Rust-only lint (fmt check + clippy)
     cmds:
