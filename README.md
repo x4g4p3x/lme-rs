@@ -1,3 +1,5 @@
+![lme-rs](lme-rs.png)
+
 # lme-rs - mixed-effects models in Rust
 
 [![crates.io](https://img.shields.io/crates/v/lme-rs.svg)](https://crates.io/crates/lme-rs)
