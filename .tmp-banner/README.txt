@@ -1,0 +1,1 @@
+Temporary files used to reconstruct the README banner; removed automatically.
