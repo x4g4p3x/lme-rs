@@ -316,9 +316,9 @@ fn quantile_type7(sorted: &[f64], p: f64) -> f64 {
 
 fn cubic_knots(boundary: [f64; 2], interior: &[f64]) -> Vec<f64> {
     let mut knots = Vec::with_capacity(8 + interior.len());
-    knots.extend(std::iter::repeat(boundary[0]).take(4));
+    knots.extend(std::iter::repeat_n(boundary[0], 4));
     knots.extend(interior.iter().copied());
-    knots.extend(std::iter::repeat(boundary[1]).take(4));
+    knots.extend(std::iter::repeat_n(boundary[1], 4));
     knots
 }
 
