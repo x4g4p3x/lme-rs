@@ -86,7 +86,7 @@ Statuses are **practical**, not formal support tiers.
 | Standard LMM (`lmer`): random intercept, **random slopes**, nested, crossed | ✓ | ✓ | sleepstudy, dyestuff, pastes, penicillin patterns |
 | LMM with weights, offset | ✓ | ✓ | Tested; compare to R on your data |
 | REML / ML, population & conditional predict | ✓ | ✓ | |
-| Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts, Tukey/Dunnett `glht` | ✓ | ✓ | Scoped to tested LMM shapes; see golden `pastes_cask` and `pastes_glht_tukey` |
+| Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts, Tukey/Dunnett `glht`, LMM `emmeans` | ✓ | ✓ | Scoped to tested LMM shapes; EMM reference-grid estimates and Tukey pairs are golden-locked to R `emmeans` on pastes |
 | Nested model LRT (`anova`) | ✓ | ✓ | |
 | Group-preserving CV (`cv_grouped` / `cv_grouped_glmer`) | ✓ | ✓ | LMM + GLMM; population / response-scale OOF on held-out groups |
 | Bootstrap refits (`boot_lmer` / `boot_glmer`) | ✓ | ✓ | LMM parametric & residual; GLMM parametric (incl. binomial trials); percentile CIs |

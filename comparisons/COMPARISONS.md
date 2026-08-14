@@ -1060,6 +1060,8 @@ In `lme-rs`, passing `cask` to `strength ~ cask + (1 | batch)` transparently gen
 
 Pairwise Tukey and Dunnett comparisons for the same factor are [`LmeFit::glht`](../src/mcp.rs) (`multcomp::mcp`-style). Wald `z` estimates, SEs, and Tukey–Kramer p-values are locked to lme4 `vcov` plus base-R `stats::ptukey` in [`tests/data/pastes_glht_tukey.json`](../tests/data/pastes_glht_tukey.json) (generator: [`pastes_glht.R`](pastes_glht.R)). This is Tukey–Kramer / `emmeans` `adjust = "tukey"`, not `multcomp` single-step `mvtnorm`.
 
+Estimated marginal means for `cask` use an equal-weight reference grid in [`LmeFit::emmeans`](../src/emmeans.rs). Estimates, standard errors, 95% asymptotic intervals, and reversed pairwise Tukey comparisons are locked directly to R `emmeans` in [`tests/data/pastes_emmeans.json`](../tests/data/pastes_emmeans.json) (generator: [`pastes_emmeans.R`](pastes_emmeans.R); R 4.6.1, lme4 2.0.1, emmeans 2.0.4). [`tests/test_emmeans.rs`](../tests/test_emmeans.rs) also exercises equal weighting over a nuisance factor and numeric covariates at their means.
+
 ### 1. lme-rs Output (Rust)
 
 ```text

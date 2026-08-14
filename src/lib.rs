@@ -20,6 +20,8 @@ pub mod contrast;
 pub mod cv;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
 pub(crate) mod ddf;
+/// Estimated marginal means and reference-grid pairwise comparisons.
+pub mod emmeans;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
 pub mod family;
 /// Wilkinson formula parsing and data matrix construction.
@@ -63,6 +65,7 @@ pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
 pub use cv::{cv_grouped, cv_grouped_glmer, refit_lmer, CvFoldMetric, CvGroupedResult};
+pub use emmeans::{EmmeansPairsResult, EmmeansResult};
 pub use mcp::{mcp_contrast_matrix, GlhtResult, McpAdjust, McpType};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};

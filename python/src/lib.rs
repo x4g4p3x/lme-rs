@@ -445,6 +445,83 @@ impl PyGlhtResult {
     }
 }
 
+/// Estimated marginal means for a categorical fixed-effect term.
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyEmmeansResult {
+    #[pyo3(get)]
+    pub term: String,
+    #[pyo3(get)]
+    pub levels: Vec<String>,
+    #[pyo3(get)]
+    pub confidence_level: f64,
+    #[pyo3(get)]
+    pub statistic: String,
+    #[pyo3(get)]
+    pub estimate: Vec<f64>,
+    #[pyo3(get)]
+    pub std_error: Vec<f64>,
+    #[pyo3(get)]
+    pub den_df: Vec<f64>,
+    #[pyo3(get)]
+    pub lower: Vec<f64>,
+    #[pyo3(get)]
+    pub upper: Vec<f64>,
+    #[pyo3(get)]
+    pub linfct: Vec<Vec<f64>>,
+}
+
+#[pymethods]
+impl PyEmmeansResult {
+    fn __str__(&self) -> String {
+        format!(
+            "Estimated marginal means for {} ({}): {} levels",
+            self.term,
+            self.statistic,
+            self.levels.len()
+        )
+    }
+}
+
+/// Pairwise comparisons among estimated marginal means.
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct PyEmmeansPairsResult {
+    #[pyo3(get)]
+    pub term: String,
+    #[pyo3(get)]
+    pub adjust: String,
+    #[pyo3(get)]
+    pub statistic: String,
+    #[pyo3(get)]
+    pub comparisons: Vec<String>,
+    #[pyo3(get)]
+    pub estimate: Vec<f64>,
+    #[pyo3(get)]
+    pub std_error: Vec<f64>,
+    #[pyo3(get)]
+    pub statistic_values: Vec<f64>,
+    #[pyo3(get)]
+    pub den_df: Vec<f64>,
+    #[pyo3(get)]
+    pub p_value: Vec<f64>,
+    #[pyo3(get)]
+    pub p_adjust: Vec<f64>,
+}
+
+#[pymethods]
+impl PyEmmeansPairsResult {
+    fn __str__(&self) -> String {
+        format!(
+            "Pairwise estimated marginal means for {} ({}, {}): {} comparisons",
+            self.term,
+            self.statistic,
+            self.adjust,
+            self.comparisons.len()
+        )
+    }
+}
+
 /// Likelihood-ratio test between nested models (`lme_rs::anova`).
 #[pyclass(skip_from_py_object)]
 #[derive(Clone)]
@@ -868,6 +945,42 @@ fn glht_to_py(res: lme_rs::GlhtResult) -> PyGlhtResult {
         term: res.term,
         mcp,
         adjust,
+        statistic: res.statistic,
+        comparisons: res.comparisons,
+        estimate: res.estimate.to_vec(),
+        std_error: res.std_error.to_vec(),
+        statistic_values: res.statistic_values.to_vec(),
+        den_df: res.den_df.to_vec(),
+        p_value: res.p_value.to_vec(),
+        p_adjust: res.p_adjust.to_vec(),
+    }
+}
+
+fn emmeans_to_py(res: lme_rs::EmmeansResult) -> PyEmmeansResult {
+    PyEmmeansResult {
+        term: res.term,
+        levels: res.levels,
+        confidence_level: res.confidence_level,
+        statistic: res.statistic,
+        estimate: res.estimate.to_vec(),
+        std_error: res.std_error.to_vec(),
+        den_df: res.den_df.to_vec(),
+        lower: res.lower.to_vec(),
+        upper: res.upper.to_vec(),
+        linfct: res.linfct.rows().into_iter().map(|row| row.to_vec()).collect(),
+    }
+}
+
+fn emmeans_pairs_to_py(res: lme_rs::EmmeansPairsResult) -> PyEmmeansPairsResult {
+    let adjust = match res.adjust {
+        McpAdjust::None => "none",
+        McpAdjust::Bonferroni => "bonferroni",
+        McpAdjust::Holm => "holm",
+        McpAdjust::Tukey => "tukey",
+    };
+    PyEmmeansPairsResult {
+        term: res.term,
+        adjust: adjust.to_string(),
         statistic: res.statistic,
         comparisons: res.comparisons,
         estimate: res.estimate.to_vec(),
@@ -1601,6 +1714,51 @@ impl PyLmeFit {
                 "glht failed: {e}"
             ))),
         }
+    }
+
+    /// Estimated marginal means for a categorical fixed-effect term.
+    ///
+    /// Numeric covariates are held at their means and nuisance factors receive
+    /// equal weights. `ddf_method` is `None` / `"wald"` for asymptotic z, or
+    /// `"satterthwaite"` / `"kenward_roger"` after preparing that inference.
+    #[pyo3(signature = (term, data, level=0.95, ddf_method=None))]
+    pub fn emmeans<'py>(
+        &self,
+        py: Python<'py>,
+        term: &str,
+        data: &Bound<'py, PyAny>,
+        level: f64,
+        ddf_method: Option<&str>,
+    ) -> PyResult<PyEmmeansResult> {
+        let ddf = parse_glht_ddf(ddf_method)?;
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        self.inner
+            .emmeans(term, &df, level, ddf)
+            .map(emmeans_to_py)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("emmeans failed: {e}")))
+    }
+
+    /// All pairwise comparisons among estimated marginal means.
+    #[pyo3(signature = (term, data, adjust="tukey", ddf_method=None))]
+    pub fn emmeans_pairs<'py>(
+        &self,
+        py: Python<'py>,
+        term: &str,
+        data: &Bound<'py, PyAny>,
+        adjust: &str,
+        ddf_method: Option<&str>,
+    ) -> PyResult<PyEmmeansPairsResult> {
+        let adjustment = parse_mcp_adjust(adjust)?;
+        let ddf = parse_glht_ddf(ddf_method)?;
+        let bytes = get_ipc_bytes(py, data)?;
+        let df = read_ipc_bytes(&bytes)?;
+        self.inner
+            .emmeans_pairs(term, &df, adjustment, ddf)
+            .map(emmeans_pairs_to_py)
+            .map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("emmeans_pairs failed: {e}"))
+            })
     }
 
     /// Parametric simulation from the fitted model (fixed means; does not refit).
@@ -2409,6 +2567,8 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyFixedEffectsAnova>()?;
     m.add_class::<PyContrastTest>()?;
     m.add_class::<PyGlhtResult>()?;
+    m.add_class::<PyEmmeansResult>()?;
+    m.add_class::<PyEmmeansPairsResult>()?;
     m.add_class::<PyLikelihoodRatioAnova>()?;
     m.add_class::<PyFamily>()?;
     m.add_function(wrap_pyfunction!(lm, m)?)?;
@@ -2448,6 +2608,8 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
             "PyFixedEffectsAnova",
             "PyContrastTest",
             "PyGlhtResult",
+            "PyEmmeansResult",
+            "PyEmmeansPairsResult",
             "PyLikelihoodRatioAnova",
             "PyFamily",
             "lm",

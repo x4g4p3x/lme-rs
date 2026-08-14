@@ -181,6 +181,23 @@ def test_glht_tukey_cask():
     assert ttab.den_df[0] > 1.0
 
 
+def test_emmeans_cask_reference_grid():
+    df = pl.read_csv("../tests/data/pastes.csv")
+    fit = lme_python.lmer("strength ~ cask + (1 | batch)", data=df, reml=True)
+    means = fit.emmeans("cask", df)
+    assert means.levels == ["a", "b", "c"]
+    assert means.statistic == "z"
+    assert all(math.isinf(value) for value in means.den_df)
+    assert abs(means.estimate[0] - 59.29500000000003) < 1e-8
+    assert abs(means.std_error[0] - 0.8376673880824413) < 2e-5
+    assert len(means.linfct) == 3
+
+    pairs = fit.emmeans_pairs("cask", df, adjust="tukey")
+    assert pairs.comparisons == ["b - a", "c - a", "c - b"]
+    assert abs(pairs.estimate[1] - 1.4249999999999747) < 1e-8
+    assert abs(pairs.p_adjust[1] - 0.2179097870286499) < 1e-5
+
+
 def test_lm_matrix():
     y = [1.0, 2.0, 3.0, 4.0]
     x = [[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]

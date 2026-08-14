@@ -32,6 +32,8 @@ mod test_cv;
 mod test_e2e_lmer;
 #[path = "test_edge_cases.rs"]
 mod test_edge_cases;
+#[path = "test_emmeans.rs"]
+mod test_emmeans;
 #[path = "test_errors.rs"]
 mod test_errors;
 #[path = "test_explorations.rs"]

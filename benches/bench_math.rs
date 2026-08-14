@@ -873,6 +873,8 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
 fn bench_inference(c: &mut Criterion) {
     let df = load_csv("tests/data/sleepstudy.csv");
     let base_fit = lme_rs::lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
+    let pastes = load_csv("tests/data/pastes.csv");
+    let pastes_fit = lme_rs::lmer("strength ~ cask + (1 | batch)", &pastes, true).unwrap();
 
     let mut fit_for_type3 = base_fit.clone();
     fit_for_type3.with_satterthwaite(&df).unwrap();
@@ -940,6 +942,25 @@ fn bench_inference(c: &mut Criterion) {
 
     group.bench_function("lrt_anova", |b| {
         b.iter(|| black_box(lme_rs::anova(black_box(&lrt_fit_0), black_box(&lrt_fit_1))).unwrap())
+    });
+
+    group.bench_function("emmeans_reference_grid", |b| {
+        b.iter(|| {
+            black_box(pastes_fit.emmeans(black_box("cask"), black_box(&pastes), 0.95, None))
+                .unwrap()
+        })
+    });
+
+    group.bench_function("emmeans_pairs_tukey", |b| {
+        b.iter(|| {
+            black_box(pastes_fit.emmeans_pairs(
+                black_box("cask"),
+                black_box(&pastes),
+                black_box(lme_rs::McpAdjust::Tukey),
+                None,
+            ))
+            .unwrap()
+        })
     });
 
     group.finish();

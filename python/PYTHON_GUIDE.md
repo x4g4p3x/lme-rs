@@ -61,7 +61,7 @@ Top-level functions:
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
 
-Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyGlhtResult`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyGlhtResult`, `PyEmmeansResult`, `PyEmmeansPairsResult`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
 
 Available `PyLmeFit` methods:
 
@@ -83,6 +83,8 @@ Available `PyLmeFit` methods:
 - `test_contrast(l_matrix, ddf_method="satterthwaite")`  # H₀: Lβ = 0
 - `test_contrast_vs(l_matrix, beta_h, ddf_method="satterthwaite")`  # H₀: Lβ = β_h
 - `glht(term, mcp="tukey"|"dunnett", adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|"satterthwaite")` → `PyGlhtResult`
+- `emmeans(term, data, level=0.95, ddf_method=None|"satterthwaite"|"kenward_roger")` → `PyEmmeansResult`; numeric columns are held at their means and nuisance categorical factors receive equal weight
+- `emmeans_pairs(term, data, adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|...)` → `PyEmmeansPairsResult`
 
 Selected properties:
 
@@ -339,6 +341,17 @@ print(model.confint(level=0.95))
 ```
 
 Call `with_satterthwaite(data)` or `with_kenward_roger(data)` before Wald `confint()` to use t-based intervals with the corresponding denominator degrees of freedom.
+
+For LMM categorical terms, estimated marginal means and pairwise reference-grid comparisons are available directly:
+
+```python
+means = model.emmeans("cask", df)
+pairs = model.emmeans_pairs("cask", df, adjust="tukey")
+print(means.estimate, means.lower, means.upper)
+print(pairs.comparisons, pairs.p_adjust)
+```
+
+The current EMM scope is linear models/LMMs without formula offsets. It does not yet perform GLMM response-scale marginalization.
 
 ## Repeated fits and cross-validation
 

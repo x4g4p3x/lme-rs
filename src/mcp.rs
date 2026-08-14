@@ -276,7 +276,7 @@ fn apply_level_weight(
     })
 }
 
-fn adjust_p_values(
+pub(crate) fn adjust_p_values(
     adjust: McpAdjust,
     raw: &[f64],
     n_groups: usize,

@@ -489,8 +489,12 @@ let table_ii = fit.anova_typed(AnovaType::Type2, DdfMethod::Satterthwaite)?;
 let table_i = fit.anova_typed(AnovaType::Type1, DdfMethod::Satterthwaite)?;
 let cask_test = fit.linear_hypothesis("cask", DdfMethod::Satterthwaite)?;
 let tukey = fit.glht("cask", McpType::Tukey, McpAdjust::Tukey, None)?;
+let means = fit.emmeans("cask", &df, 0.95, None)?;
+let mean_pairs = fit.emmeans_pairs("cask", &df, McpAdjust::Tukey, None)?;
 println!("{}", table);
 println!("{}", tukey);
+println!("{}", means);
+println!("{}", mean_pairs);
 ```
 
 Current scope:
@@ -502,7 +506,8 @@ Current scope:
 - Kenward–Roger multi-DoF rows use `pbkrtest::KRmodcomp` / `.KR_adjust` via [`kr_modcomp`](src/kr_modcomp.rs) and `vcovAdj16` via [`kr_vcov_adj`](src/kr_vcov_adj.rs); when `vcovAdj` ≈ `vcov`, DenDF matches marginal KR pooling (pastes `cask` reference)
 - Golden regression for categorical multi-DoF ANOVA: manifest case `pastes_cask_multi_dof_reml` in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) (pastes / `cask`)
 - **User-defined contrasts:** any **q × p** matrix `L` via [`LmeFit::test_contrast`](src/contrast.rs) / [`test_contrast_vs`](src/contrast.rs) (`lmerTest::contestMD` / `KRmodcomp`); helpers [`contrast_matrix`](src/contrast.rs) and [`contrast_matrix_from_names`](src/contrast.rs). Python: `fit.test_contrast(l_matrix, ddf_method=...)`.
-- **Multiple comparisons:** [`LmeFit::glht`](src/mcp.rs) for Tukey (all pairwise) and Dunnett (vs control) on a categorical term. Default is Wald `z`; pass `Some(DdfMethod::Satterthwaite)` for `t`. Adjustments: none, Bonferroni, Holm, Tukey–Kramer (`stats::ptukey`). Python: `fit.glht("cask", mcp="tukey", adjust="tukey")`. Not a full `multcomp`/`emmeans` replacement (no single-step `mvtnorm`).
+- **Multiple comparisons:** [`LmeFit::glht`](src/mcp.rs) for Tukey (all pairwise) and Dunnett (vs control) on a categorical term. Default is Wald `z`; pass `Some(DdfMethod::Satterthwaite)` for `t`. Adjustments: none, Bonferroni, Holm, Tukey–Kramer (`stats::ptukey`). Python: `fit.glht("cask", mcp="tukey", adjust="tukey")`.
+- **Estimated marginal means:** [`LmeFit::emmeans`](src/emmeans.rs) builds an `emmeans`-style reference grid for LMM categorical terms: numeric columns are held at their arithmetic means and nuisance factors are averaged equally. [`LmeFit::emmeans_pairs`](src/emmeans.rs) compares those means with none / Bonferroni / Holm / Tukey–Kramer adjustment. Both support asymptotic `z` or stored Satterthwaite / Kenward–Roger denominator dfs. Python: `fit.emmeans("cask", df)` and `fit.emmeans_pairs("cask", df, adjust="tukey")`. Current scope excludes offsets and GLMM response-scale marginalization.
 
 ## Model Comparison
 
@@ -743,6 +748,8 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 | `with_kenward_roger(data)` | Kenward-Roger denominator degrees of freedom and p-values |
 | `with_robust_se(data, cluster_col)` | robust or cluster-robust standard errors |
 | `anova(ddf_method)` | Type III fixed-effects ANOVA table |
+| `emmeans(term, data, level, ddf_method)` | LMM estimated marginal means on an equal-weight reference grid |
+| `emmeans_pairs(term, data, adjust, ddf_method)` | pairwise marginal-mean comparisons with multiplicity adjustment |
 
 ### Selected fields on `LmeFit`
 

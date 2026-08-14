@@ -56,6 +56,30 @@ class PyGlhtResult:
     p_value: list[float]
     p_adjust: list[float]
 
+class PyEmmeansResult:
+    term: str
+    levels: list[str]
+    confidence_level: float
+    statistic: str
+    estimate: list[float]
+    std_error: list[float]
+    den_df: list[float]
+    lower: list[float]
+    upper: list[float]
+    linfct: list[list[float]]
+
+class PyEmmeansPairsResult:
+    term: str
+    adjust: str
+    statistic: str
+    comparisons: list[str]
+    estimate: list[float]
+    std_error: list[float]
+    statistic_values: list[float]
+    den_df: list[float]
+    p_value: list[float]
+    p_adjust: list[float]
+
 class PyLikelihoodRatioAnova:
     n_params_0: int
     n_params_1: int
@@ -178,6 +202,20 @@ class PyLmeFit:
         ddf_method: str | None = None,
         control: str | None = None,
     ) -> PyGlhtResult: ...
+    def emmeans(
+        self,
+        term: str,
+        data: DataFrameInput,
+        level: float = 0.95,
+        ddf_method: str | None = None,
+    ) -> PyEmmeansResult: ...
+    def emmeans_pairs(
+        self,
+        term: str,
+        data: DataFrameInput,
+        adjust: str = "tukey",
+        ddf_method: str | None = None,
+    ) -> PyEmmeansPairsResult: ...
     def simulate(
         self,
         nsim: int,

@@ -29,7 +29,7 @@ print(fit.summary())
 print(fit.predict(data))
 ```
 
-The bindings also expose GLMMs (`glmer`), nonlinear mixed models (`nlmer`), prediction and simulation, profile and bootstrap confidence intervals, grouped cross-validation, contrasts, and Type I/II/III ANOVA.
+The bindings also expose GLMMs (`glmer`), nonlinear mixed models (`nlmer`), prediction and simulation, profile and bootstrap confidence intervals, grouped cross-validation, contrasts, Type I/II/III ANOVA, and LMM estimated marginal means with reference-grid pairwise comparisons.
 
 ## Documentation
 

@@ -57,8 +57,11 @@ Cases not in tier A (no fair MixedModels.jl fit timing yet):
 | `nlmer` / Orange | Golden parity + [`scripts/run_external_timings.py`](scripts/run_external_timings.py) | `lme4::nlmer` | **External R timing** (not Julia) |
 | GLMM AGQ (`n_agq > 1`) | Criterion | R semantics differ | **No** apples-to-apples |
 | Post-fit inference (KR, ANOVA, predict) | Criterion + external harness | `lmerTest` when installed | **External R timing** for KR / Satterthwaite ANOVA |
+| LMM estimated marginal means / pairs | Criterion (`inference/emmeans_*`) | R `emmeans` correctness fixture | **Rust microbenchmark**; no cross-language speed claim |
 | Python `lme_python` FFI | External harness | Rust `lmer` | **External Python timing** |
 | `lm` / `lm_df` | Minimal | R `lm` | **No** (usually negligible) |
+
+The 2026-08-14 Windows Criterion run measured `inference/emmeans_reference_grid` at **42.5–43.1 µs** and `inference/emmeans_pairs_tukey` at **52.9–56.8 µs** on the pastes fixture. These are post-fit operations and do not warrant a specialized cache at the current scale.
 
 ---
 
