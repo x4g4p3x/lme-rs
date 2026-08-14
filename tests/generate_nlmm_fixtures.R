@@ -311,14 +311,11 @@ if (file.exists("tests/data/cbpp_binary.csv")) {
   cat("CBPP AGQ theta:", paste(signif(getME(fm_agq, "theta"), 6), collapse = ", "), "\n")
 }
 
-# Sleepstudy profile confint (ML)
+# Sleepstudy profile confint (ML), including variance components
 if (file.exists("tests/data/sleepstudy.csv")) {
   sleep <- read.csv("tests/data/sleepstudy.csv")
   fm_ss <- lmer(Reaction ~ Days + (1 | Subject), data = sleep, REML = FALSE)
-  ci <- tryCatch(
-    confint(fm_ss, parm = "beta_", method = "profile", level = 0.95, oldNames = FALSE),
-    error = function(e) confint(fm_ss, method = "profile", level = 0.95)
-  )
+  ci <- confint(fm_ss, method = "profile", level = 0.95, oldNames = TRUE)
   rn <- rownames(ci)
   keep <- grepl("Intercept|Days", rn, ignore.case = TRUE)
   if (!any(keep)) keep <- seq_len(min(2L, nrow(ci)))
@@ -335,8 +332,22 @@ if (file.exists("tests/data/sleepstudy.csv")) {
     )
   )
   write_json(out_ci, "tests/data/sleepstudy_confint_profile.json", pretty = TRUE, auto_unbox = TRUE, digits = NA)
+  sig01 <- as.numeric(getME(fm_ss, "theta")[1] * sigma(fm_ss))
+  out_vc <- list(
+    model = "Reaction ~ Days + (1 | Subject) ML",
+    level = 0.95,
+    method = "profile",
+    reference = "lme4::confint.merMod oldNames=TRUE",
+    outputs = list(
+      names = rownames(ci),
+      lower = as.numeric(ci[, 1]),
+      upper = as.numeric(ci[, 2]),
+      estimate = c(sig01, as.numeric(sigma(fm_ss)), as.numeric(fixef(fm_ss)))
+    )
+  )
+  write_json(out_vc, "tests/data/sleepstudy_confint_profile_vc.json", pretty = TRUE, auto_unbox = TRUE, digits = NA)
   cat("Sleepstudy profile CI:\n")
-  print(ci_fe)
+  print(ci)
 }
 
 cat("Wrote additional SS*/AGQ/profile fixtures.\n")

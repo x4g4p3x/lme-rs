@@ -70,7 +70,7 @@ Available `PyLmeFit` methods:
 - `predict_conditional(newdata, allow_new_levels=False)`
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
-- `confint(level=0.95, method="wald"|"profile", data=None, parms=None)` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower; `parms` selects coefficients by index or name
+- `confint(level=0.95, method="wald"|"profile", data=None, parms=None, which="fixed"|"vc"|"all")` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower; `parms` selects coefficients by index or name (`which="fixed"` only); `which="vc"` profiles `.sig01`… / `.sigma`; `which="all"` is VC then fixed effects
 - `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
 - `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
 - `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM)
@@ -332,6 +332,8 @@ print(model.confint(level=0.95))
 # Subset of coefficients by index or name (main speed lever for profile):
 # print(model.confint(level=0.95, method="profile", data=df, parms=[1]))
 # print(model.confint(level=0.95, method="profile", data=df, parms=["Days"]))
+# print(model.confint(level=0.95, method="profile", data=df, which="vc"))
+# print(model.confint(level=0.95, method="profile", data=df, which="all"))
 ```
 
 Call `with_satterthwaite(data)` or `with_kenward_roger(data)` before Wald `confint()` to use t-based intervals with the corresponding denominator degrees of freedom.
@@ -415,6 +417,8 @@ print(boot.prop_converged, boot.t0, boot.fixed_names)
 
 ci = boot.confint(0.95)
 print(ci.names, ci.estimate, ci.lower, ci.upper)
+vc = boot.confint(0.95, which="vc")
+print(vc.names, vc.lower, vc.upper)
 
 # Module-level call:
 boot = lme_python.boot_lmer("Reaction ~ Days + (1 | Subject)", df, fit, nsim=500, seed=42)
@@ -435,7 +439,7 @@ gboot = lme_python.boot_glmer(
 print(gboot.confint(0.95).lower)
 ```
 
-**Scope:** `boot_lmer` — LMM (parametric + residual). `boot_glmer` — GLMM (parametric only). Not NLMM. Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only. Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
+**Scope:** `boot_lmer` — LMM (parametric + residual). `boot_glmer` — GLMM (parametric only). Not NLMM. Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only (`which="fixed"|"vc"|"all"`). Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
 
 For **custom** response-resampling loops (not the standard parametric/residual paths), use `prepare_lmer` / `prepare_glmer` + the corresponding `fit_prepared*` paths — see [GUIDE.md § Custom parallel refits](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
 

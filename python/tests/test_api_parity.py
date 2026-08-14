@@ -190,10 +190,17 @@ def test_contrast_matrix_indices():
     assert mat[0][1] == 1.0
 
 
-def test_extra_getters():
+def test_boot_confint_vc():
     df = pl.read_csv("../tests/data/sleepstudy.csv")
-    fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=df, reml=True)
-    assert fit.b == fit.coefficients
-    assert fit.beta_se is not None
-    assert fit.u is not None
-    assert fit.fixed_term_assign is not None
+    formula = "Reaction ~ Days + (1 | Subject)"
+    fit = lme_python.lmer(formula, data=df, reml=True)
+    boot = fit.boot(formula, df, nsim=25, method="parametric", reml=True, seed=42, n_jobs=1)
+    assert boot.t0_theta is not None
+    vc = boot.confint(0.95, which="vc")
+    assert vc.names == [".sig01", ".sigma"]
+    assert len(vc.lower) == 2
+    for lo, hi in zip(vc.lower, vc.upper, strict=True):
+        assert lo < hi
+    full = boot.confint(0.90, which="all")
+    assert full.names[0] == ".sig01"
+    assert "(Intercept)" in full.names

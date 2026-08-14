@@ -91,7 +91,7 @@ Statuses are **practical**, not formal support tiers.
 | Group-preserving CV (`cv_grouped` / `cv_grouped_glmer`) | ✓ | ✓ | LMM + GLMM; population / response-scale OOF on held-out groups |
 | Bootstrap refits (`boot_lmer` / `boot_glmer`) | ✓ | ✓ | LMM parametric & residual; GLMM parametric (incl. binomial trials); percentile CIs |
 | GLMM: binomial / Poisson / gamma / gaussian | ✓ | ✓ | Coeffs & variance params; Laplace default; AGQ-in-θ via `n_agq ≥ 2` (scalar, vector product, small-`q` joint). Gamma log-link Dyestuff locks mean, residual φ, and RE θ (`gamma_dyestuff_log_laplace`) |
-| Profile CIs (`confint_profile` / `parms=`) | ✓ | ✓ | LMM/GLMM; sleepstudy vs R fixture; subset via `parms` |
+| Profile CIs (`confint_profile` / `parms=` / `confint_profile_vc`) | ✓ | ✓ | LMM/GLMM β; LMM `.sig01`/`.sigma` vs lme4 sleepstudy fixture; subset via `parms` |
 | `confint` (Wald), `simulate`, robust SE | ✓ | ✓ | LMM-focused Wald/t paths; GLMM z / profile as documented |
 
 **Caveat:** “Green” means **the repo exercises these paths seriously**. It does not mean every R formula variant works.

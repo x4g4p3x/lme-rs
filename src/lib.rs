@@ -64,7 +64,7 @@ use ndarray::{Array1, Array2};
 use ndarray_linalg::{Inverse, QRInto};
 pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmStart};
 use polars::prelude::*;
-pub use profile_ci::ConfintMethod;
+pub use profile_ci::{ConfintMethod, ConfintScope};
 pub use robust::RobustResult;
 use std::fmt;
 use std::sync::Arc;
