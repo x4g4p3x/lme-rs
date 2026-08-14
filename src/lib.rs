@@ -735,11 +735,15 @@ impl fmt::Display for LmeFit {
         writeln!(f, "\nRandom effects:")?;
         writeln!(f, " Groups   Name        Variance Std.Dev.")?;
 
-        // For GLMMs without dispersion (Poisson, Binomial), sigma2 is None but
-        // the RE variances are stored in theta relative to sigma2=1.0
+        // For GLMMs, RE variances are ΛΛ′ on the linear-predictor scale (not
+        // multiplied by the residual dispersion). LMMs use Var(b) = σ² ΛΛ′.
         let display_sigma2 = self.sigma2.unwrap_or(1.0);
+        let re_scale = if self.family.is_some() {
+            1.0
+        } else {
+            display_sigma2
+        };
         if let (Some(theta), Some(re_blocks)) = (&self.theta, &self.re_blocks) {
-            let sigma2 = display_sigma2;
             let mut theta_idx = 0;
             let mut obs_groups = Vec::new();
 
@@ -755,7 +759,7 @@ impl fmt::Display for LmeFit {
                         idx += 1;
                     }
                 }
-                let cov = lambda.dot(&lambda.t()) * sigma2;
+                let cov = lambda.dot(&lambda.t()) * re_scale;
 
                 for i in 0..block.k {
                     let var = cov[[i, i]];
@@ -796,8 +800,8 @@ impl fmt::Display for LmeFit {
                 writeln!(
                     f,
                     " Residual             {:<8.4} {:<8.4}",
-                    sigma2,
-                    sigma2.sqrt()
+                    display_sigma2,
+                    display_sigma2.sqrt()
                 )?;
             }
             writeln!(
@@ -1187,8 +1191,12 @@ fn assemble_lme_fit(
         let residuals = y_obs - &fitted;
 
         let ranef_df = build_ranef_dataframe(&coefs.b, &lmm.re_blocks);
-        let var_corr_df =
-            build_var_corr_dataframe(best_theta.as_slice().unwrap(), &lmm.re_blocks, coefs.sigma2);
+        let var_corr_df = build_var_corr_dataframe(
+            best_theta.as_slice().unwrap(),
+            &lmm.re_blocks,
+            coefs.sigma2,
+            coefs.sigma2,
+        );
 
         let deviance_val = reml_eval;
         let log_lik = -deviance_val / 2.0;
@@ -1589,22 +1597,12 @@ pub fn fit_prepared_glmer_with_response(
 
     let ranef_df = build_ranef_dataframe(&coefs.b, &prepared.matrices.re_blocks);
     let uses_disp = fam.uses_dispersion();
-    let sigma2_val = if uses_disp {
-        let n = prepared.matrices.y.len() as f64;
-        let p = prepared.matrices.x.ncols() as f64;
-        let var_mu = fam.variance(&coefs.fitted);
-        let mut pearson_sum = 0.0;
-        for i in 0..coefs.residuals.len() {
-            pearson_sum += (coefs.residuals[i] * coefs.residuals[i]) / var_mu[i].max(f64::EPSILON);
-        }
-        pearson_sum / (n - p)
-    } else {
-        1.0
-    };
+    let sigma2_val = if uses_disp { coefs.phi } else { 1.0 };
 
     let var_corr_df = build_var_corr_dataframe(
         best_theta.as_slice().unwrap(),
         &prepared.matrices.re_blocks,
+        1.0,
         sigma2_val,
     );
 
@@ -1860,11 +1858,15 @@ fn build_ranef_dataframe(b: &Array1<f64>, re_blocks: &[model_matrix::ReBlock]) -
     .unwrap_or_default()
 }
 
-/// Gap 3: Builds a var_corr DataFrame from theta parameters and sigma2.
+/// Builds a var_corr DataFrame from theta parameters.
+///
+/// `re_scale` multiplies ΛΛ′ (σ² for LMMs, 1 for GLMMs). `residual_variance` is
+/// the Residual row (σ² / φ).
 fn build_var_corr_dataframe(
     theta: &[f64],
     re_blocks: &[model_matrix::ReBlock],
-    sigma2: f64,
+    re_scale: f64,
+    residual_variance: f64,
 ) -> DataFrame {
     let mut group_col = Vec::new();
     let mut eff1_col = Vec::new();
@@ -1886,7 +1888,7 @@ fn build_var_corr_dataframe(
                 idx += 1;
             }
         }
-        let cov = lambda.dot(&lambda.t()) * sigma2;
+        let cov = lambda.dot(&lambda.t()) * re_scale;
 
         // Diagonal entries: variances
         for i in 0..block.k {
@@ -1922,8 +1924,8 @@ fn build_var_corr_dataframe(
     group_col.push("Residual".to_string());
     eff1_col.push("".to_string());
     eff2_col.push("".to_string());
-    variance_col.push(sigma2);
-    stddev_col.push(sigma2.sqrt());
+    variance_col.push(residual_variance);
+    stddev_col.push(residual_variance.sqrt());
     corr_col.push(None);
 
     DataFrame::new(vec![

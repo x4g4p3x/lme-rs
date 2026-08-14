@@ -207,6 +207,8 @@ probit_fit = lme_python.glmer(
 
 Supported links per family match Rust [`family::Link`](../src/family.rs): binomial — logit (default), probit, cloglog; poisson — log, identity, sqrt; gaussian — identity, log, inverse; gamma — inverse, identity, log.
 
+Gamma and Gaussian GLMMs profile residual dispersion φ inside PIRLS (IRLS weights use `1/φ`) so random-effect θ stays on the linear-predictor scale, matching the Rust `gamma_dyestuff_log_laplace` golden.
+
 Prior weights use `glmer_weighted(..., weights=[...])` (same validation as `lmer_weighted`). For binomial proportions, integer trial sizes enable `Binom(n, p)` simulation and `boot_glmer`.
 
 ### Nonlinear mixed models

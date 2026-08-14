@@ -135,6 +135,8 @@ pub struct GlmmCoefficients {
     pub beta_z: Array1<f64>,
     /// Unscaled variance-covariance matrix of fixed effects.
     pub v_beta_unscaled: Array2<f64>,
+    /// Profiled GLM dispersion φ (`1` for binomial/Poisson).
+    pub phi: f64,
 }
 
 impl GlmmData {
@@ -214,6 +216,19 @@ impl GlmmData {
             .unwrap_or_else(|| Array1::ones(self.y.len()))
     }
 
+    /// Data-fit term in the Laplace / AGQ objective.
+    ///
+    /// Binomial and Poisson keep the GLM residual deviance. Free-dispersion
+    /// families use `family.aic() - 2`, matching lme4 `glmResp::Laplace`.
+    fn laplace_fit_term(&self, mu: &Array1<f64>, sum_dev: f64) -> f64 {
+        if self.family.uses_dispersion() {
+            let wt = self.observation_weights();
+            self.family.aic(&self.y, mu, &wt, sum_dev) - 2.0
+        } else {
+            sum_dev
+        }
+    }
+
     /// Compute Laplace or AGQ approximated deviance.
     pub fn laplace_deviance(
         &mut self,
@@ -239,11 +254,50 @@ impl GlmmData {
 
     /// Run the full PIRLS algorithm for a given theta.
     /// Returns `None` if PIRLS fails to converge or hits numerical issues.
+    ///
+    /// For families with a free dispersion (Gamma, Gaussian), φ is profiled with
+    /// a nested moment estimator matching lme4's `profilePhi()`: IRLS weights
+    /// use `1/φ` while the random-effects penalty `u'u` is left unscaled.
     pub fn pirls(
         &mut self,
         theta: &[f64],
         offset: Option<&Array1<f64>>,
         n_agq: usize,
+    ) -> Option<GlmmCoefficients> {
+        if !self.family.uses_dispersion() {
+            return self.pirls_with_phi(theta, offset, n_agq, 1.0);
+        }
+
+        let n_eff = self.observation_weights().sum().max(1.0);
+        let mut phi = 1.0_f64;
+        const MAX_PHI_ITER: usize = 40;
+        const PHI_TOL: f64 = 1e-8;
+        for _ in 0..MAX_PHI_ITER {
+            let coefs = self.pirls_with_phi(theta, offset, n_agq, phi)?;
+            let wt = self.observation_weights();
+            let sum_dev = self.family.dev_resid(&self.y, &coefs.fitted, &wt).sum();
+            if !sum_dev.is_finite() || sum_dev <= 0.0 {
+                return Some(coefs);
+            }
+            let phi_new = (sum_dev / n_eff).max(f64::EPSILON);
+            let rel = (phi_new - phi).abs() / phi.max(f64::EPSILON);
+            if rel < PHI_TOL {
+                return Some(coefs);
+            }
+            phi = (0.9 * phi.ln() + 0.1 * phi_new.ln()).exp();
+            if !phi.is_finite() || phi <= 0.0 {
+                return Some(coefs);
+            }
+        }
+        self.pirls_with_phi(theta, offset, n_agq, phi)
+    }
+
+    fn pirls_with_phi(
+        &mut self,
+        theta: &[f64],
+        offset: Option<&Array1<f64>>,
+        n_agq: usize,
+        phi: f64,
     ) -> Option<GlmmCoefficients> {
         let n = self.y.len();
         let q = self.zt.rows();
@@ -276,12 +330,15 @@ impl GlmmData {
             let mu_eta_val = link.mu_eta(&eta);
             let var_mu = self.family.variance(&mu);
 
-            // Combined weights: prior wt * IRLS (dμ/dη)² / V(μ)
+            // Combined weights: prior wt * IRLS (dμ/dη)² / (φ V(μ)).
+            // φ = 1 for binomial/Poisson; profiled for Gamma/Gaussian so the
+            // data-fit curvature matches the residual dispersion while the
+            // random-effects prior penalty stays unscaled (lme4 `d_phi`).
             let mut w = Array1::<f64>::zeros(n);
             for i in 0..n {
                 let me = mu_eta_val[i];
                 let v = var_mu[i].max(f64::EPSILON);
-                w[i] = (wt[i] * me * me / v).max(f64::EPSILON);
+                w[i] = (wt[i] * me * me / (phi.max(f64::EPSILON) * v)).max(f64::EPSILON);
             }
 
             // Working response: z = eta + (y - mu) / (dmu/deta)
@@ -538,18 +595,21 @@ impl GlmmData {
                 }
 
                 // Laplace-approximated conditional deviance for the optimizer.
-                let mut deviance = sum_dev_resid + log_det_a + u.dot(&u);
+                // Dispersion families use lme4's aic()-based term (minus the +2
+                // AIC bookkeeping constant) so φ enters the data-fit density.
+                let fit_term = self.laplace_fit_term(&mu, sum_dev_resid);
+                let mut deviance = fit_term + log_det_a + u.dot(&u);
 
                 if n_agq > 1 {
                     if self.re_blocks.len() == 1 {
                         if let Some(d_agq) =
-                            self.agq_deviance(n_agq, &a, &u, &beta, &lambda, offset, &mu)
+                            self.agq_deviance(n_agq, &a, &u, &beta, &lambda, offset, &mu, phi)
                         {
                             deviance = d_agq;
                         }
                     } else if u.len() <= AGQ_JOINT_MAX_Q {
                         if let Some(d_agq) =
-                            self.agq_deviance_joint(n_agq, &a, &u, &beta, &lambda, offset, &mu)
+                            self.agq_deviance_joint(n_agq, &a, &u, &beta, &lambda, offset, &mu, phi)
                         {
                             deviance = d_agq;
                         } else {
@@ -595,6 +655,7 @@ impl GlmmData {
                     beta_se,
                     beta_z,
                     v_beta_unscaled,
+                    phi,
                 });
             }
 
@@ -619,6 +680,7 @@ impl GlmmData {
             beta_se: Array1::zeros(p),
             beta_z: Array1::zeros(p),
             v_beta_unscaled: Array2::zeros((p, p)),
+            phi,
         })
     }
 
@@ -628,7 +690,8 @@ impl GlmmData {
     /// - `k > 1`: tensor-product rules on `N(0, I_k)` with `u_quad = u_hat_block + L z`, where
     ///   `Σ = A_block^{-1}` and `L` is the lower Cholesky factor of `Σ` (block of `A` at the mode).
     ///
-    /// Returns `sum_dev(μ_hat) + Σ_g Q_g`. `None` triggers Laplace fallback (singular block, etc.).
+    /// Returns `fit_term(μ_hat) + Σ_g Q_g`. `None` triggers Laplace fallback (singular block, etc.).
+    /// Deviance differences inside the quadrature are scaled by `1/φ`.
     #[allow(clippy::too_many_arguments)]
     fn agq_deviance(
         &self,
@@ -639,6 +702,7 @@ impl GlmmData {
         lambda: &CsMat<f64>,
         offset: Option<&Array1<f64>>,
         mu_hat: &Array1<f64>,
+        phi: f64,
     ) -> Option<f64> {
         let block = self.re_blocks.first()?;
         let k = block.k;
@@ -653,6 +717,8 @@ impl GlmmData {
         let wt = self.observation_weights();
         let dev_hat = self.family.dev_resid(&self.y, mu_hat, &wt);
         let sum_dev = dev_hat.sum();
+        let fit_term = self.laplace_fit_term(mu_hat, sum_dev);
+        let inv_phi = 1.0 / phi.max(f64::EPSILON);
 
         let mut total_q = 0.0;
 
@@ -686,7 +752,7 @@ impl GlmmData {
                         dev_diff += dev_new[i] - dev_hat[i];
                     }
                     let u_pen = u_quad * u_quad - u_hat_g * u_hat_g;
-                    let delta = -0.5 * dev_diff - 0.5 * u_pen;
+                    let delta = -0.5 * dev_diff * inv_phi - 0.5 * u_pen;
 
                     log_terms.push(w[ki].ln() + delta);
                 }
@@ -752,7 +818,7 @@ impl GlmmData {
                     for i in start..start + k {
                         u_pen += u_trial[i] * u_trial[i] - u_hat[i] * u_hat[i];
                     }
-                    let delta = -0.5 * dev_diff - 0.5 * u_pen;
+                    let delta = -0.5 * dev_diff * inv_phi - 0.5 * u_pen;
 
                     log_terms.push(log_w + delta);
                 }
@@ -765,7 +831,7 @@ impl GlmmData {
             }
         }
 
-        Some(sum_dev + total_q)
+        Some(fit_term + total_q)
     }
 
     /// Joint multivariate AGQ over the **entire** spherical vector `u` (used when `re_blocks.len() > 1` and `q` is small).
@@ -782,6 +848,7 @@ impl GlmmData {
         lambda: &CsMat<f64>,
         offset: Option<&Array1<f64>>,
         mu_hat: &Array1<f64>,
+        phi: f64,
     ) -> Option<f64> {
         let q = u_hat.len();
         if q > AGQ_JOINT_MAX_Q {
@@ -796,6 +863,8 @@ impl GlmmData {
         let wt = self.observation_weights();
         let dev_hat = self.family.dev_resid(&self.y, mu_hat, &wt);
         let sum_dev = dev_hat.sum();
+        let fit_term = self.laplace_fit_term(mu_hat, sum_dev);
+        let inv_phi = 1.0 / phi.max(f64::EPSILON);
 
         let a_dense = csr_dense_block(a, 0, q);
         let sigma = a_dense.inv().ok()?;
@@ -838,7 +907,7 @@ impl GlmmData {
             }
             let u_trial_sq_sum: f64 = u_trial.iter().map(|x| x * x).sum();
             let u_pen = u_trial_sq_sum - u_hat_sq_sum;
-            let delta = -0.5 * dev_diff - 0.5 * u_pen;
+            let delta = -0.5 * dev_diff * inv_phi - 0.5 * u_pen;
 
             log_terms.push(log_w + delta);
         }
@@ -848,7 +917,7 @@ impl GlmmData {
             return None;
         }
         let total_q = -2.0 * log_inner;
-        Some(sum_dev + total_q)
+        Some(fit_term + total_q)
     }
 
     fn linear_predictor_from_u(

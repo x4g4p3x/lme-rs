@@ -11,5 +11,8 @@
   },
   "sigma": 0.0334377567258038,
   "sigma2": 0.00111808357485404,
-  "notes": "Dyestuff Gamma with log link (inverse on Yield fails lme4 convergence). Fixed-effect locked; RE θ not asserted (Rust Gamma θ often hits the boundary vs lme4)."
+  "theta": {
+    "Batch.(Intercept)": 0.0206713474049766
+  },
+  "notes": "Dyestuff Gamma with log link (inverse on Yield fails lme4 convergence). Intercept and residual φ from lme4 1.1.35.1; Batch θ is lme4 VarCorr Std.Dev on the log-mean scale (getME(theta)*sigma in that lme4 series). lme-rs stores the same unscaled eta-scale SD."
 }

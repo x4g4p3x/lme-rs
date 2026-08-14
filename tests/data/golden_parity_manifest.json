@@ -620,7 +620,7 @@
     },
     {
       "id": "gamma_dyestuff_log_laplace",
-      "description": "Gamma GLMM on Dyestuff with log link (Laplace); mean/dispersion locked vs lme4.",
+      "description": "Gamma GLMM on Dyestuff with log link (Laplace); mean, dispersion, and RE θ locked vs lme4.",
       "kind": "glmm",
       "data_path": "tests/data/dyestuff.csv",
       "formula": "Yield ~ 1 + (1 | Batch)",
@@ -645,6 +645,13 @@
           "value": 0.00111808357485404,
           "tolerance": 0.001
         },
+        "theta": [
+          {
+            "name": "Batch.(Intercept)",
+            "value": 0.0206713474049766,
+            "tolerance": 0.008
+          }
+        ],
         "finite_deviance": true
       }
     },
