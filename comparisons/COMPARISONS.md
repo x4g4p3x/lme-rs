@@ -1057,6 +1057,8 @@ To test string parsing and automatic Multi-DoF Satterthwaite representations, we
 
 In `lme-rs`, passing `cask` to `strength ~ cask + (1 | batch)` transparently generates `caskb` and `caskc` dummy encodings, then groups them for a **2-DoF joint Wald F-test** with Satterthwaite denominator df computed the same way as **`lmerTest::contestMD()`** (eigen-decomposed contrast directions, per-direction Satterthwaite dfs, then `get_Fstat_ddf()` pooling). Regression checks live in [`tests/data/golden_parity_manifest.json`](../tests/data/golden_parity_manifest.json) (`pastes_cask_multi_dof_reml`) and [`tests/categorical_anova_test.rs`](../tests/categorical_anova_test.rs).
 
+Pairwise Tukey and Dunnett comparisons for the same factor are [`LmeFit::glht`](../src/mcp.rs) (`multcomp::mcp`-style). Wald `z` estimates, SEs, and Tukey–Kramer p-values are locked to lme4 `vcov` plus base-R `stats::ptukey` in [`tests/data/pastes_glht_tukey.json`](../tests/data/pastes_glht_tukey.json) (generator: [`pastes_glht.R`](pastes_glht.R)). This is Tukey–Kramer / `emmeans` `adjust = "tukey"`, not `multcomp` single-step `mvtnorm`.
+
 ### 1. lme-rs Output (Rust)
 
 ```text

@@ -58,6 +58,8 @@ mod test_intercept_only;
 mod test_kenward_roger;
 #[path = "test_kr_modcomp_pastes.rs"]
 mod test_kr_modcomp_pastes;
+#[path = "test_mcp.rs"]
+mod test_mcp;
 #[path = "test_ml_optimization.rs"]
 mod test_ml_optimization;
 #[path = "test_nlmm_agq.rs"]

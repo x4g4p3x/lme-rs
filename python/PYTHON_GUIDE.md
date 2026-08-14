@@ -61,7 +61,7 @@ Top-level functions:
 - `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
 - `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
 
-Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyGlhtResult`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
 
 Available `PyLmeFit` methods:
 
@@ -79,8 +79,10 @@ Available `PyLmeFit` methods:
 - `with_satterthwaite(data)`  # denominator df and p-values
 - `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
 - `anova(ddf_method="satterthwaite", anova_type="III")` → `PyFixedEffectsAnova`
+- `linear_hypothesis(term, ddf_method="satterthwaite")`
 - `test_contrast(l_matrix, ddf_method="satterthwaite")`  # H₀: Lβ = 0
 - `test_contrast_vs(l_matrix, beta_h, ddf_method="satterthwaite")`  # H₀: Lβ = β_h
+- `glht(term, mcp="tukey"|"dunnett", adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|"satterthwaite")` → `PyGlhtResult`
 
 Selected properties:
 

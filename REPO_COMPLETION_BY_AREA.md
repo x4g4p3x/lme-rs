@@ -42,7 +42,7 @@ The repository score is therefore **not** the mean of rounded rows. `100%` requi
 | 2 | **Rust crate: GLMM** — [`glmer`](src/lib.rs), [`glmer_weighted`](src/lib.rs), [`family`](src/family.rs), PIRLS in [`glmm_math`](src/glmm_math.rs), Laplace vs AGQ (`n_agq`) | **100%** | Strong intended surface: binomial/poisson/gaussian/gamma; canonical + golden non-canonical links (probit, cloglog); weights; AGQ-in-θ for scalar, vector (product), and small-`q` joint RE (CBPP AGQ-7). Gamma log-link Dyestuff locks mean, residual φ, and RE θ (`gamma_dyestuff_log_laplace`) after profiling φ in PIRLS. **Non-goals:** R-identical AIC/BIC and extra `stats` families. |
 | 3 | **Rust crate: formula & model matrices** — [`formula`](src/formula.rs), [`model_matrix`](src/model_matrix.rs) | **100%** | Broad Wilkinson + RE support, including two-way `a:b`, `log`/`sqrt`/`exp`, `I()` arithmetic, `offset(log(x))`, orthogonal/raw `poly()`, `ns()` natural cubics, and `y ~ .` expansion ([`tests/test_formula.rs`](tests/test_formula.rs), [`tests/test_formula_stress.rs`](tests/test_formula_stress.rs), [`src/basis.rs`](src/basis.rs)). |
 | 4 | **Rust crate: post-fit inference** — [`confint`](src/lib.rs), [`confint_profile`](src/profile_ci.rs), [`simulate`](src/lib.rs), [`boot_lmer`](src/bootstrap.rs) / [`boot_glmer`](src/bootstrap.rs), [`with_robust_se`](src/lib.rs), [`with_satterthwaite`](src/lib.rs), [`with_kenward_roger`](src/lib.rs) | **100%** | Wald + profile β (`parms=`); LMM/GLMM VC profile (`.sig01`/`.sigma`, lme4 sleepstudy fixture); parametric LMM/GLMM bootstrap with VC percentile CIs. |
-| 5 | **Rust crate: ANOVA & model comparison** — Type III: [`LmeFit::anova`](src/anova.rs); nested LRT: [`anova`](src/lib.rs) (`AnovaResult`) | **92%** | Type I/II/III; `linear_hypothesis`; 1-DoF marginal KR; joint multi-DoF Wald; user contrasts [`test_contrast`](src/contrast.rs) ([`tests/test_contrast.rs`](tests/test_contrast.rs)). Not full `car` / `lmerTest` superset (e.g. `glht`). |
+| 5 | **Rust crate: ANOVA & model comparison** — Type III: [`LmeFit::anova`](src/anova.rs); nested LRT: [`anova`](src/lib.rs) (`AnovaResult`) | **100%** | Type I/II/III; `linear_hypothesis`; 1-DoF marginal KR; joint multi-DoF Wald; user contrasts [`test_contrast`](src/contrast.rs); Tukey/Dunnett MCP [`glht`](src/mcp.rs) ([`tests/test_mcp.rs`](tests/test_mcp.rs), pastes Wald+`ptukey` fixture). Not a full `multcomp`/`emmeans` superset. |
 | 6 | **Python bindings** (`python/`, import `lme_python`) | **100%** | Near-full Rust parity including [`prepare_lmer`](python/src/lib.rs) / [`prepare_glmer`](python/src/lib.rs) / [`fit_prepared_glmer`](python/src/lib.rs) / [`cv_grouped`](python/src/lib.rs) / [`cv_grouped_glmer`](python/src/lib.rs) / boot APIs / profile `parms=` / numeric [`lm(y, x)`](python/src/lib.rs) (`lm_matrix` alias). |
 | 7 | **Cross-language validation** — [`comparisons/`](comparisons/), JSON/CSV fixtures, Rust tests | **96%** | Golden parity includes dyestuff LMM/Gamma, CBPP cloglog + AGQ-7, `ssfpl` / `ssasympoff` / `ssasymporig` / `ssbiexp` / `ssweibull`, sleepstudy profile CIs; remaining gap is breadth vs full R edge-case matrix. |
 | 8 | **Benchmarks (instrumentation)** — [`benches/bench_math.rs`](benches/bench_math.rs), [`BENCHMARKS.md`](BENCHMARKS.md), [`BENCHMARK_COVERAGE.md`](BENCHMARK_COVERAGE.md), fair Rust/Julia harness, [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) | **88%** | Criterion + tier-A fair harness (LMM + GLMM fixtures, optional `prepare`/`fit_prepared` phases); [coverage map](BENCHMARK_COVERAGE.md) separates measured vs Rust-only workloads. Workflow runs on `v*` tags and `workflow_dispatch`. |
@@ -54,7 +54,7 @@ The repository score is therefore **not** the mean of rounded rows. `100%` requi
 
 ## Overall completion
 
-**Evidence-weighted overall: 89% (211/236 scope units).**
+**Evidence-weighted overall: 90% (212/236 scope units).**
 
 The Jul 22 axis-(3) run records all 12 tier-A cases on one workstation and revision. All cold fits passed the strict target; ratios ranged from **~0.03× to ~0.96×** Julia, and all 10 measured LMM prepared fits passed. These are versioned engineering measurements, not machine-independent speed guarantees.
 
@@ -72,7 +72,7 @@ The Jul 22 axis-(3) run records all 12 tier-A cases on one workstation and revis
 | Rust workflows | [`GUIDE.md`](GUIDE.md) |
 | CI layout | [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py); [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (pull-request / `v*` tag / manual triggers, locked dependencies, all-targets check, doctests, isolated-wheel tests, Python version matrix); [`.github/workflows/audit.yml`](.github/workflows/audit.yml); [`.github/workflows/fuzz-smoke.yml`](.github/workflows/fuzz-smoke.yml); [`AGENTS.md`](AGENTS.md) |
 | nlmer means, AGQ, custom μ | [`src/nlmm/`](src/nlmm/); [`tests/test_nlmm_ssmicmen.rs`](tests/test_nlmm_ssmicmen.rs), [`tests/test_nlmm_sspower.rs`](tests/test_nlmm_sspower.rs), [`tests/test_nlmm_custom_mean.rs`](tests/test_nlmm_custom_mean.rs), [`tests/test_nlmm_agq.rs`](tests/test_nlmm_agq.rs); [`comparisons/nlmm_sspower.R`](comparisons/nlmm_sspower.R); [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
-| Integration tests | **40** Rust modules under [`tests/`](tests/) (including `test_nlmm_orange.rs`, `test_nlmm_ssmicmen.rs`, `test_glmm_weighted.rs`, `test_contrast.rs`; counted 2026-07-04) |
+| Integration tests | **41** Rust modules under [`tests/`](tests/) (including `test_nlmm_orange.rs`, `test_nlmm_ssmicmen.rs`, `test_glmm_weighted.rs`, `test_contrast.rs`, `test_mcp.rs`; counted 2026-08-14) |
 
 ## Gaps vs the full R ecosystem (not in the summary table)
 
@@ -97,7 +97,7 @@ The summary table scores the **intended shipped surface** of this repo. This sec
 
 These are **shipped and scored above** — they are incomplete only vs a much larger reference (full `car` / `lmerTest`, every GLMM edge case, etc.):
 
-- Fixed-effects ANOVA (Type I–III), contrasts, `linear_hypothesis` — summary **row 5**
+- Fixed-effects ANOVA (Type I–III), contrasts, `linear_hypothesis`, Tukey/Dunnett `glht` — summary **row 5**
 - GLMM families / links — summary **row 2**
 - Python ↔ Rust formula API — summary **row 6**
 

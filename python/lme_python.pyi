@@ -43,6 +43,19 @@ class PyContrastTest:
     f_value: float
     p_value: float
 
+class PyGlhtResult:
+    term: str
+    mcp: str
+    adjust: str
+    statistic: str
+    comparisons: list[str]
+    estimate: list[float]
+    std_error: list[float]
+    statistic_values: list[float]
+    den_df: list[float]
+    p_value: list[float]
+    p_adjust: list[float]
+
 class PyLikelihoodRatioAnova:
     n_params_0: int
     n_params_1: int
@@ -157,6 +170,14 @@ class PyLmeFit:
         beta_h: list[float],
         ddf_method: str = "satterthwaite",
     ) -> PyContrastTest: ...
+    def glht(
+        self,
+        term: str,
+        mcp: str = "tukey",
+        adjust: str = "tukey",
+        ddf_method: str | None = None,
+        control: str | None = None,
+    ) -> PyGlhtResult: ...
     def simulate(
         self,
         nsim: int,

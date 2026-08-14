@@ -165,6 +165,22 @@ def test_anova_type_i_and_linear_hypothesis():
     assert abs(lh.f_value - tab_iii.f_value[0]) < 1e-10
 
 
+def test_glht_tukey_cask():
+    df = pl.read_csv("../tests/data/pastes.csv")
+    fit = lme_python.lmer("strength ~ cask + (1 | batch)", data=df, reml=True)
+    tab = fit.glht("cask", mcp="tukey", adjust="tukey")
+    assert tab.comparisons == ["b - a", "c - a", "c - b"]
+    assert tab.statistic == "z"
+    assert abs(tab.estimate[0] - 0.85) < 1e-8
+    assert abs(tab.p_adjust[1] - 0.2179097870286499) < 1e-5
+    dun = fit.glht("cask", mcp="dunnett", adjust="bonferroni")
+    assert dun.comparisons == ["b - a", "c - a"]
+    fit.with_satterthwaite(df)
+    ttab = fit.glht("cask", mcp="tukey", adjust="none", ddf_method="satterthwaite")
+    assert ttab.statistic == "t"
+    assert ttab.den_df[0] > 1.0
+
+
 def test_lm_matrix():
     y = [1.0, 2.0, 3.0, 4.0]
     x = [[1.0, 0.0], [1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]

@@ -131,18 +131,7 @@ pub(crate) fn fixed_effect_contrast_test(
         });
     }
 
-    let v_beta = if let Some(robust) = &fit.robust {
-        robust.v_beta_robust.clone()
-    } else {
-        let xtx_inv = fit
-            .v_beta_unscaled
-            .as_ref()
-            .ok_or(LmeError::NotImplemented {
-                feature: "Covariance matrix missing".to_string(),
-            })?;
-        let sigma2 = fit.sigma2.unwrap_or(1.0);
-        xtx_inv * sigma2
-    };
+    let v_beta = fixed_effect_vcov(fit)?;
 
     let q = l_mat.nrows();
     let (f_value, den_df, p_value, num_df) = match ddf {
@@ -229,6 +218,21 @@ pub(crate) fn fixed_effect_contrast_test(
         f_value,
         p_value,
     })
+}
+
+/// Wald covariance of `β` (robust sandwich when present).
+pub(crate) fn fixed_effect_vcov(fit: &LmeFit) -> crate::Result<Array2<f64>> {
+    if let Some(robust) = &fit.robust {
+        return Ok(robust.v_beta_robust.clone());
+    }
+    let xtx_inv = fit
+        .v_beta_unscaled
+        .as_ref()
+        .ok_or(LmeError::NotImplemented {
+            feature: "Covariance matrix missing".to_string(),
+        })?;
+    let sigma2 = fit.sigma2.unwrap_or(1.0);
+    Ok(xtx_inv * sigma2)
 }
 
 /// If `L` is a single row with one `1`, return that column index.
