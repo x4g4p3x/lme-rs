@@ -114,6 +114,12 @@ def summarize(samples: list[float]) -> dict[str, float]:
 
 
 def python_lmer_report(warmups: int, repeats: int) -> dict[str, Any] | None:
+    venv_site = ROOT / "python" / ".venv" / "lib"
+    if venv_site.is_dir():
+        for path in venv_site.glob("python*/site-packages"):
+            site = str(path)
+            if site not in sys.path:
+                sys.path.insert(0, site)
     try:
         import lme_python
         import polars as pl

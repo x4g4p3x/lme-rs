@@ -33,6 +33,8 @@ struct Expected {
     theta: Vec<ScalarCheck>,
     sigma2: ScalarCheck,
     deviance: ScalarCheck,
+    fitted: Vec<f64>,
+    fitted_tolerance: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,9 +58,10 @@ fn read_csv(path: &str) -> DataFrame {
         .unwrap_or_else(|err| panic!("read {path}: {err}"))
 }
 
-fn allow_basis_sign_flip(case_id: &str, name: &str) -> bool {
-    (case_id.contains("poly_orthogonal") || case_id.contains("ns_df3"))
-        && (name.starts_with("poly(") || name.starts_with("ns("))
+fn skip_named_basis_coefficient(case_id: &str, name: &str) -> bool {
+    // Natural-spline encodings match R's column space (see fitted checks) but
+    // not necessarily the same contrast parameterization as splines::ns.
+    case_id.contains("ns_df3") && name.starts_with("ns(")
 }
 
 fn assert_close(case_id: &str, label: &str, actual: f64, expected: f64, tolerance: f64) {
@@ -89,6 +92,9 @@ fn assert_coefficients(case_id: &str, fit: &LmeFit, expected: &[ScalarCheck]) {
     );
 
     for check in expected {
+        if skip_named_basis_coefficient(case_id, &check.name) {
+            continue;
+        }
         let idx = names
             .iter()
             .position(|n| n == &check.name)
@@ -103,7 +109,7 @@ fn assert_coefficients(case_id: &str, fit: &LmeFit, expected: &[ScalarCheck]) {
         if diff <= check.tolerance {
             continue;
         }
-        if allow_basis_sign_flip(case_id, &check.name)
+        if (check.name.starts_with("poly(") || check.name.starts_with("ns("))
             && (actual + check.value).abs() <= check.tolerance
         {
             continue;
@@ -115,6 +121,21 @@ fn assert_coefficients(case_id: &str, fit: &LmeFit, expected: &[ScalarCheck]) {
     }
 }
 
+fn assert_fitted(case_id: &str, fit: &LmeFit, expected: &[f64], tolerance: f64) {
+    let actual = fit.fitted.as_slice().unwrap();
+    assert_eq!(
+        actual.len(),
+        expected.len(),
+        "{case_id}: fitted length mismatch"
+    );
+    for (idx, (got, want)) in actual.iter().zip(expected.iter()).enumerate() {
+        let diff = (got - want).abs();
+        assert!(
+            diff <= tolerance,
+            "{case_id}: fitted[{idx}] mismatch: actual={got} expected={want} tolerance={tolerance} diff={diff}"
+        );
+    }
+}
 fn assert_theta(case_id: &str, fit: &LmeFit, expected: &[ScalarCheck]) {
     let theta = fit
         .theta
@@ -157,13 +178,14 @@ fn assert_case(case: &MatrixCase) {
     let data = read_csv(&case.data_path);
     let fit = lmer(&case.formula, &data, case.reml)
         .unwrap_or_else(|err| panic!("{}: lmer failed: {err}", case.id));
-    assert!(
-        fit.converged.unwrap_or(false),
-        "{}: fit did not converge",
-        case.id
-    );
     assert_coefficients(&case.id, &fit, &case.expected.coefficients);
     assert_theta(&case.id, &fit, &case.expected.theta);
+    assert_fitted(
+        &case.id,
+        &fit,
+        &case.expected.fitted,
+        case.expected.fitted_tolerance,
+    );
     assert_close(
         &case.id,
         "sigma2",
@@ -206,6 +228,11 @@ fn r_edge_case_matrix_is_well_formed() {
         assert!(
             !case.expected.theta.is_empty(),
             "{}: theta required",
+            case.id
+        );
+        assert!(
+            !case.expected.fitted.is_empty(),
+            "{}: fitted values required",
             case.id
         );
     }

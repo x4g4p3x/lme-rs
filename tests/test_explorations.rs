@@ -25,16 +25,30 @@ fn formula_ast_catalog_parses_native_edge_cases() {
     let independent = parse("Reaction ~ Days + (Days || Subject)").unwrap();
     assert!(independent.metadata.has_intercept);
     assert!(independent.metadata.is_random_effects_model);
-    let uncorrelated = independent
+    let subject = independent
         .columns
-        .values()
-        .flat_map(|info| info.random_effects.iter())
-        .filter(|effect| !effect.correlated)
-        .count();
+        .get("Subject")
+        .expect("Subject grouping column");
     assert!(
-        uncorrelated >= 2,
-        "|| should produce uncorrelated RE declarations, got {uncorrelated}"
+        subject.random_effects.iter().any(|effect| {
+            !effect.correlated
+                && effect.has_intercept
+                && effect.variables.iter().map(String::as_str).eq(["Days"])
+        }),
+        "|| should keep intercept+slope on one uncorrelated declaration: {:?}",
+        subject.random_effects
     );
+    let sleep = read_csv("tests/data/sleepstudy.csv");
+    let matrices = build_design_matrices(&independent, &sleep).unwrap();
+    assert_eq!(
+        matrices.re_blocks.len(),
+        2,
+        "|| should expand to two variance blocks"
+    );
+    assert!(matrices
+        .re_blocks
+        .iter()
+        .all(|block| block.k == 1 && block.theta_len == 1));
 
     let cell_means = parse("strength ~ 0 + cask + (1 | batch)").unwrap();
     assert!(!cell_means.metadata.has_intercept);

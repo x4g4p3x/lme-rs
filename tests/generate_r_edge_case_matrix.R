@@ -81,7 +81,9 @@ dump_lmm <- function(id, description, formula, data_path, data, reml,
         if (reml) "REML criterion" else "deviance",
         objective,
         dev_tol
-      )
+      ),
+      fitted = as.numeric(fitted(fit)),
+      fitted_tolerance = jsonlite::unbox(0.05)
     )
   )
 }

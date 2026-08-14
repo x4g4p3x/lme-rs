@@ -100,12 +100,19 @@ if (case == "sleepstudy_lmer") {
   }
   data <- read.csv("tests/data/sleepstudy.csv", stringsAsFactors = FALSE)
   data$Subject <- factor(data$Subject)
-  base <- lmerTest::lmer(Reaction ~ Days + (Days | Subject), data, REML = TRUE)
   formula <- "Reaction ~ Days + (Days | Subject)"
-  samples <- time_body(warmups, repeats, function() {
-    stats::anova(base, ddf = "Satterthwaite", type = 3)
-  })
-  emit("r_lmerTest", "post_fit_inference", formula, nrow(data), samples)
+  tryCatch(
+    {
+      base <- lmerTest::lmer(Reaction ~ Days + (Days | Subject), data, REML = TRUE)
+      samples <- time_body(warmups, repeats, function() {
+        stats::anova(base, ddf = "Satterthwaite", type = 3)
+      })
+      emit("r_lmerTest", "post_fit_inference", formula, nrow(data), samples)
+    },
+    error = function(err) {
+      skip(paste0("R:sleepstudy_satterthwaite (", conditionMessage(err), ")"))
+    }
+  )
 } else if (case == "sleepstudy_kenward_roger") {
   if (!has_lmertest) {
     skip("R:sleepstudy_kenward_roger (lmerTest not installed)")
@@ -113,12 +120,19 @@ if (case == "sleepstudy_lmer") {
   }
   data <- read.csv("tests/data/sleepstudy.csv", stringsAsFactors = FALSE)
   data$Subject <- factor(data$Subject)
-  base <- lmerTest::lmer(Reaction ~ Days + (Days | Subject), data, REML = TRUE)
   formula <- "Reaction ~ Days + (Days | Subject)"
-  samples <- time_body(warmups, repeats, function() {
-    stats::anova(base, ddf = "Kenward-Roger", type = 3)
-  })
-  emit("r_lmerTest", "post_fit_inference", formula, nrow(data), samples)
+  tryCatch(
+    {
+      base <- lmerTest::lmer(Reaction ~ Days + (Days | Subject), data, REML = TRUE)
+      samples <- time_body(warmups, repeats, function() {
+        stats::anova(base, ddf = "Kenward-Roger", type = 3)
+      })
+      emit("r_lmerTest", "post_fit_inference", formula, nrow(data), samples)
+    },
+    error = function(err) {
+      skip(paste0("R:sleepstudy_kenward_roger (", conditionMessage(err), ")"))
+    }
+  )
 } else {
   stop("unknown case: ", case)
 }

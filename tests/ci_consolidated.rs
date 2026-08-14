@@ -36,6 +36,8 @@ mod test_edge_cases;
 mod test_errors;
 #[path = "test_explorations.rs"]
 mod test_explorations;
+#[path = "test_external_timings_artifact.rs"]
+mod test_external_timings_artifact;
 #[path = "test_failure_modes.rs"]
 mod test_failure_modes;
 #[path = "test_formula.rs"]
