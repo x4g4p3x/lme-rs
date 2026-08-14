@@ -6,7 +6,7 @@ This file gives an **evidence-weighted implementation-coverage score** for major
 
 **Last assessed:** 2026-08-14.
 
-**Versions checked:** `lme-rs` **0.2.1** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.1** ([`python/Cargo.toml`](python/Cargo.toml)).
+**Versions checked:** `lme-rs` **0.2.2** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.2** ([`python/Cargo.toml`](python/Cargo.toml)).
 
 Repository completion is judged on **three** axes, not features alone:
 

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-14
+
 ### Added
 
 - **Estimated marginal means (`emmeans`)** — [`LmeFit::emmeans`](src/emmeans.rs) builds equal-weight categorical reference grids for linear models/LMMs, holding numeric columns at their means; [`LmeFit::emmeans_pairs`](src/emmeans.rs) adds none / Bonferroni / Holm / Tukey–Kramer pairwise comparisons. Rust and Python APIs support asymptotic `z` or stored Satterthwaite / Kenward–Roger dfs. Pastes `cask` estimates, SEs, confidence limits, and Tukey pairs are locked directly to R `emmeans` in [`tests/data/pastes_emmeans.json`](tests/data/pastes_emmeans.json).
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - [`FormulaModel::offset`](src/formula.rs) is now `Option<NumericExpr>` so transformed offsets can be represented. Plain column offsets still work; use [`FormulaModel::offset_column`](src/formula.rs) when you need the old string form.
+- Tag CI dispatches the top-level PyPI Trusted Publishing workflow only after every validation job succeeds; `task ci` now includes consumer-smoke and documentation/link gates.
 
 ### Fixed
 
