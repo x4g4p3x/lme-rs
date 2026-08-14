@@ -99,7 +99,7 @@ Pushing a `v*` tag starts the full CI matrix. Only after every CI validation job
 ### Immediately after release
 
 - bump both Cargo manifests to the next unique development version (for example,
-  `0.2.3-dev.0` after releasing `0.2.2`)
+  `0.2.4-dev.0` after releasing `0.2.3`)
 - refresh the root, Python, and fuzz lockfiles
 - do not leave `master` on a version already published to crates.io or PyPI; build
   and editable-install caches use the package version as part of artifact identity
