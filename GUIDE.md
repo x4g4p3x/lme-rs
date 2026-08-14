@@ -249,6 +249,8 @@ Built-in family support through the public enum:
 | `Family::Gaussian` | identity | log, inverse |
 | `Family::Gamma` | inverse | identity, log |
 
+Gamma and Gaussian GLMMs profile the residual dispersion φ inside PIRLS (lme4-style moment estimator: IRLS weights use `1/φ`, the `u'u` penalty does not). Scalar θ is then optimized with a log-grid plus golden-section search so the RE SD does not collapse to the bound. Golden: `gamma_dyestuff_log_laplace`.
+
 ```rust
 use lme_rs::{glmer_with_link, family::{Family, Link}};
 

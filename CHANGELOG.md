@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Non-numeric `offset()` columns (and other numeric formula terms) are rejected again when values cannot be parsed as floats. Formula materialization had dropped invalid entries instead of erroring, which let string offsets fit.
+- Gamma GLMM random-effect θ no longer collapses to the bound: PIRLS profiles residual φ (IRLS weights `1/φ`, unscaled `u'u` penalty) and scalar θ uses a log-grid plus golden-section search. `gamma_dyestuff_log_laplace` now locks Batch θ against lme4 VarCorr Std.Dev.
 
 ## [0.2.1] - 2026-08-10
 

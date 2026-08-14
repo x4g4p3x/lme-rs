@@ -40,6 +40,15 @@ pub trait GlmFamily: std::fmt::Debug + Send + Sync {
     /// Whether this family uses a dispersion parameter (sigma²).  
     /// Gaussian: true, Binomial/Poisson: false.
     fn uses_dispersion(&self) -> bool;
+    /// R `family$aic()` value used by lme4's Laplace objective.
+    ///
+    /// For families with a free dispersion this includes a `+2` bookkeeping
+    /// constant (the dispersion's own AIC penalty). The GLMM Laplace
+    /// approximation subtracts that `2` again, matching `glmResp::Laplace`.
+    fn aic(&self, y: &Array1<f64>, mu: &Array1<f64>, wt: &Array1<f64>, dev: f64) -> f64 {
+        let _ = (y, mu, wt);
+        dev
+    }
     /// Initialize mu from y (provides sensible starting values).
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64>;
     /// Create a new boxed clone of this family (needed for optimizer cloning).
@@ -561,6 +570,21 @@ impl GlmFamily for GaussianFamily {
         true
     }
 
+    fn aic(&self, y: &Array1<f64>, _mu: &Array1<f64>, wt: &Array1<f64>, dev: f64) -> f64 {
+        // R gaussian()$aic: n (log(2π * dev/n) + 1) - sum(log(wt)) + 2
+        let n = y.len() as f64;
+        if n <= 0.0 || !dev.is_finite() || dev <= 0.0 {
+            return f64::INFINITY;
+        }
+        let mut log_wt = 0.0;
+        for &wi in wt {
+            if wi > 0.0 {
+                log_wt += wi.ln();
+            }
+        }
+        n * ((2.0 * std::f64::consts::PI * dev / n).ln() + 1.0) + 2.0 - log_wt
+    }
+
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64> {
         y.clone()
     }
@@ -631,6 +655,22 @@ impl GlmFamily for GammaFamily {
         true
     }
 
+    fn aic(&self, y: &Array1<f64>, mu: &Array1<f64>, wt: &Array1<f64>, dev: f64) -> f64 {
+        // R Gamma()$aic: -2 Σ wt log dgamma(y, 1/φ, scale = μ φ) + 2, φ = dev / Σ wt
+        let n = wt.sum();
+        if n <= 0.0 || !dev.is_finite() || dev <= 0.0 {
+            return f64::INFINITY;
+        }
+        let disp = (dev / n).max(f64::EPSILON);
+        let shape = 1.0 / disp;
+        let mut ans = 0.0;
+        for i in 0..y.len() {
+            let scale = mu[i].max(f64::EPSILON) * disp;
+            ans += wt[i] * ln_dgamma(y[i], shape, scale);
+        }
+        -2.0 * ans + 2.0
+    }
+
     fn initialize_mu(&self, y: &Array1<f64>) -> Array1<f64> {
         // R's Gamma()$initialize: mu = y (clamped away from zero)
         y.mapv(|yi| yi.max(f64::EPSILON))
@@ -639,6 +679,15 @@ impl GlmFamily for GammaFamily {
     fn build_clone(&self) -> Box<dyn GlmFamily> {
         Box::new(GammaFamily::with_link(self.link))
     }
+}
+
+/// Log-density of a Gamma(`shape`, `scale`) observation. Matches R `dgamma(..., log = TRUE)`.
+fn ln_dgamma(y: f64, shape: f64, scale: f64) -> f64 {
+    if !(y > 0.0 && shape > 0.0 && scale > 0.0) {
+        return f64::NEG_INFINITY;
+    }
+    -statrs::function::gamma::ln_gamma(shape) - shape * scale.ln() + (shape - 1.0) * y.ln()
+        - y / scale
 }
 
 // ─── Public Dispatch Enum ──────────────────────────────────────────────────────
@@ -1043,6 +1092,22 @@ mod tests {
             "gamma dev_resid(y=2,mu=1) expected {}, got {}",
             expected,
             d[0]
+        );
+    }
+
+    #[test]
+    fn gamma_aic_matches_r_gamma_family() {
+        let fam = GammaFamily::new();
+        let y = array![2.0];
+        let mu = array![1.0];
+        let wt = array![1.0];
+        let dev = fam.dev_resid(&y, &mu, &wt)[0];
+        let aic = fam.aic(&y, &mu, &wt, dev);
+        // Same formula as R Gamma()$aic / dgamma(log=TRUE) for y=2, mu=1, wt=1.
+        let expected = 5.837_042_943_204_101;
+        assert!(
+            (aic - expected).abs() < 1e-8,
+            "gamma aic expected {expected}, got {aic}"
         );
     }
 

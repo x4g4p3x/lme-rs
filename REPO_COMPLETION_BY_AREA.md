@@ -4,7 +4,7 @@ This file gives an **evidence-weighted implementation-coverage score** for major
 
 **This is a coverage map, not a usability guide.** For “can I use this on my problem?” (workflows, validation posture, limited field experience), see **[USABILITY.md](USABILITY.md)**.
 
-**Last assessed:** 2026-08-13.
+**Last assessed:** 2026-08-14.
 
 **Versions checked:** `lme-rs` **0.2.1** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.1** ([`python/Cargo.toml`](python/Cargo.toml)).
 
@@ -39,7 +39,7 @@ The repository score is therefore **not** the mean of rounded rows. `100%` requi
 | # | Area | Completion | Notes |
 |---|------|:----------:|-------|
 | 1 | **Rust crate: linear & mixed (LMM)** — [`lm`](src/lib.rs) / [`lm_df`](src/lib.rs), [`lmer`](src/lib.rs), [`lmer_weighted`](src/lib.rs), REML/ML, [`predict`](src/lib.rs) variants | **100%** | Broad intended LMM surface with parity/e2e/goldens (incl. `dyestuff_intercept_reml`), REML/ML, weights, predict, and a current full tier-A strict-target performance artifact (row 13). |
-| 2 | **Rust crate: GLMM** — [`glmer`](src/lib.rs), [`glmer_weighted`](src/lib.rs), [`family`](src/family.rs), PIRLS in [`glmm_math`](src/glmm_math.rs), Laplace vs AGQ (`n_agq`) | **95%** | Strong intended surface: binomial/poisson/gaussian/gamma; canonical + golden non-canonical links (probit, cloglog); weights; AGQ-in-θ for scalar, vector (product), and small-`q` joint RE (CBPP AGQ-7). Remaining limitation that is material for affected workflows: Gamma RE θ may hit a boundary vs lme4. **Non-goals:** R-identical AIC/BIC and extra `stats` families. |
+| 2 | **Rust crate: GLMM** — [`glmer`](src/lib.rs), [`glmer_weighted`](src/lib.rs), [`family`](src/family.rs), PIRLS in [`glmm_math`](src/glmm_math.rs), Laplace vs AGQ (`n_agq`) | **100%** | Strong intended surface: binomial/poisson/gaussian/gamma; canonical + golden non-canonical links (probit, cloglog); weights; AGQ-in-θ for scalar, vector (product), and small-`q` joint RE (CBPP AGQ-7). Gamma log-link Dyestuff locks mean, residual φ, and RE θ (`gamma_dyestuff_log_laplace`) after profiling φ in PIRLS. **Non-goals:** R-identical AIC/BIC and extra `stats` families. |
 | 3 | **Rust crate: formula & model matrices** — [`formula`](src/formula.rs), [`model_matrix`](src/model_matrix.rs) | **88%** | Broad Wilkinson + RE support, including two-way `a:b`, `log`/`sqrt`/`exp`, `I()` arithmetic, and `offset(log(x))`. Remaining gap is breadth of edge cases vs R (`poly()`, `ns()`, `y ~ .`), not missing baseline features ([`tests/test_formula.rs`](tests/test_formula.rs), [`tests/test_formula_stress.rs`](tests/test_formula_stress.rs), [`tests/test_crossed_mock.rs`](tests/test_crossed_mock.rs), etc.). |
 | 4 | **Rust crate: post-fit inference** — [`confint`](src/lib.rs), [`confint_profile`](src/profile_ci.rs), [`simulate`](src/lib.rs), [`boot_lmer`](src/bootstrap.rs) / [`boot_glmer`](src/bootstrap.rs), [`with_robust_se`](src/lib.rs), [`with_satterthwaite`](src/lib.rs), [`with_kenward_roger`](src/lib.rs) | **92%** | Wald + profile (incl. `parms=`); parametric LMM/GLMM bootstrap; targeted tests (`test_confint_profile.rs`, `test_bootstrap.rs`, …). |
 | 5 | **Rust crate: ANOVA & model comparison** — Type III: [`LmeFit::anova`](src/anova.rs); nested LRT: [`anova`](src/lib.rs) (`AnovaResult`) | **92%** | Type I/II/III; `linear_hypothesis`; 1-DoF marginal KR; joint multi-DoF Wald; user contrasts [`test_contrast`](src/contrast.rs) ([`tests/test_contrast.rs`](tests/test_contrast.rs)). Not full `car` / `lmerTest` superset (e.g. `glht`). |
@@ -54,7 +54,7 @@ The repository score is therefore **not** the mean of rounded rows. `100%` requi
 
 ## Overall completion
 
-**Evidence-weighted overall: 88% (208/236 scope units).**
+**Evidence-weighted overall: 89% (209/236 scope units).**
 
 The Jul 22 axis-(3) run records all 12 tier-A cases on one workstation and revision. All cold fits passed the strict target; ratios ranged from **~0.03× to ~0.96×** Julia, and all 10 measured LMM prepared fits passed. These are versioned engineering measurements, not machine-independent speed guarantees.
 

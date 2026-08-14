@@ -572,7 +572,7 @@ pub fn optimize_theta_glmm_with_maps(
     let lower_bounds = compute_theta_lower_bounds(&re_blocks);
     let n_agq_obj = n_agq_for_theta_objective(n_agq, &re_blocks);
 
-    // Always warm-start with Laplace (stable Nelder–Mead landscape).
+    // Always warm-start with Laplace (stable landscape).
     let laplace = GlmmObjective {
         x: x.clone(),
         zt: zt.clone(),
@@ -586,7 +586,7 @@ pub fn optimize_theta_glmm_with_maps(
         zt_w_z_map: zt_w_z_map.clone(),
         n_agq: 1,
     };
-    let laplace_result = nelder_mead_optimize(init_theta, &lower_bounds, 1000, laplace)?;
+    let laplace_result = optimize_glmm_theta(init_theta, &lower_bounds, &laplace)?;
     if n_agq_obj <= 1 {
         return Ok(laplace_result);
     }
@@ -605,7 +605,7 @@ pub fn optimize_theta_glmm_with_maps(
         zt_w_z_map,
         n_agq: n_agq_obj,
     };
-    let agq_result = nelder_mead_optimize(laplace_result.theta.clone(), &lower_bounds, 1000, agq)?;
+    let agq_result = optimize_glmm_theta(laplace_result.theta.clone(), &lower_bounds, &agq)?;
     // Reject pathological AGQ refinements (discontinuous AGQ/Laplace fallback landscape).
     let theta_ok = agq_result.theta.iter().all(|t| t.is_finite())
         && agq_result
@@ -623,6 +623,88 @@ pub fn optimize_theta_glmm_with_maps(
     } else {
         Ok(laplace_result)
     }
+}
+
+/// Scalar GLMM θ uses a log-grid plus golden-section search so optima near the
+/// zero bound (typical for Gamma after φ is profiled) are not skipped by
+/// Nelder–Mead started at 1. Vector θ keeps Nelder–Mead.
+fn optimize_glmm_theta(
+    init_theta: Array1<f64>,
+    lower_bounds: &[f64],
+    cost: &GlmmObjective,
+) -> Result<OptimizeResult, anyhow::Error> {
+    if init_theta.len() == 1 {
+        optimize_theta_glmm_1d(init_theta, lower_bounds, cost)
+    } else {
+        nelder_mead_optimize(init_theta, lower_bounds, 1000, cost.clone_objective())
+    }
+}
+
+impl GlmmObjective {
+    fn clone_objective(&self) -> Self {
+        Self {
+            x: self.x.clone(),
+            zt: self.zt.clone(),
+            y: self.y.clone(),
+            re_blocks: self.re_blocks.clone(),
+            family: self.family.build_clone(),
+            offset: self.offset.clone(),
+            weights: self.weights.clone(),
+            lower_bounds: self.lower_bounds.clone(),
+            zt_z: self.zt_z.clone(),
+            zt_w_z_map: self.zt_w_z_map.clone(),
+            n_agq: self.n_agq,
+        }
+    }
+}
+
+fn optimize_theta_glmm_1d(
+    init_theta: Array1<f64>,
+    lower_bounds: &[f64],
+    cost: &GlmmObjective,
+) -> Result<OptimizeResult, anyhow::Error> {
+    const LO: f64 = 1e-4;
+    const HI: f64 = 8.0;
+    const GRID_N: usize = 11;
+    const GS_MAX: u64 = 24;
+    const GS_TOL: f64 = 1e-6;
+
+    let floor = lower_bounds.first().copied().unwrap_or(0.0).max(LO);
+    let mut evals = 0u64;
+    let mut eval = |t: f64| -> f64 {
+        evals += 1;
+        let x = Array1::from_vec(vec![t.max(floor)]);
+        match cost.cost(&x) {
+            Ok(v) if v.is_finite() => v,
+            _ => f64::MAX,
+        }
+    };
+
+    let mut best_t = init_theta[0].clamp(floor, HI);
+    let mut best_c = eval(best_t);
+    for &t in &log_grid_1d(floor, HI, GRID_N) {
+        let c = eval(t);
+        if c < best_c {
+            best_c = c;
+            best_t = t;
+        }
+    }
+
+    let lo = (best_t / 4.0).max(floor);
+    let hi = (best_t * 4.0).min(HI).max(lo * (1.0 + 1e-12));
+    let (value, gs_cost, iters) = golden_section_min_coord(&mut eval, lo, hi, GS_TOL, GS_MAX);
+    evals += iters;
+    if gs_cost < best_c {
+        best_c = gs_cost;
+        best_t = value;
+    }
+
+    Ok(OptimizeResult {
+        theta: Array1::from_vec(vec![best_t]),
+        converged: true,
+        iterations: evals,
+        final_cost: best_c,
+    })
 }
 
 /// AGQ inside the θ search when PIRLS can apply the same quadrature rule.

@@ -1,7 +1,9 @@
 use lme_rs::family::BinomialFamily;
 use lme_rs::family::Family;
+use lme_rs::family::Link;
 use lme_rs::formula::parse;
 use lme_rs::glmer;
+use lme_rs::glmer_with_link;
 use lme_rs::glmm_math::GlmmData;
 use lme_rs::model_matrix::build_design_matrices;
 use ndarray::Array1;
@@ -257,7 +259,7 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
     println!("Dyestuff Gamma sigma2: {:?}", fit.sigma2);
     println!(
         "Dyestuff Gamma fitted[0..5]: {:?}",
-        &fit.fitted.iter().take(5).collect::<Vec<_>>()
+        fit.fitted.iter().take(5).collect::<Vec<_>>()
     );
 
     assert!(fit.converged.unwrap_or(false));
@@ -298,6 +300,43 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
     assert!(sigma2.is_finite());
     assert!(sigma2 > 0.0);
     assert!(sigma2 < 1e6, "Gamma sigma2 implausibly large: {}", sigma2);
+}
+
+#[test]
+fn test_glmm_gamma_dyestuff_log_theta_interior() {
+    let _ = env_logger::try_init();
+    let df = read_csv_data("tests/data/dyestuff.csv");
+
+    let fit = glmer_with_link("Yield ~ 1 + (1 | Batch)", &df, Family::Gamma, Link::Log, 1).unwrap();
+
+    println!("Dyestuff Gamma log-link beta: {:?}", fit.coefficients);
+    println!("Dyestuff Gamma log-link theta: {:?}", fit.theta);
+    println!("Dyestuff Gamma log-link sigma2: {:?}", fit.sigma2);
+    println!("Dyestuff Gamma log-link deviance: {:?}", fit.deviance);
+
+    assert!(fit.converged.unwrap_or(false));
+    assert_eq!(fit.coefficients.len(), 1);
+    assert!(
+        (fit.coefficients[0] - 7.330_856_412_810_14).abs() < 0.05,
+        "log-link intercept should match lme4 mean: {}",
+        fit.coefficients[0]
+    );
+
+    let theta = fit.theta.as_ref().unwrap()[0];
+    assert!(
+        theta.is_finite() && theta > 0.01,
+        "Gamma RE θ should be an interior optimum, not the boundary; got {theta}"
+    );
+    assert!(
+        (theta - 0.020_671_347_404_976_6).abs() < 0.008,
+        "log-link Batch θ should match lme4 VarCorr SD: {theta}"
+    );
+
+    let sigma2 = fit.sigma2.unwrap();
+    assert!(
+        (sigma2 - 0.001_118_083_574_854_04).abs() < 0.001,
+        "log-link dispersion should match lme4 sigma2: {sigma2}"
+    );
 }
 
 /// Vector RE (`k = 2`) with `n_agq > 1` refines θ under product AGQ.

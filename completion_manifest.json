@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "assessed_on": "2026-08-11",
+  "assessed_on": "2026-08-14",
   "scoring_rule": "Each criterion is a binary scope commitment. An area score is 100 * completed criterion weight / total criterion weight. The repository score is the same calculation across all criteria, not an average of rounded area scores. A criterion is complete only when its stated evidence exists; missing, partial, or stale evidence scores zero.",
   "areas": [
     {"id": 1, "evidence": ["src/lib.rs", "tests", "comparisons", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"], "criteria": [{"id": "lmm-api", "weight": 7, "complete": true}, {"id": "lmm-tests", "weight": 6, "complete": true}, {"id": "lmm-parity", "weight": 6, "complete": true}, {"id": "lmm-current-strict-tier-a", "weight": 1, "complete": true}]},
-    {"id": 2, "evidence": ["src/family.rs", "tests/test_glmm.rs", "comparisons"], "criteria": [{"id": "glmm-api", "weight": 7, "complete": true}, {"id": "glmm-tests", "weight": 7, "complete": true}, {"id": "glmm-parity", "weight": 5, "complete": true}, {"id": "glmm-gamma-re-theta-parity", "weight": 1, "complete": false}]},
+    {"id": 2, "evidence": ["src/family.rs", "tests/test_glmm.rs", "comparisons"], "criteria": [{"id": "glmm-api", "weight": 7, "complete": true}, {"id": "glmm-tests", "weight": 7, "complete": true}, {"id": "glmm-parity", "weight": 5, "complete": true}, {"id": "glmm-gamma-re-theta-parity", "weight": 1, "complete": true}]},
     {"id": 3, "evidence": ["src/formula.rs", "src/model_matrix.rs", "tests/test_formula.rs"], "criteria": [{"id": "formula-core", "weight": 4, "complete": true}, {"id": "formula-tested", "weight": 3, "complete": true}, {"id": "formula-r-edge-cases", "weight": 1, "complete": false}]},
     {"id": 4, "evidence": ["src/profile_ci.rs", "src/bootstrap.rs", "tests/test_confint_profile.rs"], "criteria": [{"id": "inference-api", "weight": 4, "complete": true}, {"id": "inference-tests", "weight": 4, "complete": true}, {"id": "inference-parity", "weight": 3, "complete": true}, {"id": "inference-broad-reference-coverage", "weight": 1, "complete": false}]},
     {"id": 5, "evidence": ["src/anova.rs", "src/contrast.rs", "tests/test_contrast.rs"], "criteria": [{"id": "anova-api", "weight": 4, "complete": true}, {"id": "anova-tests", "weight": 4, "complete": true}, {"id": "anova-parity", "weight": 3, "complete": true}, {"id": "anova-ecosystem-breadth", "weight": 1, "complete": false}]},
