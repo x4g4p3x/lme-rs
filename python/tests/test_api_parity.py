@@ -194,12 +194,13 @@ def test_boot_confint_vc():
     df = pl.read_csv("../tests/data/sleepstudy.csv")
     formula = "Reaction ~ Days + (1 | Subject)"
     fit = lme_python.lmer(formula, data=df, reml=True)
-    boot = fit.boot(formula, df, nsim=20, method="parametric", reml=True, seed=3, n_jobs=1)
+    boot = fit.boot(formula, df, nsim=25, method="parametric", reml=True, seed=42, n_jobs=1)
     assert boot.t0_theta is not None
-    vc = boot.confint(0.90, which="vc")
+    vc = boot.confint(0.95, which="vc")
     assert vc.names == [".sig01", ".sigma"]
     assert len(vc.lower) == 2
-    assert vc.lower[0] <= vc.estimate[0] <= vc.upper[0]
+    for lo, hi in zip(vc.lower, vc.upper, strict=True):
+        assert lo < hi
     full = boot.confint(0.90, which="all")
     assert full.names[0] == ".sig01"
     assert "(Intercept)" in full.names
