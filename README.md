@@ -2,7 +2,7 @@
   <img src="lme-rs.png" alt="lme-rs: linear, generalized and nonlinear mixed models" width="100%">
 </p>
 
-# lme-rs
+<h1 align="center">lme-rs</h1>
 
 <p align="center">
   <a href="https://crates.io/crates/lme-rs"><img src="https://img.shields.io/crates/v/lme-rs.svg" alt="crates.io"></a>
@@ -22,8 +22,8 @@
 
 `lme-rs` is a Rust library for **linear, generalized linear, and nonlinear mixed-effects models**, modeled after R's `lme4` workflow. It fits models from `polars::DataFrame` inputs and includes downstream inference helpers that are often spread across `lme4`, `lmerTest`, and `car` in R. Python bindings ship as [`lme-python`](https://pypi.org/project/lme-python/).
 
-| | |
-|:--|:--|
+| Quick facts | |
+|:------------|:--|
 | **Latest release** | **[0.2.2](https://github.com/x4g4p3x/lme-rs/releases/tag/v0.2.2)** (2026-08-14) · [changelog](CHANGELOG.md) |
 | **Install** | `cargo add lme-rs` · `pip install lme-python` |
 | **Data** | `polars::DataFrame` / Polars |
