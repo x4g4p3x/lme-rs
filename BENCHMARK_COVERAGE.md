@@ -2,7 +2,7 @@
 
 This file maps **which parts of `lme-rs` have external performance references** (not just Rust-only Criterion benches). Use it to ground [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) and [USABILITY.md](USABILITY.md) performance posture.
 
-**Last assessed:** 2026-08-14
+**Last assessed:** 2026-08-15
 
 ---
 
@@ -23,7 +23,7 @@ This file maps **which parts of `lme-rs` have external performance references** 
 
 Default target: **Rust median &lt; 1.0× Julia median** on `cold_fit` for tier-A LMM cases on the reference workstation (strictly faster than MixedModels.jl).
 
-Prior milestones: **≤ 2×** (through 2026-07-08) while crossed/nested were multi× slower; **≤ 1.5×** (2026-07-09–15); selected crossed/nested strict passes on 2026-07-16. The [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json) records all 12 cases at the current **1.0×** gate with no failures.
+Prior milestones: **≤ 2×** (through 2026-07-08) while crossed/nested were multi× slower; **≤ 1.5×** (2026-07-09–15); selected crossed/nested strict passes on 2026-07-16. The [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json) records all 12 cases at the **1.0×** gate on that revision. LMM rows remain the current LMM evidence (`math.rs` / `optimizer.rs` unchanged); the two GLMM rows predate Gamma PIRLS phi profiling and multivariate AGQ-in-θ.
 
 ```powershell
 python scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases --repeats 10
@@ -71,7 +71,7 @@ The 2026-08-14 Windows Criterion run measured `inference/emmeans_reference_grid`
 |:------------|:----------------------------|
 | **1 LMM** | Tier-A LMM cases meet `cold_fit` target (or documented exception) |
 | **2 GLMM** | Tier-A GLMM cases measured; do not infer from LMM row 13 alone |
-| **13 Throughput** | Fraction of tier-A cases at target; see case table above |
+| **13 Throughput** | Named LMM cases at target from a **current** artifact; full-suite-including-GLMM needs a rerun after GLMM fit-math changes |
 | **4 Inference** | Correctness / API only unless tier added |
 
 ---

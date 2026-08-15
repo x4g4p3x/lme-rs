@@ -20,10 +20,10 @@ For a change that crosses several rows, run every applicable check. Full Rust in
 
 The completion headline in [README.md](README.md) and every percentage in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) are generated claims, not values to edit by hand.
 
-- [completion_manifest.json](completion_manifest.json) is the source of truth: it declares binary scope commitments, their weights, and evidence paths.
-- `task completion:check` validates evidence-path existence, score arithmetic, report rows, and the README headline.
-- A completion item may be marked complete only when its stated evidence is current. Partial or stale evidence earns zero.
-- Do not raise a score merely because an API exists, a focused benchmark passes, or the stated scope has been narrowed. Update the manifest and supporting evidence in the same change.
+- [completion_manifest.json](completion_manifest.json) is the source of truth: it declares binary scope commitments, their weights, locked `scope` strings, evidence paths, and a `gap` for every incomplete criterion.
+- `task completion:check` validates schema version 2 (names, scopes, gaps), evidence-path existence, score arithmetic, report rows, and the README headline.
+- A completion item may be marked complete only when its **locked scope** is met and its stated evidence is current. Partial, stale, or substituted evidence earns zero.
+- Do not raise a score merely because an API exists, a focused benchmark passes, or the stated scope has been narrowed or replaced. Do not edit `scope` to make an existing artifact pass. Update the manifest and supporting evidence in the same change.
 
 `task ci` runs this check automatically. Run it directly whenever a completion-related file changes.
 

@@ -31,7 +31,7 @@
 
 0.2.2 adds LMM estimated marginal means, Tukey / Dunnett `glht`, profile CIs for variance components, Wilkinson `poly()` / `ns()` / `y ~ .` (and related transforms), multivariate AGQ-in-θ, Python `lm(y, x)`, and Gamma GLMM θ parity with lme4.
 
-> **Repository completion (evidence-weighted): 100% (236/236 scope units).** This is a deterministic implementation-coverage score, calculated from the checked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability or production-readiness claim. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
+> **Repository completion (evidence-weighted): 91% (235/258 scope units).** This is a deterministic implementation-coverage score from locked binary criteria in [`completion_manifest.json`](completion_manifest.json), not a usability, field-maturity, or “the library is finished” claim. A 2026-08-15 reevaluation found the previous **100%** headline overstated remaining stretch-item depth and omitted NLMM from the denominator. See [`REPO_COMPLETION_BY_AREA.md`](REPO_COMPLETION_BY_AREA.md).
 
 ## Contents
 
@@ -148,7 +148,7 @@ These helpers are intentionally familiar, not full replacements for the R packag
 
 The core modeling surface is in place and exercised by the test suite, examples, and cross-language comparisons in [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md). For **whether your workflow is in scope** — and the distinction between repository test coverage and real-world field experience — see **[USABILITY.md](USABILITY.md)**.
 
-On the fair MixedModels.jl harness, every case in the current **12-case tier-A suite** passed the strict Rust `cold_fit` **&lt;1.0× Julia** gate, including all 10 LMM and both GLMM cases ([2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). Hot `prepare_lmer` + `fit_prepared` also beat Julia on every LMM case in that run. See [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) and [OPTIMIZATION.md](OPTIMIZATION.md).
+On the fair MixedModels.jl harness, every **LMM** case in the **12-case tier-A suite** passed the strict Rust `cold_fit` **&lt;1.0× Julia** gate ([2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). Hot `prepare_lmer` + `fit_prepared` also beat Julia on every LMM case in that run. The two GLMM rows in that file predate later PIRLS/AGQ changes, so they are not current full-suite evidence. See [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) and [OPTIMIZATION.md](OPTIMIZATION.md).
 
 [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) is an internal **coverage** map (how much of the intended API exists), not a usability score.
 

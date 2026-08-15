@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -14,16 +14,30 @@ MANIFEST = ROOT / "completion_manifest.json"
 README = ROOT / "README.md"
 REPORT = ROOT / "REPO_COMPLETION_BY_AREA.md"
 
+MIN_SCOPE_LEN = 40
+MIN_GAP_LEN = 40
+
 
 def rounded_percent(earned: int, possible: int) -> int:
     return int((Decimal(earned) * 100 / Decimal(possible)).quantize(Decimal("1"), ROUND_HALF_UP))
 
 
+def _require_str(value: object, what: str, *, min_len: int) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{what} must be a string")
+    text = value.strip()
+    if len(text) < min_len:
+        raise ValueError(f"{what} must be at least {min_len} characters")
+    return text
+
+
 def main() -> int:
     payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
     areas = payload.get("areas")
-    if payload.get("schema_version") != 1 or not isinstance(areas, list):
-        raise ValueError("completion manifest must use schema_version 1 and contain areas")
+    if payload.get("schema_version") != 2 or not isinstance(areas, list):
+        raise ValueError("completion manifest must use schema_version 2 and contain areas")
+    _require_str(payload.get("assessed_on"), "assessed_on", min_len=10)
+    _require_str(payload.get("scoring_rule"), "scoring_rule", min_len=MIN_SCOPE_LEN)
 
     seen_area_ids: set[int] = set()
     total_earned = total_possible = 0
@@ -41,6 +55,7 @@ def main() -> int:
             or any(not isinstance(path, str) or not (ROOT / path).exists() for path in evidence)
         ):
             raise ValueError("every area needs a unique id, existing evidence paths, and a criteria list")
+        _require_str(area.get("name"), f"area {area_id} name", min_len=8)
         seen_area_ids.add(area_id)
         criterion_ids: set[str] = set()
         earned = possible = 0
@@ -57,6 +72,24 @@ def main() -> int:
                 or not isinstance(complete, bool)
             ):
                 raise ValueError(f"invalid criterion in area {area_id}")
+            _require_str(
+                criterion.get("scope"),
+                f"area {area_id} criterion {criterion_id} scope",
+                min_len=MIN_SCOPE_LEN,
+            )
+            gap = criterion.get("gap")
+            if complete:
+                if gap not in (None, ""):
+                    raise ValueError(
+                        f"area {area_id} criterion {criterion_id} is complete "
+                        "and must not declare a gap"
+                    )
+            else:
+                _require_str(
+                    gap,
+                    f"area {area_id} criterion {criterion_id} gap",
+                    min_len=MIN_GAP_LEN,
+                )
             criterion_ids.add(criterion_id)
             possible += weight
             earned += weight if complete else 0

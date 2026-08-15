@@ -1,6 +1,6 @@
 # lme-rs Python Guide
 
-This guide covers the Python bindings shipped in `python/`. The Python package is intentionally narrower than the Rust crate, but it already provides a practical workflow for fitting and using mixed-effects models from Python.
+This guide covers the Python bindings shipped in `python/`. The package mirrors the Rust formula API (including `glmer`, `nlmer`, prepare/CV/boot, `glht`, and `emmeans`) with structured result types. A few crate-only internals stay on the Rust side.
 
 ## Installation
 
