@@ -433,8 +433,11 @@ The repository also includes a dedicated workflow in [.github/workflows/benchmar
 - runs the cross-language example-script benchmark
 - uploads the resulting artifacts in CI
 - attaches them to GitHub Releases on tag pushes
+- publishes the fair-harness dashboard to GitHub Pages at [`https://x4g4p3x.github.io/lme-rs/benchmarks/`](https://x4g4p3x.github.io/lme-rs/benchmarks/)
 
 ## Latest published results
+
+The public dashboard at [`https://x4g4p3x.github.io/lme-rs/benchmarks/`](https://x4g4p3x.github.io/lme-rs/benchmarks/) charts the checked-in fair Rust vs MixedModels.jl reference plus the Julia-free external timings. Tag/manual [benchmark workflow](.github/workflows/benchmarks.yml) runs can overlay GitHub-hosted runner JSON. Rebuild the committed payload with `task benchmarks:site` after changing a reference file.
 
 Release-attached Criterion and cross-language JSON artifacts are uploaded by [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) on `v*` tags (and manual dispatch). Prefer the [latest GitHub Release](https://github.com/x4g4p3x/lme-rs/releases/latest) for downloadable CI artifacts, and [`CHANGELOG.md`](CHANGELOG.md) for which crate version each tag ships.
 

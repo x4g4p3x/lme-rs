@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Reorganized the GitHub README around the existing banner: table of contents, capability and documentation tables, dual Rust/Python install and quick start, an `lme4` mapping, and structured limitation notes.
+- Rebuilt the GitHub Pages [benchmark dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) around the fair MixedModels.jl harness and checked-in external timings, and restored Pages deployment.
 
 ## [0.2.2] - 2026-08-14
 

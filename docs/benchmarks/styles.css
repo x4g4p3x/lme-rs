@@ -50,8 +50,8 @@ body {
 
 .hero h1 {
   margin: 0;
-  max-width: 14ch;
-  font-size: clamp(2.6rem, 7vw, 5.8rem);
+  max-width: 18ch;
+  font-size: clamp(2.4rem, 6vw, 4.8rem);
   line-height: 0.92;
 }
 
@@ -111,6 +111,39 @@ body {
   line-height: 1.5;
 }
 
+.panel-header code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.case-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.metric-toggle {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.metric-btn {
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
+  color: var(--fg);
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.metric-btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -146,7 +179,7 @@ body {
 
 .ratio-row {
   display: grid;
-  grid-template-columns: 7rem 1fr auto;
+  grid-template-columns: 11rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.8rem;
 }
@@ -161,6 +194,10 @@ body {
 .ratio-fill {
   height: 100%;
   background: linear-gradient(90deg, rgba(15, 118, 110, 0.35), var(--accent));
+}
+
+.ratio-fill.is-faster {
+  background: linear-gradient(90deg, rgba(180, 83, 9, 0.45), var(--rust));
 }
 
 .case-grid {
@@ -181,9 +218,22 @@ body {
   font-size: 1.3rem;
 }
 
+.case-formula {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .case-fastest {
   margin: 0.35rem 0 0;
   color: var(--muted);
+}
+
+.family-title {
+  margin: 1.25rem 0 0.35rem;
+  font-size: 1.2rem;
 }
 
 .bars {
@@ -230,6 +280,15 @@ body {
 
 .bar-fill.julia {
   background: linear-gradient(90deg, rgba(5, 150, 105, 0.35), var(--julia));
+}
+
+.bar-fill.r_lme4,
+.bar-fill.r_lmerTest {
+  background: linear-gradient(90deg, rgba(71, 85, 105, 0.35), var(--r));
+}
+
+.bar-fill.python_lme_python {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.35), var(--python));
 }
 
 .bar-value {

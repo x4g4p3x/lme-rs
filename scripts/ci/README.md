@@ -10,6 +10,7 @@ python3 scripts/ci/lme_ci.py preflight
 python3 scripts/ci/lme_ci.py audit
 python3 scripts/ci/lme_ci.py repo-metadata
 python3 scripts/ci/lme_ci.py docs-check
+python3 scripts/ci/lme_ci.py benchmark-site --check
 python3 scripts/ci/lme_ci.py consumer-smoke
 python3 scripts/ci/lme_ci.py explorations
 python3 scripts/ci/lme_ci.py python --reuse-venv --skip-isolated-wheel
@@ -24,7 +25,7 @@ Prefer [`Taskfile.yml`](../../Taskfile.yml) (`task ci`, `task lint`, …) or [`l
 - **Cross-platform** — one code path for Windows, macOS, and Linux.
 - **uv** — creates `python/.venv` with Python 3.11 explicitly (avoids maturin picking an unsupported system Python).
 - **Ruff** — `uv tool run ruff` for staged Python files; config in [`python/pyproject.toml`](../../python/pyproject.toml).
-- **Docs and examples** — `docs-check` verifies tracked local Markdown links, Rust examples/doctests, and generated API documentation; `consumer-smoke` runs the Rust quick-start and installs the Python wheel in a clean environment before running the portable examples.
+- **Docs and examples** — `docs-check` verifies tracked local Markdown links, the generated GitHub Pages dashboard JSON, Rust examples/doctests, and generated API documentation; `consumer-smoke` runs the Rust quick-start and installs the Python wheel in a clean environment before running the portable examples.
 - **GitHub Actions** — pull-request and `v*` tag CI, plus manual dispatch, call the same `lme_ci.py` subcommands as local Task/Lefthook.
 - **Preflight** — `preflight` (pre-push), `audit`, and `repo-metadata` mirror the release GHA gates that are cheap to run locally.
 

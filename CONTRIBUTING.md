@@ -163,12 +163,14 @@ Do not describe a feature as supported unless it is exposed by the public API an
 ## Other GitHub Actions workflows
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI on pull requests and `v*` tags, plus manual dispatch; ignored heavy production-load cases run only for tags/manual dispatch.
+- [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) — Criterion, fair Rust/Julia, and cross-language timings on `v*` tags and manual dispatch; successful tag or master dispatch republishes the dashboard overlay.
+- [`.github/workflows/pages.yml`](.github/workflows/pages.yml) — deploys the [benchmark dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) from checked-in docs and reference JSON on `master` and manual dispatch.
 - [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; it also runs weekly and supports manual dispatch.
 - [`.github/workflows/fuzz-smoke.yml`](.github/workflows/fuzz-smoke.yml) — weekly and manually dispatched libFuzzer coverage for formula parsing and the formula-to-matrix pipeline.
 - [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — called by release CI to publish only after the full tag matrix succeeds; manual dispatch runs `cargo publish --dry-run --locked` only.
 - [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — dispatched as a top-level workflow by release CI to verify the tag/SHA, build, and publish only after the full tag matrix succeeds; ordinary manual dispatch builds artifacts without publishing.
 
-Pull requests automatically run CI. Ordinary non-PR branch pushes do not start workflows; use Lefthook and Task locally before pushing, and use manual dispatch when a remote check is useful before tagging.
+Pull requests automatically run CI. Ordinary non-PR branch pushes do not start the validation matrix; [`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys the benchmark dashboard from `master` when dashboard inputs change. Use Lefthook and Task locally before pushing, and use manual dispatch when a remote check is useful before tagging.
 
 ### Manual dispatch (intentional remote runs)
 
@@ -187,6 +189,7 @@ task gha:python-release          # build wheels only; no PyPI publish
 task gha:crate-publish           # cargo publish --dry-run --locked
 task gha:repo-metadata           # sync About box from Cargo.toml
 task gha:fuzz                    # manually start the scheduled libFuzzer smoke
+task gha:pages                   # publish the benchmark dashboard
 ```
 
 Pass a branch with `REF=my-branch task gha:ci`. Watch runs with `gh run list` or `gh run watch`.

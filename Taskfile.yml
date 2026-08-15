@@ -85,6 +85,11 @@ tasks:
     cmds:
       - '{{.RUN}} external-timings'
 
+  benchmarks:site:
+    desc: Generate docs/benchmarks/data from checked-in reference JSON
+    cmds:
+      - '{{.RUN}} benchmark-site'
+
   explorations:
     desc: Run standalone formula AST / θ-grid / MCP exploration examples
     cmds:
@@ -222,3 +227,8 @@ tasks:
     desc: Manually dispatch the scheduled libFuzzer smoke workflow
     cmds:
       - gh workflow run fuzz-smoke.yml --ref {{.REF | default "master"}}
+
+  gha:pages:
+    desc: Manually dispatch GitHub Pages dashboard deploy
+    cmds:
+      - gh workflow run pages.yml --ref {{.REF | default "master"}}
