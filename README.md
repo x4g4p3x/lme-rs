@@ -194,7 +194,7 @@ Built-in GLMM families cover binomial, Poisson, Gaussian, and gamma with canonic
 | “Can I use this for my problem?” | [USABILITY.md](USABILITY.md) |
 | Numerical comparisons | [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) |
 | Implementation coverage (not usability) | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) |
-| Benchmarks | [BENCHMARKS.md](BENCHMARKS.md) · [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) |
+| Benchmarks | [BENCHMARKS.md](BENCHMARKS.md) · [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) · [dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) |
 | LMM fit optimization | [OPTIMIZATION.md](OPTIMIZATION.md) |
 | Calo / sensor calibration | [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) (MATLAB `power2` vs `nlmer`, CUDA batch fitting) |
 | MCP server (agents / Cursor) | Companion repo [lme-rs-mcp](https://github.com/x4g4p3x/lme-rs-mcp) — stdio tools for `lme_fit`, ANOVA, and bootstrap on local CSVs ([guide](https://github.com/x4g4p3x/lme-rs-mcp/blob/main/GUIDE.md)) |

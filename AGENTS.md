@@ -10,7 +10,7 @@ Use the smallest validation tier that proves the change is sound, then run the e
 | Python bindings | `task lint:python`, `task python` |
 | CI, manifests, release tooling | `task preflight`; use `task ci` before a release or broad refactor |
 | R / Julia comparison scripts | `task lint:comparisons`; use `task lint:comparisons:required` when the formatters are installed |
-| Documentation or portable examples | `task docs:check`; use `task consumer:smoke` when install or example behavior changes |
+| Documentation or portable examples | `task docs:check` (includes dashboard JSON drift); use `task consumer:smoke` when install or example behavior changes |
 | LMM throughput paths (`src/math.rs`, `src/optimizer.rs`) | Read [OPTIMIZATION.md](OPTIMIZATION.md) and run the applicable fair-harness cases |
 | Completion score files: `README.md`, `REPO_COMPLETION_BY_AREA.md`, `completion_manifest.json`, or `scripts/ci/check_completion_score.py` | `task completion:check` |
 
@@ -95,6 +95,7 @@ For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `ta
 | `task audit` / `task legal` | Security audit / provenance and license checks |
 | `task completion:check` | Verify the manifest-derived completion score and published markers |
 | `task docs:check` / `task consumer:smoke` | Validate docs/links/API examples / run clean-install Rust and Python workflows |
+| `task benchmarks:site` | Regenerate `docs/benchmarks/data/latest.json` from checked-in reference JSON |
 | `task benchmarks:fair-rust-julia` | Fair fit-only Rust vs MixedModels.jl timing when Julia packages are installed |
 | `task benchmarks:perf-breakdown` | Rust phase timings against Julia optimizer evaluation counts |
 | `task benchmarks:external-timings` | Fair-ish `nlmer`, post-fit inference, and Python FFI timings vs R when available |

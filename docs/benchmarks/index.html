@@ -4,16 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>lme-rs Benchmarks</title>
+  <meta name="description" content="Fair fit-only lme-rs timings versus MixedModels.jl, plus external nlmer, inference, and Python FFI measurements.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div class="page-shell">
     <header class="hero">
       <p class="eyebrow">lme-rs Benchmark Dashboard</p>
-      <h1>Latest published benchmark run</h1>
+      <h1>Fair fit-only vs MixedModels.jl</h1>
       <p class="hero-copy">
-        This page visualizes the latest benchmark data published by the repository workflow.
-        Rust timings are shown alongside Python, R, and Julia for the representative example cases.
+        Shared CSV fixtures, warmed-up runtimes, and timed fit calls — not whole-script
+        startup. This is the throughput comparison the repository uses for completion
+        claims. Absolute times are machine-specific; ratios are the quantity to read.
       </p>
       <div class="hero-links" id="hero-links"></div>
     </header>
@@ -21,7 +23,7 @@
     <main class="content-grid">
       <section class="panel summary-panel">
         <div class="panel-header">
-          <h2>Run summary</h2>
+          <h2>Reference run</h2>
           <p id="run-meta">Loading benchmark metadata...</p>
         </div>
         <div class="stats-grid" id="stats-grid"></div>
@@ -29,37 +31,75 @@
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Relative to Rust</h2>
-          <p>Geometric-mean slowdown across the benchmark cases in this run.</p>
+          <h2>Rust / Julia cold fit</h2>
+          <p>Values below 1.0× mean <code>lme-rs</code> was faster than MixedModels.jl on that metric.</p>
         </div>
         <div id="ratio-summary" class="ratio-summary"></div>
       </section>
 
       <section class="panel panel-wide">
-        <div class="panel-header">
-          <h2>Per-case timings</h2>
-          <p>Each bar shows median seconds for that implementation in the selected benchmark case.</p>
+        <div class="panel-header case-panel-header">
+          <div>
+            <h2>Tier-A cases</h2>
+            <p>Median wall time of the fit call after warmup. Toggle prepared-fit to amortize design-matrix setup.</p>
+          </div>
+          <div class="metric-toggle" role="tablist" aria-label="Fair-harness metric">
+            <button type="button" class="metric-btn is-active" data-metric="cold_fit">Cold fit</button>
+            <button type="button" class="metric-btn" data-metric="fit_prepared">Prepared fit</button>
+          </div>
         </div>
         <div id="case-grid" class="case-grid"></div>
+      </section>
+
+      <section class="panel panel-wide" id="ci-fair-section" hidden>
+        <div class="panel-header">
+          <h2>GitHub-hosted runner</h2>
+          <p>
+            Same fair harness on the Actions ubuntu runner. Useful for tag-to-tag diffs,
+            not the workstation completion baseline.
+          </p>
+        </div>
+        <div id="ci-fair-grid" class="case-grid"></div>
+      </section>
+
+      <section class="panel panel-wide" id="external-section" hidden>
+        <div class="panel-header">
+          <h2>nlmer, inference, and Python FFI</h2>
+          <p>Julia is not required. R packages are used when installed; skipped rows are listed in the environment panel.</p>
+        </div>
+        <div id="external-grid"></div>
+      </section>
+
+      <section class="panel panel-wide" id="cross-language-section" hidden>
+        <div class="panel-header">
+          <h2>Whole-script example timings</h2>
+          <p id="cross-language-caveat">
+            These time entire example processes, including Julia JIT and interpreter startup.
+            They are smoke/regression artifacts, not the MixedModels.jl throughput comparison.
+          </p>
+        </div>
+        <div id="cross-ratio-summary" class="ratio-summary"></div>
+        <div id="cross-case-grid" class="case-grid"></div>
       </section>
 
       <section class="panel">
         <div class="panel-header">
           <h2>Environment</h2>
-          <p>Useful for interpreting the published release artifacts.</p>
+          <p>Recorded with the fair-harness reference unless noted.</p>
         </div>
         <dl class="meta-list" id="environment-list"></dl>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Method caveat</h2>
-          <p>These charts are release artifacts, not machine-independent constants.</p>
+          <h2>How to read this</h2>
+          <p>These charts are versioned artifacts, not machine-independent constants.</p>
         </div>
         <ul class="caveat-list">
-          <li>Results come from GitHub-hosted runners and the workflow’s pinned toolchain setup.</li>
-          <li>They are useful for version-to-version comparison and public transparency.</li>
-          <li>They should not be treated as blanket proof of universal speed across all machines and workloads.</li>
+          <li>The fair harness loads shared CSVs once, warms up each runtime, and times only the fit call.</li>
+          <li>Optimizers and likelihood paths still differ from MixedModels.jl; this is throughput, not coefficient identity.</li>
+          <li>GitHub-hosted runner numbers are useful for tag-to-tag diffs. Re-run the harness on your hardware before citing speed.</li>
+          <li>Whole-script example bars include process startup and JIT; small fixtures favor a prebuilt Rust binary.</li>
         </ul>
       </section>
     </main>
@@ -70,6 +110,7 @@
       <div class="case-header">
         <div>
           <h3 class="case-title"></h3>
+          <p class="case-formula"></p>
           <p class="case-fastest"></p>
         </div>
       </div>

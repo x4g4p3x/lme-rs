@@ -1,0 +1,834 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-07-22T12:53:31.753989+00:00",
+  "ref_name": null,
+  "headline": {
+    "title": "Fair fit-only vs MixedModels.jl",
+    "source_label": "Engineering reference (workstation)",
+    "cold_fit_target": 1.0,
+    "cold_fit_passes": 12,
+    "cold_fit_cases": 12,
+    "geometric_mean_rust_over_julia_cold_fit": 0.5393295481665669,
+    "median_rust_over_julia_cold_fit": 0.7049246475239022
+  },
+  "links": {
+    "run_url": null,
+    "release_url": null,
+    "methodology_url": "https://github.com/x4g4p3x/lme-rs/blob/master/BENCHMARKS.md",
+    "coverage_url": "https://github.com/x4g4p3x/lme-rs/blob/master/BENCHMARK_COVERAGE.md",
+    "repo_url": "https://github.com/x4g4p3x/lme-rs",
+    "assets": {
+      "criterion": null,
+      "cross_language": null,
+      "fair": null
+    },
+    "asset_urls": {
+      "criterion": null,
+      "cross_language": null,
+      "fair": null
+    }
+  },
+  "fair": {
+    "label": "Engineering reference (workstation)",
+    "source_path": "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json",
+    "generated_at": "2026-07-22T12:53:31.753989+00:00",
+    "git_sha": "95f2ba206b787bb8604829f9b39a90254dcd25f3",
+    "methodology": {
+      "description": "Shared CSV fixtures; data loaded once; model fit timed per metric; Julia JIT warmed up.",
+      "coverage_doc": "BENCHMARK_COVERAGE.md",
+      "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+      "rust_engine": "lme-rs lmer/glmer/lmer_weighted; optional prepare_lmer + fit_prepared",
+      "julia_engine": "MixedModels.jl fit / GeneralizedLinearMixedModel (GLM.jl)",
+      "target_ratio_cold_fit": 1.0,
+      "note": "Different optimizers and likelihood paths; compare throughput, not coefficient identity."
+    },
+    "machine_info": {
+      "platform": "Windows-10-10.0.26200-SP0",
+      "system": "Windows",
+      "release": "10",
+      "machine": "AMD64",
+      "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+      "python_version": "3.11.15",
+      "cpu_count": 12
+    },
+    "runtime_versions": {
+      "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+      "julia": "julia version 1.12.6"
+    },
+    "config": {
+      "cases": [
+        "sleepstudy_reml",
+        "sleepstudy_weighted_reml",
+        "penicillin_crossed_reml",
+        "pastes_nested_reml",
+        "random_intercept_10k",
+        "random_intercept_50k",
+        "random_intercept_100k",
+        "large_random_slopes_100k",
+        "crossed_20k",
+        "nested_10k",
+        "cbpp_binomial_ml",
+        "grouseticks_poisson_ml"
+      ],
+      "implementations": [
+        "julia",
+        "rust"
+      ],
+      "warmups": 2,
+      "repeats": 10,
+      "with_phases": true,
+      "target_ratio": 1.0
+    },
+    "summary": {
+      "cold_fit_passes": 12,
+      "cold_fit_cases": 12,
+      "prepared_passes": 10,
+      "prepared_cases": 10,
+      "geometric_mean_rust_over_julia_cold_fit": 0.5393295481665669,
+      "median_rust_over_julia_cold_fit": 0.7049246475239022,
+      "geometric_mean_rust_over_julia_prepared": 0.39395211595478163,
+      "median_rust_over_julia_prepared": 0.4411454412901409
+    },
+    "cases": [
+      {
+        "case": "sleepstudy_reml",
+        "formula": "Reaction ~ Days + (Days | Subject)",
+        "model": "lmm",
+        "n_obs": 180,
+        "reference": "MixedModels.jl; random slopes (real fixture)",
+        "cold_fit": {
+          "rust_median_seconds": 0.00072965,
+          "julia_median_seconds": 0.0007810499999999999,
+          "rust_over_julia_median": 0.9341911529351514,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00072965,
+              "is_fastest": true,
+              "width_fraction": 0.9341911529351514
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0007810499999999999,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.0006623,
+          "julia_median_seconds": 0.0007810499999999999,
+          "rust_over_julia_median": 0.8479610780359773,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0006623,
+              "is_fastest": true,
+              "width_fraction": 0.8479610780359773
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0007810499999999999,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 4.425e-05
+      },
+      {
+        "case": "sleepstudy_weighted_reml",
+        "formula": "Reaction ~ Days + (Days | Subject)",
+        "model": "lmm_weighted",
+        "n_obs": 180,
+        "reference": "MixedModels.jl wts=\u2026",
+        "cold_fit": {
+          "rust_median_seconds": 0.0005991499999999999,
+          "julia_median_seconds": 0.0006489,
+          "rust_over_julia_median": 0.923331792263831,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0005991499999999999,
+              "is_fastest": true,
+              "width_fraction": 0.923331792263831
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0006489,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.0005239,
+          "julia_median_seconds": 0.0006489,
+          "rust_over_julia_median": 0.8073663122206811,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0005239,
+              "is_fastest": true,
+              "width_fraction": 0.8073663122206811
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0006489,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 3.6450000000000005e-05
+      },
+      {
+        "case": "penicillin_crossed_reml",
+        "formula": "diameter ~ 1 + (1 | plate) + (1 | sample)",
+        "model": "lmm",
+        "n_obs": 144,
+        "reference": "MixedModels.jl; real crossed intercept",
+        "cold_fit": {
+          "rust_median_seconds": 0.00015245,
+          "julia_median_seconds": 0.00038265,
+          "rust_over_julia_median": 0.398405853913498,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00015245,
+              "is_fastest": true,
+              "width_fraction": 0.398405853913498
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.00038265,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.00011655,
+          "julia_median_seconds": 0.00038265,
+          "rust_over_julia_median": 0.30458643669149355,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00011655,
+              "is_fastest": true,
+              "width_fraction": 0.30458643669149355
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.00038265,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 2.425e-05
+      },
+      {
+        "case": "pastes_nested_reml",
+        "formula": "strength ~ 1 + (1 | batch/cask)",
+        "model": "lmm",
+        "n_obs": 60,
+        "reference": "MixedModels.jl; real nested intercept",
+        "cold_fit": {
+          "rust_median_seconds": 0.00021329999999999998,
+          "julia_median_seconds": 0.00043099999999999996,
+          "rust_over_julia_median": 0.49489559164733177,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00021329999999999998,
+              "is_fastest": true,
+              "width_fraction": 0.49489559164733177
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.00043099999999999996,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.00016825,
+          "julia_median_seconds": 0.00043099999999999996,
+          "rust_over_julia_median": 0.3903712296983759,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00016825,
+              "is_fastest": true,
+              "width_fraction": 0.3903712296983759
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.00043099999999999996,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 1.76e-05
+      },
+      {
+        "case": "random_intercept_10k",
+        "formula": "y ~ x + (1 | group)",
+        "model": "lmm",
+        "n_obs": 10000,
+        "reference": "MixedModels.jl fit",
+        "cold_fit": {
+          "rust_median_seconds": 0.00090025,
+          "julia_median_seconds": 0.001362,
+          "rust_over_julia_median": 0.6609765051395008,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00090025,
+              "is_fastest": true,
+              "width_fraction": 0.6609765051395008
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.001362,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.0002353,
+          "julia_median_seconds": 0.001362,
+          "rust_over_julia_median": 0.17276064610866373,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0002353,
+              "is_fastest": true,
+              "width_fraction": 0.17276064610866373
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.001362,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 0.0006328
+      },
+      {
+        "case": "random_intercept_50k",
+        "formula": "y ~ x + (1 | group)",
+        "model": "lmm",
+        "n_obs": 50000,
+        "reference": "MixedModels.jl fit",
+        "cold_fit": {
+          "rust_median_seconds": 0.0035081,
+          "julia_median_seconds": 0.0061633,
+          "rust_over_julia_median": 0.5691918290526179,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0035081,
+              "is_fastest": true,
+              "width_fraction": 0.5691918290526179
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0061633,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.00107325,
+          "julia_median_seconds": 0.0061633,
+          "rust_over_julia_median": 0.17413560917041196,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00107325,
+              "is_fastest": true,
+              "width_fraction": 0.17413560917041196
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0061633,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 0.0019783500000000002
+      },
+      {
+        "case": "random_intercept_100k",
+        "formula": "y ~ x + (1 | group)",
+        "model": "lmm",
+        "n_obs": 100000,
+        "reference": "MixedModels.jl fit",
+        "cold_fit": {
+          "rust_median_seconds": 0.0062498,
+          "julia_median_seconds": 0.0122769,
+          "rust_over_julia_median": 0.5090698792040336,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0062498,
+              "is_fastest": true,
+              "width_fraction": 0.5090698792040336
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0122769,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.00209745,
+          "julia_median_seconds": 0.0122769,
+          "rust_over_julia_median": 0.1708452459497104,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00209745,
+              "is_fastest": true,
+              "width_fraction": 0.1708452459497104
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.0122769,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 0.00442865
+      },
+      {
+        "case": "large_random_slopes_100k",
+        "formula": "y ~ x + (1 + x | group)",
+        "model": "lmm",
+        "n_obs": 100000,
+        "reference": "MixedModels.jl; synthetic correlated random slopes",
+        "cold_fit": {
+          "rust_median_seconds": 0.057797600000000005,
+          "julia_median_seconds": 0.06436525,
+          "rust_over_julia_median": 0.8979627982490553,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.057797600000000005,
+              "is_fastest": true,
+              "width_fraction": 0.8979627982490553
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.06436525,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.04157975,
+          "julia_median_seconds": 0.06436525,
+          "rust_over_julia_median": 0.6459968694287679,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.04157975,
+              "is_fastest": true,
+              "width_fraction": 0.6459968694287679
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.06436525,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 0.010653949999999999
+      },
+      {
+        "case": "crossed_20k",
+        "formula": "y ~ x + (1 | plate) + (1 | sample)",
+        "model": "lmm",
+        "n_obs": 20000,
+        "reference": "MixedModels.jl fit",
+        "cold_fit": {
+          "rust_median_seconds": 0.0128673,
+          "julia_median_seconds": 0.014632949999999999,
+          "rust_over_julia_median": 0.8793373858312917,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0128673,
+              "is_fastest": true,
+              "width_fraction": 0.8793373858312917
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.014632949999999999,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.00990995,
+          "julia_median_seconds": 0.014632949999999999,
+          "rust_over_julia_median": 0.67723528065086,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.00990995,
+              "is_fastest": true,
+              "width_fraction": 0.67723528065086
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.014632949999999999,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 0.00248285
+      },
+      {
+        "case": "nested_10k",
+        "formula": "y ~ x + (1 | batch/cask)",
+        "model": "lmm",
+        "n_obs": 10000,
+        "reference": "MixedModels.jl fit",
+        "cold_fit": {
+          "rust_median_seconds": 0.0066316,
+          "julia_median_seconds": 0.00690255,
+          "rust_over_julia_median": 0.9607463908265785,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0066316,
+              "is_fastest": true,
+              "width_fraction": 0.9607463908265785
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.00690255,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": {
+          "rust_median_seconds": 0.0033955,
+          "julia_median_seconds": 0.00690255,
+          "rust_over_julia_median": 0.4919196528819059,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0033955,
+              "is_fastest": true,
+              "width_fraction": 0.4919196528819059
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.00690255,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "prepare_lmer_seconds": 0.0029552
+      },
+      {
+        "case": "cbpp_binomial_ml",
+        "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+        "model": "glmm_binomial",
+        "n_obs": 842,
+        "reference": "MixedModels.jl GLMM (Laplace); not lme4 AGQ-in-\u03b8",
+        "cold_fit": {
+          "rust_median_seconds": 0.008130100000000001,
+          "julia_median_seconds": 0.01085645,
+          "rust_over_julia_median": 0.7488727899083034,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.008130100000000001,
+              "is_fastest": true,
+              "width_fraction": 0.7488727899083034
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.01085645,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": null,
+        "prepare_lmer_seconds": null
+      },
+      {
+        "case": "grouseticks_poisson_ml",
+        "formula": "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+        "model": "glmm_poisson",
+        "n_obs": 403,
+        "reference": "MixedModels.jl GLMM (Laplace)",
+        "cold_fit": {
+          "rust_median_seconds": 0.0051378,
+          "julia_median_seconds": 0.1569684,
+          "rust_over_julia_median": 0.032731428746168016,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "entries": [
+            {
+              "implementation": "rust",
+              "label": "Rust",
+              "median_seconds": 0.0051378,
+              "is_fastest": true,
+              "width_fraction": 0.032731428746168016
+            },
+            {
+              "implementation": "julia",
+              "label": "Julia",
+              "median_seconds": 0.1569684,
+              "is_fastest": false,
+              "width_fraction": 1.0
+            }
+          ]
+        },
+        "fit_prepared": null,
+        "prepare_lmer_seconds": null
+      }
+    ],
+    "failures": []
+  },
+  "ci_fair": null,
+  "cross_language": null,
+  "external": {
+    "label": "nlmer, inference, and Python FFI",
+    "source_path": "benchmarks/external-nlmm-inference-python-timings-2026-08-14.json",
+    "generated_at": "2026-08-14T11:14:55.086683+00:00",
+    "host": {
+      "system": "Linux",
+      "machine": "x86_64",
+      "python": "3.11.15"
+    },
+    "warmups": 1,
+    "repeats": 5,
+    "families": [
+      {
+        "family": "lmm_fit",
+        "label": "LMM fit",
+        "cases": [
+          {
+            "case": "sleepstudy_lmer",
+            "formula": "Reaction ~ Days + (Days | Subject)",
+            "n_obs": 180,
+            "entries": [
+              {
+                "implementation": "rust",
+                "label": "Rust",
+                "median_seconds": 0.000617963,
+                "is_fastest": true,
+                "width_fraction": 0.0617963
+              },
+              {
+                "implementation": "r_lme4",
+                "label": "R lme4",
+                "median_seconds": 0.01,
+                "is_fastest": false,
+                "width_fraction": 1.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "family": "post_fit_inference",
+        "label": "Post-fit inference",
+        "cases": [
+          {
+            "case": "sleepstudy_satterthwaite",
+            "formula": "Reaction ~ Days + (Days | Subject)",
+            "n_obs": 180,
+            "entries": [
+              {
+                "implementation": "rust",
+                "label": "Rust",
+                "median_seconds": 0.000537706,
+                "is_fastest": true,
+                "width_fraction": 0.5377059999999408
+              },
+              {
+                "implementation": "r_lmerTest",
+                "label": "R lmerTest",
+                "median_seconds": 0.00100000000000011,
+                "is_fastest": false,
+                "width_fraction": 1.0
+              }
+            ]
+          },
+          {
+            "case": "sleepstudy_kenward_roger",
+            "formula": "Reaction ~ Days + (Days | Subject)",
+            "n_obs": 180,
+            "entries": [
+              {
+                "implementation": "rust",
+                "label": "Rust",
+                "median_seconds": 0.003752532,
+                "is_fastest": true,
+                "width_fraction": 1.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "family": "nlmm_fit",
+        "label": "NLMM fit",
+        "cases": [
+          {
+            "case": "orange_nlmer",
+            "formula": "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+            "n_obs": 35,
+            "entries": [
+              {
+                "implementation": "rust",
+                "label": "Rust",
+                "median_seconds": 0.038120925,
+                "is_fastest": true,
+                "width_fraction": 0.9774596153846178
+              },
+              {
+                "implementation": "r_lme4",
+                "label": "R lme4",
+                "median_seconds": 0.0389999999999999,
+                "is_fastest": false,
+                "width_fraction": 1.0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "family": "python_ffi",
+        "label": "Python FFI",
+        "cases": [
+          {
+            "case": "sleepstudy_lmer",
+            "formula": "Reaction ~ Days + (Days | Subject)",
+            "n_obs": 180,
+            "entries": [
+              {
+                "implementation": "python_lme_python",
+                "label": "Python FFI",
+                "median_seconds": 0.0011895610005012713,
+                "is_fastest": true,
+                "width_fraction": 1.0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "skipped": [
+      "R:sleepstudy_kenward_roger (pbkrtest package required for Kenward-Roger's method)"
+    ]
+  }
+}

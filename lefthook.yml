@@ -47,6 +47,10 @@ pre-commit:
       glob: "{comparisons/**,scripts/run_cross_language_benchmarks.py,.github/workflows/benchmarks.yml}"
       run: bash scripts/ci/run.sh benchmarks-smoke
 
+    benchmark-site:
+      glob: "{benchmarks/*.json,scripts/build_benchmark_site.py,docs/benchmarks/**}"
+      run: bash scripts/ci/run.sh benchmark-site --check
+
 pre-push:
   parallel: true
   commands:

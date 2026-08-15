@@ -293,6 +293,7 @@ def markdown_links_check() -> None:
 def documentation_check() -> None:
     """Validate local links, Rust API examples/doctests, and generated documentation."""
     markdown_links_check()
+    benchmark_site(check=True)
     cargo_examples_check()
     cargo_doctest()
     cargo_doc()
@@ -362,6 +363,63 @@ def completion_check() -> None:
 def legal_compliance() -> None:
     """Validate fixture provenance and third-party license records."""
     run([sys.executable, "scripts/ci/check_legal_compliance.py"])
+
+
+BENCHMARK_SITE_SCRIPT = ROOT / "scripts" / "build_benchmark_site.py"
+BENCHMARK_SITE_DATA = ROOT / "docs" / "benchmarks" / "data" / "latest.json"
+
+
+def _build_benchmark_site_json(
+    output_dir: Path, extra_args: Sequence[str] | None = None
+) -> None:
+    cmd = [
+        sys.executable,
+        str(BENCHMARK_SITE_SCRIPT.relative_to(ROOT)),
+        "--output-dir",
+        str(output_dir),
+    ]
+    if extra_args:
+        cmd.extend(extra_args)
+    run(cmd)
+
+
+def assemble_benchmark_site(
+    site_dir: Path, extra_args: Sequence[str] | None = None
+) -> None:
+    if site_dir.exists():
+        shutil.rmtree(site_dir)
+    shutil.copytree(ROOT / "docs", site_dir)
+    _build_benchmark_site_json(site_dir / "benchmarks" / "data", extra_args)
+
+
+def benchmark_site(*, check: bool = False, site_dir: str | None = None) -> None:
+    """Generate the GitHub Pages dashboard, or verify committed JSON is current."""
+    if check and site_dir:
+        raise CiError("benchmark-site --check cannot be combined with --site-dir")
+    if check:
+        if not BENCHMARK_SITE_DATA.exists():
+            raise CiError(
+                f"missing {BENCHMARK_SITE_DATA.relative_to(ROOT)}; run `task benchmarks:site`"
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            _build_benchmark_site_json(tmp_dir)
+            actual = json.loads((tmp_dir / "latest.json").read_text(encoding="utf-8"))
+            expected = json.loads(BENCHMARK_SITE_DATA.read_text(encoding="utf-8"))
+        if actual != expected:
+            raise CiError(
+                "docs/benchmarks/data/latest.json is stale. "
+                "Run `task benchmarks:site` and commit the regenerated file."
+            )
+        print("benchmark dashboard data: OK", flush=True)
+        return
+    if site_dir:
+        dest = Path(site_dir)
+        if not dest.is_absolute():
+            dest = ROOT / dest
+        assemble_benchmark_site(dest)
+        return
+    _build_benchmark_site_json(BENCHMARK_SITE_DATA.parent)
 
 
 def benchmarks_smoke() -> None:
@@ -961,7 +1019,7 @@ def main(argv: list[str] | None = None) -> int:
     ).set_defaults(fn=lambda _: markdown_links_check())
     sub.add_parser(
         "docs-check",
-        help="Validate Markdown links, Rust examples/doctests, and generated docs",
+        help="Validate Markdown links, dashboard JSON, Rust examples/doctests, and generated docs",
     ).set_defaults(fn=lambda _: documentation_check())
     sub.add_parser("rust-lint", help="fmt --check + clippy").set_defaults(fn=lambda _: rust_lint())
     sub.add_parser("ruff-lint", help="Ruff check/format on python/tests + examples").set_defaults(
@@ -1006,6 +1064,23 @@ def main(argv: list[str] | None = None) -> int:
         "explorations",
         help="Run standalone formula AST / θ-grid / MCP exploration examples",
     ).set_defaults(fn=lambda _: run_explorations())
+    p_site = sub.add_parser(
+        "benchmark-site",
+        help="Generate or verify the GitHub Pages benchmark dashboard data",
+    )
+    p_site.add_argument(
+        "--check",
+        action="store_true",
+        help="Fail if docs/benchmarks/data/latest.json does not match a fresh build",
+    )
+    p_site.add_argument(
+        "--site-dir",
+        default="",
+        help="Copy docs/ into this directory and write dashboard JSON there",
+    )
+    p_site.set_defaults(
+        fn=lambda a: benchmark_site(check=a.check, site_dir=a.site_dir or None)
+    )
     p_ext = sub.add_parser(
         "external-timings",
         help="Time nlmer, post-fit inference, and Python FFI (R when available)",

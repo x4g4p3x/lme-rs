@@ -193,6 +193,7 @@ If a release changes the crate description, homepage, keywords, or categories, v
 - [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) runs Criterion benchmarks and cross-language timing on `v*` tags and manual dispatch.
 - Manual dispatch accepts `warmups` and `repeats` inputs.
 - It uploads benchmark artifacts in CI and attaches them to GitHub Releases on tag pushes.
+- Successful tag (and master) benchmark runs republish [the dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/). Ordinary `master` pushes that touch dashboard inputs are published by [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 
 ## Publishing the Rust crate to crates.io
 
