@@ -4,7 +4,7 @@ This document answers **“can I use this for my problem?”** — a different q
 
 For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md). That file tracks **coverage** (what is implemented). This file tracks **usability** (what is safe and practical to rely on).
 
-**Last assessed:** 2026-07-22 · `lme-rs` / `lme_python` **0.2.0**
+**Last assessed:** 2026-08-15 · `lme-rs` / `lme_python` **0.2.3-dev.0** (released **0.2.2**)
 
 ---
 
@@ -12,7 +12,7 @@ For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_A
 
 | Question | Where to look | What it means |
 |:---------|:--------------|:--------------|
-| How much is implemented? | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | APIs shipped, docs written, tests added. Grows when features land. |
+| How much of the locked scope is implemented? | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | APIs shipped, docs written, tests added. Grows when features land; can fall when evidence is re-evaluated. Not a “library is finished” score. |
 | Can I depend on it for my analysis? | **This file** | Whether your workflow is in scope, regression-locked, **fast enough for how you will call it**, and reasonable to trust on *your* data. |
 
 A new API (for example `nlmer_with_mean`) increases **coverage**. It only increases **usability** if it solves a workflow you actually need, behaves predictably on real inputs, and does not make that workflow impractically slow.
@@ -43,22 +43,22 @@ The traffic-light tables below combine scope and typical performance posture. Wh
 
 - Golden parity fixtures against R `lme4` / related packages on named datasets and model shapes ([`tests/test_golden_parity.rs`](tests/test_golden_parity.rs), [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json))
 - Cross-language comparison scripts and fixtures ([`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md))
-- Broad Rust integration tests (40+ modules under [`tests/`](tests/)); Python pytest suite under [`python/tests/`](python/tests/)
+- Broad Rust integration tests (53 modules under [`tests/`](tests/) excluding the consolidated harness); Python pytest suite under [`python/tests/`](python/tests/)
 - Documented limitations in [README.md](README.md) and [GUIDE.md](GUIDE.md)
-- Release-oriented CI on version tags ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md))
+- Pull-request and tag CI ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md))
 
 That is real assurance — not a prototype — but it is **assurance on fixed, curated cases**.
 
 ### What we do not have yet (field experience)
 
 - A long history of diverse **production** deployments (services, pipelines, published studies) feeding back into the API
-- Semver **1.0** stability; the crate is **0.1.x** and the API can still evolve
+- Semver **1.0** stability; the crate is **0.2.x** and the API can still evolve
 - Community scale comparable to `lme4` (issue volume, odd formulas, dirty data, idiosyncratic workflows)
 - A guarantee that **your** formula and dataset will behave like the fixtures without you checking
 
 **This is not a reason to avoid the library.** It is the normal profile of capable early-stage scientific software: strong internal QA, limited miles in the wild. The honest posture is:
 
-> Validate on your data before you stake a decision on it. Compare key outputs to an R reference fit when possible. Treat 0.1.x as “capable, but still earning trust.”
+> Validate on your data before you stake a decision on it. Compare key outputs to an R reference fit when possible. Treat 0.2.x as “capable, but still earning trust.”
 
 That is cautious, not pessimistic.
 
@@ -119,8 +119,8 @@ Statuses are **practical**, not formal support tiers.
 | Arbitrary R formula edge cases | Wilkinson coverage includes `a:b`, `log`/`I()`, `poly()`, `ns()`, `y ~ .`, and nested/crossed RE. Remaining gaps are rarer R syntax (`knots=` in `ns()`, multivariate `cbind()`). |
 | Full `stats::SS*` / general nonlinear mixed modeling | Eleven built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
 | Identical GLMM AIC/BIC / log-likelihood to R | Deviance omits data-dependent constants |
-| “Proven in production” without your own validation | 0.1.x; limited public field track record |
-| Competitive cold `lmer()` vs MixedModels.jl on **unmeasured** RE layouts | Tier-A fair harness meets **&lt;1.0×** Julia ([2026-07-16](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)); benchmark exotic layouts locally |
+| “Proven in production” without your own validation | 0.2.x; limited public field track record |
+| Competitive cold `lmer()` vs MixedModels.jl on **unmeasured** RE layouts | LMM tier-A fair harness met **&lt;1.0×** Julia ([2026-07-22](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)); benchmark exotic layouts locally. GLMM rows in that file predate later PIRLS/AGQ work. |
 
 ---
 
@@ -132,7 +132,7 @@ Statuses are **practical**, not formal support tiers.
 | **Integration tests** | [`tests/test_numerical_parity.rs`](tests/test_numerical_parity.rs), [`tests/test_glmm.rs`](tests/test_glmm.rs), nlmer suites | High for the pattern covered; does not generalize automatically |
 | **Cross-language comparisons** | [`comparisons/`](comparisons/) scripts | Regression aids; some runs are manual or tag CI |
 | **Documented only** | Mentioned in GUIDE with fewer tests | Validate yourself |
-| **Not implemented** | Rows under “Largely unrealized” in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | Do not use |
+| **Not implemented** | Incomplete criteria and “Not started” rows in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | Do not use |
 
 Numerical parity is a **goal on covered workflows**, not a blanket warranty. See [README.md](README.md) (“Limitations and compatibility notes”).
 
@@ -153,7 +153,7 @@ Numerical parity is a **goal on covered workflows**, not a blanket warranty. See
 
 There is no sharp line between “analysis” and “throughput” use — only **how often you pay the fit cost** and **whether that cost fits your budget**.
 
-| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-16) |
+| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-22 LMM harness) |
 |:-------------|:----------------|:----------------------------------------|
 | **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
 | **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |

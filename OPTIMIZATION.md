@@ -15,7 +15,7 @@ Engineering notes for native formula parsing and **LMM variance-component (θ) s
 
 **Goal (met):** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), tier-A `cold_fit` cases are **strictly faster than MixedModels.jl (&lt;1.0×)** **without breaking** golden parity. (Prior bars: **2×** through 2026-07-08; **1.5×** through 2026-07-15; **&lt;1.0×** locked 2026-07-16.)
 
-**Full-suite evidence:** the current 12-case tier-A run has no gate failures; all 10 LMM cold fits and both GLMM cold fits are below **1.0× Julia**, as are all 10 measured LMM prepared fits ([2026-07-22 reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)).
+**Full-suite evidence:** the 2026-07-22 12-case tier-A run had no gate failures on that revision ([reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). All 10 LMM cold fits and measured LMM prepared fits remain the current LMM evidence. The two GLMM cold fits in that file predate Gamma PIRLS phi profiling and multivariate AGQ-in-θ.
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
@@ -27,7 +27,7 @@ Engineering notes for native formula parsing and **LMM variance-component (θ) s
 
 Current medians: [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
 
-Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work**, not completion blockers for [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows 1 or 13.
+Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work** for LMM math. Named LMM case criteria in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13 stay complete on the Jul 22 artifact; the full-suite-including-GLMM criterion does not, because GLMM PIRLS/AGQ changed after that run.
 
 ---
 

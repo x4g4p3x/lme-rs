@@ -1,6 +1,6 @@
 # lme-rs User Guide
 
-This guide covers the practical Rust workflow for fitting linear and generalized linear mixed-effects models with `lme-rs`.
+This guide covers the practical Rust workflow for fitting linear, generalized linear, and nonlinear mixed-effects models with `lme-rs`.
 
 ## Table of Contents
 
@@ -695,7 +695,7 @@ Even with those optimizations, performance depends heavily on:
 - whether you fit random slopes as well as intercepts
 - how well-scaled the predictors are for optimization
 
-Fair fit-only timings vs MixedModels.jl are documented in [BENCHMARKS.md](BENCHMARKS.md#fair-rust-vs-julia-reference-results) (axis (3) cold-fit target met on the [2026-07-16 reference](benchmarks/fair-rust-julia-reference-2026-07-16-cold-fit-lt1.json)).
+Fair fit-only timings vs MixedModels.jl are documented in [BENCHMARKS.md](BENCHMARKS.md#fair-rust-vs-julia-reference-results). LMM tier-A `cold_fit` cases passed the strict 1.0× gate on the [2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json); that file's GLMM rows predate later PIRLS/AGQ changes.
 
 For concrete parity outputs, use the scripts and datasets in `comparisons/` and `tests/data/`.
 

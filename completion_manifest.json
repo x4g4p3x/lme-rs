@@ -1,20 +1,159 @@
 {
-  "schema_version": 1,
-  "assessed_on": "2026-08-14",
-  "scoring_rule": "Each criterion is a binary scope commitment. An area score is 100 * completed criterion weight / total criterion weight. The repository score is the same calculation across all criteria, not an average of rounded area scores. A criterion is complete only when its stated evidence exists; missing, partial, or stale evidence scores zero.",
+  "schema_version": 2,
+  "assessed_on": "2026-08-15",
+  "scoring_rule": "Each criterion is a binary scope commitment. An area score is 100 * completed criterion weight / total criterion weight. The repository score is the same calculation across all criteria, not an average of rounded area scores. A criterion is complete only when its locked scope is met and its stated evidence is current; missing, partial, stale, or substituted evidence scores zero. Do not mark a criterion complete by narrowing or replacing its locked scope.",
   "areas": [
-    {"id": 1, "evidence": ["src/lib.rs", "tests", "comparisons", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"], "criteria": [{"id": "lmm-api", "weight": 7, "complete": true}, {"id": "lmm-tests", "weight": 6, "complete": true}, {"id": "lmm-parity", "weight": 6, "complete": true}, {"id": "lmm-current-strict-tier-a", "weight": 1, "complete": true}]},
-    {"id": 2, "evidence": ["src/family.rs", "tests/test_glmm.rs", "comparisons"], "criteria": [{"id": "glmm-api", "weight": 7, "complete": true}, {"id": "glmm-tests", "weight": 7, "complete": true}, {"id": "glmm-parity", "weight": 5, "complete": true}, {"id": "glmm-gamma-re-theta-parity", "weight": 1, "complete": true}]},
-    {"id": 3, "evidence": ["src/formula.rs", "src/model_matrix.rs", "src/basis.rs", "tests/test_formula.rs"], "criteria": [{"id": "formula-core", "weight": 4, "complete": true}, {"id": "formula-tested", "weight": 3, "complete": true}, {"id": "formula-r-edge-cases", "weight": 1, "complete": true}]},
-    {"id": 4, "evidence": ["src/profile_ci.rs", "src/bootstrap.rs", "tests/test_confint_profile.rs", "tests/data/sleepstudy_confint_profile_vc.json"], "criteria": [{"id": "inference-api", "weight": 4, "complete": true}, {"id": "inference-tests", "weight": 4, "complete": true}, {"id": "inference-parity", "weight": 3, "complete": true}, {"id": "inference-broad-reference-coverage", "weight": 1, "complete": true}]},
-    {"id": 5, "evidence": ["src/anova.rs", "src/contrast.rs", "src/mcp.rs", "src/emmeans.rs", "tests/test_contrast.rs", "tests/test_mcp.rs", "tests/test_emmeans.rs", "tests/data/pastes_glht_tukey.json", "tests/data/pastes_emmeans.json"], "criteria": [{"id": "anova-api", "weight": 4, "complete": true}, {"id": "anova-tests", "weight": 4, "complete": true}, {"id": "anova-parity", "weight": 3, "complete": true}, {"id": "anova-ecosystem-breadth", "weight": 1, "complete": true}]},
-    {"id": 6, "evidence": ["python/src/lib.rs", "python/tests", "python/lme_python.pyi"], "criteria": [{"id": "python-api", "weight": 8, "complete": true}, {"id": "python-tests", "weight": 7, "complete": true}, {"id": "python-types-and-docs", "weight": 4, "complete": true}, {"id": "python-low-level-lm-parity", "weight": 1, "complete": true}]},
-    {"id": 7, "evidence": ["comparisons", "tests/test_golden_parity.rs", "tests/data/golden_parity_manifest.json", "tests/test_r_edge_case_matrix.rs", "tests/data/r_edge_case_matrix.json"], "criteria": [{"id": "fixtures", "weight": 8, "complete": true}, {"id": "golden-tests", "weight": 8, "complete": true}, {"id": "cross-language-coverage", "weight": 8, "complete": true}, {"id": "r-edge-case-matrix", "weight": 1, "complete": true}]},
-    {"id": 8, "evidence": ["benches/bench_math.rs", "BENCHMARK_COVERAGE.md", "scripts/run_fair_rust_julia_benchmark.py", "scripts/run_external_timings.py", "benchmarks/external-nlmm-inference-python-timings-2026-08-14.json"], "criteria": [{"id": "criterion", "weight": 9, "complete": true}, {"id": "fair-harness", "weight": 8, "complete": true}, {"id": "benchmark-docs", "weight": 5, "complete": true}, {"id": "external-nlmm-inference-python-timings", "weight": 3, "complete": true}]},
-    {"id": 9, "evidence": ["scripts/ci/lme_ci.py", ".github/workflows/ci.yml", ".github/workflows/audit.yml", ".github/workflows/fuzz-smoke.yml", "lefthook.yml"], "criteria": [{"id": "local-ci", "weight": 10, "complete": true}, {"id": "release-ci", "weight": 10, "complete": true}, {"id": "release-and-security-automation", "weight": 4, "complete": true}, {"id": "ordinary-pr-trigger", "weight": 1, "complete": true}]},
-    {"id": 10, "evidence": ["GUIDE.md", "python/PYTHON_GUIDE.md", "python/README.md", "USABILITY.md", "scripts/ci/lme_ci.py", ".github/workflows/ci.yml"], "criteria": [{"id": "user-guides", "weight": 8, "complete": true}, {"id": "api-and-operations-docs", "weight": 8, "complete": true}, {"id": "limitations-and-scope", "weight": 3, "complete": true}, {"id": "automated-doc-link-example-gate", "weight": 1, "complete": true}]},
-    {"id": 11, "evidence": ["Cargo.toml", "python/examples", "scripts/run_cross_language_benchmarks.py", "scripts/ci/lme_ci.py", ".github/workflows/ci.yml"], "criteria": [{"id": "rust-examples", "weight": 10, "complete": true}, {"id": "python-examples", "weight": 6, "complete": true}, {"id": "manual-cross-language-demos", "weight": 3, "complete": true}, {"id": "portable-automated-demo-coverage", "weight": 6, "complete": true}]},
-    {"id": 12, "evidence": ["scripts/explorations", "examples/explore_formula_ast.rs", "examples/explore_theta_grid.rs", "examples/explore_mcp_adjust.rs", "tests/test_explorations.rs"], "criteria": [{"id": "explorations-standalone", "weight": 7, "complete": true}, {"id": "explorations-integrated-and-tested", "weight": 13, "complete": true}]},
-    {"id": 13, "evidence": ["BENCHMARK_COVERAGE.md", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"], "criteria": [{"id": "strict-crossed-20k", "weight": 1, "complete": true}, {"id": "strict-nested-10k", "weight": 1, "complete": true}, {"id": "strict-sleepstudy", "weight": 1, "complete": true}, {"id": "current-strict-full-tier-a", "weight": 1, "complete": true}]}
+    {
+      "id": 1,
+      "name": "Rust crate: linear and mixed (LMM)",
+      "evidence": ["src/lib.rs", "tests", "comparisons", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"],
+      "criteria": [
+        {"id": "lmm-api", "weight": 7, "complete": true, "scope": "Shipped lm / lm_df / lmer / lmer_weighted / predict surface for the documented LMM workflows (REML/ML, nested and crossed RE, weights)."},
+        {"id": "lmm-tests", "weight": 6, "complete": true, "scope": "Integration and unit tests exercise the shipped LMM API, including predict, weights, and common RE layouts."},
+        {"id": "lmm-parity", "weight": 6, "complete": true, "scope": "Golden / comparison fixtures lock LMM coefficients, theta, and sigma2 on named datasets (sleepstudy, dyestuff, pastes, penicillin)."},
+        {"id": "lmm-current-strict-tier-a", "weight": 1, "complete": true, "scope": "A dated full-suite fair-harness artifact shows every tier-A LMM cold_fit (and measured fit_prepared) below the strict 1.0× Julia gate. LMM math/optimizer must not have changed since that artifact."}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Rust crate: GLMM",
+      "evidence": ["src/family.rs", "tests/test_glmm.rs", "comparisons"],
+      "criteria": [
+        {"id": "glmm-api", "weight": 7, "complete": true, "scope": "Shipped glmer / glmer_weighted with binomial, Poisson, Gaussian, and gamma families, canonical plus selectable non-canonical links, Laplace default and AGQ-in-θ when the grid fits."},
+        {"id": "glmm-tests", "weight": 7, "complete": true, "scope": "Tests cover Laplace and AGQ paths, weights, and the shipped families/links."},
+        {"id": "glmm-parity", "weight": 5, "complete": true, "scope": "Golden fixtures lock coefficients and variance parameters for canonical plus named non-canonical links (probit, cloglog); AIC/BIC identity with R is a documented non-goal."},
+        {"id": "glmm-gamma-re-theta-parity", "weight": 1, "complete": true, "scope": "Gamma log-link Dyestuff locks mean, residual phi, and RE theta against lme4 rather than collapsing theta to the bound."}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Rust crate: formula and model matrices",
+      "evidence": ["src/formula.rs", "src/model_matrix.rs", "src/basis.rs", "tests/test_formula.rs"],
+      "criteria": [
+        {"id": "formula-core", "weight": 4, "complete": true, "scope": "Wilkinson parser and model-matrix builder cover intercept, nested/crossed RE, two-way * / :, log/sqrt/exp, I() arithmetic, and offset() including transformed offsets."},
+        {"id": "formula-tested", "weight": 3, "complete": true, "scope": "Parser and design-matrix behavior is locked by unit and stress tests."},
+        {"id": "formula-r-edge-cases", "weight": 1, "complete": true, "scope": "poly() (orthogonal and raw), ns() with df-based knots, and y ~ . expansion materialize into the design matrix and are reused by predict. ns(knots=) and multivariate cbind() remain documented non-goals."}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Rust crate: post-fit inference",
+      "evidence": ["src/profile_ci.rs", "src/bootstrap.rs", "tests/test_confint_profile.rs", "tests/data/sleepstudy_confint_profile_vc.json"],
+      "criteria": [
+        {"id": "inference-api", "weight": 4, "complete": true, "scope": "Wald and profile CIs (including parms=), simulate, boot_lmer / boot_glmer, robust SE, Satterthwaite, and Kenward–Roger are shipped."},
+        {"id": "inference-tests", "weight": 4, "complete": true, "scope": "Targeted tests cover profile CIs, bootstrap, and the shipped ddf helpers."},
+        {"id": "inference-parity", "weight": 3, "complete": true, "scope": "Fixed-effect profile CIs and Kenward–Roger dfs match R on the covered LMM fixtures."},
+        {"id": "inference-broad-reference-coverage", "weight": 1, "complete": false, "scope": "Variance-component profile (and bootstrap percentile) intervals have lme4 goldens beyond a single intercept-only sleepstudy fit: at least random-slopes LMM VC and a GLMM VC fixture, not smoke-only.", "gap": "Sleepstudy intercept-only ML locks .sig01/.sigma. Random-slopes VC is ungolden. GLMM VC is a cbpp smoke test with no R fixture. nlmer profile CIs are unsupported."}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Rust crate: ANOVA and model comparison",
+      "evidence": ["src/anova.rs", "src/contrast.rs", "src/mcp.rs", "src/emmeans.rs", "tests/test_contrast.rs", "tests/test_mcp.rs", "tests/test_emmeans.rs", "tests/data/pastes_glht_tukey.json", "tests/data/pastes_emmeans.json"],
+      "criteria": [
+        {"id": "anova-api", "weight": 4, "complete": true, "scope": "Type I/II/III ANOVA, nested LRT, linear_hypothesis, and user contrast matrices are shipped."},
+        {"id": "anova-tests", "weight": 4, "complete": true, "scope": "Tests cover typed ANOVA, contrasts, and joint multi-DoF categorical rows."},
+        {"id": "anova-parity", "weight": 3, "complete": true, "scope": "Golden fixtures lock Type I–III and named contrast/KR cases against R on covered LMM models."},
+        {"id": "anova-ecosystem-breadth", "weight": 1, "complete": true, "scope": "Tukey/Dunnett glht (multcomp::mcp pairwise family) and LMM reference-grid emmeans / emmeans_pairs with an R golden. Not a full multcomp/emmeans replacement (no mvtnorm single-step, compact letters, offsets, or GLMM response-scale marginalization)."}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Python bindings",
+      "evidence": ["python/src/lib.rs", "python/tests", "python/lme_python.pyi"],
+      "criteria": [
+        {"id": "python-api", "weight": 8, "complete": true, "scope": "Python mirrors the Rust formula API: lm, lmer, glmer, nlmer, prepare/fit_prepared, CV, boot, profile CIs, ANOVA, glht, emmeans."},
+        {"id": "python-tests", "weight": 7, "complete": true, "scope": "pytest covers the shipped Python surface, including golden parity for named cases."},
+        {"id": "python-types-and-docs", "weight": 4, "complete": true, "scope": "lme_python.pyi stubs and PYTHON_GUIDE document the shipped functions and result types."},
+        {"id": "python-low-level-lm-parity", "weight": 1, "complete": true, "scope": "Numeric lm(y, x) / lm_matrix is exposed from Python, matching Rust lm(y, x)."}
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Cross-language validation",
+      "evidence": ["comparisons", "tests/test_golden_parity.rs", "tests/data/golden_parity_manifest.json", "tests/test_r_edge_case_matrix.rs", "tests/data/r_edge_case_matrix.json"],
+      "criteria": [
+        {"id": "fixtures", "weight": 8, "complete": true, "scope": "JSON/CSV fixtures and comparison scripts exist for the named LMM, GLMM, and nlmer datasets."},
+        {"id": "golden-tests", "weight": 8, "complete": true, "scope": "Rust golden-parity tests lock the manifest cases."},
+        {"id": "cross-language-coverage", "weight": 8, "complete": true, "scope": "Comparisons document Rust/R/Python/Julia coverage for the datasets in COMPARISONS.md."},
+        {"id": "r-edge-case-matrix", "weight": 1, "complete": false, "scope": "A breadth-first lme4 fit matrix covers Wilkinson/RE edges beyond the main golden manifest, with coefficient-level agreement where bases are comparable, and at least one GLMM formula edge.", "gap": "Eight LMM cases exist. ns() locks fitted values because the spline basis is not identical to splines::ns. There is no GLMM/nlmer formula edge, and cbind() / ns(knots=) are absent."}
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Benchmarks (instrumentation)",
+      "evidence": ["benches/bench_math.rs", "BENCHMARK_COVERAGE.md", "scripts/run_fair_rust_julia_benchmark.py", "scripts/run_external_timings.py", "benchmarks/external-nlmm-inference-python-timings-2026-08-14.json"],
+      "criteria": [
+        {"id": "criterion", "weight": 9, "complete": true, "scope": "Criterion benches cover math/fit microbenchmarks used as a regression guard."},
+        {"id": "fair-harness", "weight": 8, "complete": true, "scope": "The fair Rust vs MixedModels.jl harness times cold_fit and optional prepare/fit_prepared for the tier-A catalog."},
+        {"id": "benchmark-docs", "weight": 5, "complete": true, "scope": "BENCHMARKS.md and BENCHMARK_COVERAGE.md describe tiers, cases, and which results may be used for completion."},
+        {"id": "external-nlmm-inference-python-timings", "weight": 3, "complete": false, "scope": "A comparable external timing artifact covers nlmer, Kenward–Roger (Rust and R), Satterthwaite, and Python FFI with a clock fine enough to compare implementations.", "gap": "The 2026-08-14 JSON is a smoke: R Kenward–Roger is skipped (pbkrtest missing), R system.time is ~10ms resolution, and the run is 1 warmup / 5 repeats on one host. That is not comparable timing evidence."}
+      ]
+    },
+    {
+      "id": 9,
+      "name": "CI, release, and repo automation",
+      "evidence": ["scripts/ci/lme_ci.py", ".github/workflows/ci.yml", ".github/workflows/audit.yml", ".github/workflows/fuzz-smoke.yml", "lefthook.yml"],
+      "criteria": [
+        {"id": "local-ci", "weight": 10, "complete": true, "scope": "Taskfile, Lefthook, and lme_ci.py provide local lint, test, and preflight aliases."},
+        {"id": "release-ci", "weight": 10, "complete": true, "scope": "Hosted CI on pull requests and v* tags runs the locked matrix, all-targets check, doctests, multi-OS, and isolated-wheel tests."},
+        {"id": "release-and-security-automation", "weight": 4, "complete": true, "scope": "SHA-pinned Actions, Dependabot, weekly audit, and fuzz-smoke workflows exist."},
+        {"id": "ordinary-pr-trigger", "weight": 1, "complete": true, "scope": "GitHub Actions validation runs automatically on pull requests, not only on tags and workflow_dispatch."}
+      ]
+    },
+    {
+      "id": 10,
+      "name": "End-user documentation",
+      "evidence": ["GUIDE.md", "python/PYTHON_GUIDE.md", "python/README.md", "USABILITY.md", "scripts/ci/lme_ci.py", ".github/workflows/ci.yml"],
+      "criteria": [
+        {"id": "user-guides", "weight": 8, "complete": true, "scope": "GUIDE.md and PYTHON_GUIDE.md cover the shipped modeling, inference, and repeated-fit APIs, including nlmer."},
+        {"id": "api-and-operations-docs", "weight": 8, "complete": true, "scope": "README, CONTRIBUTING, RELEASING, BENCHMARKS, OPTIMIZATION, and COMPARISONS document install, limits, and operations."},
+        {"id": "limitations-and-scope", "weight": 3, "complete": true, "scope": "USABILITY.md and README limitations are current for the crate version (pre-1.0 identity, workflow traffic lights, not a drop-in lme4 replacement)."},
+        {"id": "automated-doc-link-example-gate", "weight": 1, "complete": true, "scope": "task docs:check verifies tracked Markdown links, Rust examples/doctests, and generated API docs in pull-request/tag CI."}
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Examples and optional demos",
+      "evidence": ["Cargo.toml", "python/examples", "scripts/run_cross_language_benchmarks.py", "scripts/ci/lme_ci.py", ".github/workflows/ci.yml"],
+      "criteria": [
+        {"id": "rust-examples", "weight": 10, "complete": true, "scope": "Cargo [[example]] entries cover the comparison datasets and documented workflows."},
+        {"id": "python-examples", "weight": 6, "complete": true, "scope": "python/examples includes portable scripts plus the verification mini-project."},
+        {"id": "manual-cross-language-demos", "weight": 3, "complete": true, "scope": "R/Julia and plotting demos exist as optional environment-dependent extensions."},
+        {"id": "portable-automated-demo-coverage", "weight": 6, "complete": true, "scope": "task consumer:smoke runs the Rust sleepstudy workflow and every portable Python example in a clean-wheel environment; CI repeats the wheel examples on Linux, Windows, and macOS."}
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Experimental / exploratory probes",
+      "evidence": ["scripts/explorations", "examples/explore_formula_ast.rs", "examples/explore_theta_grid.rs", "examples/explore_mcp_adjust.rs", "tests/test_explorations.rs"],
+      "criteria": [
+        {"id": "explorations-standalone", "weight": 7, "complete": true, "scope": "Standalone probes exist for native-parser AST dump, a 1-D θ grid vs MLE, and MCP adjustment ordering."},
+        {"id": "explorations-integrated-and-tested", "weight": 13, "complete": false, "scope": "A crate-integrated exploration surface (library APIs or a maintained corpus beyond three Cargo examples) is tested in CI. Scoring both this criterion and explorations-standalone requires more than the same three examples.", "gap": "The original ast_explorations corpus was removed with fiasto. Three Cargo examples plus tests/test_explorations.rs restore standalone probes; they do not add a separate crate-integrated surface. This row is auxiliary."}
+      ]
+    },
+    {
+      "id": 13,
+      "name": "LMM fit throughput vs MixedModels.jl",
+      "evidence": ["BENCHMARK_COVERAGE.md", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"],
+      "criteria": [
+        {"id": "strict-crossed-20k", "weight": 1, "complete": true, "scope": "Dated fair-harness evidence shows crossed_20k cold_fit < 1.0× Julia."},
+        {"id": "strict-nested-10k", "weight": 1, "complete": true, "scope": "Dated fair-harness evidence shows nested_10k cold_fit < 1.0× Julia."},
+        {"id": "strict-sleepstudy", "weight": 1, "complete": true, "scope": "Dated fair-harness evidence shows sleepstudy_reml cold_fit < 1.0× Julia."},
+        {"id": "current-strict-full-tier-a", "weight": 1, "complete": false, "scope": "One current artifact covers all 10 LMM and both GLMM tier-A cases at the strict 1.0× gate after the last change to LMM or GLMM fit math.", "gap": "The 2026-07-22 artifact predates Gamma PIRLS phi profiling and multivariate AGQ-in-θ (2026-08-13/14). LMM cases remain usable because math.rs/optimizer.rs did not change; the full-suite-including-GLMM claim is stale until a post-0.2.2 rerun."}
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Rust crate: nonlinear mixed models (NLMM)",
+      "evidence": ["src/nlmm/mod.rs", "tests/test_nlmm_orange.rs", "tests/test_nlmm_agq.rs", "tests/test_nlmm_custom_mean.rs", "python/src/lib.rs"],
+      "criteria": [
+        {"id": "nlmm-api", "weight": 7, "complete": true, "scope": "nlmer / nlmer_with_options / nlmer_with_mean ship with the documented SS* catalog, optional bounds, and Laplace or AGQ-in-θ."},
+        {"id": "nlmm-tests", "weight": 6, "complete": true, "scope": "Dedicated nlmer test modules cover Orange, self-start, bounds, AGQ, custom means, and the built-in SS* functions."},
+        {"id": "nlmm-parity", "weight": 5, "complete": true, "scope": "Golden / comparison fixtures lock named SS* fits (including SSlogis Orange and additional means in the golden manifest)."},
+        {"id": "nlmm-multi-group", "weight": 2, "complete": false, "scope": "More than one grouping factor in the random part (crossed or multiple | terms), matching the LMM formula surface.", "gap": "NlmerFormula stores a single re_group. Random effects are additive on named nonlinear parameters for one grouping factor only."},
+        {"id": "nlmm-postfit-inference", "weight": 2, "complete": false, "scope": "Profile CIs for nonlinear parameters / RE SDs and the LMM post-fit helpers that are documented as applying to nlmer fits.", "gap": "confint_profile_vc rejects nlmer fits. emmeans is LMM/linear-only. Post-fit NLMM inference is Wald/summary plus generic LmeFit helpers, not an nlmer-specific profile/emmeans path."}
+      ]
+    }
   ]
 }
