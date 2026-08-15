@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -81,7 +81,8 @@ def main() -> int:
             if complete:
                 if gap not in (None, ""):
                     raise ValueError(
-                        f"area {area_id} criterion {criterion_id} is complete and must not declare a gap"
+                        f"area {area_id} criterion {criterion_id} is complete "
+                        "and must not declare a gap"
                     )
             else:
                 _require_str(
