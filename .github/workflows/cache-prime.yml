@@ -54,7 +54,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@a45951ff880207c249adf57334cf2e9bd81d6e1e # v2
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           shared-key: ci-v2-${{ runner.os }}-rust-test
           cache-workspace-crates: ${{ runner.os != 'Linux' }}
@@ -76,7 +76,7 @@ jobs:
       - name: Install OpenBLAS
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
       - name: Cache production-load Rust dependencies
-        uses: Swatinem/rust-cache@a45951ff880207c249adf57334cf2e9bd81d6e1e # v2
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           shared-key: ci-v2-${{ runner.os }}-rust-release
           cache-workspace-crates: true
@@ -105,7 +105,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: echo "OPENBLAS_TARGET=ARMV8" >> "$GITHUB_ENV"
       - name: Cache Python Rust dependencies
-        uses: Swatinem/rust-cache@a45951ff880207c249adf57334cf2e9bd81d6e1e # v2
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
           shared-key: ci-${{ runner.os }}-python
           workspaces: python -> target
