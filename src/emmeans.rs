@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::anova::DdfMethod;
-use crate::contrast::{fixed_effect_contrast_test, fixed_effect_vcov};
+use crate::contrast::{fixed_effect_contrast_test, fixed_effect_vcov_for_method};
 use crate::mcp::{adjust_p_values, McpAdjust};
 use crate::{LmeError, LmeFit};
 
@@ -86,7 +86,7 @@ impl LmeFit {
     ) -> crate::Result<EmmeansResult> {
         validate_confidence_level(confidence_level)?;
         let (linfct, levels) = reference_grid_linfct(self, term, data)?;
-        let v_beta = fixed_effect_vcov(self)?;
+        let v_beta = fixed_effect_vcov_for_method(self, ddf)?;
         let mut estimate = Array1::<f64>::zeros(levels.len());
         let mut std_error = Array1::<f64>::zeros(levels.len());
         let mut den_df = Array1::<f64>::zeros(levels.len());
@@ -154,7 +154,7 @@ impl LmeFit {
             comparisons.push(format!("{} - {}", levels[j], levels[i]));
         }
 
-        let v_beta = fixed_effect_vcov(self)?;
+        let v_beta = fixed_effect_vcov_for_method(self, ddf)?;
         let mut estimate = Array1::<f64>::zeros(pairs.len());
         let mut std_error = Array1::<f64>::zeros(pairs.len());
         let mut statistic_values = Array1::<f64>::zeros(pairs.len());

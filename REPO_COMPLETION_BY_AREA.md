@@ -6,7 +6,7 @@ This file gives an **evidence-weighted implementation-coverage score** for major
 
 **Last assessed:** 2026-09-09 (full post-refactor Rust/Julia run records current strict-throughput gaps).
 
-**Versions checked:** `lme-rs` **0.2.3-dev.0** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.3-dev.0** ([`python/Cargo.toml`](python/Cargo.toml)).
+**Versions checked:** `lme-rs` **0.2.3** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.3** ([`python/Cargo.toml`](python/Cargo.toml)).
 
 Repository completion is judged on **three** axes, not features alone:
 

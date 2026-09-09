@@ -290,7 +290,7 @@ impl LmeFit {
     /// * `level` - Confidence level (e.g., 0.95 for 95% CI). Must be in (0, 1).
     pub fn confint(&self, level: f64) -> anyhow::Result<ConfintResult> {
         self.ensure_converged()?;
-        if level <= 0.0 || level >= 1.0 {
+        if !level.is_finite() || level <= 0.0 || level >= 1.0 {
             return Err(anyhow::anyhow!(
                 "Confidence level must be in (0, 1), got {}",
                 level
@@ -299,9 +299,14 @@ impl LmeFit {
 
         let se = self.beta_se.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
-                "Standard errors not available — was this fit as a mixed-effects model?"
+                "Standard errors are unavailable; residual variance may not be estimable"
             )
         })?;
+        let kr_se = self
+            .kenward_roger
+            .as_ref()
+            .map(|kr| kr.modcomp.phi_a.diag().mapv(f64::sqrt));
+        let se = kr_se.as_ref().unwrap_or(se);
 
         let alpha = 1.0 - level;
         let tail = 1.0 - alpha / 2.0;
@@ -953,26 +958,28 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     //    SE(β̂_i) = sqrt(σ² · [(X'X)^{-1}]_{ii})
     let n = matrices.y.len() as f64;
     let p = matrices.x.ncols() as f64;
-    let sigma2 = fit.sigma2.unwrap_or(1.0);
-
     let xtx_inv = fit
         .v_beta_unscaled
         .as_ref()
         .expect("OLS covariance from QR");
 
     let p_int = matrices.x.ncols();
-    let mut beta_se = ndarray::Array1::<f64>::zeros(p_int);
-    let mut beta_t = ndarray::Array1::<f64>::zeros(p_int);
-    for i in 0..p_int {
-        beta_se[i] = (sigma2 * xtx_inv[[i, i]]).sqrt();
-        beta_t[i] = if beta_se[i] > 0.0 {
-            fit.coefficients[i] / beta_se[i]
-        } else {
-            f64::NAN
-        };
+    // A saturated fit estimates coefficients but has no residual degrees of
+    // freedom from which to estimate variance or coefficient uncertainty.
+    if let Some(sigma2) = fit.sigma2 {
+        let mut beta_se = ndarray::Array1::<f64>::zeros(p_int);
+        let mut beta_t = ndarray::Array1::<f64>::zeros(p_int);
+        for i in 0..p_int {
+            beta_se[i] = (sigma2 * xtx_inv[[i, i]]).sqrt();
+            beta_t[i] = if beta_se[i] > 0.0 {
+                fit.coefficients[i] / beta_se[i]
+            } else {
+                f64::NAN
+            };
+        }
+        fit.beta_se = Some(beta_se);
+        fit.beta_t = Some(beta_t);
     }
-    fit.beta_se = Some(beta_se);
-    fit.beta_t = Some(beta_t);
 
     // 5. Log-likelihood, AIC, BIC for Gaussian OLS:
     //    logLik = -n/2 * (ln(2π) + ln(σ²) + 1)

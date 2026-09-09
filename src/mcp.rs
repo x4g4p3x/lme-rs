@@ -10,7 +10,7 @@ use statrs::distribution::{ContinuousCDF, Normal};
 use std::fmt;
 
 use crate::anova::DdfMethod;
-use crate::contrast::{fixed_effect_contrast_test, fixed_effect_vcov};
+use crate::contrast::{fixed_effect_contrast_test, fixed_effect_vcov_for_method};
 use crate::studentized_range::tukey_kramer_p;
 use crate::LmeError;
 use crate::LmeFit;
@@ -93,7 +93,7 @@ impl LmeFit {
         }
 
         let (l_mat, comparisons, n_groups) = mcp_contrast_matrix(self, term, &mcp)?;
-        let v_beta = fixed_effect_vcov(self)?;
+        let v_beta = fixed_effect_vcov_for_method(self, ddf)?;
         let beta = &self.coefficients;
         let m = l_mat.nrows();
         let mut estimate = Array1::<f64>::zeros(m);

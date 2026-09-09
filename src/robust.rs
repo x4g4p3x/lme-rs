@@ -31,6 +31,12 @@ pub fn compute_robust_se(
 ) -> Result<RobustResult, String> {
     let p = fit.coefficients.len();
     let n = fit.residuals.len();
+    if data.height() != n {
+        return Err(format!(
+            "Robust inference data has {} rows but the fitted model has {n}",
+            data.height()
+        ));
+    }
 
     let ast = crate::formula::parse(&fit.formula.clone().unwrap_or_default())
         .map_err(|e| format!("Failed to parse formula: {}", e))?;
@@ -57,7 +63,13 @@ pub fn compute_robust_se(
         .v_beta_unscaled
         .as_ref()
         .ok_or("Unscaled V_beta missing")?;
-    let eps = &fit.residuals;
+    crate::validate_observation_weights(fit.weights.as_ref(), n).map_err(|e| e.to_string())?;
+    // Precision-weighted scores equal the scores of the explicitly whitened
+    // model: (sqrt(w) X) * (sqrt(w) residual) = w X residual.
+    let eps = match &fit.weights {
+        Some(weights) => &fit.residuals * weights,
+        None => fit.residuals.clone(),
+    };
 
     let mut meat = Array2::<f64>::zeros((p, p));
 
@@ -71,6 +83,9 @@ pub fn compute_robust_se(
             let str_ca = series
                 .str()
                 .map_err(|_| "Failed to cast to string chunked array")?;
+            if str_ca.null_count() > 0 {
+                return Err(format!("Cluster column '{col_name}' contains nulls"));
+            }
 
             // Map clusters
             use std::collections::HashMap;

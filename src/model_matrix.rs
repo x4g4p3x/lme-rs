@@ -20,6 +20,7 @@ pub struct ReBlock {
     /// The canonical names of the effects in the block (e.g., `["(Intercept)", "Days"]`).
     pub effect_names: Vec<String>,
     /// Maps group labels (e.g. subject IDs) to their positional index in the Z/b vectors.
+    /// Interaction labels join components with `_`, escaping component `_` and `\` with `\`.
     pub group_map: HashMap<String, usize>,
 }
 
@@ -756,7 +757,7 @@ fn is_fixed_effect_column(
     col_name: &str,
     response_name: &str,
 ) -> bool {
-    if col_name == response_name || col_name == "intercept" {
+    if col_name == response_name {
         return false;
     }
     info.has_role(ColumnRole::FixedEffect) || info.has_role(ColumnRole::Interaction)
@@ -1280,6 +1281,22 @@ fn index_column_obs_levels(
     Ok((obs_idx, levels))
 }
 
+fn interaction_group_label<'a>(parts: impl IntoIterator<Item = &'a str>) -> String {
+    let mut label = String::new();
+    for (index, part) in parts.into_iter().enumerate() {
+        if index > 0 {
+            label.push('_');
+        }
+        for ch in part.chars() {
+            if matches!(ch, '_' | '\\') {
+                label.push('\\');
+            }
+            label.push(ch);
+        }
+    }
+    label
+}
+
 /// Fast path for nested interaction groups (`batch:cask`): index each factor column once,
 /// then hash composite level tuples instead of formatting joined strings per row.
 pub(crate) fn try_build_interaction_groups(
@@ -1320,11 +1337,8 @@ pub(crate) fn try_build_interaction_groups(
                 Some(&idx) => idx,
                 None => {
                     let idx = unique_groups.len();
-                    let mut label =
-                        String::with_capacity(labels_a[a[i]].len() + labels_b[b[i]].len() + 1);
-                    label.push_str(&labels_a[a[i]]);
-                    label.push('_');
-                    label.push_str(&labels_b[b[i]]);
+                    let label =
+                        interaction_group_label([labels_a[a[i]].as_str(), labels_b[b[i]].as_str()]);
                     group_map.insert(label.clone(), idx);
                     unique_groups.push(label);
                     pair_map.insert(key, idx);
@@ -1342,10 +1356,9 @@ pub(crate) fn try_build_interaction_groups(
     for i in 0..n_obs {
         let key: Vec<usize> = level_obs_idx.iter().map(|v| v[i]).collect();
         let idx = *pair_map.entry(key).or_insert_with(|| {
-            let label = (0..parts.len())
-                .map(|p| level_labels[p][level_obs_idx[p][i]].as_str())
-                .collect::<Vec<_>>()
-                .join("_");
+            let label = interaction_group_label(
+                (0..parts.len()).map(|p| level_labels[p][level_obs_idx[p][i]].as_str()),
+            );
             unique_groups.push(label);
             unique_groups.len() - 1
         });

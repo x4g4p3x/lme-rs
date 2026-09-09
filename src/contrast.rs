@@ -131,7 +131,13 @@ pub(crate) fn fixed_effect_contrast_test(
         });
     }
 
-    let v_beta = fixed_effect_vcov(fit)?;
+    if l_mat.iter().any(|v| !v.is_finite())
+        || beta_h.is_some_and(|h| h.iter().any(|v| !v.is_finite()))
+    {
+        return Err(LmeError::InvalidInput {
+            message: "Contrast weights and null coefficients must be finite".to_string(),
+        });
+    }
 
     let q = l_mat.nrows();
     let (f_value, den_df, p_value, num_df) = match ddf {
@@ -168,7 +174,7 @@ pub(crate) fn fixed_effect_contrast_test(
                 })?;
             let (f_stat, ddf_val, p_val, ndf) = crate::ddf::satterthwaite_contrast_f_test(
                 beta,
-                &v_beta,
+                &fixed_effect_vcov(fit)?,
                 l_mat,
                 &multi.jac_vcov,
                 &multi.a_mat,
@@ -186,27 +192,8 @@ pub(crate) fn fixed_effect_contrast_test(
                 feature: "Kenward-Roger values missing. Call with_kenward_roger() first."
                     .to_string(),
             })?;
-            if q == 1 && beta_h.is_none() {
-                if let Some(idx) = single_unit_contrast_index(l_mat) {
-                    let t_stats = fit.beta_t.as_ref().ok_or(LmeError::NotImplemented {
-                        feature: "t-statistics missing".to_string(),
-                    })?;
-                    return Ok(ContrastTestResult {
-                        method: ddf,
-                        num_df: 1.0,
-                        den_df: kr.dfs[idx],
-                        f_value: t_stats[idx] * t_stats[idx],
-                        p_value: kr.p_values[idx],
-                    });
-                }
-            }
-            let (f_stat, ddf_val, p_val, ndf) = crate::kr_modcomp::kenward_roger_contrast_f_test(
-                &kr.modcomp,
-                beta,
-                l_mat,
-                &kr.dfs,
-                beta_h,
-            )?;
+            let (f_stat, ddf_val, p_val, ndf) =
+                crate::kr_modcomp::kenward_roger_contrast_f_test(&kr.modcomp, beta, l_mat, beta_h)?;
             (f_stat, ddf_val, p_val, ndf)
         }
     };
@@ -220,6 +207,24 @@ pub(crate) fn fixed_effect_contrast_test(
     })
 }
 
+/// Covariance used by the requested inference method.
+pub(crate) fn fixed_effect_vcov_for_method(
+    fit: &LmeFit,
+    ddf: Option<DdfMethod>,
+) -> crate::Result<Array2<f64>> {
+    if matches!(ddf, Some(DdfMethod::KenwardRoger)) {
+        return fit
+            .kenward_roger
+            .as_ref()
+            .map(|kr| kr.modcomp.phi_a.clone())
+            .ok_or(LmeError::NotImplemented {
+                feature: "Kenward-Roger values missing. Call with_kenward_roger() first."
+                    .to_string(),
+            });
+    }
+    fixed_effect_vcov(fit)
+}
+
 /// Wald covariance of `β` (robust sandwich when present).
 pub(crate) fn fixed_effect_vcov(fit: &LmeFit) -> crate::Result<Array2<f64>> {
     if let Some(robust) = &fit.robust {
@@ -231,7 +236,16 @@ pub(crate) fn fixed_effect_vcov(fit: &LmeFit) -> crate::Result<Array2<f64>> {
         .ok_or(LmeError::NotImplemented {
             feature: "Covariance matrix missing".to_string(),
         })?;
-    let sigma2 = fit.sigma2.unwrap_or(1.0);
+    let sigma2 =
+        match fit.sigma2 {
+            Some(sigma2) => sigma2,
+            None if fit.family.is_some() => 1.0,
+            None => return Err(LmeError::InvalidInput {
+                message:
+                    "Residual variance is unavailable; coefficient uncertainty cannot be estimated"
+                        .to_string(),
+            }),
+        };
     Ok(xtx_inv * sigma2)
 }
 

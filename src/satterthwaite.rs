@@ -4,7 +4,6 @@ use polars::prelude::DataFrame;
 use statrs::distribution::{ContinuousCDF, StudentsT};
 
 use crate::formula::parse;
-use crate::math::LmmData;
 use crate::model_matrix::build_design_matrices;
 use crate::{LmeError, LmeFit, SatterthwaiteResult};
 
@@ -40,14 +39,7 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<Sa
     let ast = parse(formula_str)?;
     let matrices = build_design_matrices(&ast, data)?;
 
-    // We assume unweighted for now, or we'd need to extract weights if they were stored in LmeFit.
-    // To support weights fully, we should ideally store them or re-extract them, but for now we re-evaluate unweighted.
-    let lmm = LmmData::new(
-        matrices.x.clone(),
-        matrices.zt.clone(),
-        matrices.y.clone(),
-        matrices.re_blocks.clone(),
-    );
+    let lmm = crate::model::inference_lmm_data(fit, &matrices)?;
 
     let reml = fit.reml.is_some();
 

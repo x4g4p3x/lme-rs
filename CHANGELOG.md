@@ -5,9 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.3] - 2026-09-09
 
 ### Fixed
+
+- Preserve offsets and observation weights throughout Satterthwaite and Kenward-Roger inference.
+- Use one Kenward-Roger covariance adjustment for marginal and joint tests, confidence
+  intervals, estimated marginal means, and multiple comparisons; retain precision
+  for very small p-values and reject nonfinite contrast inputs.
+- Respect precision weights in observation-level and cluster-robust standard errors.
+- Keep nested grouping labels distinct when components contain underscores or backslashes.
+- Honor requested grouped cross-validation fold counts, accept supported numeric
+  response types, and reject missing split labels and invalid responses.
+- Preserve predictors and responses named `intercept` in formula models.
+- Reject nonfinite confidence levels and mismatched or missing robust-inference data.
+- Leave uncertainty unavailable when an OLS fit has no residual degrees of freedom.
+
 
 - Preserve formula offsets in population/conditional predictions and OLS fitting.
 - Preserve precision weights in Gaussian simulation and bootstrap refits; weighted

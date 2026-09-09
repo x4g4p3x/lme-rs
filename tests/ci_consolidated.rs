@@ -15,6 +15,12 @@ mod test_anova;
 mod test_anova_types;
 #[path = "test_bootstrap.rs"]
 mod test_bootstrap;
+#[path = "test_bug_hunt.rs"]
+mod test_bug_hunt;
+#[path = "test_bug_hunt_more.rs"]
+mod test_bug_hunt_more;
+#[path = "test_bug_hunt_numerics.rs"]
+mod test_bug_hunt_numerics;
 #[path = "test_conditional_real.rs"]
 mod test_conditional_real;
 #[path = "test_confint_profile.rs"]

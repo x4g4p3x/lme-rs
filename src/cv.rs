@@ -72,6 +72,21 @@ struct FoldSpec {
     test_groups: HashSet<String>,
 }
 
+/// Split shuffled groups into exactly the requested number of nonempty folds.
+fn balanced_folds(groups: &[String], n_splits: usize) -> Vec<FoldSpec> {
+    let base = groups.len() / n_splits;
+    let remainder = groups.len() % n_splits;
+    let mut start = 0;
+    (0..n_splits)
+        .map(|fold| {
+            let end = start + base + usize::from(fold < remainder);
+            let test_groups = groups[start..end].iter().cloned().collect();
+            start = end;
+            FoldSpec { fold, test_groups }
+        })
+        .collect()
+}
+
 struct FoldWorkResult {
     metric: CvFoldMetric,
     oof_updates: Vec<(usize, f64)>,
@@ -90,7 +105,7 @@ struct FoldWorkResult {
 /// * `formula_str` - Wilkinson formula (LMM only).
 /// * `data` - Full dataset.
 /// * `group_col` - Column whose levels define CV folds (must appear in the formula).
-/// * `n_splits` - Number of folds (capped at the number of unique groups).
+/// * `n_splits` - Number of folds (must not exceed the number of unique groups).
 /// * `reml` - Use REML (`true`) or ML (`false`) when fitting each training fold.
 /// * `seed` - Optional RNG seed for reproducible group shuffling.
 /// * `n_jobs` - Parallel fold workers. `None` uses all logical CPUs (capped at fold
@@ -141,25 +156,8 @@ pub fn cv_grouped(
     groups.shuffle(&mut rng);
 
     let n_obs = data.height();
-    let y_all =
-        column_to_f64_vec(
-            data.column(&response_col)
-                .map_err(|e| LmeError::NotImplemented {
-                    feature: format!("Response column '{response_col}' not found: {e}"),
-                })?,
-        )?;
-
-    let chunk = groups.len().div_ceil(n_splits);
-    let mut fold_specs = Vec::with_capacity(n_splits);
-    for fold in 0..n_splits {
-        let start = fold * chunk;
-        if start >= groups.len() {
-            break;
-        }
-        let end = ((fold + 1) * chunk).min(groups.len());
-        let test_groups: HashSet<String> = groups[start..end].iter().cloned().collect();
-        fold_specs.push(FoldSpec { fold, test_groups });
-    }
+    let y_all = crate::model_matrix::numeric_column_f64(data, &response_col)?.to_vec();
+    let fold_specs = balanced_folds(&groups, n_splits);
 
     let workers = resolve_n_jobs(n_jobs, fold_specs.len());
     let data = Arc::new(data.clone());
@@ -302,25 +300,8 @@ pub fn cv_grouped_glmer(
     groups.shuffle(&mut rng);
 
     let n_obs = data.height();
-    let y_all =
-        column_to_f64_vec(
-            data.column(&response_col)
-                .map_err(|e| LmeError::NotImplemented {
-                    feature: format!("Response column '{response_col}' not found: {e}"),
-                })?,
-        )?;
-
-    let chunk = groups.len().div_ceil(n_splits);
-    let mut fold_specs = Vec::with_capacity(n_splits);
-    for fold in 0..n_splits {
-        let start = fold * chunk;
-        if start >= groups.len() {
-            break;
-        }
-        let end = ((fold + 1) * chunk).min(groups.len());
-        let test_groups: HashSet<String> = groups[start..end].iter().cloned().collect();
-        fold_specs.push(FoldSpec { fold, test_groups });
-    }
+    let y_all = crate::model_matrix::numeric_column_f64(data, &response_col)?.to_vec();
+    let fold_specs = balanced_folds(&groups, n_splits);
 
     let workers = resolve_n_jobs(n_jobs, fold_specs.len());
     let data = Arc::new(data.clone());
@@ -605,6 +586,11 @@ fn unique_group_labels(df: &DataFrame, group_col: &str) -> Result<Vec<String>> {
     let col = df.column(group_col).map_err(|e| LmeError::NotImplemented {
         feature: format!("Grouping column '{group_col}': {e}"),
     })?;
+    if col.null_count() > 0 {
+        return Err(LmeError::InvalidInput {
+            message: format!("Grouping column '{group_col}' contains nulls"),
+        });
+    }
     let str_col = col
         .cast(&DataType::String)
         .map_err(|e| LmeError::NotImplemented {
@@ -677,16 +663,4 @@ fn group_mask(
         .into_iter()
         .map(|opt| opt.map(|s| allowed.contains(s)).unwrap_or(false))
         .collect())
-}
-
-fn column_to_f64_vec(col: &Column) -> Result<Vec<f64>> {
-    if let Ok(f) = col.f64() {
-        return Ok(f.into_no_null_iter().collect());
-    }
-    if let Ok(i) = col.i64() {
-        return Ok(i.into_no_null_iter().map(|v| v as f64).collect());
-    }
-    Err(LmeError::NotImplemented {
-        feature: "Response column must be numeric".to_string(),
-    })
 }

@@ -196,13 +196,12 @@ pub fn kr_modcomp_test(
         df2 * (1.0 - a2 / q) / (df2 - 2.0)
     };
 
-    // Wald statistics (adjusted and unadjusted covariance).
+    // The KR F statistic uses the adjusted covariance (pbkrtest's Wald).
     let lpl_a = l_mat.dot(phi_a).dot(&l_mat.t());
     let rhs_wald = l_mat.dot(&beta_diff);
-    let wald_u = solve_wald_quadratic(&lpl, &rhs_wald)?;
-    let _ = solve_wald_quadratic(&lpl_a, &rhs_wald)?;
+    let wald = solve_wald_quadratic(&lpl_a, &rhs_wald)?;
 
-    let f_stat_u = wald_u / q;
+    let f_stat_u = wald / q;
     let f_stat = if f_scaling.is_nan() {
         f64::NAN
     } else {
@@ -241,13 +240,14 @@ fn fisher_upper_tail(f_stat: f64, num_df: f64, den_df: f64) -> f64 {
     if f_stat.is_nan() || den_df.is_nan() || den_df <= 0.0 || num_df <= 0.0 {
         f64::NAN
     } else if let Ok(dist) = FisherSnedecor::new(num_df, den_df) {
-        1.0 - dist.cdf(f_stat)
+        dist.sf(f_stat)
     } else {
         f64::NAN
     }
 }
 
-/// True when KR adjustment is negligible (`vcovAdj` ≈ `vcov`), so marginal-df pooling matches `lmerTest`/`KRmodcomp` on separable designs.
+/// True when KR covariance adjustment is negligible (`vcovAdj` ≈ `vcov`).
+#[cfg(test)]
 pub(crate) fn phi_a_near_phi(phi: &Array2<f64>, phi_a: &Array2<f64>, rtol: f64) -> bool {
     phi.iter().zip(phi_a.iter()).all(|(&a, &b)| {
         let scale = a.abs().max(b.abs()).max(1e-10);
@@ -257,55 +257,18 @@ pub(crate) fn phi_a_near_phi(phi: &Array2<f64>, phi_a: &Array2<f64>, rtol: f64) 
 
 /// Multi-DoF Kenward–Roger F-test for contrast matrix `l_mat` (q × p).
 ///
-/// Uses full `pbkrtest::KRmodcomp` when `PhiA` differs materially from `Phi`. When the adjusted
-/// covariance equals the model covariance (common for simple random-intercept structures),
-/// denominator df is pooled from marginal Kenward–Roger dfs via `get_fstat_ddf`, matching R.
+/// Uses the same adjusted covariance and contrast-specific degrees of freedom
+/// for every representation of the hypothesis.
 pub fn kenward_roger_contrast_f_test(
     data: &KenwardRogerModcompData,
     beta: &Array1<f64>,
     l_mat: &Array2<f64>,
-    marginal_dfs: &Array1<f64>,
     beta_h: Option<&Array1<f64>>,
 ) -> crate::Result<(f64, f64, f64, f64)> {
     let eps = f64::EPSILON.sqrt();
     let num_df = contrast_rank(l_mat, eps) as f64;
-    if phi_a_near_phi(&data.phi, &data.phi_a, 1e-8) && beta_h.is_none() {
-        let (f, ddf, p) = kenward_roger_contrast_marginal_pool(beta, l_mat, marginal_dfs, data)?;
-        return Ok((f, ddf, p, num_df));
-    }
     let res = kr_modcomp_test(data, l_mat, beta, beta_h)?;
     Ok((res.f_stat, res.den_df, res.p_value, num_df))
-}
-
-/// Marginal-df pooling on unadjusted `Phi` (equivalent to `KRmodcomp` when `PhiA` = `Phi`).
-fn kenward_roger_contrast_marginal_pool(
-    beta: &Array1<f64>,
-    l_mat: &Array2<f64>,
-    marginal_dfs: &Array1<f64>,
-    data: &KenwardRogerModcompData,
-) -> crate::Result<(f64, f64, f64)> {
-    let q = contrast_rank(l_mat, f64::EPSILON.sqrt()) as f64;
-    let beta_s = l_mat.dot(beta);
-    let v_s = l_mat.dot(&data.phi).dot(&l_mat.t());
-    let f_stat = {
-        use ndarray_linalg::Inverse;
-        if let Ok(v_inv) = v_s.inv() {
-            beta_s.dot(&v_inv.dot(&beta_s)) / q
-        } else {
-            f64::NAN
-        }
-    };
-    let nu_m: Vec<f64> = (0..l_mat.ncols())
-        .filter(|&j| l_mat.column(j).iter().any(|v| v.abs() > 1e-12))
-        .map(|j| marginal_dfs[j])
-        .collect();
-    let den_df = if nu_m.iter().any(|d| d.is_nan()) {
-        f64::NAN
-    } else {
-        crate::ddf::get_fstat_ddf(&nu_m, 1e-8)
-    };
-    let p = fisher_upper_tail(f_stat, q, den_df);
-    Ok((f_stat, den_df, p))
 }
 
 #[cfg(test)]
@@ -323,5 +286,21 @@ mod tests {
     fn contrast_rank_single_row() {
         let l = array![[0.0, 1.0, 0.0]];
         assert_eq!(contrast_rank(&l, 1e-10), 1);
+    }
+
+    #[test]
+    fn kr_wald_uses_adjusted_covariance() {
+        // One-dimensional case: A1 = A2 = 0.1, hence df = 20 and
+        // F scaling = 1. The adjusted Wald statistic is 3^2 / 3 = 3,
+        // whereas the unadjusted covariance would incorrectly give 4.5.
+        let data = KenwardRogerModcompData {
+            phi: array![[2.0]],
+            phi_a: array![[3.0]],
+            p_list: vec![array![[0.5]]],
+            w: array![[0.1]],
+        };
+        let result = kr_modcomp_test(&data, &array![[1.0]], &array![3.0], None).unwrap();
+        assert!((result.den_df - 20.0).abs() < 1e-10);
+        assert!((result.f_stat - 3.0).abs() < 1e-10);
     }
 }

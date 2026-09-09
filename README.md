@@ -52,7 +52,7 @@ Add these dependencies to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-lme-rs = "0.2.2"
+lme-rs = "0.2.3"
 polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```

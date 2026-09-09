@@ -131,7 +131,7 @@ impl BootLmerResult {
         level: f64,
         scope: ConfintScope,
     ) -> Result<BootConfintResult> {
-        if level <= 0.0 || level >= 1.0 {
+        if !level.is_finite() || level <= 0.0 || level >= 1.0 {
             return Err(LmeError::NotImplemented {
                 feature: format!("Bootstrap confint level must be in (0, 1), got {level}"),
             });

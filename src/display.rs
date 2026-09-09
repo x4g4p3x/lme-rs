@@ -227,6 +227,8 @@ impl fmt::Display for LmeFit {
                         name, est, r_se, r_t, p_val
                     )?;
                 } else if let Some(kr) = &self.kenward_roger {
+                    let se = kr.modcomp.phi_a[[i, i]].sqrt();
+                    let t_val = est / se;
                     let df = kr.dfs[i];
                     let p_val = kr.p_values[i];
                     writeln!(

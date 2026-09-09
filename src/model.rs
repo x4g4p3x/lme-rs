@@ -2,6 +2,25 @@
 use crate::{formula, LmeError, LmeFit, Result};
 use ndarray::Array1;
 
+/// Reconstruct the fitted LMM likelihood for post-fit inference.
+pub(crate) fn inference_lmm_data(
+    fit: &LmeFit,
+    matrices: &crate::model_matrix::DesignMatrices,
+) -> Result<crate::math::LmmData> {
+    crate::validate_observation_weights(fit.weights.as_ref(), matrices.y.len())?;
+    let adjusted_y = match &matrices.offset {
+        Some(offset) => &matrices.y - offset,
+        None => matrices.y.clone(),
+    };
+    Ok(crate::math::LmmData::new_weighted(
+        matrices.x.clone(),
+        matrices.zt.clone(),
+        adjusted_y,
+        matrices.re_blocks.clone(),
+        fit.weights.clone(),
+    ))
+}
+
 /// Controls for LMM/GLMM optimization. Defaults retain the specialized optimizers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FitControl {

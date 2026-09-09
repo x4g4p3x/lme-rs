@@ -31,18 +31,12 @@ pub fn kenward_roger_modcomp_data(
 
     let ast = parse(formula_str)?;
     let matrices = build_design_matrices(&ast, data)?;
-    let lmm = LmmData::new(
-        matrices.x.clone(),
-        matrices.zt.clone(),
-        matrices.y.clone(),
-        matrices.re_blocks.clone(),
-    );
+    let lmm = crate::model::inference_lmm_data(fit, &matrices)?;
 
     let reml = fit.reml.is_some();
     let base = lmm.evaluate(theta.as_slice().unwrap(), reml);
-    let inv_lx = base.l_x.inv().map_err(|e| LmeError::NotImplemented {
-        feature: format!("Failed to invert L_x for vcovAdj: {}", e),
-    })?;
+    let inv_lx =
+        crate::kenward_roger::invert_kr_matrix(&base.l_x, "fixed-effects Cholesky factor")?;
     let phi = inv_lx.t().dot(&inv_lx) * sigma2;
 
     let n = lmm.y.len();
@@ -122,12 +116,13 @@ fn build_sigma_g(
         theta_offset += block.theta_len;
     }
 
-    let mut identity = Array2::<f64>::zeros((n, n));
+    // Observation weights are precisions: residual covariance is sigma2 * W^-1.
+    let mut residual = Array2::<f64>::zeros((n, n));
     for i in 0..n {
-        identity[[i, i]] = 1.0;
+        residual[[i, i]] = lmm.weights.as_ref().map_or(1.0, |w| 1.0 / w[i]);
     }
     ggamma.push(sigma2);
-    g_list.push(identity);
+    g_list.push(residual);
 
     Ok((g_list, ggamma))
 }

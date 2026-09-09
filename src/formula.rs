@@ -406,7 +406,8 @@ pub fn parse(formula: &str) -> crate::Result<FormulaModel> {
         Ok(())
     })?;
 
-    if model.metadata.has_intercept {
+    // The legacy display marker must not duplicate a real column with this name.
+    if model.metadata.has_intercept && !model.columns.contains_key("intercept") {
         model.all_generated_columns.insert(
             1.min(model.all_generated_columns.len()),
             "intercept".to_string(),
