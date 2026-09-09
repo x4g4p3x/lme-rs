@@ -1,185 +1,110 @@
-# Usability guide
+# Supported workflows and adoption
 
-This document answers **“can I use this for my problem?”** — a different question from **“how much of the API exists?”**
+[Documentation](docs/README.md) · [Rust guide](GUIDE.md) · [Python guide](python/PYTHON_GUIDE.md)
 
-For feature breadth and internal planning percentages, see [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md). That file tracks **coverage** (what is implemented). This file tracks **usability** (what is safe and practical to rely on).
+Use this page to decide whether the implemented workflow fits your analysis.
+The [completion report](REPO_COMPLETION_BY_AREA.md) measures locked project
+commitments; it is not a measure of statistical suitability.
 
-**Last assessed:** 2026-08-15 · `lme-rs` / `lme_python` **0.2.3-dev.0** (released **0.2.2**)
+The assessment below is grounded in the repository's tests and documented
+scope. A documentation review does not establish new production experience
+or refresh old benchmark measurements.
 
----
+## Choose a workflow
 
-## Two kinds of “done”
+### Covered workflows
 
-| Question | Where to look | What it means |
-|:---------|:--------------|:--------------|
-| How much of the locked scope is implemented? | [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | APIs shipped, docs written, tests added. Grows when features land; can fall when evidence is re-evaluated. Not a “library is finished” score. |
-| Can I depend on it for my analysis? | **This file** | Whether your workflow is in scope, regression-locked, **fast enough for how you will call it**, and reasonable to trust on *your* data. |
+These paths have repository tests or examples. Match your model shape to the
+evidence before relying on the result.
 
-A new API (for example `nlmer_with_mean`) increases **coverage**. It only increases **usability** if it solves a workflow you actually need, behaves predictably on real inputs, and does not make that workflow impractically slow.
+| Workflow | Rust and Python support | Main scope |
+|:---------|:------------------------|:-----------|
+| OLS | Formula and matrix interfaces | Caller supplies intercept for matrix OLS |
+| Gaussian LMM | `lmer`, weights, offsets, REML/ML | Random intercepts/slopes, nested and crossed structures |
+| GLMM | Binomial, Poisson, Gaussian, Gamma | Family/link domains and quadrature limits apply |
+| Prediction | Population and conditional methods | GLMM link scale versus response scale must be chosen explicitly |
+| LMM inference | Satterthwaite/Kenward–Roger, ANOVA I–III, contrasts | Covered model shapes; inspect degrees-of-freedom method |
+| Multiple comparisons | Tukey/Dunnett `glht`, LMM `emmeans` and pairs | Equal-weight EMM reference grid; no full R package replacement |
+| Model comparison | Nested likelihood-ratio tests | Same observations; ML when fixed effects differ |
+| Intervals | Wald and profile paths | Profile scope is LMM/GLMM, not NLMM; variance-component scales differ by structure |
+| Simulation and bootstrap | LMM/GLMM response draws and refits | Conditional draws; LMM residual bootstrap, GLMM parametric only |
+| Grouped cross-validation | `cv_grouped`, `cv_grouped_glmer` | Entire levels of one selected grouping column stay together |
 
----
+### Workflows needing additional care
 
-## Usability has three legs
+| Workflow | Check before use |
+|:---------|:-----------------|
+| Large crossed or random-slope models | Memory, scaling, convergence, and timings for your own design |
+| Less common GLMM links or combined weights/offsets | Which exact combinations have golden fixtures |
+| Higher-order quadrature | Grid size grows with random-effect dimension; large structures can retain Laplace optimization |
+| Built-in nonlinear means | One grouping factor; mean domain, starts, and identifiability |
+| Custom nonlinear means | Supply sensible starts and verify predictions against a reference |
+| Sensor calibration | Choose independent curves or a pooled model; [calibration guide](docs/CALO_CALIBRATION.md) |
+| Prepared fits | Reuse only the same design; rebuild when rows or predictors change |
+| Python pandas/PyArrow inputs | Conversion to Polars, dtypes, and optional dependencies |
 
-Coverage percentages in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) mostly track **correctness and API surface**. In practice, “usable” also depends on **performance for your call pattern** and **field experience** (below).
+### Outside the implemented scope
 
-| Leg | Question | If it fails |
-|:----|:---------|:------------|
-| **Correctness & scope** | Does the model fit and match a reference on cases like mine? | Wrong answers — not usable regardless of speed. |
-| **Performance fit** | Is wall time acceptable for how often I will fit? | Correct but too slow — **not usable** for batch, interactive, or embedded Rust paths even when fine for a one-off analysis. |
-| **Field experience** | Has this shape of problem been exercised beyond the repo fixtures? | Higher risk on odd data and formulas; validate before you rely on it. |
+- Full drop-in compatibility with `lme4`, `lmerTest`, `car`, `nlme),
+  `multcomp`, or `emmeans`.
+- Arbitrary R expressions, general multivariate `cbind()` responses, or all spline options.
+- GLMM response-scale estimated marginal means and compact-letter displays.
+- Every R bootstrap option, BCa intervals, or NLMM bootstrap/CV helpers.
+- Independent per-sensor fitting inside the pooled `nlmer` API.
+- A blanket speed guarantee or established production suitability for untested models.
 
-**Performance and usability are not separate.** Optimization work ([OPTIMIZATION.md](OPTIMIZATION.md), fair harness in [BENCHMARKS.md](BENCHMARKS.md)) is usability work for anyone who fits more than occasionally or embeds `lmer` in a Rust pipeline. A library that is correct but an order of magnitude slower than alternatives is a poor fit for those workflows — that is a usability failure, not merely a benchmark nit.
+## Understand the evidence
 
-The traffic-light tables below combine scope and typical performance posture. When in doubt, benchmark on your RE layout and call frequency.
+| Evidence | What it establishes | What it does not establish |
+|:---------|:--------------------|:---------------------------|
+| [Golden fixtures](tests/data/golden_parity_manifest.json) | Agreement within stated tolerances on named cases | Parity for every formula or dataset |
+| [Integration tests](tests/) | Behavior and identities on exercised paths | Independent verification of every statistic |
+| [Python tests](python/tests/) and clean-wheel examples | Binding behavior and package installation | A second numerical engine |
+| [Cross-language comparisons](comparisons/COMPARISONS.md) | Reference outputs and known differences | Equivalence where a reference uses a simplified model |
+| [Benchmarks](BENCHMARKS.md) | Timing on a specific revision, machine, and workload | Universal throughput |
+| [Completion manifest](completion_manifest.json) | Fulfilled locked project commitments | Adoption maturity or statistical validity |
 
----
+Both language interfaces use the same Rust implementation.
+Repository validation is distinct from a long record of diverse independent
+deployments. The project remains in the 0.2.x series; review release changes
+when upgrading.
 
-## Engineering validation vs field experience
+## Validate an analysis
 
-`lme-rs` is **well tested in the repository**, but **young in production**.
+1. Identify the response distribution, grouping structure, and fixed effects.
+2. Run a reference fit with the same observations, formula, link, weights,
+   and ML/REML or quadrature settings.
+3. Compare coefficients, variance components, predictions, and relevant tests.
+   Raw GLMM AIC/BIC can differ because likelihood conventions differ.
+4. Inspect convergence, residual behavior, and sensitivity to starts or scaling.
+5. Measure the whole workflow if runtime matters, including setup and inference.
+6. Record package versions and options with the analysis.
 
-### What we have (engineering validation)
+[The guides](docs/README.md#choose-a-workflow) explain the methods;
+[troubleshooting](docs/TROUBLESHOOTING.md) helps investigate failures.
 
-- Golden parity fixtures against R `lme4` / related packages on named datasets and model shapes ([`tests/test_golden_parity.rs`](tests/test_golden_parity.rs), [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json))
-- Cross-language comparison scripts and fixtures ([`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md))
-- Broad Rust integration tests (53 modules under [`tests/`](tests/) excluding the consolidated harness); Python pytest suite under [`python/tests/`](python/tests/)
-- Documented limitations in [README.md](README.md) and [GUIDE.md](GUIDE.md)
-- Pull-request and tag CI ([`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md))
+## Match the API to the workload
 
-That is real assurance — not a prototype — but it is **assurance on fixed, curated cases**.
+| Call pattern | Starting point |
+|:-------------|:---------------|
+| One fit | `lmer`, `glmer`, or `nlmer`; inspect diagnostics |
+| Same design, repeated LMM fits | `prepare_lmer` and `fit_prepared` |
+| Same design, repeated GLMM fits | `prepare_glmer` and `fit_prepared_glmer` |
+| Response-resampling inference | `boot_lmer` / `boot_glmer`; inspect replicate convergence |
+| Held-out groups | `cv_grouped` / `cv_grouped_glmer`; train each fold independently |
+| Many simulations | Seeded parallel draws or batched simulation |
 
-### What we do not have yet (field experience)
+For crossed structures, holding out levels of one grouping factor does not
+necessarily hold out every other factor. Choose a split that matches the
+intended generalization question.
 
-- A long history of diverse **production** deployments (services, pipelines, published studies) feeding back into the API
-- Semver **1.0** stability; the crate is **0.2.x** and the API can still evolve
-- Community scale comparable to `lme4` (issue volume, odd formulas, dirty data, idiosyncratic workflows)
-- A guarantee that **your** formula and dataset will behave like the fixtures without you checking
-
-**This is not a reason to avoid the library.** It is the normal profile of capable early-stage scientific software: strong internal QA, limited miles in the wild. The honest posture is:
-
-> Validate on your data before you stake a decision on it. Compare key outputs to an R reference fit when possible. Treat 0.2.x as “capable, but still earning trust.”
-
-That is cautious, not pessimistic.
-
----
-
-## Recommended adoption pattern
-
-1. **Match your model to a green or yellow workflow below** (not “does the function exist?”).
-2. **Run a reference fit** in R `lme4` / `glmer` / `nlmer` on the same data (or use an existing fixture if your case is listed in [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md)).
-3. **Compare quantities you care about**: fixed effects, variance components, predictions, test statistics — not necessarily raw AIC/BIC for GLMMs (see [README.md](README.md)).
-4. **Benchmark if fit time matters**, especially for crossed random effects or tight Rust loops; consider `prepare_lmer` / `fit_prepared` ([OPTIMIZATION.md](OPTIMIZATION.md)).
-5. **Pin the version** in `Cargo.toml` / your Python environment and read [CHANGELOG.md](CHANGELOG.md) before upgrading.
-
----
-
-## Workflow traffic light
-
-Statuses are **practical**, not formal support tiers.
-
-### Green — reasonable default for new work
-
-| Workflow | Rust | Python | Notes |
-|:---------|:----:|:------:|:------|
-| OLS / `lm` from formula | ✓ | ✓ | [`lm_df`](src/lib.rs) / `lm()` |
-| Standard LMM (`lmer`): random intercept, **random slopes**, nested, crossed | ✓ | ✓ | sleepstudy, dyestuff, pastes, penicillin patterns |
-| LMM with weights, offset | ✓ | ✓ | Tested; compare to R on your data |
-| REML / ML, population & conditional predict | ✓ | ✓ | |
-| Satterthwaite / Kenward–Roger, Type I–III ANOVA, contrasts, Tukey/Dunnett `glht`, LMM `emmeans` | ✓ | ✓ | Scoped to tested LMM shapes; EMM reference-grid estimates and Tukey pairs are golden-locked to R `emmeans` on pastes |
-| Nested model LRT (`anova`) | ✓ | ✓ | |
-| Group-preserving CV (`cv_grouped` / `cv_grouped_glmer`) | ✓ | ✓ | LMM + GLMM; population / response-scale OOF on held-out groups |
-| Bootstrap refits (`boot_lmer` / `boot_glmer`) | ✓ | ✓ | LMM parametric & residual; GLMM parametric (incl. binomial trials); percentile CIs |
-| GLMM: binomial / Poisson / gamma / gaussian | ✓ | ✓ | Coeffs & variance params; Laplace default; AGQ-in-θ via `n_agq ≥ 2` (scalar, vector product, small-`q` joint). Gamma log-link Dyestuff locks mean, residual φ, and RE θ (`gamma_dyestuff_log_laplace`) |
-| Profile CIs (`confint_profile` / `parms=` / `confint_profile_vc`) | ✓ | ✓ | LMM/GLMM β; LMM `.sig01`/`.sigma` vs lme4 sleepstudy fixture; subset via `parms` |
-| `confint` (Wald), `simulate`, robust SE | ✓ | ✓ | LMM-focused Wald/t paths; GLMM z / profile as documented |
-
-**Caveat:** “Green” means **the repo exercises these paths seriously**. It does not mean every R formula variant works.
-
-### Yellow — works, but check assumptions
-
-| Workflow | Issue | What to do |
-|:---------|:------|:-----------|
-| Random-slopes LMM (e.g. `(Days \| Subject)`) | Fair-harness competitive on sleepstudy (~0.8× Julia cold `lmer()`); validate on your data | Compare to R; use `prepare_lmer` + `fit_prepared` for repeated fits — [BENCHMARKS.md](BENCHMARKS.md#fair-rust-julia-2026-07-09-random-slopes) |
-| Crossed RE at scale in Rust hot loops | One-shot `lmer()` includes setup/post-fit overhead | Use `prepare_lmer` + `fit_prepared`; see [BENCHMARKS.md](BENCHMARKS.md) |
-| GLMM non-canonical links, weights | Probit **and** cloglog golden-locked; weights via `cbpp_binomial_weighted` | Remaining link variants (e.g. poisson sqrt) implemented — validate if non-golden |
-| Weights + formula `offset()` together | Supported (`glmer_weighted` + `offset()`); **not** a separate golden matrix | Validate on your data |
-| `nlmer` built-in `SS*` means | Eleven built-ins (`SSlogis`…`SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**); one grouping factor | Orange / synthetic golden cases; `SSpower` uses custom R `selfStart` for lme4 reference — not general `nlme` |
-| Grouped calibration (`SSpower`, `a·x^b+c`) | `nlmer` + golden `sspower_synthetic_self_start`; optional population and group-level (`β+b`) bounds | Requires **x > 0**; pool sensors with `~ c\|sensor`. See [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
-| Independent `power2` per sensor (MATLAB / lmfit lane) | **Out of scope** for `lme-rs` core; use batch NLS (CPU/GPU) | Demo: [`examples/batch_sspower_cpu.rs`](examples/batch_sspower_cpu.rs); decision guide in [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) |
-| `nlmer_with_mean` (custom μ) | No R `selfStart` for arbitrary custom means; defaults are naive | Supply `start`; verify predictions |
-| Scalar / vector AGQ (`n_agq ≥ 2`) | Inside θ search when the GH grid fits; CBPP AGQ-7 golden (scalar) | Same for `nlmer` (scalar + product for `k_re > 1`) |
-| Python bindings | Polars, pandas, or PyArrow `Table` accepted; Polars canonical internally | [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md) |
-
-### Red — not a substitute yet
-
-| Expectation | Reality |
-|:------------|:--------|
-| Drop-in replacement for all of `lme4` + `lmerTest` + `car` + `nlme` | Intentionally partial API |
-| Arbitrary R formula edge cases | Wilkinson coverage includes `a:b`, `log`/`I()`, `poly()`, `ns()`, `y ~ .`, and nested/crossed RE. Remaining gaps are rarer R syntax (`knots=` in `ns()`, multivariate `cbind()`). |
-| Full `stats::SS*` / general nonlinear mixed modeling | Eleven built-ins (`SSlogis` … `SSgompertz`, **`SSpower`**, **`SSfpl`**, **`SSbiexp`**, **`SSweibull`**, **`SSasympOff`**, **`SSasympOrig`**) + custom means; `SSpower` is lme-rs / MATLAB-aligned, not R `stats` |
-| Identical GLMM AIC/BIC / log-likelihood to R | Deviance omits data-dependent constants |
-| “Proven in production” without your own validation | 0.2.x; limited public field track record |
-| Competitive cold `lmer()` vs MixedModels.jl on **unmeasured** RE layouts | LMM tier-A fair harness met **&lt;1.0×** Julia ([2026-07-22](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)); benchmark exotic layouts locally. GLMM rows in that file predate later PIRLS/AGQ work. |
-
----
-
-## Assurance levels (what “tested” means)
-
-| Level | Examples | Trust for your problem |
-|:------|:---------|:-----------------------|
-| **Golden parity** | Manifest in [`tests/data/golden_parity_manifest.json`](tests/data/golden_parity_manifest.json) — sleepstudy, dyestuff, pastes, cbpp, orange nlmer, etc. | High **if your case matches** (dataset shape, formula family, REML/ML) |
-| **Integration tests** | [`tests/test_numerical_parity.rs`](tests/test_numerical_parity.rs), [`tests/test_glmm.rs`](tests/test_glmm.rs), nlmer suites | High for the pattern covered; does not generalize automatically |
-| **Cross-language comparisons** | [`comparisons/`](comparisons/) scripts | Regression aids; some runs are manual or tag CI |
-| **Documented only** | Mentioned in GUIDE with fewer tests | Validate yourself |
-| **Not implemented** | Incomplete criteria and “Not started” rows in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | Do not use |
-
-Numerical parity is a **goal on covered workflows**, not a blanket warranty. See [README.md](README.md) (“Limitations and compatibility notes”).
-
----
-
-## Rust vs Python
-
-| Concern | Rust (`lme-rs`) | Python (`lme_python`) |
-|:--------|:----------------|:----------------------|
-| API breadth | Full formula + matrix paths | Formula `lm(formula, data)` plus numeric `lm(y, x)` / `lm_matrix` |
-| Data | `polars::DataFrame` | Polars / pandas / PyArrow `Table` (normalized to Polars IPC) |
-| Maturity | Same engine | Same engine; stubs in [`python/lme_python.pyi`](python/lme_python.pyi) |
-| When to prefer | Native pipelines, amortized `fit_prepared` / `fit_prepared_glmer`, `cv_grouped*`, embedding in Rust services | Notebooks, Polars-centric Python stacks; prepare/CV/boot/GLMM APIs exposed |
-
----
-
-## Performance is part of usability
-
-There is no sharp line between “analysis” and “throughput” use — only **how often you pay the fit cost** and **whether that cost fits your budget**.
-
-| Call pattern | Performance bar | Typical `lme-rs` posture (2026-07-22 LMM harness) |
-|:-------------|:----------------|:----------------------------------------|
-| **One-off** fit, inspect, publish | Seconds are usually fine | Most green LMM/GLMM workflows are usable |
-| **Interactive** exploration (many refits, tuning) | Multi-second fits feel broken quickly | Yellow for crossed RE via one-shot `lmer()`; `prepare_lmer` / `fit_prepared` improves this |
-| **Batch / CV / bootstrap** (same formula, many fits) | Linear cost in repetitions; setup amortization matters | Use `prepare_lmer` / `prepare_glmer`, `boot_lmer` / `boot_glmer(..., n_jobs=…)`, or `cv_grouped` / `cv_grouped_glmer(..., n_jobs=…)`; see [OPTIMIZATION.md](OPTIMIZATION.md) and [GUIDE.md](GUIDE.md#bootstrap-refits-boot_lmer--boot_glmer) |
-| **Embedded Rust service** (fits on the request path) | Latency SLOs are hard requirements | Benchmark your RE structure; random-slopes sleepstudy pattern is ~sub-ms hot fit on the reference workstation |
-
-**Practical rule:** if correctness checks pass but the fit is too slow for how you will call the API, treat that workflow as **downgraded** (green → yellow, or yellow → red) until you have measured it or switched to an amortized path.
-
-Before committing to a hot path, read [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) for tier-A cases and run [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) with `--with-phases` on workloads that match your RE structure.
-
----
-
-## Related docs
-
-| Doc | Role |
-|:----|:-----|
-| [README.md](README.md) | Overview, quick start, limitations |
-| [GUIDE.md](GUIDE.md) / [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md) | How to call APIs |
-| [comparisons/COMPARISONS.md](comparisons/COMPARISONS.md) | What is regression-tested vs manual |
-| [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) | Internal coverage map (not a usability score) |
-| [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) / [BENCHMARKS.md](BENCHMARKS.md) / [OPTIMIZATION.md](OPTIMIZATION.md) | Tier-A cases, fit timing scope, engineering notes |
-| [docs/CALO_CALIBRATION.md](docs/CALO_CALIBRATION.md) | Sensor calibration: independent batch NLS vs pooled `nlmer`; CUDA / lightcurve-fitting |
-| [CHANGELOG.md](CHANGELOG.md) | Release history |
-
----
+The July 22 reference contains **10 LMM** and **2 GLMM** timing cases. LMM cold
+and prepared timings passed that run's gate; later GLMM fitting changes make
+its GLMM rows historical. See [benchmark coverage](BENCHMARK_COVERAGE.md).
 
 ## Maintenance
 
-When a workflow moves from yellow → green (new golden case, clearer docs, production feedback, **or performance that meets the intended call pattern**), update the tables and bump **Last assessed**. When adding features, update [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) separately — do not treat a higher completion percentage as automatic usability improvement.
+Update scope statements with implementation and test evidence. Keep benchmark
+dates tied to the artifacts actually measured. Do not change the
+[completion score](REPO_COMPLETION_BY_AREA.md) merely because wording or
+navigation improves.

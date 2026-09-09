@@ -1,4 +1,25 @@
-# Comparing lme-rs with R, Python, and Julia Outputs
+# Numerical comparisons with R, Python, and Julia
+
+[Documentation](../docs/README.md) · [Runnable examples](../docs/EXAMPLES.md) · [Benchmark methodology](../BENCHMARKS.md)
+
+## Find a comparison
+
+| Model or operation | Section |
+|:-------------------|:--------|
+| How references are checked | [Validation](#parity-validation) |
+| Sleepstudy, REML | [Model](#the-model) |
+| Sleepstudy, ML | [ML comparison](#maximum-likelihood-estimation-reml--false) |
+| Random intercept | [Dyestuff](#intercept-only-linear-mixed-models-dyestuff) |
+| Poisson GLMM | [Grouseticks](#generalized-linear-mixed-models-glmm) |
+| Binomial GLMM | [CBPP](#generalized-linear-mixed-models-binomial) |
+| Nested effects | [Pastes](#nested-random-effects-pastes) |
+| Crossed effects | [Penicillin](#crossed-random-effects-penicillin) |
+| Weighted LMM | [Weights](#weighted-linear-mixed-models-lmer_weighted) |
+| Categorical inference | [Multi-DoF ANOVA](#4-categorical-dummy-encoding--multi-dof-anova) |
+
+Console blocks below are recorded examples, not live outputs. Tests compare
+against stored fixtures; rerun the relevant scripts to establish results on a
+new revision. Some independent Python models simplify the random structure.
 
 This document collects representative side-by-side outputs for `lme-rs` against reference mixed-effects tooling in R (`lme4`), Python (`statsmodels` where applicable), and Julia (`MixedModels.jl`). These comparisons are evidence that the covered workflows line up closely on the included fixtures; they are not a blanket claim that every model in every ecosystem is identical.
 
@@ -10,9 +31,9 @@ This document collects representative side-by-side outputs for `lme-rs` against 
 
 - **Rust (`lme-rs`)** — the primary implementation exercised by integration tests.
 - **Python (`statsmodels`)** — used in most `comparisons/*.py` scripts as an independent (or approximate) reference implementation. Some scripts use row-replication or simplified random structures where `MixedLM` cannot match `lme4` one-to-one; see each subsection.
-- **Python (`lme_python`, optional)** — PyO3 bindings that call the **same Rust code** as the crate. Install with `maturin develop` under `python/` if you need Python to mirror Rust exactly on a fixture.
+- **Python (`lme_python`, optional)** — PyO3 bindings that call the **same Rust code** as the crate. Follow [the bindings setup](../CONTRIBUTING.md#python-bindings) to use the same engine on a fixture.
 - **R (`lme4`)** — the usual numerical reference for mixed models in this repo: `lmer` / `glmer` with the same formula and data.
-- **Julia (`MixedModels.jl`)** — a separate implementation; generally close on standard LMM/GLMM examples but not guaranteed to match `lme4` or `lme-rs` to machine precision. For **fit throughput** (not parity), see the fair timing harness and [2026-07-04 reference results](../BENCHMARKS.md#fair-rust-vs-julia-reference-results) in [`BENCHMARKS.md`](../BENCHMARKS.md).
+- **Julia (`MixedModels.jl`)** — a separate implementation; generally close on standard LMM/GLMM examples but not guaranteed to match `lme4` or `lme-rs` to machine precision. For **fit throughput** (not parity), see the fair timing harness and [dated reference results](../BENCHMARKS.md#fair-rust-vs-julia-reference-results) in [`BENCHMARKS.md`](../BENCHMARKS.md).
 
 ### Automated checks in the repository (CI / `cargo test`)
 
@@ -77,7 +98,7 @@ To re-run the automated parity tests locally: from the repository root, `cargo t
 
 ## The Model
 
-All three examples fit the following linear mixed-effects model:
+The primary sleepstudy examples fit the following linear mixed-effects model:
 
 ```text
 Reaction ~ Days + (Days | Subject)

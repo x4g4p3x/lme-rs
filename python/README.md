@@ -1,16 +1,31 @@
 # lme-python
 
-Native Python bindings for [`lme-rs`](https://github.com/x4g4p3x/lme-rs), a Rust implementation of linear, generalized linear, and nonlinear mixed-effects models modeled after R's `lme4` workflow.
+Python bindings for [lme-rs](https://github.com/x4g4p3x/lme-rs):
+linear, generalized linear, and nonlinear mixed-effects models with
+`lme4`-style formulas. Fitting runs in the same Rust engine used by the crate.
+
+[Python guide](https://github.com/x4g4p3x/lme-rs/blob/master/python/PYTHON_GUIDE.md) ·
+[Examples](https://github.com/x4g4p3x/lme-rs/blob/master/docs/EXAMPLES.md) ·
+[Workflow scope](https://github.com/x4g4p3x/lme-rs/blob/master/USABILITY.md)
 
 ## Install
 
 ```bash
-pip install lme-python
+python -m pip install lme-python
 ```
 
-The latest published version is **[0.2.2](https://pypi.org/project/lme-python/0.2.2/)**. Published wheels are available for CPython 3.10 on Windows, macOS, and Linux; CI also builds and tests wheels from source on Python 3.10–3.13. The package imports as `lme_python` and uses Polars DataFrames. See the [changelog](https://github.com/x4g4p3x/lme-rs/blob/master/CHANGELOG.md) for what 0.2.2 ships.
+Install **`lme-python`**, import **`lme_python`**. Polars is a package dependency.
+A compatible binary wheel does not require a Rust toolchain or an R installation.
+
+Check the selected version's [PyPI files](https://pypi.org/project/lme-python/#files)
+for your Python interpreter, OS, and architecture. The release workflow builds
+CPython 3.10 wheels; source-build CI tests Python 3.10–3.13. Those tests do not
+imply that a wheel is published for each tested interpreter. If pip falls back
+to a source build, follow [the source setup](https://github.com/x4g4p3x/lme-rs/blob/master/CONTRIBUTING.md#python-bindings).
 
 ## Quick start
+
+This example needs no repository files:
 
 ```python
 import lme_python
@@ -23,22 +38,38 @@ data = pl.DataFrame(
         "group": ["a"] * 4 + ["b"] * 4 + ["c"] * 4,
     }
 )
-
 fit = lme_python.lmer("y ~ x + (1 | group)", data=data, reml=True)
 print(fit.summary())
 print(fit.predict(data))
 ```
 
-The bindings also expose GLMMs (`glmer`), nonlinear mixed models (`nlmer`), prediction and simulation, profile and bootstrap confidence intervals, grouped cross-validation, contrasts, Type I/II/III ANOVA, and LMM estimated marginal means with reference-grid pairwise comparisons.
+The formula estimates a shared intercept and slope plus a random intercept
+for each group. The small synthetic dataset is an API demonstration.
+`predict` returns fixed-effects predictions; use `predict_conditional`
+when you want the fitted group effects.
 
-## Documentation
+## Continue your analysis
 
-- [Python guide](https://github.com/x4g4p3x/lme-rs/blob/master/python/PYTHON_GUIDE.md)
-- [Rust and Python workflow guide](https://github.com/x4g4p3x/lme-rs/blob/master/GUIDE.md)
-- [Supported workflows and limitations](https://github.com/x4g4p3x/lme-rs/blob/master/USABILITY.md)
-- [Numerical comparisons](https://github.com/x4g4p3x/lme-rs/blob/master/comparisons/COMPARISONS.md)
-- [Release history](https://github.com/x4g4p3x/lme-rs/blob/master/CHANGELOG.md)
+The bindings expose `lm`, `lmer`, `glmer`, and `nlmer`, along with prediction,
+intervals, simulation, grouped cross-validation, bootstrap refits, ANOVA,
+contrasts, and LMM estimated marginal means.
+
+- [Python guide](https://github.com/x4g4p3x/lme-rs/blob/master/python/PYTHON_GUIDE.md):
+  data requirements, fitting, inference, and structured results.
+- [Type reference](https://github.com/x4g4p3x/lme-rs/blob/master/python/lme_python.pyi):
+  function signatures and result fields.
+- [Supported workflows](https://github.com/x4g4p3x/lme-rs/blob/master/USABILITY.md):
+  model-specific scope and limitations.
+- [Troubleshooting](https://github.com/x4g4p3x/lme-rs/blob/master/docs/TROUBLESHOOTING.md):
+  installation, data, convergence, and prediction problems.
+- [Changelog](https://github.com/x4g4p3x/lme-rs/blob/master/CHANGELOG.md):
+  release history. Use the matching repository tag for version-specific docs.
 
 ## Development
 
-Contributor setup, validation commands, and release policy live in the repository's [CONTRIBUTING.md](https://github.com/x4g4p3x/lme-rs/blob/master/CONTRIBUTING.md). The automated `task consumer:smoke` gate builds an isolated wheel, installs it into a clean environment, and runs the portable examples against that installed artifact.
+See [Contributing](https://github.com/x4g4p3x/lme-rs/blob/master/CONTRIBUTING.md)
+for the locked development environment and extension build. After building,
+use `uv run --no-sync` for examples and tests.
+
+`task consumer:smoke` builds a wheel, verifies it in isolated environments,
+and runs portable examples against the installed artifact.

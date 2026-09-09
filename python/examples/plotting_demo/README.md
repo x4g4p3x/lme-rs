@@ -1,129 +1,101 @@
-# Plotting mini-project
+# Model diagnostics and comparison plots
 
-This folder complements [`../verification_project/`](../verification_project/): instead of asserting reference scalars, it **fits** mixed models with `lme_python`, draws **matplotlib** figures from the fitted object, optionally reproduces the same views in **R (lme4)**, and produces **comparison** and **overlay** images.
+[Example catalog](../../../docs/EXAMPLES.md) · [Verification project](../verification_project/README.md)
 
-| Goal | Where it lives |
-|------|----------------|
-| Exercise the Python API on `tests/data/` | `plot_demo.py` → `figures/` |
-| Same fits in R | `plot_r.R` → `figures_r/` |
-| Side-by-side PNGs (unchanged styling) | `compare_plots.py` → `figures_compare/` |
-| **True** Python vs R overlay (shared axes, two colors) | `compare_plots.py` + `numeric_overlay.py` → `figures_overlay/` |
+This optional demo fits models with `lme_python`, draws Matplotlib diagnostics,
+and can compare them with R `lme4` output. Plots help inspect a model;
+[the verification project](../verification_project/README.md) provides numeric
+assertions.
 
-Exports used for the numeric overlay live in **`figures_data/`** (JSON from Python, CSV from R). All generated paths are gitignored.
+## Python setup
 
----
-
-## Quick start (full pipeline)
-
-From the **repository root**, with `lme_python` built and R + **lme4** available:
+Start in the repository root and build the extension in the project environment:
 
 ```bash
-python python/examples/plotting_demo/run_all.py
-```
-
-This runs, in order: **`plot_demo.py`** → **`plot_r.R`** → **`compare_plots.py`**. It prefers **`python/.venv`** for Python steps when that venv exists (so a global `python` launcher can still find `lme_python` installed by `maturin develop`).
-
----
-
-## Setup (Python)
-
-```bash
+mise install
 cd python
-pip install matplotlib numpy pillow
-maturin develop --release
+uv sync --extra dev --no-install-project
+uv run --no-sync maturin develop --release
+uv pip install matplotlib numpy pillow
 ```
 
-**CPython 3.14:** PyO3 may reject 3.14 until explicitly supported. Use the stable ABI (see [`PYTHON_GUIDE.md`](../../PYTHON_GUIDE.md)):
+The plotting packages are optional demo dependencies. Use `--no-sync` for the
+commands below so the editable extension and these packages remain installed.
 
-```powershell
-cd python
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin develop --release
-```
+## Python figures only
+
+From **`python/`**:
 
 ```bash
-export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
-cd python && maturin develop --release
+uv run --no-sync python examples/plotting_demo/plot_demo.py
 ```
 
----
+Outputs go under this demo directory. Fixture paths are resolved by
+[paths.py](paths.py).
 
-## Setup (R, for parity plots)
+## Optional R comparison
 
-Install [R](https://www.r-project.org/) (e.g. Windows: `winget install RProject.R`). Install **lme4** once:
+Install R and the `lme4` package. In an R session:
 
 ```r
 install.packages("lme4")
 ```
 
-`run_all.py` and `find_rscript.py` locate **`Rscript`** via `PATH`, the Windows registry (`SOFTWARE\R-core\R` → `InstallPath`), and `Program Files\R\R-*\bin`, so you do not have to add R to `PATH` manually.
-
----
-
-## Run scripts individually
-
-**Python figures only** (repo root):
+Then, from **`python/`**, run the complete pipeline:
 
 ```bash
-python python/examples/plotting_demo/plot_demo.py
+uv run --no-sync python examples/plotting_demo/run_all.py
 ```
 
-Writes **`figures/`** and **`figures_data/*_py.json`** for overlay.
+The runner executes Python figures, R figures, then comparisons. It prefers
+the repository's Python environment. [find_rscript.py](find_rscript.py)
+locates Rscript using PATH and supported Windows installation locations.
 
-**R figures only** (repo root):
+To run just the R stage from the **repository root**:
 
 ```bash
 Rscript python/examples/plotting_demo/plot_r.R
-# or, if cwd differs:
-Rscript python/examples/plotting_demo/plot_r.R "C:/path/to/lme-rs"
 ```
 
-Writes **`figures_r/`** and **`figures_data/*_r.csv`**.
-
-**Compare** (requires **`figures/`** and **`figures_r/`**; overlay needs complete **`figures_data/`** from both steps above):
+To rebuild comparisons from existing outputs, run from **`python/`**:
 
 ```bash
-python python/examples/plotting_demo/compare_plots.py
+uv run --no-sync python examples/plotting_demo/compare_plots.py
 ```
 
-Optional debug: **`--overlay-raw`** adds a full-frame 50/50 alpha blend (usually misaligned).
-
----
-
-## Output directories
+## Read the outputs
 
 | Directory | Contents |
-|-----------|----------|
-| `figures/` | Matplotlib PNGs from `lme_python`. |
-| `figures_r/` | Base-graphics PNGs from **lme4** (same pixel sizes as `figure_specs.py` / `plot_r.R`). |
-| `figures_data/` | JSON + CSV for numeric overlay (fitted values, curves, grouseticks `mu`/`y`). |
-| `figures_compare/` | Side-by-side panels: lme_python \| lme4 (original appearance, R resized to match). |
-| `figures_overlay/` | **Numeric overlay**: one matplotlib plot per file, **shared axes** — Python **blue**, R **orange** (`×` where appropriate). |
-| `figures_overlay_raster/` | Only if `figures_data/` is incomplete: crop + shift + tinted raster blend (best-effort). |
+|:----------|:---------|
+| `figures/` | Python model diagnostics |
+| `figures_r/` | R diagnostic figures |
+| `figures_data/` | Python JSON and R CSV used for numeric overlays |
+| `figures_compare/` | Side-by-side image panels |
+| `figures_overlay/` | Shared-axis numeric overlays: Python blue, R orange |
+| `figures_overlay_raster/` | Best-effort raster fallback when numeric data is incomplete |
 
----
+These generated directories are ignored by Git. A raster overlay is an image
+comparison, not evidence of numerical agreement. Optional `--overlay-raw`
+produces a full-frame blend that may be misaligned.
 
-## Models and API mapping
+## Models and prediction semantics
 
-| Output basename | Model | Python | R (lme4) |
-|-----------------|--------|--------|----------|
-| `sleepstudy_residuals_vs_fitted.png` | LMM | `fitted`, `residuals` | `fitted()`, `residuals()` |
-| `sleepstudy_days_reaction_curves.png` | LMM | `predict`, `predict_conditional` | `predict(..., re.form = NA / NULL)` |
-| `grouseticks_observed_vs_fitted.png` | Poisson GLMM | `predict_response` | `predict(..., type = "response", re.form = NA)` |
+| Figure | Model/API |
+|:-------|:----------|
+| Sleepstudy residuals versus fitted | Random-slope REML LMM; `fitted` and `residuals` |
+| Sleepstudy curves | `predict` for population effects; `predict_conditional` for known subjects |
+| Grouseticks observations versus fitted means | Poisson GLMM; `predict_response` |
 
-Formulas match the verification project fixtures: sleepstudy `Reaction ~ Days + (Days | Subject)` (REML), grouseticks `TICKS ~ YEAR + HEIGHT + (1 | BROOD)` with `nAGQ = 1`.
+Formulas are `Reaction ~ Days + (Days | Subject)` and
+`TICKS ~ YEAR + HEIGHT + (1 | BROOD)`. The GLMM uses Laplace (`n_agq=1`).
+Check [the Python guide](../../PYTHON_GUIDE.md#predictions) before comparing
+link-scale and response-scale quantities.
 
----
+## Source map
 
-## Layout (source files)
-
-| File | Role |
-|------|------|
-| `figure_specs.py` | DPI, figure sizes, matplotlib `subplots_adjust`, overlay crop constants (raster fallback). |
-| `paths.py` | Resolves repo root and `tests/data/`. |
-| `plot_demo.py` | Fits models, writes `figures/` and `figures_data/*_py.json`. |
-| `plot_r.R` | Fits **lme4**, writes `figures_r/` and `figures_data/*_r.csv`. |
-| `numeric_overlay.py` | Builds **`figures_overlay/`** from `figures_data/` (shared-axes overlay). |
-| `compare_plots.py` | **`figures_compare/`**; numeric overlay or raster fallback. |
-| `find_rscript.py` | Resolves `Rscript` on Windows when not on `PATH`. |
-| `run_all.py` | Runs the three stages with project venv + `find_rscript`. |
+- [plot_demo.py](plot_demo.py): Python fits and exported values.
+- [plot_r.R](plot_r.R): R fits and exported values.
+- [numeric_overlay.py](numeric_overlay.py): shared-axis overlays.
+- [compare_plots.py](compare_plots.py): side-by-side and fallback comparisons.
+- [figure_specs.py](figure_specs.py): shared sizing and layout settings.
+- [run_all.py](run_all.py): pipeline orchestration.

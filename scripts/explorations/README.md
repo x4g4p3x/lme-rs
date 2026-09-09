@@ -1,6 +1,10 @@
 # Standalone explorations
 
-These are **library probes**, not CI tooling. They replace the old fiasto AST scripts that were removed with the native Wilkinson parser.
+[Documentation](../../docs/README.md) · [Example catalog](../../docs/EXAMPLES.md)
+
+These small programs expose parser structures, fitting objectives, and comparison
+adjustments for inspection. Use the numerical regression tests to validate a
+change; use these probes to understand its behavior.
 
 Run from the repository root (`--release` is optional for the AST dump; use it for the θ-grid and MCP fits):
 

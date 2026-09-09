@@ -1,6 +1,11 @@
-# lme-rs User Guide
+# Rust user guide
 
-This guide covers the practical Rust workflow for fitting linear, generalized linear, and nonlinear mixed-effects models with `lme-rs`.
+[Documentation](docs/README.md) · [Python guide](python/PYTHON_GUIDE.md) · [Examples](docs/EXAMPLES.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+Fit a model, inspect its diagnostics, then choose prediction and inference
+methods for your question. This guide describes the development checkout;
+use the matching Git tag for an exact release. Full signatures are in
+[the Rust API reference](https://docs.rs/lme-rs/latest/lme_rs/).
 
 ## Table of Contents
 
@@ -20,6 +25,9 @@ This guide covers the practical Rust workflow for fitting linear, generalized li
 
 ### Installation
 
+Create a binary crate with `cargo new mixed-model-demo`, then add these
+dependencies to its `Cargo.toml`:
+
 ```toml
 [dependencies]
 lme-rs = "0.2.2"
@@ -27,9 +35,49 @@ polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```
 
+Use a stable Rust toolchain and a native compiler/linker for your platform.
+The library uses static MKL on x86_64 and static OpenBLAS on the other targets
+configured in [Cargo.toml](Cargo.toml). The first build can take longer while
+native dependencies are prepared. Rust Polars **0.46** must match the library's
+DataFrame type; Python's Polars version numbers are independent.
+
+### First model
+
+Put this complete example in `src/main.rs` and run `cargo run --release`:
+
+```rust
+use lme_rs::lmer;
+use polars::prelude::*;
+
+fn main() -> anyhow::Result<()> {
+    let data = df!(
+        "y" => [10.0, 12.0, 13.0, 15.0, 9.0, 11.0, 14.0, 17.0, 8.0, 10.0, 12.0, 14.0],
+        "x" => [0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0],
+        "group" => ["a", "a", "a", "a", "b", "b", "b", "b", "c", "c", "c", "c"],
+    )?;
+    let fit = lmer("y ~ x + (1 | group)", &data, true)?;
+    println!("{fit}");
+    println!("Population predictions: {:?}", fit.predict(&data)?);
+    Ok(())
+}
+```
+
+The small dataset illustrates the API. `y ~ x` fits the common intercept and
+slope; `(1 | group)` adds a random intercept. `fit.predict` uses only the fixed
+effects. Inspect `fit.converged`, coefficients, and variance estimates before
+using the result.
+
+The `reml` argument selects LMM estimation:
+
+| Value | Use |
+|:------|:----|
+| `true` | REML estimation of the Gaussian mixed model |
+| `false` | ML estimation; use for likelihood-ratio comparisons of different fixed-effects designs on the same observations |
+
 ### Loading data
 
-`lme-rs` uses `polars::DataFrame` as its data container.
+`lme-rs` accepts a `polars::DataFrame`. Replace the in-memory data above with
+CSV input when needed:
 
 ```rust
 use polars::prelude::*;
@@ -41,19 +89,14 @@ let df = CsvReadOptions::default()
     .finish()?;
 ```
 
-### First model
-
-```rust
-use lme_rs::lmer;
-
-let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true)?;
-println!("{}", fit);
-```
-
-The `reml` flag controls LMM estimation mode:
-
-- `true`: REML. Prefer this for reporting variance components.
-- `false`: ML. Use this when comparing nested models with likelihood ratio tests.
+That path belongs to a **repository checkout**. Run fixture-based snippets
+from its root, or substitute your own CSV path. Subsequent examples are
+focused recipe fragments, not one program to concatenate. Each recipe assumes
+a `df` containing the columns in its formula: sleepstudy uses
+`Reaction/Days/Subject`, pastes uses `strength/batch/cask`, and CBPP examples
+use the prepared response and period columns from
+[glmm_cbpp.rs](comparisons/glmm_cbpp.rs).
+Use [the example catalog](docs/EXAMPLES.md) for complete runnable programs.
 
 ## Data Requirements
 
@@ -93,6 +136,10 @@ Transforms apply to **fixed effects and offsets**. Random-slope terms still need
 ## Modeling Workflows
 
 ### `lm()` for fixed-effects-only linear models
+
+Use `lm_df("y ~ x", &data)` for formula-based OLS on a DataFrame. The lower-level
+`lm(y, x)` below accepts numeric arrays; include an intercept column yourself.
+Add `ndarray = "0.16"` to your application when using this matrix API.
 
 ```rust
 use lme_rs::lm;
@@ -440,9 +487,14 @@ let g_ci = gboot.confint_percentile(0.95)?;
 
 | Method | Resampling | R analogue |
 |:-------|:-----------|:-----------|
-| `BootLmerMethod::Parametric` (LMM) | New Gaussian responses from fitted conditional means + σ² | `bootMer(..., type = "parametric")` |
-| `BootLmerMethod::Residual` (LMM only) | Fitted values + resampled residuals (with replacement) | `bootMer(..., type = "residual")` |
+| `BootLmerMethod::Parametric` (LMM) | New Gaussian responses from fitted conditional means + σ² | Conditional simulation; compare with `bootMer(..., use.u = TRUE, type = "parametric")` |
+| `BootLmerMethod::Residual` (LMM only) | Fitted values + resampled residuals (with replacement) | No R `bootMer(type = "residual")` option |
 | `BootLmerMethod::Parametric` (GLMM via `boot_glmer`) | Family draws from fitted μ (binomial trials → `Binom(n_i, p_i)`) | `bootMer` parametric analogue |
+
+These methods condition response draws on the fitted group effects. They do
+not resample random effects as R's default `bootMer(use.u = FALSE)` does.
+R's documented types are `parametric` and `semiparametric`; see
+[the bootMer reference](https://lme4.github.io/lme4/reference/bootMer.html).
 
 **Result fields:** `t0` (original fixed effects), `t0_theta`, `replicates` (per-draw `coefficients`, `theta`, `sigma2`, `converged`), `prop_converged`, `confint_percentile(level)` for fixed-effect percentile intervals, and `confint_percentile_vc` / `confint_percentile_all` for `.sig01`… / `.sigma` (scalar-θ LMMs report `.sig01` as the RE SD `θ·σ`).
 
@@ -527,7 +579,9 @@ println!("{}", lrt);
 
 ### Amortized fitting (`prepare_lmer` / `fit_prepared`)
 
-When you fit the **same formula and data** many times (grid search over REML vs ML, hyperparameter tuning, bootstrap replicates on fixed data), build the design matrices once and reuse them:
+Prepare once when the formula, rows, predictors, and grouping structure stay
+fixed. The prepared object also stores the response. You can fit that design
+with REML or ML without rebuilding its matrices:
 
 ```rust
 use lme_rs::{fit_prepared, prepare_lmer};
@@ -543,7 +597,10 @@ let fit_ml = fit_prepared(&prepared, false)?;
 
 ### Amortized GLMM fitting (`prepare_glmer` / `fit_prepared_glmer`)
 
-Same pattern for GLMMs — reuse design matrices across bootstrap / CV / grid refits:
+For GLMMs, the prepared object stores the design, response, family, link,
+weights, and quadrature settings. Reuse it for the same design; use the response
+replacement API for bootstrap draws. Rebuild it when design or fit settings
+change. Grouped CV prepares each training fold separately:
 
 ```rust
 use lme_rs::{family::Family, fit_prepared_glmer, prepare_glmer};
@@ -611,31 +668,29 @@ println!("OOF RMSE={:.3} log-loss={:?}", cv.rmse, cv.mean_log_loss);
 
 ### Custom parallel refits (grids, manual bootstrap)
 
-For refits that **do not** follow the standard `bootMer` response-resampling pattern, amortize setup with `prepare_lmer` and parallelize across replicates with `rayon` or a thread pool. To swap only the response vector on prepared data, use [`fit_prepared_with_response`](src/lib.rs):
+For a new response on a fixed design, Rust exposes
+`fit_prepared_with_response` (LMM) and
+`fit_prepared_glmer_with_response` (GLMM). The replacement vector must have the
+same length and row order as the prepared data.
 
 ```rust
-use lme_rs::{fit_prepared, fit_prepared_with_response, prepare_lmer};
-use rayon::prelude::*;
+use lme_rs::{fit_prepared_with_response, prepare_lmer};
+use ndarray::Array1;
 
 let prepared = prepare_lmer("Reaction ~ Days + (1 | Subject)", &df)?;
-let y_boot = /* custom response vector */;
-let fit = fit_prepared_with_response(&prepared, Some(y_boot), true)?;
+let response = Array1::from_iter(
+    df.column("Reaction")?.f64()?.into_no_null_iter().map(|y| y + 1.0),
+);
+let shifted_fit = fit_prepared_with_response(&prepared, Some(response), true)?;
 ```
 
-For identical refits (e.g. REML vs ML grid on fixed data):
+This illustrates response replacement, not a bootstrap sampling scheme.
+Use `boot_lmer` / `boot_glmer` for the implemented bootstrap methods.
+Add `ndarray = "0.16"` for the array type used above.
 
-```rust
-use lme_rs::{fit_prepared, prepare_lmer};
-use rayon::prelude::*;
-
-let prepared = prepare_lmer("Reaction ~ Days + (1 | Subject)", &df)?;
-let fits: Vec<_> = (0..100)
-    .into_par_iter()
-    .map(|_| fit_prepared(&prepared, true))
-    .collect::<Result<_, _>>()?;
-```
-
-Set `OPENBLAS_NUM_THREADS=1` / `MKL_NUM_THREADS=1` when combining outer parallelism with BLAS-backed linear algebra.
+When adding your own outer parallelism, set `OPENBLAS_NUM_THREADS=1` and
+`MKL_NUM_THREADS=1` before launching workers to avoid oversubscription.
+Never reuse a full-data design for held-out cross-validation folds.
 
 ## Limitations and Compatibility Notes
 
@@ -662,6 +717,9 @@ Fixed-effects ANOVA supports Type **I**, **II**, and **III** (`AnovaType`). Type
 The Python package mirrors most of the Rust formula API, including `prepare_lmer` / `fit_prepared`, `prepare_glmer` / `fit_prepared_glmer`, `cv_grouped` / `cv_grouped_glmer`, `boot_lmer` / `boot_glmer`, profile `confint(..., parms=)`, `nlmer` (built-in `SS*` means, bounds, AGQ), and numeric `lm(y, x)` / `lm_matrix`. See [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md).
 
 ## Troubleshooting
+
+See [the troubleshooting reference](docs/TROUBLESHOOTING.md) for installation,
+Polars version mismatches, source-build issues, and a reproducible issue checklist.
 
 ### Convergence issues
 
@@ -705,7 +763,8 @@ For concrete parity outputs, use the scripts and datasets in `comparisons/` and 
 
 | Function | Description |
 | :------- | :---------- |
-| `lm(y, x)` | fixed-effects-only linear regression |
+| `lm_df(formula, data)` | formula-based ordinary least squares |
+| `lm(y, x)` | numeric-matrix ordinary least squares; caller supplies intercept |
 | `lmer(formula, data, reml)` | linear mixed model |
 | `prepare_lmer(formula, data)` | cache design matrices for repeated LMM fits |
 | `fit_prepared(prepared, reml)` | fit from a prior `prepare_lmer` call |

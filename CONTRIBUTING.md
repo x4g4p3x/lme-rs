@@ -1,223 +1,226 @@
 # Contributing
 
-## Scope
+[Documentation](docs/README.md) · [Required checks](AGENTS.md) · [Release guide](RELEASING.md)
 
-This repository contains:
-
-- the Rust crate in the repository root
-- the Python bindings in `python/`
-- cross-language comparison scripts in `comparisons/`
-- regression fixtures and integration tests in `tests/`
+The repository contains the Rust crate, Python bindings, numerical fixtures,
+cross-language comparisons, and documentation. Start with the setup below,
+then run the checks appropriate to your change.
 
 ## Local setup
 
-### Recommended toolchain
-
-Install [mise](https://mise.jdx.dev) and run once per clone:
+Install [mise](https://mise.jdx.dev), then run from the repository root:
 
 ```bash
 mise install
-task setup    # installs pinned tools + lefthook git hooks
+task setup
 ```
 
-[`mise.toml`](mise.toml) pins Rust (stable), Python 3.11, [uv](https://docs.astral.sh/uv/), [lefthook](https://lefthook.dev/), and [go-task](https://taskfile.dev).
+[mise.toml](mise.toml) configures Rust stable, Python 3.11, uv, Task, and Lefthook.
+If tools are installed already, `task hooks:install` installs the Git hooks.
+The pre-push audit also requires `cargo-audit`; install it with
+`cargo install cargo-audit`.
 
-See [AGENTS.md](AGENTS.md) for the four-tier pre-flight model (Lefthook commit/push hooks → `task lint` / `task preflight` → `task ci`).
+All commands below assume the repository root unless a section explicitly
+changes directory. Use `mise exec -- task <name>` when the tools are installed
+but their shims are not active in your shell.
 
-Install **`cargo-audit`** for the pre-push hook: `cargo install cargo-audit` (GitHub Actions pins 0.22.1).
+## Choose the required checks
 
-### CI runner
+[AGENTS.md](AGENTS.md) is the authoritative validation policy.
 
-All checks share one implementation: [`scripts/ci/lme_ci.py`](scripts/ci/lme_ci.py). Task, Lefthook, GitHub Actions, and [`scripts/local_ci.sh`](scripts/local_ci.sh) call into it — no duplicated PowerShell/bash logic. GitHub Actions validation runs automatically for pull requests and `v*` release tags; use local Task/Lefthook checks before pushing, or `workflow_dispatch` for an ad hoc remote run. A separate lightweight workflow primes trusted Rust dependency caches on relevant `master` changes and weekly. Hosted timing evidence and the cache/test-layout rationale are recorded in [`CI_PERFORMANCE.md`](CI_PERFORMANCE.md).
+| Change | Minimum checks and escalation |
+|:-------|:------------------------------|
+| Rust code | `task lint`, `task test:fast`; `task rust` for cross-module or public-API changes |
+| Python bindings | `task lint:python`, `task python` |
+| CI, manifests, release tooling | `task preflight`; `task ci` for releases or broad refactors |
+| R/Julia comparisons | `task lint:comparisons`; use the required variant when formatters are installed |
+| Documentation | `task docs:check`; `task consumer:smoke` when install/example behavior changes |
+| Completion-related files | `task completion:check` |
+| LMM throughput paths | Read [OPTIMIZATION.md](OPTIMIZATION.md) and run applicable fair-harness cases |
+
+For changes spanning rows, run all applicable checks. Report checks that failed,
+were skipped, or require a hosted platform.
+
+### What each layer covers
+
+- **Commit hook:** checks matching staged files. It does not run the full test suite.
+- **Push hook:** runs `task preflight`: lint, all-target compilation, Cargo audits,
+  legal/provenance checks, and metadata validation.
+- **`task ci`:** the local core CI flow, including Rust tests, bindings, portable
+  consumer examples, documentation, and completion checks.
+- **Hosted CI:** adds the OS/Python matrix, production-load gates, and
+  `pip-audit`. Local success does not establish macOS Apple Silicon behavior.
+
+Use `--no-verify` only when explicitly necessary and report the bypass.
+`task ci:fast` reuses the editable Python environment and skips the isolated
+wheel pass; it is not equivalent to full `task ci`.
+
+## Rust development
 
 ```bash
-python3 scripts/ci/lme_ci.py ci
-python3 scripts/ci/lme_ci.py rust-lint
+task lint
+task test:fast
+cargo run --release --locked --example sleepstudy
 ```
 
-### Rust
+`task test` runs the full Rust suite. `task rust` runs the full Rust validation
+slice without Python. Use release mode for numerical examples; the first build
+can take longer because of native numerical dependencies.
 
-Install a stable Rust toolchain via [rustup](https://rustup.rs) (or `mise install`).
+### Numerical changes
 
-Useful commands:
+Add tests that exercise the changed behavior. Prefer fixture-backed parity
+checks and statistical identities over tests that repeat implementation details.
 
-```bash
-cargo build --locked
-cargo test --locked          # full suite; integration tests use [profile.test] opt-level 2
-task test:fast               # unit tests only (~seconds after compile)
-cargo check --workspace --all-targets --locked
-cargo test --doc --locked
-cargo fmt --check
-cargo clippy --locked -- -D warnings
-cargo doc --no-deps --locked
-```
+| Area | Where to work |
+|:-----|:--------------|
+| Public fitting API | [src/lib.rs](src/lib.rs) |
+| Regression and identity tests | [tests](tests/) · [statistical identities](tests/test_statistical_identities.rs) |
+| Reference data | [tests/data](tests/data/) · [golden manifest](tests/data/golden_parity_manifest.json) |
+| R fixture generation | [tests/generate_test_data.R](tests/generate_test_data.R) |
+| Independent comparisons | [comparisons](comparisons/) |
+| Performance methodology | [BENCHMARKS.md](BENCHMARKS.md) · [OPTIMIZATION.md](OPTIMIZATION.md) |
 
-Or via Task:
+For reference comparisons, match rows, formula, family, link, weights, and
+REML/ML mode. Record tolerances and their reason. Refresh documented evidence
+when numerical output changes materially.
 
-```powershell
-task lint        # fmt --check + clippy + Ruff (python/tests + examples)
-task test:fast   # cargo test --lib only (quick unit tests)
-task test        # full Rust test suite
-task preflight   # pre-push hook: lint + check + cargo audit + repo-metadata dry-run
-task audit       # cargo audit + pip-audit (GHA security audit mirror)
-task docs:check  # local Markdown links + Rust examples/doctests + generated docs
-task consumer:smoke # Rust quick-start + clean-wheel Python examples
-task explorations # native-parser AST / θ-grid / MCP probes
-task rust        # full Rust slice (no Python)
-task             # full core CI mirror
-task ci:fast     # reuse python/.venv, skip isolated-wheel pytest
-```
+## Python bindings
 
-To run the same **core** checks as the pull-request/tag [GitHub Actions CI](.github/workflows/ci.yml) locally:
-
-```bash
-task ci
-# or
-python3 scripts/ci/lme_ci.py ci
-```
-
-```powershell
-task ci
-# or
-python scripts/ci/lme_ci.py ci
-```
-
-Git hooks (parallel pre-commit + pre-push **preflight**) via Lefthook:
-
-```powershell
-task hooks:install
-```
-
-### Python bindings
-
-If you are changing `python/` or verifying the Python package locally (requires [uv](https://docs.astral.sh/uv/) — pinned in [`mise.toml`](mise.toml)):
+The simplest complete validation command is `task python` from the root.
+For an interactive development environment:
 
 ```bash
 cd python
 uv sync --extra dev --no-install-project
 uv run --no-sync maturin develop --release
 uv run --no-sync pytest tests/
+uv run --no-sync python examples/lmer_sleepstudy.py
 ```
 
-[`python/uv.lock`](python/uv.lock) pins CI and local dev dependencies from [`python/pyproject.toml`](python/pyproject.toml) (`[project.optional-dependencies] dev`). After changing those dependencies:
+`uv sync` can uninstall the editable extension. After synchronizing or an
+interrupted build, rerun Maturin. Keep `--no-sync` on subsequent tests and
+examples so the extension you just built remains installed.
+
+[python/uv.lock](python/uv.lock) locks the development dependencies.
+After changing [python/pyproject.toml](python/pyproject.toml), run `uv lock`
+from `python/` and validate the package.
+
+The complete bindings flow checks the extension's version and import path,
+runs the editable package tests, then builds and tests an isolated wheel.
+`task consumer:smoke` additionally installs the wheel in a dependency-only
+environment and runs the portable examples. CI tests source builds on Python
+3.10–3.13; the full identity/consumer flow is centered on 3.11.
+
+## Comparison scripts
+
+R and Julia use formatter checks rather than broad lint suites:
+
+- R: `styler`, through [r_format.R](scripts/ci/r_format.R).
+- Julia: `JuliaFormatter`, through [julia_format.jl](scripts/ci/julia_format.jl)
+  and [.JuliaFormatter.toml](.JuliaFormatter.toml).
 
 ```bash
-cd python
-uv lock
+task lint:comparisons
+task lint:comparisons:required
 ```
 
-Use `uv run --no-sync pytest tests/` after the explicit `uv sync` so only [`python/tests/`](python/tests/) runs against the extension Maturin just installed; `pytest` alone also collects optional demos under `python/examples/`.
-
-[`task python`](Taskfile.yml) / [`scripts/ci/lme_ci.py python`](scripts/ci/lme_ci.py) assert the editable extension's version and environment path, then build, install, assert, and test the wheel in a separate locked environment. `task consumer:smoke` adds a dependency-only clean environment and runs the portable examples against the installed wheel. Pull-request/tag CI runs the full identity and consumer-example flow on Python **3.11**, tests isolated wheels on Python **3.10–3.13** on Ubuntu, and runs the consumer examples against isolated Python 3.11 wheels on Windows and macOS (jobs `python-bindings-versions` and `python-bindings-os` in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). If you use **CPython 3.14** locally, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before `maturin develop` (see [python/PYTHON_GUIDE.md](python/PYTHON_GUIDE.md)).
-
-## Working on numerical changes
-
-If you change fitting logic, optimizer behavior, variance calculations, or inference code:
-
-- for **LMM θ-search / intercept-only hot paths**, read [OPTIMIZATION.md](OPTIMIZATION.md) and re-run the fair harness cases it lists
-- add or update Rust tests in `tests/`
-- prefer fixture-backed tests for parity-sensitive behavior; add identities to [`tests/test_statistical_identities.rs`](tests/test_statistical_identities.rs) when a property should always hold (e.g. OLS residual sum, `y = fitted + residual`, valid LRT probabilities)
-- update `comparisons/COMPARISONS.md` when the reference output changes materially
-- validate hard cases against R `lme4` where practical
-
-Relevant files and directories:
-
-- `src/` for the crate implementation
-- `tests/data/` for fixture inputs
-- `tests/generate_test_data.R` for R-backed fixture generation
-- `comparisons/` for cross-language parity scripts (R, Python/statsmodels, Julia)
-
-### Comparison script formatting (optional locally)
-
-Cross-language R/Julia scripts under `comparisons/` (plus golden-parity generators in `tests/*.R`) use **format-only** checks — not full linters:
-
-- **R:** [styler](https://cran.r-project.org/package=styler) via `scripts/ci/r_format.R`
-- **Julia:** [JuliaFormatter](https://github.com/domluna/JuliaFormatter.jl) via `scripts/ci/julia_format.jl` (reads [`.JuliaFormatter.toml`](.JuliaFormatter.toml))
-
-These are **optional** on commit when the runtime is missing (same tier as R/Julia benchmarks). When Rscript/styler or julia/JuliaFormatter are installed, Lefthook auto-formats staged `comparisons/**/*.R`, `tests/*.R`, and `comparisons/**/*.jl`.
-
-```powershell
-task lint:comparisons              # skip if R/Julia formatters missing
-task lint:comparisons:required     # fail when tools/packages missing
-python scripts/ci/lme_ci.py r-format-staged --fix
-python scripts/ci/lme_ci.py julia-format-staged --fix
-```
-
-The tag/manual [benchmarks workflow](.github/workflows/benchmarks.yml) runs `comparison-format-check --required` before cross-language timing.
+The optional command skips unavailable runtimes/packages; the required command
+fails when they are missing. Installed commit formatters can modify and restage
+matching scripts. The tag/manual benchmark workflow requires the formatters.
 
 ## Working on documentation
 
-When documentation changes affect user-visible behavior, keep these files aligned:
+Use [the documentation index](docs/README.md) as the navigation map.
 
-- `README.md` for the repository landing page
-- `GUIDE.md` for Rust usage
-- `python/PYTHON_GUIDE.md` for Python usage
-- `USABILITY.md` for workflow traffic lights and adoption posture
-- `comparisons/COMPARISONS.md` for parity / golden evidence
-- `BENCHMARKS.md` / `OPTIMIZATION.md` when fit timing or amortization guidance changes
-- `CHANGELOG.md` for release-facing notes
-- `REPO_COMPLETION_BY_AREA.md` when coverage claims change
+| Content | Canonical location |
+|:--------|:-------------------|
+| Introduction and first successful fit | [README.md](README.md) |
+| Rust recipes and semantics | [GUIDE.md](GUIDE.md) |
+| Python installation and recipes | [python/README.md](python/README.md), [Python guide](python/PYTHON_GUIDE.md) |
+| Runnable commands and dependencies | [Example catalog](docs/EXAMPLES.md) |
+| Shared error diagnosis | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| Workflow scope | [USABILITY.md](USABILITY.md) |
+| Numerical and timing evidence | [Comparisons](comparisons/COMPARISONS.md), [benchmarks](BENCHMARKS.md) |
+| Release history | [CHANGELOG.md](CHANGELOG.md) |
 
-Do not describe a feature as supported unless it is exposed by the public API and covered by tests or concrete examples.
+For every new recipe, state whether it is standalone or a fragment, its working
+directory, required packages, and where data comes from. Explain result
+semantics before listing options. Link to canonical details instead of copying
+long option lists across documents.
 
-## Other GitHub Actions workflows
+`task docs:check` checks local path targets, dashboard JSON drift, Rust
+examples/doctests, and generated API docs. It does **not** check heading anchors,
+external URLs, or execute all Markdown snippets. Inspect navigation and execute
+changed copyable examples separately; use `task consumer:smoke` for installation
+and example changes.
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI on pull requests and `v*` tags, plus manual dispatch; ignored heavy production-load cases run only for tags/manual dispatch.
-- [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) — Criterion, fair Rust/Julia, and cross-language timings on `v*` tags and manual dispatch; successful tag or master dispatch republishes the dashboard overlay.
-- [`.github/workflows/pages.yml`](.github/workflows/pages.yml) — deploys the [benchmark dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) from checked-in docs and reference JSON on `master` and manual dispatch.
-- [`.github/workflows/audit.yml`](.github/workflows/audit.yml) — a required release-CI gate running `cargo audit` on the root and `python/` Rust crates plus `pip-audit` on the [`python/uv.lock`](python/uv.lock) dev environment; it also runs weekly and supports manual dispatch.
-- [`.github/workflows/fuzz-smoke.yml`](.github/workflows/fuzz-smoke.yml) — weekly and manually dispatched libFuzzer coverage for formula parsing and the formula-to-matrix pipeline.
-- [`.github/workflows/crate-publish-dry-run.yml`](.github/workflows/crate-publish-dry-run.yml) — called by release CI to publish only after the full tag matrix succeeds; manual dispatch runs `cargo publish --dry-run --locked` only.
-- [`.github/workflows/python-release.yml`](.github/workflows/python-release.yml) — dispatched as a top-level workflow by release CI to verify the tag/SHA, build, and publish only after the full tag matrix succeeds; ordinary manual dispatch builds artifacts without publishing.
+Preserve dated measurements and release history as dated evidence.
+Completion percentages are generated from locked scopes in
+[completion_manifest.json](completion_manifest.json); never edit percentages
+or narrow scopes to make a documentation refresh appear more complete.
 
-Pull requests automatically run CI. Ordinary non-PR branch pushes do not start the validation matrix; [`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys the benchmark dashboard from `master` when dashboard inputs change. Use Lefthook and Task locally before pushing, and use manual dispatch when a remote check is useful before tagging.
+## CI runner
 
-### Manual dispatch (intentional remote runs)
+[scripts/ci/lme_ci.py](scripts/ci/lme_ci.py) is the shared implementation used
+by Task, Lefthook, Actions, and the legacy local-CI wrappers. Add new checks
+there rather than duplicating shell logic.
 
-In the GitHub UI: **Actions** → select a workflow → **Run workflow** → choose the branch (defaults to the default branch).
+```bash
+python scripts/ci/lme_ci.py --help
+```
 
-From the CLI (requires [`gh`](https://cli.github.com/) authenticated against this repository):
+Use `python3` if that is your Python launcher on macOS/Linux.
+[The CI runner reference](scripts/ci/README.md) maps common commands.
 
-```powershell
-# Core CI matrix (same jobs as a release tag run)
+## GitHub Actions
+
+| Workflow | Trigger and purpose |
+|:---------|:--------------------|
+| [CI](.github/workflows/ci.yml) | Pull requests, `v*` tags, manual dispatch; PRs skip four ignored heavy production-load cases |
+| [Cache prime](.github/workflows/cache-prime.yml) | Relevant dependency changes on `master` and weekly trusted cache preparation |
+| [Benchmarks](.github/workflows/benchmarks.yml) | Tags/manual runs; timing artifacts and dashboard overlay |
+| [Pages](.github/workflows/pages.yml) | Dashboard input changes on `master` or manual dispatch |
+| [Audit](.github/workflows/audit.yml) | Release validation, weekly, manual; Cargo and Python dependency audits |
+| [Fuzz smoke](.github/workflows/fuzz-smoke.yml) | Weekly/manual formula fuzzing |
+| [Rust publishing](.github/workflows/crate-publish-dry-run.yml) | Called after successful tag CI; ordinary manual runs are dry runs |
+| [Python publishing](.github/workflows/python-release.yml) | Top-level dispatch after successful tag CI; ordinary manual runs build only |
+| [Metadata](.github/workflows/repo-metadata.yml) | Tags/manual synchronization of the GitHub About box |
+
+Ordinary branch pushes do not start the full validation matrix.
+[CI_PERFORMANCE.md](CI_PERFORMANCE.md) records historical hosted timings.
+
+### Manual dispatch
+
+Use **Actions → workflow → Run workflow**, or these Task aliases:
+
+```bash
 task gha:ci
-# or: gh workflow run ci.yml --ref master
-
 task gha:audit
-task gha:benchmarks              # optional: WARMUPS=2 REPEATS=5 task gha:benchmarks
-task gha:python-release          # build wheels only; no PyPI publish
-task gha:crate-publish           # cargo publish --dry-run --locked
-task gha:repo-metadata           # sync About box from Cargo.toml
-task gha:fuzz                    # manually start the scheduled libFuzzer smoke
-task gha:pages                   # publish the benchmark dashboard
+task gha:benchmarks
+task gha:python-release
+task gha:crate-publish
+task gha:repo-metadata
+task gha:fuzz
+task gha:pages
 ```
 
-Pass a branch with `REF=my-branch task gha:ci`. Watch runs with `gh run list` or `gh run watch`.
+The ordinary Python and crate-publish aliases do not publish packages.
+Choose a branch with `task gha:ci REF=your-branch`.
+Inspect runs with `gh run list` or `gh run watch`.
 
-## Repository metadata sync
+### Repository metadata sync
 
-The GitHub About box is synced from `Cargo.toml` using:
+The About description, topics, and homepage come from [Cargo.toml](Cargo.toml).
+Run `task repo-metadata` to dry-run the payload. If `REPO_ADMIN_TOKEN` is set,
+the runner also verifies it.
 
-- `.github/workflows/repo-metadata.yml`
-- `scripts/sync_github_repo_metadata.py`
+The hosted workflow needs a fine-grained token with repository administration
+write access. A `401 Bad credentials` requires rotating the Actions secret
+and rerunning the failed workflow.
 
-If you change `package.description`, `homepage`, `keywords`, or `categories`, the metadata workflow will update the GitHub repository metadata on the next `v*` tag run or manual dispatch.
+## Pull requests
 
-Preflight locally:
-
-```powershell
-task repo-metadata          # dry-run; verifies token if REPO_ADMIN_TOKEN is set
-python scripts/sync_github_repo_metadata.py --dry-run
-```
-
-The workflow needs a valid **`REPO_ADMIN_TOKEN`** repository secret (fine-grained PAT with **Administration: Read and write** on this repo). If CI fails with `401 Bad credentials`, create a new PAT and update **Settings → Secrets and variables → Actions → REPO_ADMIN_TOKEN**.
-
-## Pull request expectations
-
-Keep changes focused. For non-trivial changes, include:
-
-- the user-visible behavior change
-- the tests you ran
-- any compatibility or migration note if behavior changed
-
-If a change is provisional or only partially mirrors R behavior, document that explicitly instead of implying full parity.
+Describe the concrete problem, resulting behavior, validation, and any
+compatibility limits. For provisional numerical behavior, state the scope and
+evidence. Keep unrelated local changes out of the commit.

@@ -24,9 +24,9 @@ use crate::{
 /// Bootstrap resampling strategy for [`boot_lmer`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BootLmerMethod {
-    /// Draw new Gaussian responses from fitted conditional means (`bootMer` parametric).
+    /// Draw Gaussian responses conditional on fitted group effects (like `bootMer(use.u = TRUE)`).
     Parametric,
-    /// Add resampled residuals to fitted values (`bootMer` residual).
+    /// Add resampled residuals to fitted values; not an R `bootMer` type name.
     Residual,
 }
 

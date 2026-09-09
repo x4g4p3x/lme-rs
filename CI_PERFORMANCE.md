@@ -1,4 +1,10 @@
-# CI performance
+# CI performance history
+
+[Documentation](docs/README.md) · [Current CI behavior](CONTRIBUTING.md#github-actions) · [Runner reference](scripts/ci/README.md)
+
+These are historical measurements from the linked runs, not current duration
+estimates. Use the workflow files and shared runner for the current validation
+contract. Retain both cold and warm runs when adding a new comparison.
 
 This document records hosted-CI timing evidence and the optimizations that are
 safe to depend on. Times are GitHub Actions job timestamps, not local estimates.

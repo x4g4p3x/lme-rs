@@ -1,122 +1,94 @@
-# lme-rs Python Guide
+# Python user guide
 
-This guide covers the Python bindings shipped in `python/`. The package mirrors the Rust formula API (including `glmer`, `nlmer`, prepare/CV/boot, `glht`, and `emmeans`) with structured result types. A few crate-only internals stay on the Rust side.
+[Documentation](../docs/README.md) · [Package setup](README.md) · [Examples](../docs/EXAMPLES.md) · [Troubleshooting](../docs/TROUBLESHOOTING.md)
+
+The `lme_python` module calls the same Rust engine as `lme-rs`.
+This guide covers formula fitting, prediction, inference, and repeated analyses.
+Documentation on `master` follows the development checkout; use a matching
+release tag for an exact published version.
+
+## Contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Fitting models](#fitting-models)
+- [Predictions](#predictions)
+- [Confidence intervals and summary data](#confidence-intervals-and-summary-data)
+- [Repeated fits and cross-validation](#repeated-fits-and-cross-validation)
+- [Simulation](#parametric-simulation-at-scale)
+- [Data expectations](#data-expectations)
+- [API reference](#what-the-python-package-exposes)
+- [Current limitations](#current-limitations)
+- [Troubleshooting](#troubleshooting)
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.8 or newer
-- Rust toolchain via [rustup](https://rustup.rs)
-- [uv](https://docs.astral.sh/uv/) (recommended; also via [`mise.toml`](../mise.toml))
-
-### Build and install
+### Install a published package
 
 ```bash
+python -m pip install lme-python
+```
+
+A compatible wheel needs no Rust toolchain or R installation.
+[The package README](README.md#install) explains wheel availability.
+The CI matrix tests source builds on Python 3.10–3.13; package metadata and
+published wheel tags are separate from that matrix.
+
+### Build the development checkout
+
+From the repository root, use the pinned environment:
+
+```bash
+mise install
 cd python
 uv sync --extra dev --no-install-project
-uv run maturin develop --release
+uv run --no-sync maturin develop --release
+uv run --no-sync pytest tests/
 ```
 
-Without uv, create a venv manually and `pip install` the `[project.optional-dependencies] dev` packages from `pyproject.toml`, then run `maturin develop --release`.
-
-If you are building with CPython 3.14, set the PyO3 forward-compatibility flag first:
-
-```powershell
-# PowerShell
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-
-# CMD
-set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
-
-# macOS / Linux
-export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
-```
-
-## What the Python package exposes
-
-The Python module mirrors the Rust crate: formula fits, matrix OLS, contrasts, inference, prediction, and simulation. Type hints live in [`lme_python.pyi`](lme_python.pyi).
-
-Top-level functions:
-
-- `lme_python.lm(formula, data)` — Wilkinson formula OLS
-- `lme_python.lm(y, x)` / `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
-- `lme_python.lmer(formula, data, reml=True)`
-- `lme_python.prepare_lmer(formula, data)` → `PyLmerPrepared`
-- `lme_python.fit_prepared(prepared, reml=True)` → `PyLmeFit`
-- `lme_python.prepare_glmer(formula, data, family_name, n_agq=1, weights=None, link_name=None)` → `PyGlmerPrepared`
-- `lme_python.fit_prepared_glmer(prepared)` → `PyLmeFit`
-- `lme_python.refit_lmer(formula, data, reml=True)`
-- `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
-- `lme_python.cv_grouped_glmer(formula, data, group, family_name, n_splits=5, n_agq=1, weights=None, link_name=None, seed=None, n_jobs=None)` → `PyCvGroupedResult` (response-scale OOF; binomial includes `mean_log_loss`)
-- `lme_python.boot_lmer(formula, data, fit, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult`
-- `lme_python.boot_glmer(formula, data, fit, nsim=200, method="parametric", seed=None, n_jobs=None)` → `PyBootLmerResult`
-- `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
-- `lme_python.glmer(formula, data, family_name, n_agq=1, link_name=None)`
-- `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None, link_name=None)`
-- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`); optional population and group-level (`β+b`) box bounds
-- `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
-- `fit.boot(...)` / `fit.boot_glmer(...)` — convenience wrappers on `PyLmeFit`
-- `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
-- `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
-- `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
-
-Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyGlhtResult`, `PyEmmeansResult`, `PyEmmeansPairsResult`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
-
-Available `PyLmeFit` methods:
-
-- `summary()`
-- `predict(newdata)`
-- `predict_conditional(newdata, allow_new_levels=False)`
-- `predict_conditional_response(newdata, allow_new_levels=False)`
-- `predict_response(newdata)`
-- `confint(level=0.95, method="wald"|"profile", data=None, parms=None, which="fixed"|"vc"|"all")` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower; `parms` selects coefficients by index or name (`which="fixed"` only); `which="vc"` profiles `.sig01`… / `.sigma`; `which="all"` is VC then fixed effects
-- `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
-- `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
-- `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM)
-- `boot_glmer(formula, data, nsim=200, method="parametric", seed=None, n_jobs=None)` → `PyBootLmerResult` (parametric GLMM bootstrap)
-- `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
-- `with_satterthwaite(data)`  # denominator df and p-values
-- `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
-- `anova(ddf_method="satterthwaite", anova_type="III")` → `PyFixedEffectsAnova`
-- `linear_hypothesis(term, ddf_method="satterthwaite")`
-- `test_contrast(l_matrix, ddf_method="satterthwaite")`  # H₀: Lβ = 0
-- `test_contrast_vs(l_matrix, beta_h, ddf_method="satterthwaite")`  # H₀: Lβ = β_h
-- `glht(term, mcp="tukey"|"dunnett", adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|"satterthwaite")` → `PyGlhtResult`
-- `emmeans(term, data, level=0.95, ddf_method=None|"satterthwaite"|"kenward_roger")` → `PyEmmeansResult`; numeric columns are held at their means and nuisance categorical factors receive equal weight
-- `emmeans_pairs(term, data, adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|...)` → `PyEmmeansPairsResult`
-
-Selected properties:
-
-- `coefficients`, `b`, `fixed_names`, `formula`, `u`, `beta_se`, `fixed_term_assign`, `categorical_levels`, `v_beta_unscaled`
-- `family_name`, `link_name`, `family` (GLMM / NLMM)
-- `sigma2`, `theta`
-- `aic`, `bic`, `log_likelihood`, `deviance`, `reml_criterion`
-- `converged`, `iterations`, `num_obs`
-- `std_errors`, `beta_t` (LMM t-values; GLMM z-values)
-- `residuals`, `fitted`
-- `ranef`  # random effects modes
-- `var_corr`  # random-effects variance/covariance summary
-- `robust_se`, `robust_t`, `robust_p_values`
-- `satterthwaite_dfs`, `satterthwaite_p_values`
-- `kenward_roger_dfs`, `kenward_roger_p_values`
+Run examples with the same interpreter and `--no-sync`.
+A later `uv sync` can remove the editable extension; rebuild it before importing.
+See [Contributing](../CONTRIBUTING.md#python-bindings) for the complete package
+and wheel validation flow. Prefer a tested Python version over an unsupported
+interpreter workaround.
 
 ## Quick start
 
+This example is self-contained:
+
 ```python
-import polars as pl
 import lme_python
+import polars as pl
 
-df = pl.read_csv("tests/data/sleepstudy.csv")
-model = lme_python.lmer(
-    "Reaction ~ Days + (Days | Subject)",
-    data=df,
-    reml=True,
+data = pl.DataFrame(
+    {
+        "y": [10.0, 12.0, 13.0, 15.0, 9.0, 11.0, 14.0, 17.0, 8.0, 10.0, 12.0, 14.0],
+        "x": [0.0, 1.0, 2.0, 3.0] * 3,
+        "group": ["a"] * 4 + ["b"] * 4 + ["c"] * 4,
+    }
 )
-
-print(model)
-print(model.coefficients)
+fit = lme_python.lmer("y ~ x + (1 | group)", data=data, reml=True)
+print(fit.summary())
+print(fit.predict(data))
 ```
+
+`y ~ x` estimates a common intercept and slope; `(1 | group)` adds group-level
+intercept variation. `reml=True` uses REML. For model comparisons that change
+fixed effects, fit both LMMs with `reml=False` on the same observations.
+
+The dataset is deliberately small to illustrate calls. Before interpreting a
+real fit, inspect `fit.converged`, `fit.coefficients`, and `fit.var_corr`.
+`fit.predict(data)` is population-level prediction; conditional prediction
+includes the stored group effects.
+
+### Running the recipes below
+
+Later snippets illustrate separate operations. When they read
+`tests/data/...`, run them from the **repository root** with the built extension
+available, or replace the path with your own data. They are not a single script.
+The `df` / `model` variables refer to the dataset and fit in the current recipe.
+Use [complete Python examples](../docs/EXAMPLES.md#python-bindings) when you want
+an executable workflow with fixture-path handling.
 
 ## Fitting models
 
@@ -357,7 +329,8 @@ The current EMM scope is linear models/LMMs without formula offsets. It does not
 
 ### Amortized fitting
 
-When fitting the same formula and data repeatedly (REML vs ML, grid search, bootstrap on fixed data), prepare once and refit:
+Prepare once when the formula, rows, predictors, and groups are unchanged.
+The object retains its response; these calls refit that stored design and data:
 
 ```python
 prep = lme_python.prepare_lmer("Reaction ~ Days + (1 | Subject)", data=df)
@@ -413,6 +386,11 @@ print(gcv.rmse, gcv.mean_log_loss)
 
 For **Gaussian LMMs**, `boot_lmer` (or `fit.boot`) mirrors R's `bootMer`: resample responses, refit on each replicate, and summarize draws. Use **`parametric`** (default) for new Gaussian responses from fitted conditional means, or **`residual`** for fitted values plus resampled residuals.
 
+Both methods condition on the stored fitted group effects. They do not match
+R's default `bootMer(use.u = FALSE)`, which also resamples random effects.
+The Python `method="residual"` name is specific to this API; it is not an R
+`bootMer` type. See [the R reference](https://lme4.github.io/lme4/reference/bootMer.html).
+
 For **GLMMs**, `boot_glmer` (or `fit.boot_glmer`) provides the parametric path only (residual bootstrap is rejected for discrete families). Binomial proportion + integer trial weights draw `Binom(n_i, p_i)` and return proportions on the same scale as the fit.
 
 ```python
@@ -456,7 +434,11 @@ print(gboot.confint(0.95).lower)
 
 **Scope:** `boot_lmer` — LMM (parametric + residual). `boot_glmer` — GLMM (parametric only). Not NLMM. Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only (`which="fixed"|"vc"|"all"`). Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
 
-For **custom** response-resampling loops (not the standard parametric/residual paths), use `prepare_lmer` / `prepare_glmer` + the corresponding `fit_prepared*` paths — see [GUIDE.md § Custom parallel refits](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
+Python's `fit_prepared` and `fit_prepared_glmer` reuse the stored response;
+they do not accept a replacement response vector. Use the bootstrap helpers
+above, rebuild from changed data, or use the Rust
+[response-replacement APIs](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
+Cross-validation builds each training-fold design separately.
 
 ## Parametric simulation at scale
 
@@ -511,6 +493,74 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 
 **Categorical / string columns:** use string columns for grouping factors (same as Polars). With pandas, prefer explicit `str` dtypes or `category` columns whose levels match the formula; nullable integer columns may need casting before fitting.
 
+## What the Python package exposes
+
+The Python module mirrors the Rust crate: formula fits, matrix OLS, contrasts, inference, prediction, and simulation. Type hints live in [`lme_python.pyi`](lme_python.pyi).
+
+Top-level functions:
+
+- `lme_python.lm(formula, data)` — Wilkinson formula OLS
+- `lme_python.lm(y, x)` / `lme_python.lm_matrix(y, x)` — numeric design matrix (Rust `lm(y, x)`)
+- `lme_python.lmer(formula, data, reml=True)`
+- `lme_python.prepare_lmer(formula, data)` → `PyLmerPrepared`
+- `lme_python.fit_prepared(prepared, reml=True)` → `PyLmeFit`
+- `lme_python.prepare_glmer(formula, data, family_name, n_agq=1, weights=None, link_name=None)` → `PyGlmerPrepared`
+- `lme_python.fit_prepared_glmer(prepared)` → `PyLmeFit`
+- `lme_python.refit_lmer(formula, data, reml=True)`
+- `lme_python.cv_grouped(formula, data, group, n_splits=5, reml=True, seed=None, n_jobs=None)` → `PyCvGroupedResult`
+- `lme_python.cv_grouped_glmer(formula, data, group, family_name, n_splits=5, n_agq=1, weights=None, link_name=None, seed=None, n_jobs=None)` → `PyCvGroupedResult` (response-scale OOF; binomial includes `mean_log_loss`)
+- `lme_python.boot_lmer(formula, data, fit, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult`
+- `lme_python.boot_glmer(formula, data, fit, nsim=200, method="parametric", seed=None, n_jobs=None)` → `PyBootLmerResult`
+- `lme_python.lmer_weighted(formula, data, reml=True, weights=None)`
+- `lme_python.glmer(formula, data, family_name, n_agq=1, link_name=None)`
+- `lme_python.glmer_weighted(formula, data, family_name, n_agq=1, weights=None, link_name=None)`
+- `lme_python.nlmer(formula, data, start=None, reml=False, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None)` — built-in nonlinear means (`SSlogis`, `SSasymp`, `SSfol`, `SSmicmen`, `SSgompertz`, `SSpower`, `SSfpl`, `SSbiexp`, `SSweibull`, `SSasympOff`, `SSasympOrig`); optional population and group-level (`β+b`) box bounds
+- `lme_python.nlmer_with_mean(formula, data, mean_fn, param_names, ...)` — user-defined nonlinear means
+- `fit.boot(...)` / `fit.boot_glmer(...)` — convenience wrappers on `PyLmeFit`
+- `lme_python.contrast_matrix(p, rows)` — **L** from `(column_index, weight)` rows
+- `lme_python.contrast_matrix_from_names(fixed_names, rows)` — **L** from coefficient names
+- `lme_python.anova(fit_a, fit_b)` → `PyLikelihoodRatioAnova` (nested LRT)
+
+Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsAnova`, `PyContrastTest`, `PyGlhtResult`, `PyEmmeansResult`, `PyEmmeansPairsResult`, `PyLikelihoodRatioAnova`, `PyFamily`, `PyLmerPrepared`, `PyGlmerPrepared`, `PyCvFoldMetric`, `PyCvGroupedResult`, `PyBootReplicate`, `PyBootLmerResult`, `PyBootConfintResult`.
+
+Available `PyLmeFit` methods:
+
+- `summary()`
+- `predict(newdata)`
+- `predict_conditional(newdata, allow_new_levels=False)`
+- `predict_conditional_response(newdata, allow_new_levels=False)`
+- `predict_response(newdata)`
+- `confint(level=0.95, method="wald"|"profile", data=None, parms=None, which="fixed"|"vc"|"all")` → `PyConfintResult` (indexable as `(lower, upper)` tuples via `ci[i]`); Wald uses **t** with Kenward–Roger or Satterthwaite dfs when those are on the fit; profile requires `data` and is slower; `parms` selects coefficients by index or name (`which="fixed"` only); `which="vc"` profiles `.sig01`… / `.sigma`; `which="all"` is VC then fixed effects
+- `simulate(nsim, n_jobs=None, seed=None)` → `PySimulateResult` (use `.simulations` for the draw list; `seed` makes draws reproducible across `n_jobs`)
+- `simulate_batches(nsim, batch_size, n_jobs=None, seed=None)` → iterable `PySimulateBatches` for large `nsim` without holding all draws in memory
+- `boot(formula, data, nsim=200, method="parametric", reml=True, seed=None, n_jobs=None)` → `PyBootLmerResult` (`bootMer`-style refits; LMM)
+- `boot_glmer(formula, data, nsim=200, method="parametric", seed=None, n_jobs=None)` → `PyBootLmerResult` (parametric GLMM bootstrap)
+- `with_robust_se(data, cluster_col=None)`  # sandwich standard errors
+- `with_satterthwaite(data)`  # denominator df and p-values
+- `with_kenward_roger(data)`  # Kenward-Roger denominator df and p-values
+- `anova(ddf_method="satterthwaite", anova_type="III")` → `PyFixedEffectsAnova`
+- `linear_hypothesis(term, ddf_method="satterthwaite")`
+- `test_contrast(l_matrix, ddf_method="satterthwaite")`  # H₀: Lβ = 0
+- `test_contrast_vs(l_matrix, beta_h, ddf_method="satterthwaite")`  # H₀: Lβ = β_h
+- `glht(term, mcp="tukey"|"dunnett", adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|"satterthwaite")` → `PyGlhtResult`
+- `emmeans(term, data, level=0.95, ddf_method=None|"satterthwaite"|"kenward_roger")` → `PyEmmeansResult`; numeric columns are held at their means and nuisance categorical factors receive equal weight
+- `emmeans_pairs(term, data, adjust="tukey"|"bonferroni"|"holm"|"none", ddf_method=None|...)` → `PyEmmeansPairsResult`
+
+Selected properties:
+
+- `coefficients`, `b`, `fixed_names`, `formula`, `u`, `beta_se`, `fixed_term_assign`, `categorical_levels`, `v_beta_unscaled`
+- `family_name`, `link_name`, `family` (GLMM / NLMM)
+- `sigma2`, `theta`
+- `aic`, `bic`, `log_likelihood`, `deviance`, `reml_criterion`
+- `converged`, `iterations`, `num_obs`
+- `std_errors`, `beta_t` (LMM t-values; GLMM z-values)
+- `residuals`, `fitted`
+- `ranef`  # random effects modes
+- `var_corr`  # random-effects variance/covariance summary
+- `robust_se`, `robust_t`, `robust_p_values`
+- `satterthwaite_dfs`, `satterthwaite_p_values`
+- `kenward_roger_dfs`, `kenward_roger_p_values`
+
 ## Current limitations
 
 - `cv_grouped` supports LMMs; `cv_grouped_glmer` supports GLMMs; `boot_lmer` / `boot_glmer` cover LMM/GLMM bootstrap (not NLMM).
@@ -521,24 +571,25 @@ fit = lme_python.lmer("Reaction ~ Days + (Days | Subject)", data=table, reml=Tru
 
 ### `maturin develop` fails
 
-Make sure the Rust toolchain is installed and available in the active shell.
-
-```bash
-rustc --version
-cargo --version
-```
-
-If those commands fail, install Rust via [rustup](https://rustup.rs).
-
-If you are building with CPython 3.14, set `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` before running `maturin develop` with the current pinned PyO3 version.
+Check `rustc --version` and `cargo --version`, the active Python version, and
+the native compiler/linker required by your platform. Use the pinned Python
+3.11 contributor environment to reproduce the supported setup.
 
 ### `ModuleNotFoundError: lme_python`
 
-Usually this means one of the following:
+For a published install, run `python -m pip show lme-python` with the same
+interpreter used for your script.
 
-- the virtual environment is not activated
-- `maturin develop --release` did not complete successfully
-- a different Python interpreter is active than the one used for the build
+For the checkout, run these from `python/`:
+
+```bash
+uv run --no-sync maturin develop --release
+uv run --no-sync python -c "import lme_python; print(lme_python.__file__)"
+```
+
+Rebuild after an environment sync or an interrupted bindings build.
+See [shared troubleshooting](../docs/TROUBLESHOOTING.md) for wheel availability,
+data conversion, and build problems.
 
 ### Prediction or fit errors
 

@@ -1,5 +1,22 @@
 # Optimization engineering notes
 
+[Documentation](docs/README.md) · [Benchmark guide](BENCHMARKS.md) · [Coverage map](BENCHMARK_COVERAGE.md)
+
+## How to use these notes
+
+Start with [architecture](#architecture) for the implementation map and
+[the contributor checklist](#contributor-checklist) before changing a hot path.
+Use [performance diagnostics](#performance-diagnostics-lme_perf_diag) to choose
+an experiment. The dated sections retain measured results and rejected approaches;
+their numbers apply to the recorded revision and environment.
+
+- [Parser measurements](#native-formula-parser-optimization-2026-08-10)
+- [LMM architecture](#architecture)
+- [Setup amortization](#setup-amortization-prepare_lmer--fit_prepared)
+- [Diagnostics](#performance-diagnostics-lme_perf_diag)
+- [Contributor checklist](#contributor-checklist)
+- [Source map](#key-files)
+
 Engineering notes for native formula parsing and **LMM variance-component (θ) search** throughput.
 
 | Doc | Purpose |
@@ -25,7 +42,7 @@ Engineering notes for native formula parsing and **LMM variance-component (θ) s
 | `random_intercept_10k` | **0.661×** (Rust faster) | **0.173×** Julia fit |
 | `nested_10k` | **0.961×** (Rust faster) | **0.492×** Julia fit |
 
-Current medians: [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
+Recorded medians: [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
 
 Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work** for LMM math. Named LMM case criteria in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13 stay complete on the Jul 22 artifact; the full-suite-including-GLMM criterion does not, because GLMM PIRLS/AGQ changed after that run.
 

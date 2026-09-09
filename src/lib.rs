@@ -1,10 +1,53 @@
 #![warn(missing_docs)]
 //! # lme-rs
 //!
-//! Rust port of R's `lme4`: linear and generalized linear mixed-effects models
-//! with 1:1 numerical compatibility.
+//! Linear, generalized linear, and nonlinear mixed-effects models with
+//! `lme4`-style formulas and Polars DataFrames.
 //!
-//! See [GUIDE.md](https://github.com/x4g4p3x/lme-rs/blob/master/GUIDE.md) for usage.
+//! # Choose an entry point
+//!
+//! - [`lm_df`] fits ordinary least squares from a formula; [`lm`] accepts arrays.
+//! - [`lmer`] fits Gaussian mixed models with REML or ML.
+//! - [`glmer`] fits a generalized model with a selected [`family::Family`].
+//! - [`nlmer`] fits built-in nonlinear means; [`nlmer_with_mean`] accepts a custom mean.
+//! - [`prepare_lmer`] / [`fit_prepared`] reuse a fixed LMM design.
+//! - [`cv_grouped`] and [`boot_lmer`] provide grouped validation and bootstrap refits.
+//!
+//! # First fit
+//!
+//! ```
+//! use lme_rs::lmer;
+//! use polars::prelude::*;
+//!
+//! # fn main() -> anyhow::Result<()> {
+//! let data = df!(
+//!     "y" => [10.0, 12.0, 13.0, 15.0, 9.0, 11.0, 14.0, 17.0, 8.0, 10.0, 12.0, 14.0],
+//!     "x" => [0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0],
+//!     "group" => ["a", "a", "a", "a", "b", "b", "b", "b", "c", "c", "c", "c"],
+//! )?;
+//! let fit = lmer("y ~ x + (1 | group)", &data, true)?;
+//! let population_predictions = fit.predict(&data)?;
+//! assert_eq!(population_predictions.len(), data.height());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Interpret a fit
+//!
+//! [`LmeFit::predict`] uses fixed effects; [`LmeFit::predict_conditional`] includes
+//! stored group effects. For GLMM response means, use [`LmeFit::predict_response`].
+//! Inspect estimates and convergence diagnostics before inference.
+//! Fit LMMs with ML when comparing different fixed effects on the same observations.
+//!
+//! Numerical compatibility is scoped to the repository's tested models and
+//! reference fixtures. Formula syntax, quadrature, and post-fit inference do not
+//! cover every option in R's mixed-model ecosystem.
+//!
+//! See the [documentation index](https://github.com/x4g4p3x/lme-rs/blob/master/docs/README.md),
+//! [Rust guide](https://github.com/x4g4p3x/lme-rs/blob/master/GUIDE.md), and
+//! [workflow assessment](https://github.com/x4g4p3x/lme-rs/blob/master/USABILITY.md).
+//! Repository links follow the development branch; select a matching release tag
+//! when reading about a published version.
 
 /// Analysis of Variance (ANOVA) result wrappers and F-tests.
 pub mod anova;
