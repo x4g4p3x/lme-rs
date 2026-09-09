@@ -6,6 +6,7 @@ use ndarray::{Array1, Array2};
 #[test]
 fn test_anova_methods_produce_valid_f_tests() {
     let mut fit = LmeFit {
+        diagnostics: None,
         coefficients: Array1::zeros(2),
         residuals: Array1::zeros(1),
         fitted: Array1::zeros(1),

@@ -65,6 +65,8 @@ pub mod cv;
 pub(crate) mod ddf;
 /// Estimated marginal means and reference-grid pairwise comparisons.
 pub mod emmeans;
+/// Reusable worker-pool execution policy.
+pub mod execution;
 /// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
 pub mod family;
 /// Wilkinson formula parsing and data matrix construction.
@@ -81,14 +83,21 @@ pub(crate) mod kr_vcov_adj;
 pub mod math;
 /// Multiple comparisons for categorical fixed effects (`glht` / `mcp`).
 pub mod mcp;
+mod model;
+mod prepared;
+pub use prepared::LmerWorkspace;
+mod display;
 /// Building design matrices (X, Z) from DataFrames.
 pub mod model_matrix;
 /// Nonlinear mixed-effects models (`nlmer`-style).
 pub mod nlmm;
+mod ols;
+pub use model::{FitControl, FitDiagnostics, ModelSpec, TerminationReason};
 /// Optimization routines (Nelder-Mead) for theta estimation.
 pub mod optimizer;
 /// Optional performance diagnostics (`LME_PERF_DIAG=1`).
 pub mod perf_diag;
+mod predict;
 /// Profile-likelihood confidence intervals for fixed effects.
 pub mod profile_ci;
 pub(crate) mod quadrature;
@@ -111,7 +120,7 @@ pub use cv::{cv_grouped, cv_grouped_glmer, refit_lmer, CvFoldMetric, CvGroupedRe
 pub use emmeans::{EmmeansPairsResult, EmmeansResult};
 pub use mcp::{mcp_contrast_matrix, GlhtResult, McpAdjust, McpType};
 use ndarray::{Array1, Array2};
-use ndarray_linalg::{Inverse, QRInto};
+use ndarray_linalg::QRInto;
 pub use nlmm::{nlmer, nlmer_with_mean, nlmer_with_options, NlmerOptions, NlmmStart};
 use polars::prelude::*;
 pub use profile_ci::{ConfintMethod, ConfintScope};
@@ -127,6 +136,32 @@ pub type Result<T> = std::result::Result<T, LmeError>;
 /// Specific error types that can occur during model parsing or fitting.
 #[derive(Debug, Error)]
 pub enum LmeError {
+    /// Invalid argument or non-finite input data.
+    #[error("invalid input: {message}")]
+    InvalidInput {
+        /// Explanation of the invalid argument.
+        message: String,
+    },
+    /// A prediction or fitting column is missing.
+    #[error("missing column: {column}")]
+    MissingColumn {
+        /// Required input column.
+        column: String,
+    },
+    /// New grouping level when population fallback was not requested.
+    #[error("new level '{level}' in grouping factor '{group}'")]
+    NewLevel {
+        /// Grouping factor.
+        group: String,
+        /// Unseen level.
+        level: String,
+    },
+    /// No valid converged numerical solution is available.
+    #[error("fit did not converge: {message}")]
+    NonConvergence {
+        /// Numerical termination reason.
+        message: String,
+    },
     /// Raised when the predictor matrix dimensions don't align with the response vector.
     #[error("dimension mismatch: y has length {y_len}, X has {x_rows} rows")]
     DimensionMismatch {
@@ -165,6 +200,8 @@ pub enum LmeError {
 /// Represents the fully resolved evaluation output of a structured linear or mixed-effects regression.
 #[derive(Debug, Clone)]
 pub struct LmeFit {
+    /// Structured solver diagnostics, absent for ordinary least squares or manually constructed fits.
+    pub diagnostics: Option<FitDiagnostics>,
     /// The estimated fixed-effect coefficients (β).
     pub coefficients: Array1<f64>,
     /// The unscaled conditional residuals (y - Xβ - Zb).
@@ -211,7 +248,7 @@ pub struct LmeFit {
     /// Number of observations used in the fit.
     pub num_obs: usize,
     // Convergence diagnostics
-    /// True if the Nelder-Mead optimizer successfully converged.
+    /// True if all required numerical fitting stages successfully converged.
     pub converged: Option<bool>,
     /// Number of evaluations performed by the optimizer.
     pub iterations: Option<u64>,
@@ -243,214 +280,6 @@ pub struct LmeFit {
 }
 
 impl LmeFit {
-    fn is_nlmm(&self) -> bool {
-        self.family_name.as_deref() == Some("nlmm")
-    }
-
-    /// Predict population-level expectations given novel data.
-    /// This resolves the Fixed Effects matrix ($X_{new} \hat{\beta}$) ignoring Random Effects groupings (`re.form=NA`).
-    ///
-    /// For nonlinear mixed models (`nlmer`), returns the mean function evaluated at the fixed
-    /// nonlinear parameters only (random effects set to zero).
-    pub fn predict(
-        &self,
-        newdata: &polars::prelude::DataFrame,
-    ) -> anyhow::Result<ndarray::Array1<f64>> {
-        if self.is_nlmm() {
-            return crate::nlmm::predict::predict_population(self, newdata);
-        }
-
-        // Parse formula to understand structure
-        let ast = crate::formula::parse(&self.formula.clone().unwrap_or_default())
-            .map_err(|e| anyhow::anyhow!("Failed to parse formula: {}", e))?;
-
-        // Find response variable strictly to exclude it from the Identity searches
-        let mut response_col_name = String::new();
-        for (name, info) in &ast.columns {
-            if info.has_role(crate::formula::ColumnRole::Response) {
-                response_col_name = name.clone();
-                break;
-            }
-        }
-
-        let n_obs = newdata.height();
-        let (x_new, x_names, _assign, _levels, _basis) = crate::model_matrix::build_x_matrix(
-            &ast,
-            newdata,
-            &response_col_name,
-            n_obs,
-            self.categorical_levels.as_ref(),
-            self.basis_encodings.as_ref(),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed building X matrix for predictions: {}", e))?;
-
-        // Align beta columns with the AST's generated matrix
-        if x_names != self.fixed_names.clone().unwrap_or_default() {
-            return Err(anyhow::anyhow!(
-                "Prediction matrix columns ({:?}) do not match fitted model columns ({:?})",
-                x_names,
-                self.fixed_names
-            ));
-        }
-
-        let mut y_pred = ndarray::Array1::<f64>::zeros(n_obs);
-        for i in 0..n_obs {
-            let row = x_new.row(i);
-            y_pred[i] = self.coefficients.dot(&row);
-        }
-
-        Ok(y_pred)
-    }
-
-    /// Predict on the response scale (applies inverse link for GLMMs).
-    ///
-    /// For LMMs this is identical to `predict()`. For GLMMs it applies the inverse link
-    /// function to transform the linear predictor to the response scale (e.g., probabilities
-    /// for binomial, counts for Poisson).
-    pub fn predict_response(
-        &self,
-        newdata: &polars::prelude::DataFrame,
-    ) -> anyhow::Result<ndarray::Array1<f64>> {
-        let eta = self.predict(newdata)?;
-        self.apply_inverse_link(eta)
-    }
-
-    /// Predict conditional expectations on the response scale (applies inverse link for GLMMs).
-    ///
-    /// Combines fixed + random effects, then applies the inverse link.
-    pub fn predict_conditional_response(
-        &self,
-        newdata: &polars::prelude::DataFrame,
-        allow_new_levels: bool,
-    ) -> anyhow::Result<ndarray::Array1<f64>> {
-        let eta = self.predict_conditional(newdata, allow_new_levels)?;
-        self.apply_inverse_link(eta)
-    }
-
-    /// Apply the inverse link function if this is a GLMM, otherwise return as-is.
-    fn apply_inverse_link(
-        &self,
-        eta: ndarray::Array1<f64>,
-    ) -> anyhow::Result<ndarray::Array1<f64>> {
-        match &self.family {
-            Some(fam_enum) => {
-                let link = self
-                    .link_name
-                    .as_deref()
-                    .map(family::Link::parse)
-                    .transpose()
-                    .map_err(|e| anyhow::anyhow!("{e}"))?
-                    .unwrap_or_else(|| family::Link::default_for(*fam_enum));
-                let fam_impl = fam_enum
-                    .build_with_link(link)
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
-                let link_fn = fam_impl.link();
-                Ok(link_fn.link_inv(&eta))
-            }
-            None => Ok(eta), // LMM: identity, return as-is
-        }
-    }
-
-    /// Predict conditional expectations given novel data, including Random Effects (`re.form=NULL`).
-    /// Computes $\hat{y} = X_{new} \hat{\beta} + Z_{new} \hat{b}$ using stored random effects.
-    ///
-    /// For nonlinear mixed models (`nlmer`), adds stored random effects on the nonlinear parameter
-    /// (e.g. `Asym + b_group`) before evaluating the mean function.
-    ///
-    /// Groups present in `newdata` but absent from the training data receive zero random-effect
-    /// contributions (population-level predictions), consistent with R's `predict.merMod`.
-    pub fn predict_conditional(
-        &self,
-        newdata: &polars::prelude::DataFrame,
-        allow_new_levels: bool,
-    ) -> anyhow::Result<ndarray::Array1<f64>> {
-        if self.is_nlmm() {
-            return crate::nlmm::predict::predict_conditional(self, newdata, allow_new_levels);
-        }
-
-        let y_pop = self.predict(newdata)?;
-
-        let b = self.b.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("No random effects available for conditional predictions")
-        })?;
-        let re_blocks = self
-            .re_blocks
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No RE block metadata available"))?;
-
-        let n_obs = newdata.height();
-        let mut z_b = ndarray::Array1::<f64>::zeros(n_obs);
-
-        let mut b_offset = 0;
-        for block in re_blocks {
-            let g_series = newdata
-                .column(&block.group_name)
-                .map_err(|e| {
-                    anyhow::anyhow!("Missing grouping variable '{}': {}", block.group_name, e)
-                })?
-                .cast(&DataType::String)
-                .unwrap();
-            let g_str = g_series.str().unwrap();
-
-            // Collect slope covariate data for non-intercept effects
-            let has_intercept = block
-                .effect_names
-                .first()
-                .is_some_and(|n| n == "(Intercept)");
-            let mut slope_data: Vec<Vec<f64>> = Vec::new();
-            for effect_name in &block.effect_names {
-                if effect_name == "(Intercept)" {
-                    continue;
-                }
-                let s_series = newdata
-                    .column(effect_name)
-                    .map_err(|e| {
-                        anyhow::anyhow!("Missing slope variable '{}': {}", effect_name, e)
-                    })?
-                    .cast(&DataType::Float64)
-                    .unwrap();
-                let s_f64 = s_series.f64().unwrap();
-                slope_data.push(s_f64.into_no_null_iter().collect());
-            }
-
-            for (i, val_opt) in g_str.into_iter().enumerate() {
-                let group_name = val_opt.unwrap_or("");
-
-                // Look up group index from the stored mapping; unknown groups get 0 contribution
-                let group_idx = match block.group_map.get(group_name) {
-                    Some(&idx) => idx,
-                    None => {
-                        if !allow_new_levels {
-                            return Err(anyhow::anyhow!(
-                                "New level '{}' found in grouping factor '{}', but allow_new_levels is false.",
-                                group_name,
-                                block.group_name
-                            ));
-                        }
-                        // Unknown group → population-level (no RE contribution)
-                        continue;
-                    }
-                };
-
-                let base = b_offset + group_idx * block.k;
-                let mut effect_idx = 0;
-
-                if has_intercept {
-                    z_b[i] += b[base + effect_idx]; // intercept contribution (1.0 * b_intercept)
-                    effect_idx += 1;
-                }
-
-                for (s_idx, s_vec) in slope_data.iter().enumerate() {
-                    z_b[i] += s_vec[i] * b[base + effect_idx + s_idx];
-                }
-            }
-
-            b_offset += block.m * block.k;
-        }
-
-        Ok(y_pop + z_b)
-    }
-
     /// Compute Wald confidence intervals for fixed-effect coefficients.
     ///
     /// Uses t critical values with Kenward–Roger or Satterthwaite denominator df when
@@ -460,6 +289,7 @@ impl LmeFit {
     /// # Arguments
     /// * `level` - Confidence level (e.g., 0.95 for 95% CI). Must be in (0, 1).
     pub fn confint(&self, level: f64) -> anyhow::Result<ConfintResult> {
+        self.ensure_converged()?;
         if level <= 0.0 || level >= 1.0 {
             return Err(anyhow::anyhow!(
                 "Confidence level must be in (0, 1), got {}",
@@ -693,281 +523,11 @@ pub struct ConfintResult {
     pub level: f64,
 }
 
-impl fmt::Display for ConfintResult {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let pct = (1.0 - self.level) / 2.0 * 100.0;
-        writeln!(
-            f,
-            "{:>20} {:>12} {:>12}",
-            "",
-            format!("{:.1} %", pct),
-            format!("{:.1} %", 100.0 - pct)
-        )?;
-        for i in 0..self.names.len() {
-            writeln!(
-                f,
-                "{:>20} {:>12.4} {:>12.4}",
-                self.names[i], self.lower[i], self.upper[i]
-            )?;
-        }
-        Ok(())
-    }
-}
-
 /// Result of `simulate()`: parametric bootstrap samples from the fitted model.
 #[derive(Debug, Clone)]
 pub struct SimulateResult {
     /// Each element is a simulated response vector of length n_obs.
     pub simulations: Vec<ndarray::Array1<f64>>,
-}
-
-impl fmt::Display for LmeFit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(formula) = &self.formula {
-            if let Some(fam) = &self.family_name {
-                let link = self.link_name.as_deref().unwrap_or("unknown");
-                if self.family == Some(family::Family::Gaussian) {
-                    writeln!(f, "Generalized linear mixed model fit by ML ['glmerMod']")?;
-                } else {
-                    writeln!(
-                        f,
-                        "Generalized linear mixed model fit by ML (Laplace) ['glmerMod']"
-                    )?;
-                }
-                writeln!(f, " Family: {} ( {} )", fam, link)?;
-            } else if self.reml.is_some() {
-                writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
-            } else {
-                writeln!(f, "Linear mixed model fit by ML ['lmerMod']")?;
-            }
-            writeln!(f, "Formula: {}", formula)?;
-        }
-
-        // AIC/BIC/logLik/deviance header
-        if self.aic.is_some() || self.bic.is_some() || self.log_likelihood.is_some() {
-            writeln!(f)?;
-            let mut metrics = Vec::new();
-            if let Some(aic) = self.aic {
-                metrics.push("AIC      BIC   logLik deviance".to_string());
-                let bic = self.bic.unwrap_or(0.0);
-                let ll = self.log_likelihood.unwrap_or(0.0);
-                let dev = self.deviance.unwrap_or(0.0);
-                writeln!(f, "     AIC      BIC   logLik deviance")?;
-                writeln!(f, "{:>8.1} {:>8.1} {:>8.1} {:>8.1}", aic, bic, ll, dev)?;
-            }
-        }
-
-        if let Some(reml) = self.reml {
-            writeln!(f, "REML criterion at convergence: {:.4}", reml)?;
-        }
-
-        // Scaled residuals: use sigma for LMMs, Pearson residuals for GLMMs
-        let effective_sigma = self.sigma2.map(|s| s.sqrt()).unwrap_or(1.0);
-        if effective_sigma > 0.0 {
-            writeln!(f, "Scaled residuals:")?;
-            let mut scaled_res: Vec<f64> = self
-                .residuals
-                .iter()
-                .map(|&r| r / effective_sigma)
-                .collect();
-            scaled_res.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            let n = scaled_res.len();
-            if n > 0 {
-                let min = scaled_res[0];
-                let q1 = scaled_res[n / 4];
-                let median = scaled_res[n / 2];
-                let q3 = scaled_res[3 * n / 4];
-                let max = scaled_res[n - 1];
-                writeln!(f, "    Min      1Q  Median      3Q     Max ")?;
-                writeln!(
-                    f,
-                    "{:>7.4} {:>7.4} {:>7.4} {:>7.4} {:>7.4}",
-                    min, q1, median, q3, max
-                )?;
-            }
-        }
-
-        writeln!(f, "\nRandom effects:")?;
-        writeln!(f, " Groups   Name        Variance Std.Dev.")?;
-
-        // For GLMMs, RE variances are ΛΛ′ on the linear-predictor scale (not
-        // multiplied by the residual dispersion). LMMs use Var(b) = σ² ΛΛ′.
-        let display_sigma2 = self.sigma2.unwrap_or(1.0);
-        let re_scale = if self.family.is_some() {
-            1.0
-        } else {
-            display_sigma2
-        };
-        if let (Some(theta), Some(re_blocks)) = (&self.theta, &self.re_blocks) {
-            let mut theta_idx = 0;
-            let mut obs_groups = Vec::new();
-
-            for block in re_blocks {
-                let th = &theta.as_slice().unwrap()[theta_idx..theta_idx + block.theta_len];
-                theta_idx += block.theta_len;
-
-                let mut lambda = ndarray::Array2::<f64>::zeros((block.k, block.k));
-                let mut idx = 0;
-                for j in 0..block.k {
-                    for i in j..block.k {
-                        lambda[[i, j]] = th[idx];
-                        idx += 1;
-                    }
-                }
-                let cov = lambda.dot(&lambda.t()) * re_scale;
-
-                for i in 0..block.k {
-                    let var = cov[[i, i]];
-                    let std_dev = var.sqrt();
-                    let group = if i == 0 { &block.group_name } else { "" };
-                    let name = &block.effect_names[i];
-                    writeln!(
-                        f,
-                        " {:<8} {:<11} {:<8.4} {:<8.4}",
-                        group, name, var, std_dev
-                    )?;
-                }
-
-                // Gap 6: Print correlations between random effects when k > 1
-                if block.k > 1 {
-                    writeln!(f, " Corr:")?;
-                    for i in 1..block.k {
-                        let mut corr_vals = Vec::new();
-                        for j in 0..i {
-                            let var_i = cov[[i, i]];
-                            let var_j = cov[[j, j]];
-                            if var_i > 0.0 && var_j > 0.0 {
-                                let corr = cov[[i, j]] / (var_i.sqrt() * var_j.sqrt());
-                                corr_vals.push(format!("{:>6.3}", corr));
-                            } else {
-                                corr_vals.push("   NaN".to_string());
-                            }
-                        }
-                        writeln!(f, "  {} {}", block.effect_names[i], corr_vals.join(" "))?;
-                    }
-                }
-
-                obs_groups.push(format!("{}, {}", block.group_name, block.m));
-            }
-            // Residual variance: always for LMMs; for GLMMs only when dispersion is estimated
-            // (Gaussian, Gamma, …). Binomial/Poisson fits keep sigma² implicit (None here).
-            if self.sigma2.is_some() {
-                writeln!(
-                    f,
-                    " Residual             {:<8.4} {:<8.4}",
-                    display_sigma2,
-                    display_sigma2.sqrt()
-                )?;
-            }
-            writeln!(
-                f,
-                "Number of obs: {}, groups: {}",
-                self.num_obs,
-                obs_groups.join("; ")
-            )?;
-        }
-
-        writeln!(f, "\nFixed effects:")?;
-        let is_glmm = self.family_name.is_some();
-        if self.robust.is_some() {
-            if is_glmm {
-                writeln!(
-                    f,
-                    "            Estimate Std. Error z value Pr(>|z|) [Robust]"
-                )?;
-            } else {
-                writeln!(
-                    f,
-                    "            Estimate Std. Error t value Pr(>|t|) [Robust]"
-                )?;
-            }
-        } else if is_glmm {
-            writeln!(f, "            Estimate Std. Error z value")?;
-        } else if self.kenward_roger.is_some() {
-            writeln!(
-                f,
-                "            Estimate Std. Error       df t value Pr(>|t|) [Kenward-Roger]"
-            )?;
-        } else if self.satterthwaite.is_some() {
-            writeln!(
-                f,
-                "            Estimate Std. Error       df t value Pr(>|t|) [Satterthwaite]"
-            )?;
-        } else {
-            writeln!(f, "            Estimate Std. Error t value")?;
-        }
-
-        if let (Some(fixed_names), Some(beta_se), Some(beta_t)) =
-            (&self.fixed_names, &self.beta_se, &self.beta_t)
-        {
-            for i in 0..self.coefficients.len() {
-                let name = if i < fixed_names.len() {
-                    &fixed_names[i]
-                } else {
-                    ""
-                };
-                let est = self.coefficients[i];
-                let se = beta_se[i];
-                let t_val = beta_t[i];
-
-                if let Some(robust) = &self.robust {
-                    let r_se = robust.robust_se[i];
-                    let r_t = robust.robust_t[i];
-                    let p_val = robust
-                        .robust_p_values
-                        .as_ref()
-                        .map(|p| p[i])
-                        .unwrap_or(f64::NAN);
-                    writeln!(
-                        f,
-                        "{:<11} {:>8.4} {:>10.4} {:>7.2} {:>8.4}",
-                        name, est, r_se, r_t, p_val
-                    )?;
-                } else if let Some(kr) = &self.kenward_roger {
-                    let df = kr.dfs[i];
-                    let p_val = kr.p_values[i];
-                    writeln!(
-                        f,
-                        "{:<11} {:>8.4} {:>10.4} {:>8.2} {:>7.2} {:>8.4}",
-                        name, est, se, df, t_val, p_val
-                    )?;
-                } else if let Some(satt) = &self.satterthwaite {
-                    let df = satt.dfs[i];
-                    let p_val = satt.p_values[i];
-                    writeln!(
-                        f,
-                        "{:<11} {:>8.4} {:>10.4} {:>8.2} {:>7.2} {:>8.4}",
-                        name, est, se, df, t_val, p_val
-                    )?;
-                } else {
-                    writeln!(f, "{:<11} {:>8.4} {:>10.4} {:>7.2}", name, est, se, t_val)?;
-                }
-            }
-        }
-
-        // Gap 10: Convergence diagnostics
-        if let Some(converged) = self.converged {
-            writeln!(f)?;
-            if converged {
-                if let Some(iters) = self.iterations {
-                    writeln!(
-                        f,
-                        "optimizer (Nelder-Mead) converged in {} iterations",
-                        iters
-                    )?;
-                } else {
-                    writeln!(f, "optimizer (Nelder-Mead) converged")?;
-                }
-            } else {
-                writeln!(
-                    f,
-                    "WARNING: optimizer (Nelder-Mead) did NOT converge (max iterations reached)"
-                )?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// Fit a linear model `y = X * beta + e` using a QR decomposition.
@@ -1006,15 +566,17 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         });
     }
 
+    if x.ncols() == 0 || y.is_empty() || !x.iter().chain(y.iter()).all(|v| v.is_finite()) {
+        return Err(LmeError::InvalidInput {
+            message: "OLS requires nonempty finite data and at least one column".into(),
+        });
+    }
     // Solve beta = R^{-1} Q^T y for full-column-rank X = Q R.
     let (q, r) = x.clone().qr_into().map_err(|e| LmeError::LinearAlgebra {
         message: e.to_string(),
     })?;
     let qty = q.t().dot(y);
-    let r_inv = r.inv().map_err(|e| LmeError::LinearAlgebra {
-        message: e.to_string(),
-    })?;
-    let coefficients = r_inv.dot(&qty);
+    let (coefficients, covariance) = crate::ols::solve_qr(&r, &qty)?;
 
     let fitted = x.dot(&coefficients);
     let residuals = y - &fitted;
@@ -1025,6 +587,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
     };
 
     Ok(LmeFit {
+        diagnostics: None,
         coefficients,
         residuals,
         fitted,
@@ -1054,7 +617,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         family: None,
         satterthwaite: None,
         kenward_roger: None,
-        v_beta_unscaled: None,
+        v_beta_unscaled: Some(covariance),
         robust: None,
         categorical_levels: None,
         basis_encodings: None,
@@ -1176,6 +739,17 @@ pub fn fit_prepared_with_response(
     y_response: Option<Array1<f64>>,
     reml: bool,
 ) -> Result<LmeFit> {
+    fit_prepared_with_control(prepared, y_response, reml, &FitControl::default())
+}
+
+/// Fit a prepared LMM with an optional response and explicit optimizer controls.
+pub fn fit_prepared_with_control(
+    prepared: &LmerPrepared,
+    y_response: Option<Array1<f64>>,
+    reml: bool,
+    control: &FitControl,
+) -> Result<LmeFit> {
+    control.validate(prepared.init_theta.len())?;
     let LmerPrepared {
         lmm,
         matrices,
@@ -1186,7 +760,7 @@ pub fn fit_prepared_with_response(
 
     let (lmm, y_obs) = if let Some(y_resp) = y_response {
         let n = lmm.y.len();
-        if y_resp.len() != n {
+        if y_resp.len() != n || !y_resp.iter().all(|v| v.is_finite()) {
             return Err(LmeError::NotImplemented {
                 feature: format!(
                     "fit_prepared_with_response: expected {} observations, got {}",
@@ -1211,12 +785,16 @@ pub fn fit_prepared_with_response(
     };
 
     let opt_result =
-        optimizer::optimize_theta_lmm(lmm.clone(), init_theta.clone(), reml).map_err(|e| {
-            LmeError::NotImplemented {
+        optimizer::optimize_theta_lmm_control(lmm.clone(), init_theta.clone(), reml, control)
+            .map_err(|e| LmeError::NotImplemented {
                 feature: format!("Optimizer failed: {}", e),
-            }
-        })?;
+            })?;
 
+    if control.require_convergence && !opt_result.converged {
+        return Err(LmeError::NonConvergence {
+            message: "outer optimization did not converge".into(),
+        });
+    }
     assemble_lme_fit(&lmm, matrices, opt_result, reml, &y_obs)
 }
 
@@ -1263,6 +841,7 @@ fn assemble_lme_fit(
         let bic = deviance_val + n_params * n.ln();
 
         LmeFit {
+            diagnostics: Some(FitDiagnostics::from_optimizer(&opt_result)),
             coefficients: coefs.beta,
             residuals,
             fitted,
@@ -1353,7 +932,15 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
         .map_err(|e| anyhow::anyhow!("Design matrix error: {}", e))?;
 
     // 2. Fit by QR (delegate to the raw-matrix lm())
-    let mut fit = lm(&matrices.y, &matrices.x).map_err(|e| anyhow::anyhow!("lm failed: {}", e))?;
+    let adjusted_y = match &matrices.offset {
+        Some(offset) => &matrices.y - offset,
+        None => matrices.y.clone(),
+    };
+    let mut fit = lm(&adjusted_y, &matrices.x)?;
+    if let Some(offset) = &matrices.offset {
+        fit.fitted += offset;
+    }
+    fit.residuals = &matrices.y - &fit.fitted;
 
     // 3. Attach formula, column names, and observation count
     fit.formula = Some(matrices.formula);
@@ -1368,13 +955,10 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     let p = matrices.x.ncols() as f64;
     let sigma2 = fit.sigma2.unwrap_or(1.0);
 
-    use ndarray_linalg::Inverse;
-    let xtx = matrices.x.t().dot(&matrices.x);
-    let xtx_inv = xtx
-        .inv()
-        .map_err(|e| anyhow::anyhow!("(X'X) inversion failed: {}", e))?;
-
-    fit.v_beta_unscaled = Some(xtx_inv.clone());
+    let xtx_inv = fit
+        .v_beta_unscaled
+        .as_ref()
+        .expect("OLS covariance from QR");
 
     let p_int = matrices.x.ncols();
     let mut beta_se = ndarray::Array1::<f64>::zeros(p_int);
@@ -1393,7 +977,8 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     // 5. Log-likelihood, AIC, BIC for Gaussian OLS:
     //    logLik = -n/2 * (ln(2π) + ln(σ²) + 1)
     //    n_params = p (fixed effects) + 1 (σ²)
-    let log_lik = -0.5 * n * (std::f64::consts::TAU.ln() + sigma2.ln() + 1.0);
+    let mle_sigma2 = fit.residuals.dot(&fit.residuals) / n;
+    let log_lik = -0.5 * n * (std::f64::consts::TAU.ln() + mle_sigma2.ln() + 1.0);
     let n_params = p + 1.0; // beta + sigma²
     let deviance = -2.0 * log_lik;
     let aic = deviance + 2.0 * n_params;
@@ -1490,8 +1075,7 @@ pub struct GlmerPrepared {
     n_agq: usize,
     weights: Option<Array1<f64>>,
     init_theta: Array1<f64>,
-    zt_z: sprs::CsMat<f64>,
-    zt_w_z_map: Vec<(usize, usize, f64)>,
+    design: Arc<glmm_math::GlmmDesign>,
 }
 
 impl GlmerPrepared {
@@ -1566,6 +1150,14 @@ pub fn prepare_glmer_weighted_with_link(
     let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
     let (zt_z, zt_w_z_map) = glmm_math::build_glmm_structural_maps(&matrices.zt);
 
+    let design = Arc::new(glmm_math::GlmmDesign {
+        x: matrices.x.clone(),
+        zt: matrices.zt.clone(),
+        re_blocks: matrices.re_blocks.clone(),
+        weights: weights.clone(),
+        zt_z,
+        zt_w_z_map,
+    });
     Ok(GlmerPrepared {
         matrices,
         family: family_enum,
@@ -1573,8 +1165,7 @@ pub fn prepare_glmer_weighted_with_link(
         n_agq,
         weights,
         init_theta,
-        zt_z,
-        zt_w_z_map,
+        design,
     })
 }
 
@@ -1588,6 +1179,16 @@ pub fn fit_prepared_glmer_with_response(
     prepared: &GlmerPrepared,
     y_override: Option<Array1<f64>>,
 ) -> Result<LmeFit> {
+    fit_prepared_glmer_with_control(prepared, y_override, &FitControl::default())
+}
+
+/// Fit a prepared GLMM with an optional response and explicit numerical controls.
+pub fn fit_prepared_glmer_with_control(
+    prepared: &GlmerPrepared,
+    y_override: Option<Array1<f64>>,
+    control: &FitControl,
+) -> Result<LmeFit> {
+    control.validate(prepared.init_theta.len())?;
     let family_enum = prepared.family;
     let link = prepared.link;
     let n_agq = prepared.n_agq;
@@ -1614,45 +1215,51 @@ pub fn fit_prepared_glmer_with_response(
     };
 
     let fam_for_opt = family_enum.build_with_link(link)?;
-    let opt_result = optimizer::optimize_theta_glmm_with_maps(
-        prepared.matrices.x.clone(),
-        prepared.matrices.zt.clone(),
-        y.clone(),
-        prepared.matrices.re_blocks.clone(),
+    let opt_result = optimizer::optimize_theta_glmm_data_control(
+        glmm_math::GlmmData::from_design(prepared.design.clone(), y.clone(), fam_for_opt),
         prepared.init_theta.clone(),
-        fam_for_opt,
         prepared.matrices.offset.clone(),
-        prepared.weights.clone(),
-        prepared.zt_z.clone(),
-        prepared.zt_w_z_map.clone(),
         n_agq,
+        control,
     )
-    .map_err(|e| LmeError::NotImplemented {
-        feature: format!("GLMM optimizer failed: {}", e),
+    .map_err(|e| LmeError::NonConvergence {
+        message: format!("GLMM optimizer failed: {e}"),
     })?;
-
     let best_theta = &opt_result.theta;
     let fam_for_eval = family_enum.build_with_link(link)?;
-    let mut glmm = glmm_math::GlmmData::from_structural_parts(
-        prepared.matrices.x.clone(),
-        prepared.matrices.zt.clone(),
-        y,
-        prepared.matrices.re_blocks.clone(),
-        fam_for_eval,
-        prepared.weights.clone(),
-        prepared.zt_z.clone(),
-        prepared.zt_w_z_map.clone(),
-    );
+    let mut glmm = glmm_math::GlmmData::from_design(prepared.design.clone(), y, fam_for_eval);
+    glmm.set_control(control.clone());
     let coefs = glmm
         .pirls(
             best_theta.as_slice().unwrap(),
             prepared.matrices.offset.as_ref(),
             n_agq,
         )
-        .ok_or_else(|| LmeError::NotImplemented {
-            feature: "PIRLS failed to converge at optimal theta".to_string(),
+        .ok_or_else(|| LmeError::NonConvergence {
+            message: "PIRLS failed to converge at optimal theta".to_string(),
         })?;
 
+    let mut diagnostics = FitDiagnostics::from_optimizer(&opt_result);
+    diagnostics.inner_iterations = Some(coefs.iterations);
+    diagnostics.requested_n_agq = n_agq;
+    diagnostics.effective_n_agq = coefs.effective_n_agq;
+    if n_agq > 1 && coefs.effective_n_agq == 1 {
+        diagnostics
+            .warnings
+            .push("Requested quadrature fell back to Laplace".into());
+    }
+    if !coefs.dispersion_converged {
+        diagnostics.termination = TerminationReason::IterationLimit;
+        diagnostics
+            .warnings
+            .push("Dispersion iteration budget exhausted".into());
+    }
+    let converged = opt_result.converged && coefs.dispersion_converged;
+    if control.require_convergence && !converged {
+        return Err(LmeError::NonConvergence {
+            message: "GLMM optimization did not converge".into(),
+        });
+    }
     let ranef_df = build_ranef_dataframe(&coefs.b, &prepared.matrices.re_blocks);
     let uses_disp = fam.uses_dispersion();
     let sigma2_val = if uses_disp { coefs.phi } else { 1.0 };
@@ -1674,6 +1281,7 @@ pub fn fit_prepared_glmer_with_response(
     let bic = deviance_val + n_params * n.ln();
 
     Ok(LmeFit {
+        diagnostics: Some(diagnostics),
         coefficients: coefs.beta,
         residuals: coefs.residuals,
         fitted: coefs.fitted,
@@ -1696,7 +1304,7 @@ pub fn fit_prepared_glmer_with_response(
         fixed_design_x: Some(prepared.matrices.x.clone()),
         re_blocks: Some(prepared.matrices.re_blocks.clone()),
         num_obs: prepared.matrices.y.len(),
-        converged: Some(opt_result.converged),
+        converged: Some(converged),
         iterations: Some(opt_result.iterations),
         family_name: Some(fam_name),
         link_name: Some(link_name),
@@ -1758,8 +1366,8 @@ fn validate_observation_weights(weights: Option<&Array1<f64>>, n_obs: usize) -> 
         return Ok(());
     };
     if w.len() != n_obs {
-        return Err(LmeError::NotImplemented {
-            feature: format!(
+        return Err(LmeError::InvalidInput {
+            message: format!(
                 "weights: length {} does not match number of observations ({})",
                 w.len(),
                 n_obs
@@ -1768,13 +1376,13 @@ fn validate_observation_weights(weights: Option<&Array1<f64>>, n_obs: usize) -> 
     }
     for (i, &wi) in w.iter().enumerate() {
         if !wi.is_finite() {
-            return Err(LmeError::NotImplemented {
-                feature: format!("weights: non-finite value at index {}", i),
+            return Err(LmeError::InvalidInput {
+                message: format!("weights: non-finite value at index {}", i),
             });
         }
         if wi <= 0.0 {
-            return Err(LmeError::NotImplemented {
-                feature: format!(
+            return Err(LmeError::InvalidInput {
+                message: format!(
                     "weights: must be strictly positive (index {} has {})",
                     i, wi
                 ),
@@ -1789,8 +1397,8 @@ fn validate_glmm_response(y: &Array1<f64>, family_enum: family::Family) -> Resul
         family::Family::Binomial => {
             for (i, &v) in y.iter().enumerate() {
                 if !v.is_finite() || !(0.0..=1.0).contains(&v) {
-                    return Err(LmeError::NotImplemented {
-                        feature: format!(
+                    return Err(LmeError::InvalidInput {
+                        message: format!(
                             "binomial response must be finite and within [0, 1] (observation {} has {})",
                             i, v
                         ),
@@ -1801,8 +1409,8 @@ fn validate_glmm_response(y: &Array1<f64>, family_enum: family::Family) -> Resul
         family::Family::Poisson => {
             for (i, &v) in y.iter().enumerate() {
                 if !v.is_finite() || v < 0.0 {
-                    return Err(LmeError::NotImplemented {
-                        feature: format!(
+                    return Err(LmeError::InvalidInput {
+                        message: format!(
                             "Poisson response must be finite and non-negative (observation {} has {})",
                             i, v
                         ),
@@ -1813,8 +1421,8 @@ fn validate_glmm_response(y: &Array1<f64>, family_enum: family::Family) -> Resul
         family::Family::Gamma => {
             for (i, &v) in y.iter().enumerate() {
                 if !v.is_finite() || v <= 0.0 {
-                    return Err(LmeError::NotImplemented {
-                        feature: format!(
+                    return Err(LmeError::InvalidInput {
+                        message: format!(
                             "Gamma response must be finite and strictly positive (observation {} has {})",
                             i, v
                         ),
@@ -1842,8 +1450,8 @@ pub(crate) fn validate_binomial_trial_counts(
     for i in 0..y.len() {
         let count = y[i] * n_trials[i] as f64;
         if !count.is_finite() || (count - count.round()).abs() > 1e-6 {
-            return Err(LmeError::NotImplemented {
-                feature: format!(
+            return Err(LmeError::InvalidInput {
+                message: format!(
                     "binomial trials: y[{i}] * weights[{i}] must be near-integer (got {count})"
                 ),
             });

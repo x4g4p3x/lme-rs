@@ -68,9 +68,10 @@ fn test_predict_conditional_unseen_levels() -> anyhow::Result<()> {
         cond_reject.is_err(),
         "Expected error for unknown level when allow_new_levels is false"
     );
-    let err_msg = cond_reject.unwrap_err().to_string();
-    assert!(err_msg.contains("New level '999' found in grouping factor 'Subject'"));
-    assert!(err_msg.contains("but allow_new_levels is false"));
+    let error = cond_reject.unwrap_err();
+    assert!(
+        matches!(error.downcast_ref::<lme_rs::LmeError>(), Some(lme_rs::LmeError::NewLevel { group, level }) if group == "Subject" && level == "999")
+    );
 
     // 5. Test fallback execution returning Ok() handling missing levels matching `allow_new_levels = true`
     let cond_allow = fit.predict_conditional(&newdata, true);

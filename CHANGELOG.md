@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve formula offsets in population/conditional predictions and OLS fitting.
+- Preserve precision weights in Gaussian simulation and bootstrap refits; weighted
+  residual resampling uses standardized residuals.
+- Refine two-parameter LMM grid minima before reporting optimizer convergence.
+- Honor nonlinear iteration budgets and expose failed numerical stages. Nonlinear
+  ML fitting now refines covariance and population parameters jointly and includes
+  the full Gaussian likelihood constant; reported likelihood/AIC/BIC may change.
+- Compute OLS coefficients and covariance from one QR decomposition with rank checks.
+
+### Added
+
+- Rust `FitControl`, `FitDiagnostics`, `ModelSpec`, and `ExecutionContext`; Python
+  `FitControl`, `fit.diagnostics`, and `prepared.fit(y=..., control=...)`.
+- Independent response workspaces with shared immutable LMM/GLMM designs, retained
+  GLMM sparse factorization structure, and group-block nonlinear normal equations.
+- Formula-based Python IPC column projection and interpreter release during native
+  fitting, prediction, bootstrap, and profile intervals.
+
+### Compatibility
+
+- Existing fitting functions retain their defaults. Rust consumers constructing
+  `LmeFit` literals must add `diagnostics: None`; numerical design fields exposed
+  through `LmmData`/`GlmmData` are now immutable shared data.
+- A nonconverged fit remains inspectable, but Wald intervals reject it. Set
+  `require_convergence` to reject unsuccessful LMM/GLMM fits immediately.
+- Resampling no longer changes process-wide BLAS/OpenMP environment variables.
+  `n_jobs=None` uses the current Rayon context; callers own backend thread settings.
+
 ### Changed
 
 - Reworked documentation navigation, Rust/Python onboarding, example discovery,

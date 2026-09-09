@@ -4,7 +4,7 @@ This file gives an **evidence-weighted implementation-coverage score** for major
 
 **This is a coverage map, not a usability guide.** For “can I use this on my problem?” (workflows, validation posture, limited field experience), see **[USABILITY.md](USABILITY.md)**.
 
-**Last assessed:** 2026-08-15 (reevaluation of the 2026-08-14 100% headline).
+**Last assessed:** 2026-09-09 (full post-refactor Rust/Julia run records current strict-throughput gaps).
 
 **Versions checked:** `lme-rs` **0.2.3-dev.0** (root [`Cargo.toml`](Cargo.toml)); Python extension **`lme_python` 0.2.3-dev.0** ([`python/Cargo.toml`](python/Cargo.toml)).
 
@@ -12,7 +12,7 @@ Repository completion is judged on **three** axes, not features alone:
 
 1. **Correctness / lme4-aligned behavior** — golden tests, comparisons, documented scope.
 2. **Shipped API surface** — Rust crate, Python bindings, docs, CI.
-3. **Competitive fit throughput** — on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), `lme-rs` should be **in the same ballpark as MixedModels.jl** on core LMM cases (random intercept, crossed, nested), not an order of magnitude slower. This axis is **usability for performance-sensitive workflows**, not a separate concern from [USABILITY.md](USABILITY.md). **Status (2026-07-22 LMM cases, still current):** the ten LMM tier-A `cold_fit` ratios passed the strict **&lt;1.0×** Julia gate ([full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). The two GLMM cases in that file predate later PIRLS/AGQ changes, so they do not lock the full-suite criterion.
+3. **Competitive fit throughput** — on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), `lme-rs` should be **in the same ballpark as MixedModels.jl** on core LMM cases (random intercept, crossed, nested), not an order of magnitude slower. This axis is **usability for performance-sensitive workflows**, not a separate concern from [USABILITY.md](USABILITY.md). **Status (2026-07-22 historical LMM cases):** the ten LMM tier-A `cold_fit` ratios passed the strict **&lt;1.0×** Julia gate ([full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). The [September 9 refactor run](benchmarks/fair-rust-julia-reference-2026-09-09-refactor.json) completes all twelve cases, with nine cold-fit ratios below 1.0×. Crossed 20k (1.733×), nested 10k (3.196×), and CBPP (1.182×) exceed the target, so neither current-suite criterion is satisfied.
 
 ## Scoring algorithm
 
@@ -47,7 +47,7 @@ The 2026-08-14 headline **100% (236/236)** was an overstatement of the repositor
 | Checker tautology | `complete: true` plus existing files produced 100% with no locked meaning per criterion. | Schema v2 requires `scope` / `gap`. |
 | Thin stretch closeout | Area 7 “full R edge-case matrix” became eight LMM cases; area 4 “broad” VC coverage became one intercept-only sleepstudy golden; area 8 external timings shipped a 1×5 smoke with R Kenward–Roger skipped. | Those three criteria are incomplete until the locked scope is met. |
 | Area 12 substitution | After fiasto removal, area 12 was honestly **0%**. Three new Cargo examples then restored **20/20**. | Standalone probes stay complete (weight 7). The weight-13 “integrated” criterion is incomplete: the same three examples are not a second crate-integrated surface. |
-| Stale full-suite throughput | Jul 22 tier-A JSON includes GLMM cases, then Gamma PIRLS and multivariate AGQ landed. | LMM case criteria stay complete (`math.rs` / `optimizer.rs` unchanged). `current-strict-full-tier-a` is incomplete until a post-0.2.2 rerun. |
+| Stale full-suite throughput | Jul 22 tier-A JSON includes GLMM cases, then Gamma PIRLS and multivariate AGQ landed. | Dated per-case criteria retain their historical evidence. The September 9 rerun records strict-gate misses for crossed/nested LMM and CBPP; both current-suite criteria remain open. |
 | NLMM omitted from the denominator | README presents nonlinear mixed models as a first-class capability, but the 236-unit map had no NLMM row (only a ~99% “vs ecosystem” aside). | New **row 14** scores the intended `nlmer` surface. Multi-group RE and nlmer post-fit inference remain incomplete. |
 | Stale usability identity | [USABILITY.md](USABILITY.md) still said the crate was **0.1.x**. | Updated to **0.2.x** / 0.2.3-dev.0 in the same change. |
 
@@ -57,7 +57,7 @@ Real Aug 14 product work (Gamma θ parity, `poly`/`ns`/`y ~ .`, VC profile API, 
 
 | # | Area | Completion | Notes |
 |---|------|:----------:|-------|
-| 1 | **Rust crate: linear & mixed (LMM)** — [`lm`](src/lib.rs) / [`lm_df`](src/lib.rs), [`lmer`](src/lib.rs), [`lmer_weighted`](src/lib.rs), REML/ML, [`predict`](src/lib.rs) variants | **100%** | Broad intended LMM surface with parity/e2e/goldens (incl. `dyestuff_intercept_reml`), REML/ML, weights, predict. LMM strict-target cases in the Jul 22 artifact remain current (`math.rs` / `optimizer.rs` unchanged). |
+| 1 | **Rust crate: linear & mixed (LMM)** — [`lm`](src/lib.rs) / [`lm_df`](src/lib.rs), [`lmer`](src/lib.rs), [`lmer_weighted`](src/lib.rs), REML/ML, [`predict`](src/lib.rs) variants | **95%** | Broad intended LMM surface with parity/e2e/goldens (incl. `dyestuff_intercept_reml`), REML/ML, weights, predict. The current throughput criterion is reopened: September 9 crossed/nested cold and prepared fits exceed the strict Julia target. |
 | 2 | **Rust crate: GLMM** — [`glmer`](src/lib.rs), [`glmer_weighted`](src/lib.rs), [`family`](src/family.rs), PIRLS in [`glmm_math`](src/glmm_math.rs), Laplace vs AGQ (`n_agq`) | **100%** | Binomial/poisson/gaussian/gamma; canonical + golden non-canonical links (probit, cloglog); weights; AGQ-in-θ for scalar, vector (product), and small-`q` joint RE (CBPP AGQ-7). Gamma log-link Dyestuff locks mean, residual φ, and RE θ. **Non-goals:** R-identical AIC/BIC and extra `stats` families. |
 | 3 | **Rust crate: formula & model matrices** — [`formula`](src/formula.rs), [`model_matrix`](src/model_matrix.rs) | **100%** | Wilkinson + RE, two-way `a:b`, `log`/`sqrt`/`exp`, `I()`, `offset(log(x))`, orthogonal/raw `poly()`, df-based `ns()`, and `y ~ .`. Remaining R syntax (`ns(knots=)`, `cbind()`) is a documented non-goal of `formula-r-edge-cases`. |
 | 4 | **Rust crate: post-fit inference** — [`confint`](src/lib.rs), [`confint_profile`](src/profile_ci.rs), [`simulate`](src/lib.rs), [`boot_lmer`](src/bootstrap.rs) / [`boot_glmer`](src/bootstrap.rs), [`with_robust_se`](src/lib.rs), [`with_satterthwaite`](src/lib.rs), [`with_kenward_roger`](src/lib.rs) | **92%** | Wald + profile β (`parms=`); sleepstudy intercept-only VC profile golden; GLMM VC is smoke-only. **Gap:** random-slopes VC golden, GLMM VC vs R, nlmer profile CIs. |
@@ -69,14 +69,14 @@ Real Aug 14 product work (Gamma θ parity, `poly`/`ns`/`y ~ .`, VC profile API, 
 | 10 | **End-user documentation** — [`GUIDE.md`](GUIDE.md), [`python/PYTHON_GUIDE.md`](python/PYTHON_GUIDE.md), [`python/README.md`](python/README.md), [`USABILITY.md`](USABILITY.md), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md), [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`RELEASING.md`](RELEASING.md), [`BENCHMARKS.md`](BENCHMARKS.md), [`OPTIMIZATION.md`](OPTIMIZATION.md) | **100%** | Guides cover the checked APIs. `task docs:check` is in pull-request/tag CI. USABILITY identity matches 0.2.x as of this assessment. |
 | 11 | **Examples & optional demos** — Cargo `[[example]]` entries in [`Cargo.toml`](Cargo.toml) under `comparisons/`, [`python/examples/`](python/examples/), [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | **100%** | `task consumer:smoke` runs the Rust sleepstudy workflow and portable Python examples. R/Julia and plotting demos remain optional. |
 | 12 | **Experimental / exploratory code** — [`scripts/explorations/`](scripts/explorations/) | **35%** | Three Cargo examples exist (AST dump, θ-grid, MCP adjust). The weight-13 integrated criterion is **not** met by those same examples. This row is auxiliary. |
-| 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **75%** | Jul 22 LMM cases (including `crossed_20k`, `nested_10k`, `sleepstudy_reml`) still pass the strict gate. **Gap:** no current full tier-A artifact after GLMM fit-math changes. |
+| 13 | **LMM fit throughput vs MixedModels.jl** — optimization to be **competitive** on fair harness cases | **75%** | Jul 22 LMM cases passed the strict gate on that revision. **Gap:** the September 9 full run misses the strict gate for crossed/nested LMM and CBPP. |
 | 14 | **Rust crate: nonlinear mixed models** — [`nlmer`](src/nlmm/mod.rs), [`nlmer_with_mean`](src/nlmm/mod.rs), Python `nlmer` | **82%** | Eleven built-in `SS*` means, bounds, custom μ, scalar/vector AGQ, and named goldens. **Gaps:** single grouping factor only; no nlmer VC profile / emmeans path. |
 
 ## Overall completion
 
-**Evidence-weighted overall: 91% (235/258 scope units).**
+**Evidence-weighted overall: 91% (234/258 scope units).**
 
-The Jul 22 LMM cold fits passed the strict target (ratios about **0.03× to 0.96×** Julia on that workstation). These are versioned engineering measurements, not machine-independent speed guarantees. Do not read 91% as “almost done with mixed models in general”; it is 235 of 258 **locked** commitments.
+The Jul 22 LMM cold fits passed the strict target (ratios about **0.03× to 0.96×** Julia on that workstation). These are versioned engineering measurements, not machine-independent speed guarantees. Do not read 91% as “almost done with mixed models in general”; it is 234 of 258 **locked** commitments.
 
 ## Evidence pointers (verified)
 

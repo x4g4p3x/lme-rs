@@ -28,11 +28,76 @@ Engineering notes for native formula parsing and **LMM variance-component (θ) s
 
 ---
 
+## Shared design and response workspaces (2026-09-09)
+
+`LmmData` and `GlmmData` share immutable matrices and structural maps across
+response workspaces. `LmerPrepared::workspace()` retains response products and
+solver buffers between `fit_response` calls. Use one workspace per worker:
+
+```rust,ignore
+let prepared = lme_rs::prepare_lmer("Reaction ~ Days + (Days | Subject)", &data)?;
+let mut workspace = prepared.workspace();
+let control = lme_rs::FitControl::default();
+let fit = workspace.fit_response(response, true, &control)?;
+```
+
+GLMM objective evaluations reuse numeric buffers and sparse LDL structure when
+the actual sparsity pattern matches. NLMM normal equations accumulate independent
+group blocks, then solve their Schur complement; neither the observation Jacobian
+nor a dense matrix spanning all groups is materialized. Joint nonlinear ML
+refinement shares the input arrays and optimizes population parameters as well as
+covariance parameters. Regression tests retain the existing R fixture tolerances.
+
+Bootstrap generates a response only when a worker is ready to refit it. Peak
+response storage scales with worker count, while replicate summaries scale with
+replicate count. `ExecutionContext::install` lets callers reuse a Rayon pool;
+`n_jobs=None` respects that context. The library no longer changes process-wide
+BLAS/OpenMP environment variables. Configure backend threads before starting work.
+
+Dated Rust/Julia ratios in the historical sections describe their recorded
+revisions. The current refactor measurements follow.
+
+### Local before/after measurements
+
+[Paired measurements](benchmarks/refactor-2026-09-09.json) compare the retained
+`4ebf9fd` release executable with this refactor on the same workstation, using all
+12 existing fair-harness cases. Each implementation has 22 measured samples,
+collected in before/after and after/before order with three warmups per process.
+
+| Workload | Before cold fit | After cold fit | Interpretation |
+|---|---:|---:|---|
+| Sleepstudy REML | 0.644 ms | 0.684 ms | Small absolute overhead |
+| Random intercept, 100k rows | 6.595 ms | 6.522 ms | Similar throughput; preparation 4.965 → 4.255 ms |
+| Random slopes, 100k rows | 58.048 ms | 58.740 ms | Similar throughput |
+| Grouseticks Poisson | 9.828 ms | 8.277 ms | About 16% lower fit time |
+| Crossed intercepts, 20k rows | 14.682 ms | 27.017 ms | Now refines the coarse ML grid to numerical convergence |
+| Nested intercepts, 10k rows | 6.131 ms | 23.174 ms | Same refinement tradeoff; baseline stopped at its grid minimum |
+
+The refactor does **not** make every fit faster. The two-parameter LMM paths spend
+more evaluations establishing convergence; their old ML path returned an
+unconditional success flag after its grid search. Retaining that shortcut would
+preserve misleading diagnostics. `FitControl` exposes iteration budgets for
+callers who need to bound work, with unsuccessful convergence visible in the fit.
+The primary memory improvements target repeated responses, bootstrap, and growing
+nonlinear group counts; these cold-fit timings do not measure peak memory.
+
+### Current Rust/Julia comparison
+
+The [September 9 full-suite run](benchmarks/fair-rust-julia-reference-2026-09-09-refactor.json)
+uses three warmups and eleven measured fits per implementation, with all twelve
+cases completed. Nine cold-fit cases are below the strict 1.0× target. The gaps
+are crossed 20k (1.733× cold / 1.573× prepared), nested 10k (3.196× cold /
+2.891× prepared), and binomial CBPP (1.182× cold). Poisson grouseticks is 0.052×
+Julia and large random slopes is 0.834× cold / 0.637× prepared on this workstation.
+The current-suite completion criteria remain open because these measured gaps
+do not satisfy their locked scopes. Existing golden tolerances remain unchanged;
+this timing comparison itself does not establish coefficient parity.
+
 ## At a glance (2026-07-22)
 
 **Goal (met):** on the [fair Rust vs Julia harness](BENCHMARKS.md#fair-rust-vs-julia-reference-results), tier-A `cold_fit` cases are **strictly faster than MixedModels.jl (&lt;1.0×)** **without breaking** golden parity. (Prior bars: **2×** through 2026-07-08; **1.5×** through 2026-07-15; **&lt;1.0×** locked 2026-07-16.)
 
-**Full-suite evidence:** the 2026-07-22 12-case tier-A run had no gate failures on that revision ([reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). All 10 LMM cold fits and measured LMM prepared fits remain the current LMM evidence. The two GLMM cold fits in that file predate Gamma PIRLS phi profiling and multivariate AGQ-in-θ.
+**Full-suite evidence:** the 2026-07-22 12-case tier-A run had no gate failures on that revision ([reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). The September 9 refactor postdates that artifact; its LMM results are historical evidence. The two GLMM cold fits in that file predate Gamma PIRLS phi profiling and multivariate AGQ-in-θ.
 
 | Case | Status vs Julia (cold `lmer`) | Hot-path metric |
 |:-----|:------------------------------|:----------------|
@@ -44,7 +109,7 @@ Engineering notes for native formula parsing and **LMM variance-component (θ) s
 
 Recorded medians: [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json). Use **`prepare_lmer` + `fit_prepared`** when fitting the same formula repeatedly — hot fit **beats Julia** on every measured tier-A LMM case.
 
-Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work** for LMM math. Named LMM case criteria in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13 stay complete on the Jul 22 artifact; the full-suite-including-GLMM criterion does not, because GLMM PIRLS/AGQ changed after that run.
+Remaining OPTIMIZATION backlog items below are **optional polish / regression-guard work** for LMM math. Named dated LMM case criteria in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row 13 retain the Jul 22 artifact; current-suite claims require a post-refactor rerun.
 
 ---
 
@@ -599,7 +664,7 @@ Do not reintroduce these without re-validating parity and benchmarks.
 
 ## Next experiments (optional polish — not completion blockers)
 
-Axis (3) tier-A cold-fit **&lt;1.0×** is **met across the full current suite** ([2026-07-22 reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)). Items below are optional engineering / regression-guard work; they do **not** block [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows **1** or **13**.
+The [2026-07-22 reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json) met the tier-A cold-fit **&lt;1.0×** target on that revision. The list below records experiments against that baseline. Current throughput commitments are assessed separately in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) rows **1** and **13**.
 
 1. ~~**Single-factor random-slopes throughput**~~ — **done (2026-07-09):** `SingleFactorSlopesCache` plus linear block extraction; `sleepstudy_reml` is **~0.8×** Julia cold, and `large_random_slopes_100k` is **~0.83×** cold / **~0.65×** prepared. See [BENCHMARKS.md](BENCHMARKS.md#large-random-slopes-showcase).
 2. ~~**Nested blocked path (row-grouped ColumnBlocks)**~~ — **cold &lt;1×:** fair two-factor membership Gram + allocation-free blocked gate + skip duplicate gate on `ensure_blocked`; `nested_10k` cold **0.961×** Julia in the 2026-07-22 full run. ColumnBlocks post-fit remains optional structure work.
@@ -619,6 +684,8 @@ Axis (3) tier-A cold-fit **&lt;1.0×** is **met across the full current suite** 
 | [`src/intercept_blocked.rs`](src/intercept_blocked.rs) | Blocked augmented Cholesky (`updateL!`) for intercept-only crossed models |
 | [`src/optimizer.rs`](src/optimizer.rs) | `optimize_theta_lmm`, intercept golden-section (|θ|=1), 2D log-grid (|θ|=2) |
 | [`src/lib.rs`](src/lib.rs) | `lmer`, `prepare_lmer`, `fit_prepared`, `LmerPrepared` |
+| [`src/prepared.rs`](src/prepared.rs) | Independent `LmerWorkspace` response updates and controlled prepared fits |
+| [`src/model.rs`](src/model.rs) | Shared model metadata, fit controls, and diagnostics |
 | [`src/model_matrix.rs`](src/model_matrix.rs) | Design matrices; `build_zt_csr` direct `Zᵀ` assembly |
 | [`src/perf_diag.rs`](src/perf_diag.rs) | `LME_PERF_DIAG` phase timing |
 | [`comparisons/bench_perf_breakdown.rs`](comparisons/bench_perf_breakdown.rs) | Prepared vs cold fit breakdown JSON |

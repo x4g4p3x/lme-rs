@@ -69,28 +69,7 @@ pub fn build_design_matrices(
         feature: "Missing response variable".to_string(),
     })?;
 
-    let y_series_cast = data
-        .column(&response_name)
-        .map_err(|e| crate::LmeError::NotImplemented {
-            feature: format!("Data missing response column: {}", e),
-        })?
-        .cast(&DataType::Float64)
-        .map_err(|e| crate::LmeError::NotImplemented {
-            feature: format!("Response must be castable to float: {}", e),
-        })?;
-    if y_series_cast.null_count() > 0 {
-        return Err(crate::LmeError::NotImplemented {
-            feature: "Response column contains nulls or invalid floats".to_string(),
-        });
-    }
-    let y_vec: Vec<f64> = y_series_cast
-        .f64()
-        .map_err(|_| crate::LmeError::NotImplemented {
-            feature: "Response must be float".to_string(),
-        })?
-        .into_no_null_iter()
-        .collect();
-    let y = Array1::from_vec(y_vec);
+    let y = numeric_column_f64(data, &response_name)?;
 
     let (x, fixed_names, fixed_term_assign, categorical_levels, basis_encodings) =
         build_x_matrix(ast, data, &response_name, n_obs, None, None)?;
@@ -539,31 +518,31 @@ fn is_native_numeric_dtype(dtype: &DataType) -> bool {
     )
 }
 
-fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<f64>> {
+pub(crate) fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Result<Array1<f64>> {
     let column = data
         .column(col_name)
-        .map_err(|_| crate::LmeError::NotImplemented {
-            feature: format!("Missing or invalid column: {}", col_name),
+        .map_err(|_| crate::LmeError::MissingColumn {
+            column: col_name.into(),
         })?;
-    let cast;
-    let s = if let Ok(values) = column.f64() {
-        values
-    } else {
-        cast = column
-            .cast(&DataType::Float64)
-            .map_err(|_| crate::LmeError::NotImplemented {
-                feature: format!("Missing or invalid column: {}", col_name),
-            })?;
-        cast.f64().map_err(|_| crate::LmeError::NotImplemented {
-            feature: format!("Missing or invalid column: {}", col_name),
-        })?
-    };
-    if s.null_count() > 0 {
-        return Err(crate::LmeError::NotImplemented {
-            feature: format!("Column '{col_name}' contains nulls or invalid floats"),
+    if !is_native_numeric_dtype(column.dtype()) {
+        return Err(crate::LmeError::InvalidInput {
+            message: format!("Column '{col_name}' must be numeric"),
         });
     }
-    Ok(Array1::from_vec(s.into_no_null_iter().collect()))
+    let cast = column
+        .cast(&DataType::Float64)
+        .map_err(|e| crate::LmeError::InvalidInput {
+            message: e.to_string(),
+        })?;
+    let values = cast.f64().map_err(|e| crate::LmeError::InvalidInput {
+        message: e.to_string(),
+    })?;
+    if values.null_count() > 0 || values.into_no_null_iter().any(|v| !v.is_finite()) {
+        return Err(crate::LmeError::InvalidInput {
+            message: format!("Column '{col_name}' contains nulls or non-finite values"),
+        });
+    }
+    Ok(Array1::from_iter(values.into_no_null_iter()))
 }
 
 struct EncodedTerm {
@@ -581,8 +560,8 @@ fn encode_column(
 ) -> crate::Result<EncodedTerm> {
     let s = data
         .column(col_name)
-        .map_err(|_| crate::LmeError::NotImplemented {
-            feature: format!("Missing or invalid column: {}", col_name),
+        .map_err(|_| crate::LmeError::MissingColumn {
+            column: col_name.into(),
         })?;
 
     if is_categorical_series(s.dtype()) {
@@ -702,7 +681,7 @@ fn interaction_colon_name(
     }
 }
 
-fn eval_numeric_expr(
+pub(crate) fn eval_numeric_expr(
     expr: &NumericExpr,
     data: &DataFrame,
     n_obs: usize,
@@ -1216,15 +1195,15 @@ pub fn build_x_matrix(
     ))
 }
 
-fn build_grouping_from_string_column(
+pub(crate) fn build_grouping_from_string_column(
     data: &DataFrame,
     g_var: &str,
     n_obs: usize,
 ) -> Result<GroupingIndices, crate::LmeError> {
     let column = data
         .column(g_var)
-        .map_err(|e| crate::LmeError::NotImplemented {
-            feature: format!("Grouping column '{}' not found: {}", g_var, e),
+        .map_err(|_| crate::LmeError::MissingColumn {
+            column: g_var.into(),
         })?;
     if let Ok(values) = column.str() {
         return build_grouping_from_utf8(values, n_obs);
@@ -1247,7 +1226,12 @@ fn build_grouping_from_utf8(
     let mut unique_groups: Vec<String> = Vec::new();
     let mut group_map_str: HashMap<&str, usize> = HashMap::new();
     let mut obs_group_idx: Vec<usize> = Vec::with_capacity(n_obs);
-    for val in g_str.into_iter().map(|v| v.unwrap()) {
+    if g_str.null_count() > 0 {
+        return Err(crate::LmeError::InvalidInput {
+            message: "grouping column contains nulls".into(),
+        });
+    }
+    for val in g_str.into_no_null_iter() {
         let idx = *group_map_str.entry(val).or_insert_with(|| {
             unique_groups.push(val.to_string());
             unique_groups.len() - 1
@@ -1265,6 +1249,11 @@ fn index_column_obs_levels(
     col: &Column,
     n_obs: usize,
 ) -> Result<(Vec<usize>, Vec<String>), crate::LmeError> {
+    if col.null_count() > 0 {
+        return Err(crate::LmeError::InvalidInput {
+            message: "grouping column contains nulls".into(),
+        });
+    }
     let mut levels: Vec<String> = Vec::new();
     let mut obs_idx = Vec::with_capacity(n_obs);
     if let Ok(str_col) = col.str() {
@@ -1293,7 +1282,7 @@ fn index_column_obs_levels(
 
 /// Fast path for nested interaction groups (`batch:cask`): index each factor column once,
 /// then hash composite level tuples instead of formatting joined strings per row.
-fn try_build_interaction_groups(
+pub(crate) fn try_build_interaction_groups(
     data: &DataFrame,
     parts: &[&str],
     n_obs: usize,

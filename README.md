@@ -156,7 +156,7 @@ identifies the covered models and quantities. [USABILITY.md](USABILITY.md)
 explains how to assess a new dataset and distinguishes repository validation
 from field experience.
 
-> **Repository completion (evidence-weighted): 91% (235/258 scope units).** This is a generated score for the locked scope in [completion_manifest.json](completion_manifest.json). It does not measure production maturity or suitability for an individual analysis. See [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
+> **Repository completion (evidence-weighted): 91% (234/258 scope units).** This is a generated score for the locked scope in [completion_manifest.json](completion_manifest.json). It does not measure production maturity or suitability for an individual analysis. See [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
 
 ### Performance evidence
 

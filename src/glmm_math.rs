@@ -90,31 +90,71 @@ pub fn build_glmm_structural_maps(zt: &CsMat<f64>) -> (CsMat<f64>, Vec<(usize, u
     (zt_z, zt_w_z_map)
 }
 
-/// Encapsulates the design matrices and family for a GLMM evaluation.
-pub struct GlmmData {
-    /// Dense fixed-effects design matrix ($X$).
+/// Immutable GLMM matrices and structural maps shared by response workspaces.
+pub struct GlmmDesign {
+    /// Fixed-effects matrix.
     pub x: Array2<f64>,
-    /// Sparse transposed random-effects design matrix ($Z^T$).
+    /// Transposed random-effects matrix.
     pub zt: CsMat<f64>,
-    /// Dependent variable vector ($y$).
-    pub y: Array1<f64>,
-    /// Collection of random effect dimensional tracking blocks.
+    /// Group/block metadata.
     pub re_blocks: Vec<ReBlock>,
-    /// Family distribution specification detailing variance and link properties.
-    pub family: Box<dyn GlmFamily>,
-    /// Optional prior observation weights (multiply deviance and IRLS contributions).
+    /// Observation weights.
     pub weights: Option<Array1<f64>>,
-    // Cached structural matrices
-    /// Cross product of the transposed design matrix ($Z^T Z$).
+    /// Structural cross-product.
     pub zt_z: CsMat<f64>,
-    // Precomputed mapping for Z^t W Z update: (col_in_Zt, zt_z_data_idx, value_product)
-    /// Track mapped positions to rapidly update dense/sparse intermediate combinations without recreating arrays.
+    /// Sparse weighted-product mapping.
     pub zt_w_z_map: Vec<(usize, usize, f64)>,
+}
+
+/// Independent GLMM response and numerical workspace, sharing immutable design.
+pub struct GlmmData {
+    /// Shared immutable design.
+    pub design: std::sync::Arc<GlmmDesign>,
+    workspace: Option<GlmmWorkspace>,
+    control: crate::FitControl,
+    /// Response vector.
+    pub y: Array1<f64>,
+    /// Family and link functions.
+    pub family: Box<dyn GlmFamily>,
+}
+impl std::ops::Deref for GlmmData {
+    type Target = GlmmDesign;
+    fn deref(&self) -> &Self::Target {
+        &self.design
+    }
+}
+
+struct GlmmWorkspace {
+    zt_w_z: CsMat<f64>,
+    eye: CsMat<f64>,
+    w_diag_x: Array2<f64>,
+    ldl: Option<sprs_ldl::LdlNumeric<f64, usize>>,
+    pattern_indices: Vec<usize>,
+    pattern_indptr: Vec<usize>,
+}
+
+impl GlmmWorkspace {
+    fn new(data: &GlmmData) -> Self {
+        Self {
+            zt_w_z: data.zt_z.clone(),
+            eye: CsMat::eye(data.zt.rows()),
+            w_diag_x: Array2::zeros(data.x.dim()),
+            ldl: None,
+            pattern_indices: Vec::new(),
+            pattern_indptr: Vec::new(),
+        }
+    }
 }
 
 /// Result of PIRLS convergence for a single theta evaluation.
 #[derive(Debug, Clone)]
 pub struct GlmmCoefficients {
+    /// PIRLS iterations at the final dispersion value.
+    pub iterations: usize,
+    /// Quadrature order actually used, or one for Laplace.
+    pub effective_n_agq: usize,
+    /// Whether the dispersion iteration converged (true for fixed-dispersion families).
+    pub dispersion_converged: bool,
     /// Laplace-approximated deviance (cost for optimizer).
     pub deviance: f64,
     /// Fixed effects coefficients.
@@ -140,6 +180,11 @@ pub struct GlmmCoefficients {
 }
 
 impl GlmmData {
+    /// Set numerical controls for subsequent evaluations.
+    pub fn set_control(&mut self, control: crate::FitControl) {
+        self.control = control;
+    }
+
     /// Construct a fresh GLMM data block capturing design matrices and specific generative distributions,
     /// pre-building the index maps used repeatedly during inner PIRLS loops for $Z^T W Z$ weight updates.
     pub fn new(
@@ -179,35 +224,45 @@ impl GlmmData {
         zt_z: CsMat<f64>,
         zt_w_z_map: Vec<(usize, usize, f64)>,
     ) -> Self {
-        GlmmData {
-            x,
-            zt,
+        Self::from_design(
+            std::sync::Arc::new(GlmmDesign {
+                x,
+                zt,
+                re_blocks,
+                weights,
+                zt_z,
+                zt_w_z_map,
+            }),
             y,
-            re_blocks,
             family,
-            weights,
-            zt_z,
-            zt_w_z_map,
+        )
+    }
+
+    /// Construct an independent workspace around an existing immutable design.
+    pub fn from_design(
+        design: std::sync::Arc<GlmmDesign>,
+        y: Array1<f64>,
+        family: Box<dyn GlmFamily>,
+    ) -> Self {
+        Self {
+            design,
+            y,
+            family,
+            workspace: None,
+            control: crate::FitControl::default(),
         }
     }
 
-    /// Replace the response while keeping structural maps (for bootstrap refits).
+    /// Replace the response while sharing matrices and structural maps.
     pub fn with_response(&self, y: Array1<f64>, family: Box<dyn GlmFamily>) -> Self {
         assert_eq!(
             y.len(),
             self.y.len(),
             "GlmmData::with_response length mismatch"
         );
-        Self {
-            x: self.x.clone(),
-            zt: self.zt.clone(),
-            y,
-            re_blocks: self.re_blocks.clone(),
-            family,
-            weights: self.weights.clone(),
-            zt_z: self.zt_z.clone(),
-            zt_w_z_map: self.zt_w_z_map.clone(),
-        }
+        let mut next = Self::from_design(self.design.clone(), y, family);
+        next.control = self.control.clone();
+        next
     }
 
     fn observation_weights(&self) -> Array1<f64> {
@@ -270,7 +325,7 @@ impl GlmmData {
 
         let n_eff = self.observation_weights().sum().max(1.0);
         let mut phi = 1.0_f64;
-        const MAX_PHI_ITER: usize = 40;
+        const MAX_PHI_ITER: usize = 240;
         const PHI_TOL: f64 = 1e-8;
         for _ in 0..MAX_PHI_ITER {
             let coefs = self.pirls_with_phi(theta, offset, n_agq, phi)?;
@@ -289,7 +344,9 @@ impl GlmmData {
                 return Some(coefs);
             }
         }
-        self.pirls_with_phi(theta, offset, n_agq, phi)
+        let mut coefs = self.pirls_with_phi(theta, offset, n_agq, phi)?;
+        coefs.dispersion_converged = false;
+        Some(coefs)
     }
 
     fn pirls_with_phi(
@@ -298,6 +355,23 @@ impl GlmmData {
         offset: Option<&Array1<f64>>,
         n_agq: usize,
         phi: f64,
+    ) -> Option<GlmmCoefficients> {
+        let mut workspace = self
+            .workspace
+            .take()
+            .unwrap_or_else(|| GlmmWorkspace::new(self));
+        let result = self.pirls_with_workspace(theta, offset, n_agq, phi, &mut workspace);
+        self.workspace = Some(workspace);
+        result
+    }
+
+    fn pirls_with_workspace(
+        &self,
+        theta: &[f64],
+        offset: Option<&Array1<f64>>,
+        n_agq: usize,
+        phi: f64,
+        workspace: &mut GlmmWorkspace,
     ) -> Option<GlmmCoefficients> {
         let n = self.y.len();
         let q = self.zt.rows();
@@ -316,7 +390,10 @@ impl GlmmData {
 
         let wt = self.observation_weights();
 
-        let max_iter = if link.name() == "inverse" { 1000 } else { 100 };
+        let max_iter = self
+            .control
+            .max_inner_iterations
+            .unwrap_or(if link.name() == "inverse" { 1000 } else { 100 });
         let tol = 1e-8;
         let mut old_pwrss = f64::MAX;
 
@@ -366,35 +443,37 @@ impl GlmmData {
             // Compute ZΛ products column-by-column through sparse ops
 
             // Build Z^T W Z in-place using the precomputed map
-            let mut zt_w_z = self.zt_z.clone();
+            let zt_w_z = &mut workspace.zt_w_z;
             for v in zt_w_z.data_mut() {
                 *v = 0.0;
             }
             for &(k, data_idx, val) in &self.zt_w_z_map {
                 zt_w_z.data_mut()[data_idx] += val * w[k];
             }
-            let a_part = &lam_t * &(&zt_w_z * &lambda);
+            let a_part = &lam_t * &(&*zt_w_z * &lambda);
 
-            let mut eye_tri = TriMat::new((q, q));
-            for i in 0..q {
-                eye_tri.add_triplet(i, i, 1.0);
-            }
-            let eye: CsMat<f64> = eye_tri.to_csr();
-            let a = &a_part + &eye;
-
-            // LDLT decomposition of A
-            use sprs::SymmetryCheck;
-            use sprs_ldl::Ldl;
-            let ldl = match Ldl::new()
-                .check_symmetry(SymmetryCheck::DontCheckSymmetry)
-                .numeric(a.view())
+            let a = &a_part + &workspace.eye;
+            // Reuse symbolic LDL only while the complete sparse pattern matches.
+            if workspace.pattern_indices != a.indices()
+                || workspace.pattern_indptr != a.indptr().raw_storage()
             {
-                Ok(l) => l,
-                Err(e) => {
-                    log::debug!("LDLT decomposition failed: {:?}", e);
+                workspace.ldl = None;
+            }
+            if let Some(ldl) = &mut workspace.ldl {
+                if ldl.update(a.view()).is_err() {
                     return None;
                 }
-            };
+            } else {
+                workspace.ldl = Some(
+                    sprs_ldl::Ldl::new()
+                        .check_symmetry(sprs::SymmetryCheck::DontCheckSymmetry)
+                        .numeric(a.view())
+                        .ok()?,
+                );
+                workspace.pattern_indices = a.indices().to_vec();
+                workspace.pattern_indptr = a.indptr().raw_storage().to_vec();
+            }
+            let ldl = workspace.ldl.as_ref()?;
 
             // Working response z includes the offset via η; for the penalized WLS
             // solve we regress z − offset on X and Z so β and b do not absorb o.
@@ -420,7 +499,7 @@ impl GlmmData {
             let w_y = Array1::from_vec(w_y_vec);
 
             // RHS for beta: X'W*z and X'W*Z*Λ terms
-            let mut w_diag_x = Array2::<f64>::zeros((n, p));
+            let w_diag_x = &mut workspace.w_diag_x;
             for j in 0..p {
                 for i in 0..n {
                     w_diag_x[[i, j]] = self.x[[i, j]] * w[i];
@@ -600,18 +679,29 @@ impl GlmmData {
                 let fit_term = self.laplace_fit_term(&mu, sum_dev_resid);
                 let mut deviance = fit_term + log_det_a + u.dot(&u);
 
+                let mut effective_n_agq = 1;
                 if n_agq > 1 {
                     if self.re_blocks.len() == 1 {
                         if let Some(d_agq) =
                             self.agq_deviance(n_agq, &a, &u, &beta, &lambda, offset, &mu, phi)
                         {
                             deviance = d_agq;
+                            effective_n_agq = if self.re_blocks.len() == 1 {
+                                resolve_gh_order_product(n_agq, self.re_blocks[0].k).unwrap_or(1)
+                            } else {
+                                resolve_gh_order_joint(n_agq, u.len()).unwrap_or(1)
+                            };
                         }
                     } else if u.len() <= AGQ_JOINT_MAX_Q {
                         if let Some(d_agq) =
                             self.agq_deviance_joint(n_agq, &a, &u, &beta, &lambda, offset, &mu, phi)
                         {
                             deviance = d_agq;
+                            effective_n_agq = if self.re_blocks.len() == 1 {
+                                resolve_gh_order_product(n_agq, self.re_blocks[0].k).unwrap_or(1)
+                            } else {
+                                resolve_gh_order_joint(n_agq, u.len()).unwrap_or(1)
+                            };
                         } else {
                             log::debug!(
                                 "Joint AGQ failed (singular Hessian or grid too large); using Laplace."
@@ -645,6 +735,9 @@ impl GlmmData {
                 let residuals = &self.y - &mu;
 
                 return Some(GlmmCoefficients {
+                    iterations: _iter + 1,
+                    effective_n_agq,
+                    dispersion_converged: true,
                     deviance,
                     beta,
                     b,
@@ -662,26 +755,8 @@ impl GlmmData {
             old_pwrss = pwrss;
         }
 
-        // If we reach here, PIRLS did not converge — still return last result with a warning
         log::warn!("PIRLS did not converge within {} iterations", max_iter);
-
-        let mut b = Array1::<f64>::zeros(q);
-        for (val, (row, col)) in lambda.iter() {
-            b[row] += val * u[col];
-        }
-        Some(GlmmCoefficients {
-            deviance: f64::MAX,
-            beta,
-            b,
-            u,
-            eta,
-            residuals: &self.y - &mu,
-            fitted: mu,
-            beta_se: Array1::zeros(p),
-            beta_z: Array1::zeros(p),
-            v_beta_unscaled: Array2::zeros((p, p)),
-            phi,
-        })
+        None
     }
 
     /// Adaptive Gauss–Hermite quadrature for a **single** random-effect block.

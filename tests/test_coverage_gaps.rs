@@ -15,6 +15,7 @@ fn make_display_fit(
     iterations: Option<u64>,
 ) -> LmeFit {
     LmeFit {
+        diagnostics: None,
         coefficients: array![1.0, 2.0],
         residuals: array![0.1, -0.1, 0.05, -0.05],
         fitted: array![1.0, 2.0, 3.0, 4.0],
@@ -94,7 +95,7 @@ fn test_display_converged_without_iterations() {
     let summary = format!("{}", fit);
 
     assert!(
-        summary.contains("optimizer (Nelder-Mead) converged"),
+        summary.contains("optimizer converged"),
         "Summary should say converged:\n{}",
         summary
     );

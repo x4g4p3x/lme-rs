@@ -237,6 +237,7 @@ mod tests {
     fn create_dummy_fit() -> LmeFit {
         LmeFit {
             formula: Some("y ~ x".to_string()),
+            diagnostics: None,
             coefficients: array![1.0, 2.0],
             sigma2: Some(1.0),
             beta_se: Some(array![0.5, 0.5]),

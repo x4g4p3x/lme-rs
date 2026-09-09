@@ -73,3 +73,32 @@ use `uv run --no-sync` for examples and tests.
 
 `task consumer:smoke` builds a wheel, verifies it in isolated environments,
 and runs portable examples against the installed artifact.
+
+## Repeated responses and fit diagnostics
+
+Prepare once when fitting several response vectors against the same design:
+
+```python
+prepared = lme_python.prepare_lmer("Reaction ~ Days + (Days | Subject)", data)
+control = lme_python.FitControl(max_iterations=2000, require_convergence=True)
+fit = prepared.fit(y=data["Reaction"].to_list(), reml=True, control=control)
+print(fit.diagnostics)
+```
+
+`prepare_lmer(..., weights=...)` retains observation precision weights. Responses
+must contain finite values and match the original row count. Offsets are applied
+exactly once. `prepare_glmer` also supports `prepared.fit(y=..., control=...)`.
+The existing `fit_prepared(..., y=..., control=...)` and `fit_prepared_glmer` functions
+remain available.
+
+`FitControl` accepts `max_iterations`, `tolerance`, `max_inner_iterations`, starting
+covariance parameters `start`, and `require_convergence`. The iteration limit is
+per outer search stage. Nonlinear fits use `max_inner` and `max_outer_iters` instead.
+Inspect `converged` and `diagnostics` before interpreting a fit; diagnostics report
+termination, iteration counts, objective value, and requested/effective quadrature.
+
+Conversion serializes columns needed by an explicit formula. Dot formulas retain
+all columns for expansion. Native fitting releases the interpreter lock; custom
+Python nonlinear mean callbacks reacquire it while evaluating Python code.
+Bootstrap generates each response as its worker needs it, retaining only replicate
+summaries. Thread counts no longer change BLAS/OpenMP process settings.

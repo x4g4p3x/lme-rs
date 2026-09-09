@@ -172,19 +172,12 @@ pub fn cv_grouped(
             .map(|spec| run_fold(spec, &data, &formula, &group_col, &groups, reml, &y_all))
             .collect::<Result<Vec<_>>>()?
     } else {
-        pin_competing_threadpools_single_thread();
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(workers)
-            .build()
-            .map_err(|e| LmeError::NotImplemented {
-                feature: format!("cv_grouped failed to build thread pool: {e}"),
-            })?;
-        pool.install(|| {
+        crate::execution::run(n_jobs.map(|_| workers), || {
             fold_specs
                 .par_iter()
                 .map(|spec| run_fold(spec, &data, &formula, &group_col, &groups, reml, &y_all))
                 .collect::<Result<Vec<_>>>()
-        })?
+        })??
     };
 
     let mut oof = Array1::<f64>::from_elem(n_obs, f64::NAN);
@@ -354,14 +347,7 @@ pub fn cv_grouped_glmer(
             })
             .collect::<Result<Vec<_>>>()?
     } else {
-        pin_competing_threadpools_single_thread();
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(workers)
-            .build()
-            .map_err(|e| LmeError::NotImplemented {
-                feature: format!("cv_grouped_glmer failed to build thread pool: {e}"),
-            })?;
-        pool.install(|| {
+        crate::execution::run(n_jobs.map(|_| workers), || {
             fold_specs
                 .par_iter()
                 .map(|spec| {
@@ -379,7 +365,7 @@ pub fn cv_grouped_glmer(
                     )
                 })
                 .collect::<Result<Vec<_>>>()
-        })?
+        })??
     };
 
     let mut oof = Array1::<f64>::from_elem(n_obs, f64::NAN);
@@ -534,22 +520,8 @@ fn bernoulli_log_loss(y: f64, p: f64) -> f64 {
     -(y * p.ln() + (1.0 - y) * (1.0 - p).ln())
 }
 
-fn resolve_n_jobs(n_jobs: Option<usize>, n_folds: usize) -> usize {
-    let requested = n_jobs.unwrap_or_else(|| {
-        std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1)
-    });
-    requested.max(1).min(n_folds.max(1))
-}
-
-/// Avoid BLAS/OpenMP oversubscription when each rayon worker also spawns threads.
-fn pin_competing_threadpools_single_thread() {
-    // BLAS backends read these when entering threaded regions; set before parallel folds.
-    std::env::set_var("OPENBLAS_NUM_THREADS", "1");
-    std::env::set_var("MKL_NUM_THREADS", "1");
-    std::env::set_var("OMP_NUM_THREADS", "1");
-    std::env::set_var("VECLIB_MAXIMUM_THREADS", "1");
+fn resolve_n_jobs(n_jobs: Option<usize>, n_tasks: usize) -> usize {
+    crate::execution::resolve_workers(n_jobs, n_tasks)
 }
 
 fn run_fold(

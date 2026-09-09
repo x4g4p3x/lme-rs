@@ -1,17 +1,17 @@
 {
   "schema_version": 2,
-  "assessed_on": "2026-08-15",
+  "assessed_on": "2026-09-09",
   "scoring_rule": "Each criterion is a binary scope commitment. An area score is 100 * completed criterion weight / total criterion weight. The repository score is the same calculation across all criteria, not an average of rounded area scores. A criterion is complete only when its locked scope is met and its stated evidence is current; missing, partial, stale, or substituted evidence scores zero. Do not mark a criterion complete by narrowing or replacing its locked scope.",
   "areas": [
     {
       "id": 1,
       "name": "Rust crate: linear and mixed (LMM)",
-      "evidence": ["src/lib.rs", "tests", "comparisons", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"],
+      "evidence": ["src/lib.rs", "tests", "comparisons", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json", "benchmarks/fair-rust-julia-reference-2026-09-09-refactor.json"],
       "criteria": [
         {"id": "lmm-api", "weight": 7, "complete": true, "scope": "Shipped lm / lm_df / lmer / lmer_weighted / predict surface for the documented LMM workflows (REML/ML, nested and crossed RE, weights)."},
         {"id": "lmm-tests", "weight": 6, "complete": true, "scope": "Integration and unit tests exercise the shipped LMM API, including predict, weights, and common RE layouts."},
         {"id": "lmm-parity", "weight": 6, "complete": true, "scope": "Golden / comparison fixtures lock LMM coefficients, theta, and sigma2 on named datasets (sleepstudy, dyestuff, pastes, penicillin)."},
-        {"id": "lmm-current-strict-tier-a", "weight": 1, "complete": true, "scope": "A dated full-suite fair-harness artifact shows every tier-A LMM cold_fit (and measured fit_prepared) below the strict 1.0× Julia gate. LMM math/optimizer must not have changed since that artifact."}
+        {"id": "lmm-current-strict-tier-a", "weight": 1, "complete": false, "scope": "A dated full-suite fair-harness artifact shows every tier-A LMM cold_fit (and measured fit_prepared) below the strict 1.0× Julia gate. LMM math/optimizer must not have changed since that artifact.", "gap": "The September 9 full-suite refactor artifact completes all cases but exceeds the strict 1.0x Julia target for crossed_20k (1.733x cold, 1.573x prepared), nested_10k (3.196x cold, 2.891x prepared), and CBPP (1.182x cold). The LMM cases alone also fail their current-suite scope."}
       ]
     },
     {
@@ -135,12 +135,12 @@
     {
       "id": 13,
       "name": "LMM fit throughput vs MixedModels.jl",
-      "evidence": ["BENCHMARK_COVERAGE.md", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json"],
+      "evidence": ["BENCHMARK_COVERAGE.md", "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json", "benchmarks/fair-rust-julia-reference-2026-09-09-refactor.json"],
       "criteria": [
         {"id": "strict-crossed-20k", "weight": 1, "complete": true, "scope": "Dated fair-harness evidence shows crossed_20k cold_fit < 1.0× Julia."},
         {"id": "strict-nested-10k", "weight": 1, "complete": true, "scope": "Dated fair-harness evidence shows nested_10k cold_fit < 1.0× Julia."},
         {"id": "strict-sleepstudy", "weight": 1, "complete": true, "scope": "Dated fair-harness evidence shows sleepstudy_reml cold_fit < 1.0× Julia."},
-        {"id": "current-strict-full-tier-a", "weight": 1, "complete": false, "scope": "One current artifact covers all 10 LMM and both GLMM tier-A cases at the strict 1.0× gate after the last change to LMM or GLMM fit math.", "gap": "The 2026-07-22 artifact predates Gamma PIRLS phi profiling and multivariate AGQ-in-θ (2026-08-13/14). LMM cases remain usable because math.rs/optimizer.rs did not change; the full-suite-including-GLMM claim is stale until a post-0.2.2 rerun."}
+        {"id": "current-strict-full-tier-a", "weight": 1, "complete": false, "scope": "One current artifact covers all 10 LMM and both GLMM tier-A cases at the strict 1.0× gate after the last change to LMM or GLMM fit math.", "gap": "The September 9 full-suite refactor artifact completes all cases but exceeds the strict 1.0x Julia target for crossed_20k (1.733x cold, 1.573x prepared), nested_10k (3.196x cold, 2.891x prepared), and CBPP (1.182x cold). The LMM cases alone also fail their current-suite scope."}
       ]
     },
     {

@@ -9,6 +9,11 @@ use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use std::io::Cursor;
+mod fitting;
+mod input;
+use fitting::*;
+mod controls;
+use controls::{control_value, model_error, PyFitControl};
 use std::sync::{Arc, Mutex};
 
 #[pyclass]
@@ -27,6 +32,23 @@ pub struct PyLmerPrepared {
 
 #[pymethods]
 impl PyLmerPrepared {
+    #[pyo3(signature=(y=None, reml=true, *, control=None))]
+    fn fit(
+        &self,
+        py: Python<'_>,
+        y: Option<Vec<f64>>,
+        reml: bool,
+        control: Option<&PyFitControl>,
+    ) -> PyResult<PyLmeFit> {
+        let control = control_value(control);
+        py.detach(|| {
+            self.inner
+                .fit(y.map(ndarray::Array1::from_vec), reml, &control)
+        })
+        .map(|inner| PyLmeFit { inner })
+        .map_err(model_error)
+    }
+
     #[getter]
     fn blocked_kernel(&self) -> bool {
         self.inner.blocked_kernel
@@ -47,6 +69,19 @@ pub struct PyGlmerPrepared {
 
 #[pymethods]
 impl PyGlmerPrepared {
+    #[pyo3(signature=(y=None, *, control=None))]
+    fn fit(
+        &self,
+        py: Python<'_>,
+        y: Option<Vec<f64>>,
+        control: Option<&PyFitControl>,
+    ) -> PyResult<PyLmeFit> {
+        let control = control_value(control);
+        py.detach(|| self.inner.fit(y.map(ndarray::Array1::from_vec), &control))
+            .map(|inner| PyLmeFit { inner })
+            .map_err(model_error)
+    }
+
     #[getter]
     fn n_agq(&self) -> usize {
         self.inner.n_agq()
@@ -321,21 +356,23 @@ impl PySimulateBatches {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PySimulateResult>> {
-        if slf.remaining == 0 {
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<PySimulateResult>> {
+        if self.remaining == 0 {
             return Ok(None);
         }
-        let count = slf.remaining.min(slf.batch_size);
-        match lme_rs::simulate::simulate_range(
-            &slf.fit,
-            slf.next_index,
-            count,
-            slf.n_jobs,
-            slf.seed,
-        ) {
+        let count = self.remaining.min(self.batch_size);
+        match py.detach(|| {
+            lme_rs::simulate::simulate_range(
+                &self.fit,
+                self.next_index,
+                count,
+                self.n_jobs,
+                self.seed,
+            )
+        }) {
             Ok(batch) => {
-                slf.next_index += count;
-                slf.remaining -= count;
+                self.next_index += count;
+                self.remaining -= count;
                 Ok(Some(PySimulateResult {
                     simulations: batch.into_iter().map(|arr| arr.to_vec()).collect(),
                 }))
@@ -688,63 +725,6 @@ fn fixed_effects_anova_to_py(res: lme_rs::FixedEffectsAnovaResult) -> PyFixedEff
     }
 }
 
-fn dataframe_input_error() -> PyErr {
-    pyo3::exceptions::PyTypeError::new_err(
-        "data must be a polars.DataFrame, pandas.DataFrame, or pyarrow.Table \
-         (install pandas or pyarrow if needed)",
-    )
-}
-
-/// Normalize Python tabular input to a Polars ``DataFrame`` for IPC serialization.
-fn to_polars_dataframe<'py>(
-    py: Python<'py>,
-    data: &Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyAny>> {
-    if let Ok(module) = data.get_type().getattr("__module__") {
-        if let Ok(mod_name) = module.extract::<String>() {
-            if mod_name.starts_with("polars") {
-                return Ok(data.clone());
-            }
-        }
-    }
-
-    let polars = py.import("polars")?;
-
-    if let Ok(pandas) = py.import("pandas") {
-        let pandas_df = pandas.getattr("DataFrame")?;
-        if data.is_instance(&pandas_df)? {
-            return polars.call_method1("from_pandas", (data,));
-        }
-    }
-
-    if let Ok(pyarrow) = py.import("pyarrow") {
-        let table_cls = pyarrow.getattr("Table")?;
-        if data.is_instance(&table_cls)? {
-            return polars.call_method1("from_arrow", (data,));
-        }
-    }
-
-    if data.getattr("write_ipc").is_ok() {
-        return Ok(data.clone());
-    }
-
-    Err(dataframe_input_error())
-}
-
-fn get_ipc_bytes<'py>(py: Python<'py>, data: &Bound<'py, PyAny>) -> PyResult<Vec<u8>> {
-    let pl_df = to_polars_dataframe(py, data)?;
-    let io = py.import("io")?;
-    let bytes_io = io.call_method0("BytesIO")?;
-    pl_df.call_method1("write_ipc", (&bytes_io,)).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!(
-            "Failed to serialize dataframe to Polars IPC: {e}"
-        ))
-    })?;
-    let py_bytes = bytes_io.call_method0("getvalue")?;
-    let bytes: Bound<'py, PyBytes> = py_bytes.cast()?.clone();
-    Ok(bytes.as_bytes().to_vec())
-}
-
 fn parse_nlmm_start(start: Option<&Bound<'_, PyDict>>) -> PyResult<NlmmStart> {
     let mut map = NlmmStart::new();
     if let Some(d) = start {
@@ -967,7 +947,12 @@ fn emmeans_to_py(res: lme_rs::EmmeansResult) -> PyEmmeansResult {
         den_df: res.den_df.to_vec(),
         lower: res.lower.to_vec(),
         upper: res.upper.to_vec(),
-        linfct: res.linfct.rows().into_iter().map(|row| row.to_vec()).collect(),
+        linfct: res
+            .linfct
+            .rows()
+            .into_iter()
+            .map(|row| row.to_vec())
+            .collect(),
     }
 }
 
@@ -992,18 +977,12 @@ fn emmeans_pairs_to_py(res: lme_rs::EmmeansPairsResult) -> PyEmmeansPairsResult 
     }
 }
 
-fn read_ipc_bytes(data: &[u8]) -> PyResult<DataFrame> {
-    let cursor = Cursor::new(data);
-    IpcReader::new(cursor).finish().map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!(
-            "Failed to parse dataframe from IPC: {}",
-            e
-        ))
-    })
-}
-
 #[pymethods]
 impl PyLmeFit {
+    #[getter]
+    fn diagnostics(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        controls::diagnostic_dict(py, &self.inner)
+    }
     /// Return the R-style model summary.
     pub fn summary(&self) -> String {
         format!("{}", self.inner)
@@ -1381,9 +1360,8 @@ impl PyLmeFit {
 
     /// Population-level predictions (Xβ).
     pub fn predict<'py>(&self, py: Python<'py>, newdata: &Bound<'py, PyAny>) -> PyResult<Vec<f64>> {
-        let bytes = get_ipc_bytes(py, newdata)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self.inner.predict(&df) {
+        let df = input::read_dataframe(py, newdata, self.inner.formula.as_deref(), &[])?;
+        match py.detach(|| self.inner.predict(&df)) {
             Ok(arr) => Ok(arr.to_vec()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Predict failed: {}",
@@ -1400,9 +1378,8 @@ impl PyLmeFit {
         newdata: &Bound<'py, PyAny>,
         allow_new_levels: bool,
     ) -> PyResult<Vec<f64>> {
-        let bytes = get_ipc_bytes(py, newdata)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self.inner.predict_conditional(&df, allow_new_levels) {
+        let df = input::read_dataframe(py, newdata, self.inner.formula.as_deref(), &[])?;
+        match py.detach(|| self.inner.predict_conditional(&df, allow_new_levels)) {
             Ok(arr) => Ok(arr.to_vec()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Predict failed: {}",
@@ -1424,12 +1401,11 @@ impl PyLmeFit {
         newdata: &Bound<'py, PyAny>,
         allow_new_levels: bool,
     ) -> PyResult<Vec<f64>> {
-        let bytes = get_ipc_bytes(py, newdata)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self
-            .inner
-            .predict_conditional_response(&df, allow_new_levels)
-        {
+        let df = input::read_dataframe(py, newdata, self.inner.formula.as_deref(), &[])?;
+        match py.detach(|| {
+            self.inner
+                .predict_conditional_response(&df, allow_new_levels)
+        }) {
             Ok(arr) => Ok(arr.to_vec()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Predict failed: {}",
@@ -1444,9 +1420,8 @@ impl PyLmeFit {
         py: Python<'py>,
         newdata: &Bound<'py, PyAny>,
     ) -> PyResult<Vec<f64>> {
-        let bytes = get_ipc_bytes(py, newdata)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self.inner.predict_response(&df) {
+        let df = input::read_dataframe(py, newdata, self.inner.formula.as_deref(), &[])?;
+        match py.detach(|| self.inner.predict_response(&df)) {
             Ok(arr) => Ok(arr.to_vec()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Predict failed: {}",
@@ -1504,28 +1479,29 @@ impl PyLmeFit {
                     "confint(method='profile') requires data=...",
                 )
             })?;
-            let bytes = get_ipc_bytes(py, raw)?;
-            df = read_ipc_bytes(&bytes)?;
+            df = input::read_dataframe(py, raw, None, &[])?;
             Some(&df)
         } else {
             None
         };
-        let result = if matches!(method, lme_rs::ConfintMethod::Profile) {
-            let frame = data_ref.expect("profile data checked above");
-            match scope {
-                ConfintScope::Fixed => {
-                    let parms_ref = parms_idx.as_deref();
-                    self.inner
-                        .confint_with_parms(level, method, Some(frame), parms_ref)
+        let result = py.detach(|| {
+            if matches!(method, lme_rs::ConfintMethod::Profile) {
+                let frame = data_ref.expect("profile data checked above");
+                match scope {
+                    ConfintScope::Fixed => {
+                        let parms_ref = parms_idx.as_deref();
+                        self.inner
+                            .confint_with_parms(level, method, Some(frame), parms_ref)
+                    }
+                    ConfintScope::Variance => self.inner.confint_profile_vc(level, frame),
+                    ConfintScope::All => self.inner.confint_profile_all(level, frame),
                 }
-                ConfintScope::Variance => self.inner.confint_profile_vc(level, frame),
-                ConfintScope::All => self.inner.confint_profile_all(level, frame),
+            } else {
+                let parms_ref = parms_idx.as_deref();
+                self.inner
+                    .confint_with_parms(level, method, data_ref, parms_ref)
             }
-        } else {
-            let parms_ref = parms_idx.as_deref();
-            self.inner
-                .confint_with_parms(level, method, data_ref, parms_ref)
-        };
+        });
         match result {
             Ok(ci) => Ok(PyConfintResult {
                 lower: ci.lower.to_vec(),
@@ -1731,10 +1707,8 @@ impl PyLmeFit {
         ddf_method: Option<&str>,
     ) -> PyResult<PyEmmeansResult> {
         let ddf = parse_glht_ddf(ddf_method)?;
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
-        self.inner
-            .emmeans(term, &df, level, ddf)
+        let df = input::read_dataframe(py, data, None, &[])?;
+        py.detach(|| self.inner.emmeans(term, &df, level, ddf))
             .map(emmeans_to_py)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("emmeans failed: {e}")))
     }
@@ -1751,10 +1725,8 @@ impl PyLmeFit {
     ) -> PyResult<PyEmmeansPairsResult> {
         let adjustment = parse_mcp_adjust(adjust)?;
         let ddf = parse_glht_ddf(ddf_method)?;
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
-        self.inner
-            .emmeans_pairs(term, &df, adjustment, ddf)
+        let df = input::read_dataframe(py, data, None, &[])?;
+        py.detach(|| self.inner.emmeans_pairs(term, &df, adjustment, ddf))
             .map(emmeans_pairs_to_py)
             .map_err(|e| {
                 pyo3::exceptions::PyValueError::new_err(format!("emmeans_pairs failed: {e}"))
@@ -1768,11 +1740,12 @@ impl PyLmeFit {
     #[pyo3(signature = (nsim, n_jobs=None, seed=None))]
     pub fn simulate(
         &self,
+        py: Python<'_>,
         nsim: usize,
         n_jobs: Option<usize>,
         seed: Option<u64>,
     ) -> PyResult<PySimulateResult> {
-        match self.inner.simulate_with(nsim, n_jobs, seed) {
+        match py.detach(|| self.inner.simulate_with(nsim, n_jobs, seed)) {
             Ok(res) => Ok(PySimulateResult {
                 simulations: res
                     .simulations
@@ -1794,15 +1767,20 @@ impl PyLmeFit {
         batch_size: usize,
         n_jobs: Option<usize>,
         seed: Option<u64>,
-    ) -> PySimulateBatches {
-        PySimulateBatches {
+    ) -> PyResult<PySimulateBatches> {
+        if batch_size == 0 || n_jobs == Some(0) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "batch_size and n_jobs must be positive",
+            ));
+        }
+        Ok(PySimulateBatches {
             fit: self.inner.clone(),
             remaining: nsim,
             batch_size,
             n_jobs,
             seed,
             next_index: 0,
-        }
+        })
     }
 
     /// Parametric or residual bootstrap refits (`bootMer`-style).
@@ -1818,19 +1796,20 @@ impl PyLmeFit {
         seed: Option<u64>,
         n_jobs: Option<usize>,
     ) -> PyResult<PyBootLmerResult> {
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
+        let df = input::read_dataframe(py, data, None, &[])?;
         let boot_method = parse_boot_method(method)?;
-        match lme_rs::boot_lmer(
-            formula,
-            &df,
-            &self.inner,
-            nsim,
-            boot_method,
-            reml,
-            seed,
-            n_jobs,
-        ) {
+        match py.detach(|| {
+            lme_rs::boot_lmer(
+                formula,
+                &df,
+                &self.inner,
+                nsim,
+                boot_method,
+                reml,
+                seed,
+                n_jobs,
+            )
+        }) {
             Ok(res) => Ok(PyBootLmerResult { inner: res }),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "boot failed: {e}"
@@ -1850,10 +1829,11 @@ impl PyLmeFit {
         seed: Option<u64>,
         n_jobs: Option<usize>,
     ) -> PyResult<PyBootLmerResult> {
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
+        let df = input::read_dataframe(py, data, Some(formula), &[])?;
         let boot_method = parse_boot_method(method)?;
-        match lme_rs::boot_glmer(formula, &df, &self.inner, nsim, boot_method, seed, n_jobs) {
+        match py.detach(|| {
+            lme_rs::boot_glmer(formula, &df, &self.inner, nsim, boot_method, seed, n_jobs)
+        }) {
             Ok(res) => Ok(PyBootLmerResult { inner: res }),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "boot_glmer failed: {e}"
@@ -1871,9 +1851,13 @@ impl PyLmeFit {
         data: &Bound<'py, PyAny>,
         cluster_col: Option<&str>,
     ) -> PyResult<()> {
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self.inner.with_robust_se(&df, cluster_col) {
+        let df = input::read_dataframe(
+            py,
+            data,
+            self.inner.formula.as_deref(),
+            &cluster_col.into_iter().collect::<Vec<_>>(),
+        )?;
+        match py.detach(|| self.inner.with_robust_se(&df, cluster_col)) {
             Ok(_) => Ok(()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "with_robust_se failed: {}",
@@ -1889,9 +1873,8 @@ impl PyLmeFit {
         py: Python<'py>,
         data: &Bound<'py, PyAny>,
     ) -> PyResult<()> {
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self.inner.with_satterthwaite(&df) {
+        let df = input::read_dataframe(py, data, self.inner.formula.as_deref(), &[])?;
+        match py.detach(|| self.inner.with_satterthwaite(&df)) {
             Ok(_) => Ok(()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "with_satterthwaite failed: {}",
@@ -1909,9 +1892,8 @@ impl PyLmeFit {
         py: Python<'py>,
         data: &Bound<'py, PyAny>,
     ) -> PyResult<()> {
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
-        match self.inner.with_kenward_roger(&df) {
+        let df = input::read_dataframe(py, data, self.inner.formula.as_deref(), &[])?;
+        match py.detach(|| self.inner.with_kenward_roger(&df)) {
             Ok(_) => Ok(()),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "with_kenward_roger failed: {}",
@@ -1970,590 +1952,11 @@ fn matrix_from_rows(l_matrix: Vec<Vec<f64>>, p: usize) -> PyResult<ndarray::Arra
     Ok(l)
 }
 
-#[pyfunction]
-#[pyo3(signature = (formula, data, reml=true))]
-pub fn lmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    reml: bool,
-) -> PyResult<PyLmeFit> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    match lme_rs::lmer(formula, &df, reml) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Model fit failed: {}",
-            e
-        ))),
-    }
-}
-
-/// Prepare an LMM for repeated fits on the same formula and data.
-#[pyfunction]
-#[pyo3(signature = (formula, data))]
-pub fn prepare_lmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-) -> PyResult<PyLmerPrepared> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    match lme_rs::prepare_lmer(formula, &df) {
-        Ok(prepared) => Ok(PyLmerPrepared { inner: prepared }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "prepare_lmer failed: {e}"
-        ))),
-    }
-}
-
-/// Fit a prepared LMM (amortized hot path after [`prepare_lmer`]).
-#[pyfunction]
-#[pyo3(signature = (prepared, reml=true))]
-pub fn fit_prepared(prepared: &PyLmerPrepared, reml: bool) -> PyResult<PyLmeFit> {
-    match lme_rs::fit_prepared(&prepared.inner, reml) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "fit_prepared failed: {e}"
-        ))),
-    }
-}
-
-/// Prepare a GLMM for repeated fits on the same formula and data.
-#[pyfunction]
-#[pyo3(signature = (formula, data, family_name, n_agq=1, weights=None, link_name=None))]
-pub fn prepare_glmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    family_name: &str,
-    n_agq: usize,
-    weights: Option<Vec<f64>>,
-    link_name: Option<&str>,
-) -> PyResult<PyGlmerPrepared> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let family = parse_family(family_name)?;
-    let link = parse_link(link_name, family)?;
-    let w = weights.map(ndarray::Array1::from_vec);
-    match lme_rs::prepare_glmer_weighted_with_link(formula, &df, family, link, n_agq, w) {
-        Ok(prepared) => Ok(PyGlmerPrepared { inner: prepared }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "prepare_glmer failed: {e}"
-        ))),
-    }
-}
-
-/// Fit a prepared GLMM (amortized hot path after [`prepare_glmer`]).
-#[pyfunction]
-#[pyo3(signature = (prepared,))]
-pub fn fit_prepared_glmer(prepared: &PyGlmerPrepared) -> PyResult<PyLmeFit> {
-    match lme_rs::fit_prepared_glmer(&prepared.inner) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "fit_prepared_glmer failed: {e}"
-        ))),
-    }
-}
-
-/// Refit an LMM on the same formula and data (prepare + fit).
-#[pyfunction]
-#[pyo3(signature = (formula, data, reml=true))]
-pub fn refit_lmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    reml: bool,
-) -> PyResult<PyLmeFit> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    match lme_rs::refit_lmer(formula, &df, reml) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "refit_lmer failed: {e}"
-        ))),
-    }
-}
-
-/// Group-structure-preserving k-fold cross-validation for LMMs.
-#[pyfunction]
-#[pyo3(signature = (formula, data, group, n_splits=5, reml=true, seed=None, n_jobs=None))]
-pub fn cv_grouped<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    group: &str,
-    n_splits: usize,
-    reml: bool,
-    seed: Option<u64>,
-    n_jobs: Option<usize>,
-) -> PyResult<PyCvGroupedResult> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    match lme_rs::cv_grouped(formula, &df, group, n_splits, reml, seed, n_jobs) {
-        Ok(res) => Ok(cv_result_to_py(res)),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "cv_grouped failed: {e}"
-        ))),
-    }
-}
-
-fn cv_result_to_py(res: lme_rs::CvGroupedResult) -> PyCvGroupedResult {
-    PyCvGroupedResult {
-        oof_predictions: res.oof_predictions.to_vec(),
-        test_fold: res.test_fold.to_vec(),
-        rmse: res.rmse,
-        mae: res.mae,
-        mean_log_loss: res.mean_log_loss,
-        folds: res
-            .folds
-            .into_iter()
-            .map(|f| PyCvFoldMetric {
-                fold: f.fold,
-                n_train_groups: f.n_train_groups,
-                n_test_groups: f.n_test_groups,
-                n_train_obs: f.n_train_obs,
-                n_test_obs: f.n_test_obs,
-                rmse: f.rmse,
-                mae: f.mae,
-                mean_log_loss: f.mean_log_loss,
-                converged: f.converged,
-            })
-            .collect(),
-        all_converged: res.all_converged,
-        n_splits: res.n_splits,
-        group_col: res.group_col,
-    }
-}
-
-/// Group-structure-preserving k-fold CV for GLMMs (response-scale OOF metrics).
-#[pyfunction]
-#[pyo3(signature = (
-    formula,
-    data,
-    group,
-    family_name,
-    n_splits=5,
-    n_agq=1,
-    weights=None,
-    link_name=None,
-    seed=None,
-    n_jobs=None
-))]
-pub fn cv_grouped_glmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    group: &str,
-    family_name: &str,
-    n_splits: usize,
-    n_agq: usize,
-    weights: Option<Vec<f64>>,
-    link_name: Option<&str>,
-    seed: Option<u64>,
-    n_jobs: Option<usize>,
-) -> PyResult<PyCvGroupedResult> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let family = parse_family(family_name)?;
-    let link = parse_link(link_name, family)?;
-    let w = weights.map(ndarray::Array1::from_vec);
-    match lme_rs::cv_grouped_glmer(
-        formula, &df, group, n_splits, family, link, n_agq, w, seed, n_jobs,
-    ) {
-        Ok(res) => Ok(cv_result_to_py(res)),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "cv_grouped_glmer failed: {e}"
-        ))),
-    }
-}
-
-/// Parametric or residual bootstrap refits for LMMs (`bootMer`-style).
-#[pyfunction]
-#[pyo3(signature = (formula, data, fit, nsim=200, method="parametric", reml=true, seed=None, n_jobs=None))]
-pub fn boot_lmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    fit: &PyLmeFit,
-    nsim: usize,
-    method: &str,
-    reml: bool,
-    seed: Option<u64>,
-    n_jobs: Option<usize>,
-) -> PyResult<PyBootLmerResult> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let boot_method = parse_boot_method(method)?;
-    match lme_rs::boot_lmer(
-        formula,
-        &df,
-        &fit.inner,
-        nsim,
-        boot_method,
-        reml,
-        seed,
-        n_jobs,
-    ) {
-        Ok(res) => Ok(PyBootLmerResult { inner: res }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "boot_lmer failed: {e}"
-        ))),
-    }
-}
-
-/// Parametric bootstrap refits for GLMMs (`bootMer`-style).
-#[pyfunction]
-#[pyo3(signature = (formula, data, fit, nsim=200, method="parametric", seed=None, n_jobs=None))]
-pub fn boot_glmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    fit: &PyLmeFit,
-    nsim: usize,
-    method: &str,
-    seed: Option<u64>,
-    n_jobs: Option<usize>,
-) -> PyResult<PyBootLmerResult> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let boot_method = parse_boot_method(method)?;
-    match lme_rs::boot_glmer(formula, &df, &fit.inner, nsim, boot_method, seed, n_jobs) {
-        Ok(res) => Ok(PyBootLmerResult { inner: res }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "boot_glmer failed: {e}"
-        ))),
-    }
-}
-
-fn extract_f64_vec(obj: &Bound<'_, PyAny>) -> PyResult<Vec<f64>> {
-    if let Ok(v) = obj.extract::<Vec<f64>>() {
-        return Ok(v);
-    }
-    if obj.hasattr("tolist")? {
-        return obj.call_method0("tolist")?.extract();
-    }
-    Err(pyo3::exceptions::PyTypeError::new_err(
-        "expected a 1-D numeric sequence",
-    ))
-}
-
-fn extract_f64_matrix(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<f64>>> {
-    if let Ok(m) = obj.extract::<Vec<Vec<f64>>>() {
-        return Ok(m);
-    }
-    if obj.hasattr("tolist")? {
-        let listed = obj.call_method0("tolist")?;
-        if let Ok(m) = listed.extract::<Vec<Vec<f64>>>() {
-            return Ok(m);
-        }
-    }
-    Err(pyo3::exceptions::PyTypeError::new_err(
-        "expected a 2-D numeric matrix (list of rows)",
-    ))
-}
-
-/// Fit a fixed-effects-only linear model.
-///
-/// Two calling conventions:
-///
-/// * ``lm(formula, data)`` — Wilkinson formula and a tabular frame
-///   (Polars / pandas / PyArrow).
-/// * ``lm(y, x)`` — numeric response and dense design matrix (same as Rust
-///   ``lm(y, x)``). ``x`` is ``n_obs × p`` as a list of rows, or any object
-///   with ``.tolist()`` (NumPy arrays).
-///
-/// ``lm_matrix(y, x)`` remains an explicit alias for the numeric path.
-#[pyfunction]
-#[pyo3(signature = (formula_or_y, data))]
-pub fn lm<'py>(
-    py: Python<'py>,
-    formula_or_y: &Bound<'py, PyAny>,
-    data: &Bound<'py, PyAny>,
-) -> PyResult<PyLmeFit> {
-    if let Ok(formula) = formula_or_y.extract::<&str>() {
-        let bytes = get_ipc_bytes(py, data)?;
-        let df = read_ipc_bytes(&bytes)?;
-        return match lme_rs::lm_df(formula, &df) {
-            Ok(fit) => Ok(PyLmeFit { inner: fit }),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Model fit failed: {e}"
-            ))),
-        };
-    }
-    let y = extract_f64_vec(formula_or_y).map_err(|_| {
-        pyo3::exceptions::PyTypeError::new_err(
-            "lm() expects lm(formula, data) or lm(y, x) with a numeric response vector",
-        )
-    })?;
-    let x = extract_f64_matrix(data).map_err(|_| {
-        pyo3::exceptions::PyTypeError::new_err(
-            "when the first argument is numeric, the second must be a 2-D design matrix",
-        )
-    })?;
-    lm_matrix(y, x)
-}
-
-/// Fit OLS from numeric **y** and design matrix **X** (mirrors Rust `lm(y, x)`).
-///
-/// `x` is `n_obs × p` as a list of rows.
-#[pyfunction]
-pub fn lm_matrix(y: Vec<f64>, x: Vec<Vec<f64>>) -> PyResult<PyLmeFit> {
-    let n = y.len();
-    if x.is_empty() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must have at least one row",
-        ));
-    }
-    let p = x[0].len();
-    if p == 0 {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must have at least one column",
-        ));
-    }
-    if x.len() != n {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "y has length {n} but x has {} rows",
-            x.len()
-        )));
-    }
-    let mut mat = Array2::<f64>::zeros((n, p));
-    for (i, row) in x.iter().enumerate() {
-        if row.len() != p {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Row {i} has length {} but expected {p}",
-                row.len()
-            )));
-        }
-        for (j, &v) in row.iter().enumerate() {
-            mat[[i, j]] = v;
-        }
-    }
-    let y_arr = ndarray::Array1::from_vec(y);
-    match lme_rs::lm(&y_arr, &mat) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Model fit failed: {e}"
-        ))),
-    }
-}
-
-#[pyfunction]
-#[pyo3(signature = (formula, data, family_name, n_agq=1, link_name=None))]
-pub fn glmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    family_name: &str,
-    n_agq: usize,
-    link_name: Option<&str>,
-) -> PyResult<PyLmeFit> {
-    glmer_weighted(py, formula, data, family_name, n_agq, None, link_name)
-}
-
-#[pyfunction]
-#[pyo3(signature = (formula, data, family_name, n_agq=1, weights=None, link_name=None))]
-pub fn glmer_weighted<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    family_name: &str,
-    n_agq: usize,
-    weights: Option<Vec<f64>>,
-    link_name: Option<&str>,
-) -> PyResult<PyLmeFit> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let family = parse_family(family_name)?;
-    let link = parse_link(link_name, family)?;
-    let weights_arr = weights.map(ndarray::Array1::from_vec);
-
-    match lme_rs::glmer_weighted_with_link(formula, &df, family, link, n_agq, weights_arr) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Model fit failed: {}",
-            e
-        ))),
-    }
-}
-
-#[pyfunction]
-#[pyo3(signature = (formula, data, reml=true, weights=None))]
-pub fn lmer_weighted<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    reml: bool,
-    weights: Option<Vec<f64>>,
-) -> PyResult<PyLmeFit> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let weights_arr = weights.map(ndarray::Array1::from_vec);
-    match lme_rs::lmer_weighted(formula, &df, reml, weights_arr) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Model fit failed: {}",
-            e
-        ))),
-    }
-}
-
-/// Build a **q × p** contrast matrix from named coefficient weights.
-///
-/// Each row is a list of `(coefficient_name, weight)` pairs, aligned with `fixed_names`.
-#[pyfunction]
-#[pyo3(name = "contrast_matrix_from_names")]
-fn contrast_matrix_from_names_py(
-    fixed_names: Vec<String>,
-    rows: Vec<Vec<(String, f64)>>,
-) -> PyResult<Vec<Vec<f64>>> {
-    let p = fixed_names.len();
-    let mut index_rows = Vec::with_capacity(rows.len());
-    for row in rows {
-        let mut idx_row = Vec::with_capacity(row.len());
-        for (name, w) in row {
-            let j = fixed_names.iter().position(|n| n == &name).ok_or_else(|| {
-                pyo3::exceptions::PyValueError::new_err(format!(
-                    "Unknown coefficient name '{name}' in contrast"
-                ))
-            })?;
-            idx_row.push((j, w));
-        }
-        index_rows.push(idx_row);
-    }
-    let mat = contrast_matrix(p, &index_rows);
-    Ok((0..mat.nrows()).map(|i| mat.row(i).to_vec()).collect())
-}
-
-/// Build a **q × p** contrast matrix from `(column_index, weight)` rows (Rust `contrast_matrix`).
-#[pyfunction]
-#[pyo3(name = "contrast_matrix")]
-pub fn contrast_matrix_py(p: usize, rows: Vec<Vec<(usize, f64)>>) -> PyResult<Vec<Vec<f64>>> {
-    let mat = contrast_matrix(p, &rows);
-    Ok((0..mat.nrows()).map(|i| mat.row(i).to_vec()).collect())
-}
-
-/// Fit a nonlinear mixed-effects model (`SSlogis` mean; random effect on one NL parameter).
-#[pyfunction]
-#[pyo3(signature = (formula, data, start=None, reml=false, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None))]
-pub fn nlmer<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    start: Option<&Bound<'py, PyDict>>,
-    reml: bool,
-    n_agq: usize,
-    lower: Option<&Bound<'py, PyDict>>,
-    upper: Option<&Bound<'py, PyDict>>,
-    group_lower: Option<&Bound<'py, PyDict>>,
-    group_upper: Option<&Bound<'py, PyDict>>,
-) -> PyResult<PyLmeFit> {
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let start_map = parse_nlmm_start(start)?;
-    let opts = lme_rs::NlmerOptions {
-        reml,
-        start: start_map,
-        n_agq,
-        lower: parse_optional_nlmm_bounds(lower)?,
-        upper: parse_optional_nlmm_bounds(upper)?,
-        group_lower: parse_optional_nlmm_bounds(group_lower)?,
-        group_upper: parse_optional_nlmm_bounds(group_upper)?,
-        ..lme_rs::NlmerOptions::default()
-    };
-    match lme_rs::nlmer_with_options(formula, &df, &opts) {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Model fit failed: {e}"
-        ))),
-    }
-}
-
-/// Fit a nonlinear mixed model with a user-defined mean function.
-///
-/// ``formula`` uses the custom-mean layout ``response ~ covariate ~ re | group``
-/// (middle segment is the covariate column, not an ``SS*`` call). ``mean_fn(x, params)``
-/// must return ``(mu, grad)`` where ``grad`` has one partial derivative per name in
-/// ``param_names``.
-#[pyfunction]
-#[pyo3(signature = (formula, data, mean_fn, param_names, start=None, reml=false, n_agq=1, lower=None, upper=None, group_lower=None, group_upper=None))]
-pub fn nlmer_with_mean<'py>(
-    py: Python<'py>,
-    formula: &str,
-    data: &Bound<'py, PyAny>,
-    mean_fn: &Bound<'py, PyAny>,
-    param_names: Vec<String>,
-    start: Option<&Bound<'py, PyDict>>,
-    reml: bool,
-    n_agq: usize,
-    lower: Option<&Bound<'py, PyDict>>,
-    upper: Option<&Bound<'py, PyDict>>,
-    group_lower: Option<&Bound<'py, PyDict>>,
-    group_upper: Option<&Bound<'py, PyDict>>,
-) -> PyResult<PyLmeFit> {
-    if param_names.is_empty() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "param_names must name at least one nonlinear parameter",
-        ));
-    }
-    let mean = validate_py_nlmm_mean(mean_fn, param_names.len())?;
-    let parsed = parse_nlmer_custom_formula(formula, &param_names).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Invalid nlmer formula: {e}"))
-    })?;
-    let bytes = get_ipc_bytes(py, data)?;
-    let df = read_ipc_bytes(&bytes)?;
-    let start_map = parse_nlmm_start(start)?;
-    let opts = lme_rs::NlmerOptions {
-        reml,
-        start: start_map,
-        n_agq,
-        lower: parse_optional_nlmm_bounds(lower)?,
-        upper: parse_optional_nlmm_bounds(upper)?,
-        group_lower: parse_optional_nlmm_bounds(group_lower)?,
-        group_upper: parse_optional_nlmm_bounds(group_upper)?,
-        ..lme_rs::NlmerOptions::default()
-    };
-    let callback_error = mean.callback_error.clone();
-    let fit_result = lme_rs::nlmer_with_mean(&parsed, Arc::new(mean), &df, Some(formula), &opts);
-    if let Ok(mut error) = callback_error.lock() {
-        if let Some(error) = error.take() {
-            return Err(error);
-        }
-    }
-    match fit_result {
-        Ok(fit) => Ok(PyLmeFit { inner: fit }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Model fit failed: {e}"
-        ))),
-    }
-}
-
-/// Likelihood ratio test between two nested fitted models.
-#[pyfunction]
-pub fn anova(fit_a: &PyLmeFit, fit_b: &PyLmeFit) -> PyResult<PyLikelihoodRatioAnova> {
-    match lme_rs::anova(&fit_a.inner, &fit_b.inner) {
-        Ok(res) => Ok(PyLikelihoodRatioAnova {
-            n_params_0: res.n_params_0,
-            n_params_1: res.n_params_1,
-            deviance_0: res.deviance_0,
-            deviance_1: res.deviance_1,
-            chi_sq: res.chi_sq,
-            df: res.df,
-            p_value: res.p_value,
-            formula_0: res.formula_0,
-            formula_1: res.formula_1,
-        }),
-        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "anova failed: {}",
-            e
-        ))),
-    }
-}
-
 #[pymodule]
 fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<PyLmeFit>()?;
+    m.add_class::<PyFitControl>()?;
     m.add_class::<PyLmerPrepared>()?;
     m.add_class::<PyGlmerPrepared>()?;
     m.add_class::<PyCvFoldMetric>()?;
@@ -2595,6 +1998,7 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "__all__",
         [
             "PyLmeFit",
+            "FitControl",
             "PyLmerPrepared",
             "PyGlmerPrepared",
             "PyCvFoldMetric",
