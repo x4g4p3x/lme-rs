@@ -7,8 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve formula offsets in population/conditional predictions and OLS fitting.
+- Preserve precision weights in Gaussian simulation and bootstrap refits; weighted
+  residual resampling uses standardized residuals.
+- Refine two-parameter LMM grid minima before reporting optimizer convergence.
+- Honor nonlinear iteration budgets and expose failed numerical stages. Nonlinear
+  ML fitting now refines covariance and population parameters jointly and includes
+  the full Gaussian likelihood constant; reported likelihood/AIC/BIC may change.
+- Compute OLS coefficients and covariance from one QR decomposition with rank checks.
+
+### Added
+
+- Rust `FitControl`, `FitDiagnostics`, `ModelSpec`, and `ExecutionContext`; Python
+  `FitControl`, `fit.diagnostics`, and `prepared.fit(y=..., control=...)`.
+- Independent response workspaces with shared immutable LMM/GLMM designs, retained
+  GLMM sparse factorization structure, and group-block nonlinear normal equations.
+- Formula-based Python IPC column projection and interpreter release during native
+  fitting, prediction, bootstrap, and profile intervals.
+
+### Compatibility
+
+- Existing fitting functions retain their defaults. Rust consumers constructing
+  `LmeFit` literals must add `diagnostics: None`; numerical design fields exposed
+  through `LmmData`/`GlmmData` are now immutable shared data.
+- A nonconverged fit remains inspectable, but Wald intervals reject it. Set
+  `require_convergence` to reject unsuccessful LMM/GLMM fits immediately.
+- Resampling no longer changes process-wide BLAS/OpenMP environment variables.
+  `n_jobs=None` uses the current Rayon context; callers own backend thread settings.
+
 ### Changed
 
+- Reworked documentation navigation, Rust/Python onboarding, example discovery,
+  troubleshooting, workflow scope, and the contributor/release runbooks. Corrected
+  prepared-fit, bootstrap, calibration-bound, and benchmark-evidence descriptions.
 - Reevaluated the repository completion score. The 2026-08-14 **100% (236/236)** headline overstated remaining stretch-item depth, omitted NLMM from the denominator, and could be satisfied by file existence alone. Locked criterion `scope` strings, reopened partial/stale/substituted items, added NLMM as row 14, and published **91% (235/258)**. See [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
 - Reorganized the GitHub README around the existing banner: table of contents, capability and documentation tables, dual Rust/Python install and quick start, an `lme4` mapping, and structured limitation notes.
 - Rebuilt the GitHub Pages [benchmark dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) around the fair MixedModels.jl harness and checked-in external timings, and restored Pages deployment.

@@ -65,6 +65,19 @@ pub(crate) fn nelder_mead_optimize<C>(
 where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
 {
+    nelder_mead_optimize_tolerance(init_theta, lower_bounds, max_iters, 1e-6, cost)
+}
+
+pub(crate) fn nelder_mead_optimize_tolerance<C>(
+    init_theta: Array1<f64>,
+    lower_bounds: &[f64],
+    max_iters: u64,
+    tolerance: f64,
+    cost: C,
+) -> Result<OptimizeResult, anyhow::Error>
+where
+    C: CostFunction<Param = Array1<f64>, Output = f64>,
+{
     let n = init_theta.len();
     let mut initial_simplex = vec![init_theta.clone()];
 
@@ -75,7 +88,7 @@ where
         initial_simplex.push(param);
     }
 
-    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(1e-6)?;
+    let solver = NelderMead::new(initial_simplex).with_sd_tolerance(tolerance)?;
 
     let res = Executor::new(cost, solver)
         .configure(|state| state.max_iters(max_iters))
@@ -86,7 +99,7 @@ where
     clamp_theta(&mut best_theta, lower_bounds);
     let best_cost = state.get_best_cost();
     let iterations = state.get_iter();
-    let converged = iterations < max_iters;
+    let converged = iterations < max_iters && best_cost.is_finite() && best_cost < f64::MAX;
 
     Ok(OptimizeResult {
         theta: best_theta,
@@ -148,6 +161,33 @@ pub fn optimize_theta_lmm(
     crate::perf_diag::scope(crate::perf_diag::Phase::LmerOptimize, || {
         optimize_theta_lmm_inner(lmm, init_theta, reml)
     })
+}
+
+/// Optimize using caller controls; defaults keep the specialized LMM search.
+pub fn optimize_theta_lmm_control(
+    lmm: Arc<LmmData>,
+    init_theta: Array1<f64>,
+    reml: bool,
+    control: &crate::FitControl,
+) -> Result<OptimizeResult, anyhow::Error> {
+    control.validate(init_theta.len())?;
+    if control.default_search() {
+        return optimize_theta_lmm(lmm, init_theta, reml);
+    }
+    let bounds = compute_theta_lower_bounds(&lmm.re_blocks);
+    let start = control.start.clone().unwrap_or(init_theta);
+    let cost = LmmObjective {
+        lmm,
+        reml,
+        lower_bounds: bounds.clone(),
+    };
+    nelder_mead_optimize_tolerance(
+        start,
+        &bounds,
+        control.max_iterations,
+        control.tolerance,
+        cost,
+    )
 }
 
 fn optimize_theta_lmm_inner(
@@ -228,7 +268,7 @@ fn optimize_theta_intercept_profile(
 
     OptimizeResult {
         theta,
-        converged: true,
+        converged: best_cost.is_finite() && best_cost < f64::MAX,
         iterations: total_iters,
         final_cost: best_cost,
     }
@@ -236,8 +276,8 @@ fn optimize_theta_intercept_profile(
 
 /// Low-evaluation 2D search for intercept-only crossed models.
 ///
-/// ML (`reml = false`): 5×5 + local 4×4 log-grids (~42 evals).
-/// REML: adds local 4×4 grid and short Nelder–Mead polish so golden parity fixtures converge.
+/// ML and REML: 5×5 + local 4×4 log-grids, followed by Nelder–Mead
+/// refinement to establish convergence instead of treating a grid minimum as converged.
 fn optimize_theta_intercept_2d(
     lmm: Arc<LmmData>,
     init_theta: Array1<f64>,
@@ -248,7 +288,7 @@ fn optimize_theta_intercept_2d(
     const COARSE_N: usize = 5;
     const ML_FINE_N: usize = 4;
     const REML_FINE_N: usize = 4;
-    const NM_POLISH_ITERS: u64 = 20;
+    const NM_POLISH_ITERS: u64 = 1000;
 
     let mut theta = init_theta;
     clamp_theta(&mut theta, lower_bounds);
@@ -306,26 +346,14 @@ fn optimize_theta_intercept_2d(
         fine_n,
     );
 
-    if reml {
-        let cost = LmmObjective {
-            lmm: Arc::clone(&lmm),
-            reml,
-            lower_bounds: lower_bounds.to_vec(),
-        };
-        let mut nm = nelder_mead_optimize(theta, lower_bounds, NM_POLISH_ITERS, cost)?;
-        nm.iterations += grid_evals;
-        if nm.final_cost > best_cost {
-            nm.final_cost = best_cost;
-        }
-        return Ok(nm);
-    }
-
-    Ok(OptimizeResult {
-        theta,
-        converged: true,
-        iterations: grid_evals,
-        final_cost: best_cost,
-    })
+    let cost = LmmObjective {
+        lmm,
+        reml,
+        lower_bounds: lower_bounds.to_vec(),
+    };
+    let mut result = nelder_mead_optimize(theta, lower_bounds, NM_POLISH_ITERS, cost)?;
+    result.iterations += grid_evals;
+    Ok(result)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -479,20 +507,13 @@ use crate::family::GlmFamily;
 use crate::glmm_math::{self, GlmmData};
 
 /// Wrapper for the GLMM Laplace / AGQ deviance function to be used by argmin.
+#[derive(Clone)]
 struct GlmmObjective {
-    x: Array2<f64>,
-    zt: CsMat<f64>,
-    y: Array1<f64>,
-    re_blocks: Vec<ReBlock>,
-    family: Box<dyn GlmFamily>,
-    offset: Option<Array1<f64>>,
-    weights: Option<Array1<f64>>,
+    evaluator: Arc<std::sync::Mutex<GlmmData>>,
+    offset: Option<Arc<Array1<f64>>>,
     lower_bounds: Vec<f64>,
-    zt_z: CsMat<f64>,
-    zt_w_z_map: Vec<(usize, usize, f64)>,
-    /// Quadrature order for the θ objective (`1` = Laplace). AGQ-in-θ is used when
-    /// PIRLS can apply product (single block) or joint (small `q`) quadrature.
     n_agq: usize,
+    control: crate::FitControl,
 }
 
 impl CostFunction for GlmmObjective {
@@ -504,19 +525,13 @@ impl CostFunction for GlmmObjective {
         let mut theta_clamped = theta.clone();
         clamp_theta(&mut theta_clamped, &self.lower_bounds);
 
-        let mut glmm = GlmmData::from_structural_parts(
-            self.x.clone(),
-            self.zt.clone(),
-            self.y.clone(),
-            self.re_blocks.clone(),
-            self.family.build_clone(),
-            self.weights.clone(),
-            self.zt_z.clone(),
-            self.zt_w_z_map.clone(),
-        );
+        let mut glmm = self
+            .evaluator
+            .lock()
+            .map_err(|_| anyhow::anyhow!("poisoned GLMM workspace"))?;
         let val = glmm.laplace_deviance(
             theta_clamped.as_slice().unwrap(),
-            self.offset.as_ref(),
+            self.offset.as_deref(),
             self.n_agq,
         );
         if val.is_nan() {
@@ -569,41 +584,77 @@ pub fn optimize_theta_glmm_with_maps(
     zt_w_z_map: Vec<(usize, usize, f64)>,
     n_agq: usize,
 ) -> Result<OptimizeResult, anyhow::Error> {
-    let lower_bounds = compute_theta_lower_bounds(&re_blocks);
-    let n_agq_obj = n_agq_for_theta_objective(n_agq, &re_blocks);
+    optimize_theta_glmm_with_maps_control(
+        x,
+        zt,
+        y,
+        re_blocks,
+        init_theta,
+        family,
+        offset,
+        weights,
+        zt_z,
+        zt_w_z_map,
+        n_agq,
+        &crate::FitControl::default(),
+    )
+}
 
-    // Always warm-start with Laplace (stable landscape).
+/// Optimize a GLMM with explicit outer and inner iteration controls.
+#[allow(clippy::too_many_arguments)]
+pub fn optimize_theta_glmm_with_maps_control(
+    x: Array2<f64>,
+    zt: CsMat<f64>,
+    y: Array1<f64>,
+    re_blocks: Vec<ReBlock>,
+    init_theta: Array1<f64>,
+    family: Box<dyn GlmFamily>,
+    offset: Option<Array1<f64>>,
+    weights: Option<Array1<f64>>,
+    zt_z: CsMat<f64>,
+    zt_w_z_map: Vec<(usize, usize, f64)>,
+    n_agq: usize,
+    control: &crate::FitControl,
+) -> Result<OptimizeResult, anyhow::Error> {
+    optimize_theta_glmm_data_control(
+        GlmmData::from_structural_parts(x, zt, y, re_blocks, family, weights, zt_z, zt_w_z_map),
+        init_theta,
+        offset,
+        n_agq,
+        control,
+    )
+}
+
+pub(crate) fn optimize_theta_glmm_data_control(
+    data: GlmmData,
+    init_theta: Array1<f64>,
+    offset: Option<Array1<f64>>,
+    n_agq: usize,
+    control: &crate::FitControl,
+) -> Result<OptimizeResult, anyhow::Error> {
+    control.validate(init_theta.len())?;
+    let init_theta = control.start.clone().unwrap_or(init_theta);
+    let lower_bounds = compute_theta_lower_bounds(&data.re_blocks);
+    let n_agq_obj = n_agq_for_theta_objective(n_agq, &data.re_blocks);
+    let evaluator = Arc::new(std::sync::Mutex::new(data));
+    evaluator
+        .lock()
+        .map_err(|_| anyhow::anyhow!("poisoned GLMM workspace"))?
+        .set_control(control.clone());
     let laplace = GlmmObjective {
-        x: x.clone(),
-        zt: zt.clone(),
-        y: y.clone(),
-        re_blocks: re_blocks.clone(),
-        family: family.build_clone(),
-        offset: offset.clone(),
-        weights: weights.clone(),
+        evaluator,
+        offset: offset.map(Arc::new),
         lower_bounds: lower_bounds.clone(),
-        zt_z: zt_z.clone(),
-        zt_w_z_map: zt_w_z_map.clone(),
         n_agq: 1,
+        control: control.clone(),
     };
     let laplace_result = optimize_glmm_theta(init_theta, &lower_bounds, &laplace)?;
     if n_agq_obj <= 1 {
         return Ok(laplace_result);
     }
-
-    // Refine θ under AGQ deviance (scalar, product, or small-q joint).
     let agq = GlmmObjective {
-        x,
-        zt,
-        y,
-        re_blocks,
-        family,
-        offset,
-        weights,
-        lower_bounds: lower_bounds.clone(),
-        zt_z,
-        zt_w_z_map,
         n_agq: n_agq_obj,
+        ..laplace
     };
     let agq_result = optimize_glmm_theta(laplace_result.theta.clone(), &lower_bounds, &agq)?;
     // Reject pathological AGQ refinements (discontinuous AGQ/Laplace fallback landscape).
@@ -633,28 +684,16 @@ fn optimize_glmm_theta(
     lower_bounds: &[f64],
     cost: &GlmmObjective,
 ) -> Result<OptimizeResult, anyhow::Error> {
-    if init_theta.len() == 1 {
+    if init_theta.len() == 1 && cost.control.default_search() {
         optimize_theta_glmm_1d(init_theta, lower_bounds, cost)
     } else {
-        nelder_mead_optimize(init_theta, lower_bounds, 1000, cost.clone_objective())
-    }
-}
-
-impl GlmmObjective {
-    fn clone_objective(&self) -> Self {
-        Self {
-            x: self.x.clone(),
-            zt: self.zt.clone(),
-            y: self.y.clone(),
-            re_blocks: self.re_blocks.clone(),
-            family: self.family.build_clone(),
-            offset: self.offset.clone(),
-            weights: self.weights.clone(),
-            lower_bounds: self.lower_bounds.clone(),
-            zt_z: self.zt_z.clone(),
-            zt_w_z_map: self.zt_w_z_map.clone(),
-            n_agq: self.n_agq,
-        }
+        nelder_mead_optimize_tolerance(
+            init_theta,
+            lower_bounds,
+            cost.control.max_iterations,
+            cost.control.tolerance,
+            cost.clone(),
+        )
     }
 }
 
@@ -701,7 +740,7 @@ fn optimize_theta_glmm_1d(
 
     Ok(OptimizeResult {
         theta: Array1::from_vec(vec![best_t]),
-        converged: true,
+        converged: best_c.is_finite() && best_c < f64::MAX,
         iterations: evals,
         final_cost: best_c,
     })
@@ -759,17 +798,15 @@ mod tests {
         let (zt_z, zt_w_z_map) = glmm_math::build_glmm_structural_maps(&zt);
 
         let cost_fn = GlmmObjective {
-            x,
-            zt,
-            y,
-            re_blocks,
-            family,
+            evaluator: Arc::new(std::sync::Mutex::new(
+                glmm_math::GlmmData::from_structural_parts(
+                    x, zt, y, re_blocks, family, None, zt_z, zt_w_z_map,
+                ),
+            )),
             offset: None,
-            weights: None,
             lower_bounds,
-            zt_z,
-            zt_w_z_map,
             n_agq: 1,
+            control: crate::FitControl::default(),
         };
 
         let theta = array![1.0];

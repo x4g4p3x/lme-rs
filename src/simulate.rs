@@ -48,7 +48,7 @@ pub fn simulate_range(
     if workers == 1 {
         simulate_sequential(fit, start_index, count, seed)
     } else {
-        simulate_parallel(fit, start_index, count, workers, seed)
+        simulate_parallel(fit, start_index, count, n_jobs.map(|_| workers), seed)
     }
 }
 
@@ -102,6 +102,7 @@ fn simulate_sequential(
                 fit.family,
                 sigma2,
                 trials.as_deref(),
+                fit.weights.as_ref(),
                 &mut rng,
             )?);
         }
@@ -113,6 +114,7 @@ fn simulate_sequential(
                 fit.family,
                 sigma2,
                 trials.as_deref(),
+                fit.weights.as_ref(),
                 &mut rng,
             )?);
         }
@@ -125,7 +127,7 @@ fn simulate_parallel(
     fit: &LmeFit,
     start_index: usize,
     count: usize,
-    workers: usize,
+    workers: Option<usize>,
     seed: Option<u64>,
 ) -> anyhow::Result<Vec<Array1<f64>>> {
     let fitted = fit.fitted.clone();
@@ -133,12 +135,7 @@ fn simulate_parallel(
     let sigma2 = fit.sigma2.unwrap_or(1.0);
     let trials = binomial_trial_sizes(fit.weights.as_ref());
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(workers)
-        .build()
-        .map_err(|e| anyhow::anyhow!("simulate failed to build thread pool: {e}"))?;
-
-    pool.install(|| {
+    crate::execution::run(workers, || {
         (0..count)
             .into_par_iter()
             .map(|i| {
@@ -147,10 +144,17 @@ fn simulate_parallel(
                     Some(base) => StdRng::seed_from_u64(base.wrapping_add(global as u64)),
                     None => StdRng::from_os_rng(),
                 };
-                draw_one(&fitted, family, sigma2, trials.as_deref(), &mut rng)
+                draw_one(
+                    &fitted,
+                    family,
+                    sigma2,
+                    trials.as_deref(),
+                    fit.weights.as_ref(),
+                    &mut rng,
+                )
             })
             .collect()
-    })
+    })?
 }
 
 fn draw_one<R: Rng + ?Sized>(
@@ -158,9 +162,11 @@ fn draw_one<R: Rng + ?Sized>(
     family: Option<crate::family::Family>,
     sigma2: f64,
     trials: Option<&[u64]>,
+    weights: Option<&Array1<f64>>,
     rng: &mut R,
 ) -> anyhow::Result<Array1<f64>> {
     let n = fitted.len();
+    crate::validate_observation_weights(weights, n)?;
     let sigma = sigma2.sqrt();
     let mut y_sim = fitted.to_owned();
 
@@ -168,7 +174,7 @@ fn draw_one<R: Rng + ?Sized>(
         None | Some(crate::family::Family::Gaussian) => {
             for i in 0..n {
                 let eps: f64 = rng.sample(StandardNormal);
-                y_sim[i] += sigma * eps;
+                y_sim[i] += sigma * eps / weights.map_or(1.0, |w| w[i].sqrt());
             }
         }
         Some(crate::family::Family::Binomial) => {
@@ -228,10 +234,5 @@ fn draw_one<R: Rng + ?Sized>(
 }
 
 fn resolve_n_jobs(n_jobs: Option<usize>, n_tasks: usize) -> usize {
-    let requested = n_jobs.unwrap_or_else(|| {
-        std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1)
-    });
-    requested.max(1).min(n_tasks.max(1))
+    crate::execution::resolve_workers(n_jobs, n_tasks)
 }

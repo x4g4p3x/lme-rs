@@ -1,32 +1,55 @@
-# CI scripts
+# CI command reference
 
-All local and GitHub Actions checks flow through **`lme_ci.py`** — a single stdlib Python 3.10+ runner. There are no paired `.ps1` / `.sh` implementations to keep in sync.
+[Documentation](../../docs/README.md) · [Contributor setup](../../CONTRIBUTING.md) · [Required checks](../../AGENTS.md)
 
-## Usage
+[lme_ci.py](lme_ci.py) is the shared Python 3.10+ runner for Task, Lefthook,
+GitHub Actions, and the legacy wrappers. Run commands from the repository root.
+Prefer Task for day-to-day work.
+
+## Common commands
+
+| Task command | Runner command | Coverage |
+|:-------------|:---------------|:---------|
+| `task lint` | `lint` | Rust fmt/Clippy and Python Ruff |
+| `task test:fast` | `test-fast` | Rust unit tests |
+| `task test` | `build-test` | Rust build and full test suite |
+| `task preflight` | `preflight` | Lint, all-target check, Cargo audit, legal, metadata |
+| `task docs:check` | `docs-check` | Local document paths, dashboard drift, Rust examples/doctests, API docs |
+| `task completion:check` | `completion-check` | Manifest and published completion markers |
+| `task consumer:smoke` | `consumer-smoke` | Rust sleepstudy and isolated Python wheel/example flow |
+| `task python` | `python` | Editable extension and isolated-wheel tests |
+| `task ci` | `ci` | Full local core validation |
+| `task benchmarks:site` | `benchmark-site` | Regenerate checked-in dashboard data |
+| `task explorations` | `explorations` | Parser, parameter-grid, and comparison probes |
+
+For example:
 
 ```bash
-python3 scripts/ci/lme_ci.py ci
-python3 scripts/ci/lme_ci.py preflight
-python3 scripts/ci/lme_ci.py audit
-python3 scripts/ci/lme_ci.py repo-metadata
-python3 scripts/ci/lme_ci.py docs-check
-python3 scripts/ci/lme_ci.py benchmark-site --check
-python3 scripts/ci/lme_ci.py consumer-smoke
-python3 scripts/ci/lme_ci.py explorations
-python3 scripts/ci/lme_ci.py python --reuse-venv --skip-isolated-wheel
+python scripts/ci/lme_ci.py docs-check
+python scripts/ci/lme_ci.py --help
 ```
 
-On Windows, use `python` instead of `python3`.
+Use `python3` when that is your platform's launcher.
 
-Prefer [`Taskfile.yml`](../../Taskfile.yml) (`task ci`, `task lint`, …) or [`lefthook.yml`](../../lefthook.yml) for day-to-day work.
+## Validation boundaries
 
-## Design
+- Documentation validation checks local **paths**, not heading anchors or external URLs.
+  It compiles Rust examples and runs doctests, but not all Markdown code fences.
+- Consumer validation verifies an installed wheel's identity and runs portable
+  workflows in isolated environments; it is stronger than importing from the checkout.
+- `python --reuse-venv --skip-isolated-wheel` is a faster local development
+  path that omits the wheel check.
+- Metadata validation always dry-runs the payload. Token verification is skipped
+  when `REPO_ADMIN_TOKEN` is absent.
+- Hosted CI provides additional OS, interpreter, audit, and production-load coverage.
+  See [Contributing](../../CONTRIBUTING.md#github-actions).
 
-- **Cross-platform** — one code path for Windows, macOS, and Linux.
-- **uv** — creates `python/.venv` with Python 3.11 explicitly (avoids maturin picking an unsupported system Python).
-- **Ruff** — `uv tool run ruff` for staged Python files; config in [`python/pyproject.toml`](../../python/pyproject.toml).
-- **Docs and examples** — `docs-check` verifies tracked local Markdown links, the generated GitHub Pages dashboard JSON, Rust examples/doctests, and generated API documentation; `consumer-smoke` runs the Rust quick-start and installs the Python wheel in a clean environment before running the portable examples.
-- **GitHub Actions** — pull-request and `v*` tag CI, plus manual dispatch, call the same `lme_ci.py` subcommands as local Task/Lefthook.
-- **Preflight** — `preflight` (pre-push), `audit`, and `repo-metadata` mirror the release GHA gates that are cheap to run locally.
+## Adding a check
 
-Legacy wrappers [`scripts/local_ci.sh`](../local_ci.sh) and [`scripts/local_ci.ps1`](../local_ci.ps1) delegate to `lme_ci.py ci`.
+Implement it in [lme_ci.py](lme_ci.py), expose a runner subcommand, then add a thin
+alias in [Taskfile.yml](../../Taskfile.yml). Wire it into
+[lefthook.yml](../../lefthook.yml) or Actions when required.
+Keep platform handling in this shared implementation.
+
+The legacy [shell](../local_ci.sh) and [PowerShell](../local_ci.ps1) wrappers
+delegate to the full `ci` command; they are not Rust-only runners.

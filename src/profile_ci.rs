@@ -421,8 +421,8 @@ fn profile_deviance_glmm(
         fam,
         Some(offset),
         prepared.weights.clone(),
-        prepared.zt_z.clone(),
-        prepared.zt_w_z_map.clone(),
+        prepared.design.zt_z.clone(),
+        prepared.design.zt_w_z_map.clone(),
         1,
     )
     .map_err(|e| anyhow::anyhow!("profile GLMM θ optimize failed: {e}"))?;
@@ -765,15 +765,10 @@ fn glmm_data_from_prepared(prepared: &GlmerPrepared) -> anyhow::Result<GlmmData>
         .family
         .build_with_link(prepared.link)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    Ok(GlmmData::from_structural_parts(
-        prepared.matrices.x.clone(),
-        prepared.matrices.zt.clone(),
+    Ok(GlmmData::from_design(
+        prepared.design.clone(),
         prepared.matrices.y.clone(),
-        prepared.matrices.re_blocks.clone(),
         fam,
-        prepared.weights.clone(),
-        prepared.zt_z.clone(),
-        prepared.zt_w_z_map.clone(),
     ))
 }
 

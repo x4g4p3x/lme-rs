@@ -37,6 +37,7 @@ fn assert_build_fails_missing_column(formula: &str, df: &DataFrame) {
     );
     let err = res.err().expect("checked is_err");
     match err {
+        LmeError::MissingColumn { column } => assert!(!column.is_empty()),
         LmeError::NotImplemented { feature } => {
             let lower = feature.to_lowercase();
             assert!(

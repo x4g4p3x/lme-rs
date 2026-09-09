@@ -1,5 +1,6 @@
 //! Nonlinear mixed-effects models (`nlmer`-style).
 
+mod block_solve;
 mod fit;
 mod formula;
 mod mean;

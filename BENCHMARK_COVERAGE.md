@@ -1,8 +1,14 @@
 # Benchmark coverage map
 
+[Documentation](docs/README.md) · [Benchmark guide](BENCHMARKS.md) · [Optimization notes](OPTIMIZATION.md)
+
 This file maps **which parts of `lme-rs` have external performance references** (not just Rust-only Criterion benches). Use it to ground [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) and [USABILITY.md](USABILITY.md) performance posture.
 
-**Last assessed:** 2026-08-15
+**Evidence assessment:** 2026-08-15. The catalog below reports dated artifacts,
+not measurements rerun during documentation maintenance.
+
+**Jump to:** [Harness tiers](#harness-tiers) · [Case catalog](#tier-a-case-catalog) ·
+[Commands](#running-benchmarks) · [Claim policy](#what-each-completion-row-may-claim)
 
 ---
 
@@ -47,18 +53,18 @@ Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--wi
 | `large_random_slopes_100k` | LMM | Synthetic (100k obs; 2k groups) | MixedModels.jl | **0.898×** | **0.646×** | Showcase: correlated intercept/slope, 3 θ; linear cache setup |
 | `crossed_20k` | LMM | Synthetic | MixedModels.jl | **0.879×** | **0.677×** | Direct two-factor Gram + allocation-free blocked gate |
 | `nested_10k` | LMM | Synthetic | MixedModels.jl | **0.961×** | **0.492×** | Direct slash design + membership Gram |
-| `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **0.749×** | N/A | Laplace; not R `nAGQ`-in-θ |
-| `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **0.033×** | N/A | Laplace |
+| `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **0.749×** | N/A | Historical Laplace timing; rerun after GLMM changes |
+| `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **0.033×** | N/A | Historical Laplace timing; rerun after GLMM changes |
 
 Cases not in tier A (no fair MixedModels.jl fit timing yet):
 
 | Area | Rust bench | Comparable | Status |
 |:-----|:-----------|:-----------|:-------|
-| `nlmer` / Orange | Golden parity + [`scripts/run_external_timings.py`](scripts/run_external_timings.py) | `lme4::nlmer` | **External R timing** (not Julia) |
-| GLMM AGQ (`n_agq > 1`) | Criterion | R semantics differ | **No** apples-to-apples |
+| `nlmer` / Orange | Golden parity + [`scripts/run_external_timings.py`](scripts/run_external_timings.py) | `lme4::nlmer` | **External R timing** (not Julia; inspect the dated artifact) |
+| GLMM AGQ (`n_agq > 1`) | Criterion | Match integration and optimizer settings | **No** matched external timing in this tier |
 | Post-fit inference (KR, ANOVA, predict) | Criterion + external harness | `lmerTest` when installed | **External R timing** for KR / Satterthwaite ANOVA |
 | LMM estimated marginal means / pairs | Criterion (`inference/emmeans_*`) | R `emmeans` correctness fixture | **Rust microbenchmark**; no cross-language speed claim |
-| Python `lme_python` FFI | External harness | Rust `lmer` | **External Python timing** |
+| Python `lme_python` FFI | External harness | Rust `lmer` | **External Python timing** (inspect the dated artifact) |
 | `lm` / `lm_df` | Minimal | R `lm` | **No** (usually negligible) |
 
 The 2026-08-14 Windows Criterion run measured `inference/emmeans_reference_grid` at **42.5–43.1 µs** and `inference/emmeans_pairs_tukey` at **52.9–56.8 µs** on the pastes fixture. These are post-fit operations and do not warrant a specialized cache at the current scale.
@@ -122,4 +128,6 @@ A dated reference JSON lives under [`benchmarks/`](benchmarks/). Use `--rust-onl
 1. After optimization work on a workflow, add or refresh its tier-A case.
 2. Record medians in [BENCHMARKS.md](BENCHMARKS.md) and/or commit a dated reference JSON under [`benchmarks/`](benchmarks/).
 3. Update **Measured** / **Re-run** cells in the case catalog above.
-4. Adjust [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) row **13** only from tier-A evidence.
+4. Update [completion_manifest.json](completion_manifest.json) and its supporting
+   evidence only when the existing locked scope is met. Keep generated report
+   markers aligned and run `task completion:check`; do not edit percentages by hand.

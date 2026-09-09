@@ -1,42 +1,51 @@
-# Python verification mini-project
+# Python verification project
 
-This folder is a **self-check** for the `lme_python` bindings: it loads the same CSV/JSON fixtures as the Rust integration tests under `tests/data/`, fits LMMs and GLMMs through the Python API, and **asserts** reference numbers (R/lme4-style scalars, CBPP β/θ from `glmm_binomial.json`, nested LRTs, Satterthwaite Type III ANOVA, weighted REML, confint/simulate).
+[Example catalog](../../../docs/EXAMPLES.md) · [Python guide](../../PYTHON_GUIDE.md)
 
-It is more than a usage demo: if these checks pass, the extension is exercising the library end-to-end with tolerances aligned to `tests/test_numerical_parity.rs` and `tests/test_glmm.rs`.
+This project fits models through `lme_python` and asserts reference values from
+[the repository fixtures](../../../tests/data/). It covers LMMs and GLMMs,
+weighted REML, nested likelihood-ratio tests, Satterthwaite Type III ANOVA,
+intervals, and simulation.
+
+These are end-to-end regression checks of the bindings. Agreement applies to
+the fixtures and tolerances used here; it is not a general parity guarantee.
 
 ## Setup
 
 From the repository root:
 
 ```bash
+mise install
 cd python
-maturin develop --release
+uv sync --extra dev --no-install-project
+uv run --no-sync maturin develop --release
 ```
 
-Use the same virtual environment where `polars` and `lme_python` are installed.
+Use `--no-sync` after the build so environment synchronization does not remove
+the extension. See [contributor setup](../../../CONTRIBUTING.md#python-bindings).
 
-## Run (CLI)
+## Run
 
-From `python/`:
+From **`python/`**, choose either the summary runner or pytest:
 
 ```bash
-python examples/verification_project/run.py
+uv run --no-sync python examples/verification_project/run.py
+uv run --no-sync pytest examples/verification_project/test_parity.py -v
 ```
 
-## Run (pytest)
+The runner prints an outcome for each verification. Inspect failures against
+the corresponding fixture and fit options; do not relax tolerances solely
+to make a changed fit pass.
 
-From `python/`:
+For clean installed-wheel coverage, run `task consumer:smoke` from the
+repository root. It also runs this project's summary runner.
 
-```bash
-pytest examples/verification_project/test_parity.py -v
-```
-
-## Layout
+## Source map
 
 | File | Role |
-|------|------|
-| `paths.py` | Resolves repo root and `tests/data/*.csv` |
-| `parity.py` | All `verify_*` checks |
-| `run.py` | Prints OK/FAIL for each check |
-| `test_parity.py` | Pytest wrappers |
-| `conftest.py` | Puts this directory on `sys.path` for imports |
+|:-----|:-----|
+| [paths.py](paths.py) | Resolves repository and fixture paths |
+| [parity.py](parity.py) | Verification functions and tolerances |
+| [run.py](run.py) | Summary runner |
+| [test_parity.py](test_parity.py) | Pytest wrappers |
+| [conftest.py](conftest.py) | Local test imports |

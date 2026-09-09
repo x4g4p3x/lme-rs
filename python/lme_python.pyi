@@ -10,6 +10,17 @@ if TYPE_CHECKING:
 
 DataFrameInput = Union[pl.DataFrame, "pd.DataFrame", "pa.Table"]
 
+class FitControl:
+    def __init__(
+        self,
+        *,
+        max_iterations: int = 1000,
+        tolerance: float = 1e-6,
+        max_inner_iterations: int | None = None,
+        start: list[float] | None = None,
+        require_convergence: bool = False,
+    ) -> None: ...
+
 class PyConfintResult:
     lower: list[float]
     upper: list[float]
@@ -124,6 +135,7 @@ class PyFamily:
     Gaussian: int
 
 class PyLmeFit:
+    diagnostics: dict[str, Any] | None
     formula: Optional[str]
     family_name: Optional[str]
     link_name: Optional[str]
@@ -179,9 +191,7 @@ class PyLmeFit:
     def anova(
         self, ddf_method: str = "satterthwaite", anova_type: str = "III"
     ) -> PyFixedEffectsAnova: ...
-    def linear_hypothesis(
-        self, term: str, ddf_method: str = "satterthwaite"
-    ) -> PyContrastTest: ...
+    def linear_hypothesis(self, term: str, ddf_method: str = "satterthwaite") -> PyContrastTest: ...
     def linear_hypothesis_terms(
         self, terms: list[str], ddf_method: str = "satterthwaite"
     ) -> PyContrastTest: ...
@@ -248,17 +258,21 @@ class PyLmeFit:
         seed: Optional[int] = None,
         n_jobs: Optional[int] = None,
     ) -> PyBootLmerResult: ...
-    def with_robust_se(
-        self, data: DataFrameInput, cluster_col: Optional[str] = None
-    ) -> None: ...
+    def with_robust_se(self, data: DataFrameInput, cluster_col: Optional[str] = None) -> None: ...
     def with_satterthwaite(self, data: DataFrameInput) -> None: ...
     def with_kenward_roger(self, data: DataFrameInput) -> None: ...
 
 class PyLmerPrepared:
+    def fit(
+        self, y: list[float] | None = None, reml: bool = True, *, control: FitControl | None = None
+    ) -> PyLmeFit: ...
     blocked_kernel: bool
     blocked_kernel_detail: str
 
 class PyGlmerPrepared:
+    def fit(
+        self, y: list[float] | None = None, *, control: FitControl | None = None
+    ) -> PyLmeFit: ...
     n_agq: int
     family_name: str
 
@@ -289,9 +303,19 @@ def lm(formula: str, data: DataFrameInput) -> PyLmeFit: ...
 @overload
 def lm(y: Sequence[float], x: Sequence[Sequence[float]]) -> PyLmeFit: ...
 def lm_matrix(y: list[float], x: list[list[float]]) -> PyLmeFit: ...
-def lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
-def prepare_lmer(formula: str, data: DataFrameInput) -> PyLmerPrepared: ...
-def fit_prepared(prepared: PyLmerPrepared, reml: bool = True) -> PyLmeFit: ...
+def lmer(
+    formula: str, data: DataFrameInput, reml: bool = True, *, control: FitControl | None = None
+) -> PyLmeFit: ...
+def prepare_lmer(
+    formula: str, data: DataFrameInput, *, weights: list[float] | None = None
+) -> PyLmerPrepared: ...
+def fit_prepared(
+    prepared: PyLmerPrepared,
+    reml: bool = True,
+    *,
+    y: list[float] | None = None,
+    control: FitControl | None = None,
+) -> PyLmeFit: ...
 def prepare_glmer(
     formula: str,
     data: DataFrameInput,
@@ -300,7 +324,9 @@ def prepare_glmer(
     weights: list[float] | None = None,
     link_name: str | None = None,
 ) -> PyGlmerPrepared: ...
-def fit_prepared_glmer(prepared: PyGlmerPrepared) -> PyLmeFit: ...
+def fit_prepared_glmer(
+    prepared: PyGlmerPrepared, *, y: list[float] | None = None, control: FitControl | None = None
+) -> PyLmeFit: ...
 def refit_lmer(formula: str, data: DataFrameInput, reml: bool = True) -> PyLmeFit: ...
 def cv_grouped(
     formula: str,
@@ -347,6 +373,8 @@ def lmer_weighted(
     data: DataFrameInput,
     reml: bool = True,
     weights: Optional[list[float]] = None,
+    *,
+    control: FitControl | None = None,
 ) -> PyLmeFit: ...
 def glmer(
     formula: str,
@@ -354,6 +382,8 @@ def glmer(
     family_name: str,
     n_agq: int = 1,
     link_name: Optional[str] = None,
+    *,
+    control: FitControl | None = None,
 ) -> PyLmeFit: ...
 def glmer_weighted(
     formula: str,
@@ -362,6 +392,8 @@ def glmer_weighted(
     n_agq: int = 1,
     weights: Optional[list[float]] = None,
     link_name: Optional[str] = None,
+    *,
+    control: FitControl | None = None,
 ) -> PyLmeFit: ...
 def nlmer(
     formula: str,
@@ -373,6 +405,9 @@ def nlmer(
     upper: Optional[dict[str, float]] = None,
     group_lower: Optional[dict[str, float]] = None,
     group_upper: Optional[dict[str, float]] = None,
+    *,
+    max_inner: int = 120,
+    max_outer_iters: int = 500,
 ) -> PyLmeFit: ...
 def nlmer_with_mean(
     formula: str,
@@ -386,6 +421,9 @@ def nlmer_with_mean(
     upper: Optional[dict[str, float]] = None,
     group_lower: Optional[dict[str, float]] = None,
     group_upper: Optional[dict[str, float]] = None,
+    *,
+    max_inner: int = 120,
+    max_outer_iters: int = 500,
 ) -> PyLmeFit: ...
 def anova(fit_a: PyLmeFit, fit_b: PyLmeFit) -> PyLikelihoodRatioAnova: ...
 def contrast_matrix(p: int, rows: list[list[tuple[int, float]]]) -> list[list[float]]: ...

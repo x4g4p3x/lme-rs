@@ -17,16 +17,16 @@ use std::fmt;
 use crate::family::{Family, Link};
 use crate::simulate;
 use crate::{
-    fit_prepared_glmer_with_response, fit_prepared_with_response, prepare_glmer_weighted_with_link,
-    prepare_lmer, ConfintScope, GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
+    fit_prepared_glmer_with_response, prepare_glmer_weighted_with_link, prepare_lmer_weighted,
+    ConfintScope, GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
 };
 
 /// Bootstrap resampling strategy for [`boot_lmer`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BootLmerMethod {
-    /// Draw new Gaussian responses from fitted conditional means (`bootMer` parametric).
+    /// Draw Gaussian responses conditional on fitted group effects (like `bootMer(use.u = TRUE)`).
     Parametric,
-    /// Add resampled residuals to fitted values (`bootMer` residual).
+    /// Add resampled residuals to fitted values; not an R `bootMer` type name.
     Residual,
 }
 
@@ -312,6 +312,8 @@ pub fn boot_lmer(
         });
     }
 
+    fit.model_spec()
+        .validate_refit(formula_str, data.height())?;
     let fixed_names = fit.fixed_names.clone().unwrap_or_default();
     if fixed_names.is_empty() {
         return Err(LmeError::NotImplemented {
@@ -325,7 +327,7 @@ pub fn boot_lmer(
         });
     }
 
-    let prepared = prepare_lmer(formula_str, data)?;
+    let prepared = prepare_lmer_weighted(formula_str, data, fit.weights.clone())?;
     if prepared.lmm.y.len() != fit.num_obs {
         return Err(LmeError::NotImplemented {
             feature: format!(
@@ -336,21 +338,15 @@ pub fn boot_lmer(
         });
     }
 
-    let bootstrap_y = generate_bootstrap_responses(fit, method, nsim, seed)?;
     let prepared = Arc::new(prepared);
     let workers = resolve_n_jobs(n_jobs, nsim);
 
     let replicates = if workers == 1 {
-        run_bootstrap_sequential(&prepared, &bootstrap_y, reml)
+        run_bootstrap_sequential(&prepared, fit, method, nsim, seed, reml)?
     } else {
-        pin_competing_threadpools_single_thread();
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(workers)
-            .build()
-            .map_err(|e| LmeError::NotImplemented {
-                feature: format!("boot_lmer failed to build thread pool: {e}"),
-            })?;
-        pool.install(|| run_bootstrap_parallel(&prepared, &bootstrap_y, reml, workers))
+        crate::execution::run(n_jobs.map(|_| workers), || {
+            run_bootstrap_parallel(&prepared, fit, method, nsim, seed, reml)
+        })??
     };
 
     let n_conv = replicates.iter().filter(|r| r.converged).count();
@@ -418,6 +414,8 @@ pub fn boot_glmer(
         Some(name) => Link::parse(name)?,
         None => Link::default_for(family),
     };
+    fit.model_spec()
+        .validate_refit(formula_str, data.height())?;
     let fixed_names = fit.fixed_names.clone().unwrap_or_default();
     if fixed_names.is_empty() {
         return Err(LmeError::NotImplemented {
@@ -431,8 +429,14 @@ pub fn boot_glmer(
         });
     }
 
-    let prepared =
-        prepare_glmer_weighted_with_link(formula_str, data, family, link, 1, fit.weights.clone())?;
+    let prepared = prepare_glmer_weighted_with_link(
+        formula_str,
+        data,
+        family,
+        link,
+        fit.diagnostics.as_ref().map_or(1, |d| d.requested_n_agq),
+        fit.weights.clone(),
+    )?;
     if prepared.matrices.y.len() != fit.num_obs {
         return Err(LmeError::NotImplemented {
             feature: format!(
@@ -443,21 +447,15 @@ pub fn boot_glmer(
         });
     }
 
-    let bootstrap_y = generate_bootstrap_responses(fit, BootLmerMethod::Parametric, nsim, seed)?;
     let prepared = Arc::new(prepared);
     let workers = resolve_n_jobs(n_jobs, nsim);
 
     let replicates = if workers == 1 {
-        run_glmm_bootstrap_sequential(&prepared, &bootstrap_y)
+        run_glmm_bootstrap_sequential(&prepared, fit, nsim, seed)?
     } else {
-        pin_competing_threadpools_single_thread();
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(workers)
-            .build()
-            .map_err(|e| LmeError::NotImplemented {
-                feature: format!("boot_glmer failed to build thread pool: {e}"),
-            })?;
-        pool.install(|| run_glmm_bootstrap_parallel(&prepared, &bootstrap_y))
+        crate::execution::run(n_jobs.map(|_| workers), || {
+            run_glmm_bootstrap_parallel(&prepared, fit, nsim, seed)
+        })??
     };
 
     let n_conv = replicates.iter().filter(|r| r.converged).count();
@@ -475,23 +473,36 @@ pub fn boot_glmer(
 
 fn run_glmm_bootstrap_sequential(
     prepared: &GlmerPrepared,
-    bootstrap_y: &[Array1<f64>],
-) -> Vec<BootReplicate> {
-    bootstrap_y
-        .iter()
-        .enumerate()
-        .map(|(index, y)| run_one_glmm_replicate(prepared, index, y.clone()))
+    fit: &LmeFit,
+    nsim: usize,
+    seed: Option<u64>,
+) -> Result<Vec<BootReplicate>> {
+    (0..nsim)
+        .map(|i| {
+            Ok(run_one_glmm_replicate(
+                prepared,
+                i,
+                bootstrap_response(fit, BootLmerMethod::Parametric, i, seed)?,
+            ))
+        })
         .collect()
 }
 
 fn run_glmm_bootstrap_parallel(
-    prepared: &Arc<GlmerPrepared>,
-    bootstrap_y: &[Array1<f64>],
-) -> Vec<BootReplicate> {
-    bootstrap_y
-        .par_iter()
-        .enumerate()
-        .map(|(index, y)| run_one_glmm_replicate(prepared.as_ref(), index, y.clone()))
+    prepared: &GlmerPrepared,
+    fit: &LmeFit,
+    nsim: usize,
+    seed: Option<u64>,
+) -> Result<Vec<BootReplicate>> {
+    (0..nsim)
+        .into_par_iter()
+        .map(|i| {
+            Ok(run_one_glmm_replicate(
+                prepared,
+                i,
+                bootstrap_response(fit, BootLmerMethod::Parametric, i, seed)?,
+            ))
+        })
         .collect()
 }
 
@@ -514,38 +525,28 @@ fn run_one_glmm_replicate(prepared: &GlmerPrepared, index: usize, y: Array1<f64>
     }
 }
 
-fn generate_bootstrap_responses(
+fn bootstrap_response(
     fit: &LmeFit,
     method: BootLmerMethod,
-    nsim: usize,
+    index: usize,
     seed: Option<u64>,
-) -> Result<Vec<Array1<f64>>> {
+) -> Result<Array1<f64>> {
     match method {
-        BootLmerMethod::Parametric => simulate::simulate_range(fit, 0, nsim, Some(1), seed)
-            .map_err(|e| LmeError::NotImplemented {
-                feature: format!("boot_lmer parametric simulation failed: {e}"),
+        BootLmerMethod::Parametric => simulate::simulate_range(fit, index, 1, Some(1), seed)
+            .map(|mut ys| ys.remove(0))
+            .map_err(|e| LmeError::InvalidInput {
+                message: format!("bootstrap simulation failed: {e}"),
             }),
         BootLmerMethod::Residual => {
-            let n = fit.residuals.len();
-            if n == 0 {
-                return Err(LmeError::NotImplemented {
-                    feature: "boot_lmer residual method requires residuals on the reference fit"
-                        .to_string(),
+            if fit.residuals.is_empty() {
+                return Err(LmeError::InvalidInput {
+                    message: "residual bootstrap requires observations".into(),
                 });
             }
-            let mut out = Vec::with_capacity(nsim);
-            if let Some(base) = seed {
-                for i in 0..nsim {
-                    let mut rng = StdRng::seed_from_u64(base.wrapping_add(i as u64));
-                    out.push(draw_residual_bootstrap_y(fit, &mut rng));
-                }
-            } else {
-                let mut rng = rand::rng();
-                for _ in 0..nsim {
-                    out.push(draw_residual_bootstrap_y(fit, &mut rng));
-                }
-            }
-            Ok(out)
+            let mut rng = seed.map_or_else(StdRng::from_os_rng, |base| {
+                StdRng::seed_from_u64(base.wrapping_add(index as u64))
+            });
+            Ok(draw_residual_bootstrap_y(fit, &mut rng))
         }
     }
 }
@@ -555,43 +556,65 @@ fn draw_residual_bootstrap_y<R: Rng + ?Sized>(fit: &LmeFit, rng: &mut R) -> Arra
     let mut y = fit.fitted.clone();
     for i in 0..n {
         let j = rng.random_range(0..n);
-        y[i] += fit.residuals[j];
+        // Resample residuals on the common variance scale, then restore row precision.
+        let scale = fit.weights.as_ref().map_or(1.0, |w| (w[j] / w[i]).sqrt());
+        y[i] += fit.residuals[j] * scale;
     }
     y
 }
 
 fn run_bootstrap_sequential(
     prepared: &LmerPrepared,
-    bootstrap_y: &[Array1<f64>],
+    fit: &LmeFit,
+    method: BootLmerMethod,
+    nsim: usize,
+    seed: Option<u64>,
     reml: bool,
-) -> Vec<BootReplicate> {
-    bootstrap_y
-        .iter()
-        .enumerate()
-        .map(|(index, y)| run_one_replicate(prepared, index, y.clone(), reml))
+) -> Result<Vec<BootReplicate>> {
+    let mut workspace = prepared.workspace();
+    (0..nsim)
+        .map(|i| {
+            Ok(run_one_replicate(
+                &mut workspace,
+                i,
+                bootstrap_response(fit, method, i, seed)?,
+                reml,
+            ))
+        })
         .collect()
 }
 
 fn run_bootstrap_parallel(
-    prepared: &Arc<LmerPrepared>,
-    bootstrap_y: &[Array1<f64>],
+    prepared: &LmerPrepared,
+    fit: &LmeFit,
+    method: BootLmerMethod,
+    nsim: usize,
+    seed: Option<u64>,
     reml: bool,
-    _workers: usize,
-) -> Vec<BootReplicate> {
-    bootstrap_y
-        .par_iter()
-        .enumerate()
-        .map(|(index, y)| run_one_replicate(prepared.as_ref(), index, y.clone(), reml))
+) -> Result<Vec<BootReplicate>> {
+    (0..nsim)
+        .into_par_iter()
+        .map_init(
+            || prepared.workspace(),
+            |workspace, i| {
+                Ok(run_one_replicate(
+                    workspace,
+                    i,
+                    bootstrap_response(fit, method, i, seed)?,
+                    reml,
+                ))
+            },
+        )
         .collect()
 }
 
 fn run_one_replicate(
-    prepared: &LmerPrepared,
+    workspace: &mut crate::LmerWorkspace<'_>,
     index: usize,
     y: Array1<f64>,
     reml: bool,
 ) -> BootReplicate {
-    match fit_prepared_with_response(prepared, Some(y), reml) {
+    match workspace.fit_response(y, reml, &crate::FitControl::default()) {
         Ok(fit) => BootReplicate {
             index,
             coefficients: fit.coefficients,
@@ -601,13 +624,7 @@ fn run_one_replicate(
         },
         Err(_) => BootReplicate {
             index,
-            coefficients: Array1::zeros(
-                prepared
-                    .matrices
-                    .fixed_names
-                    .len()
-                    .max(prepared.lmm.x.ncols()),
-            ),
+            coefficients: Array1::zeros(workspace.prepared.matrices.fixed_names.len()),
             theta: None,
             sigma2: None,
             converged: false,
@@ -632,17 +649,5 @@ fn percentile_sorted(sorted: &[f64], q: f64) -> f64 {
 }
 
 fn resolve_n_jobs(n_jobs: Option<usize>, n_tasks: usize) -> usize {
-    let requested = n_jobs.unwrap_or_else(|| {
-        std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1)
-    });
-    requested.max(1).min(n_tasks.max(1))
-}
-
-fn pin_competing_threadpools_single_thread() {
-    std::env::set_var("OPENBLAS_NUM_THREADS", "1");
-    std::env::set_var("MKL_NUM_THREADS", "1");
-    std::env::set_var("OMP_NUM_THREADS", "1");
-    std::env::set_var("VECLIB_MAXIMUM_THREADS", "1");
+    crate::execution::resolve_workers(n_jobs, n_tasks)
 }

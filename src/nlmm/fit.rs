@@ -12,8 +12,8 @@ use crate::optimizer::{compute_theta_lower_bounds, nelder_mead_optimize};
 use crate::quadrature::{gh_rule, log_sum_exp, resolve_gh_order, resolve_gh_order_product};
 use crate::{LmeError, LmeFit};
 use argmin::core::CostFunction;
-use ndarray::{Array1, Array2};
-use ndarray_linalg::{Cholesky, Inverse, Solve, UPLO};
+use ndarray::Array1;
+use ndarray_linalg::{Cholesky, Inverse, UPLO};
 
 /// Starting values for fixed nonlinear parameters (by name).
 pub type NlmmStart = std::collections::HashMap<String, f64>;
@@ -38,7 +38,7 @@ pub struct NlmerOptions {
     pub group_upper: Option<NlmmStart>,
     /// Maximum penalized Gauss–Newton iterations per RE-variance evaluation.
     pub max_inner: usize,
-    /// Reserved for future multi-θ optimizers.
+    /// Maximum iterations per variance search (each restart uses this budget).
     pub max_outer_iters: u64,
     /// Adaptive Gauss–Hermite quadrature order. `1` (default) uses Laplace only;
     /// values `≥ 2` enable AGQ on the θ profile (scalar `k = 1`, or product quadrature
@@ -62,10 +62,11 @@ impl Default for NlmerOptions {
     }
 }
 
+#[derive(Clone)]
 struct NlmmProblem {
-    y: Array1<f64>,
-    x: Array1<f64>,
-    group: Vec<usize>,
+    y: Arc<Array1<f64>>,
+    x: Arc<Array1<f64>>,
+    group: Arc<Vec<usize>>,
     m: usize,
     mean: Arc<dyn NlmmMeanEval>,
     param_names: Vec<String>,
@@ -159,10 +160,10 @@ impl NlmmProblem {
     }
 
     fn random_effect_logdet(&self, params: &[f64], b: &Array1<f64>, theta: &[f64]) -> f64 {
-        let n = self.y.len();
-        let q = self.m * self.k_re;
-        let mut j = Array2::<f64>::zeros((n, q));
-        for i in 0..n {
+        let k = self.k_re;
+        let inv = sigma_inv_from_theta(k, theta);
+        let mut blocks = vec![inv; self.m];
+        for i in 0..self.y.len() {
             let g = self.group[i];
             let re_off = self.re_offsets_for_group(b, g);
             let (_, grad) = eval_mean_with_re(
@@ -172,66 +173,28 @@ impl NlmmProblem {
                 &self.re_indices,
                 &re_off,
             );
-            for r_slot in 0..self.k_re {
-                let param_idx = self.re_indices[r_slot];
-                j[[i, self.b_index(g, r_slot)]] = grad[param_idx];
-            }
-        }
-
-        let mut h = j.t().dot(&j);
-        let inv = sigma_inv_from_theta(self.k_re, theta);
-        for g in 0..self.m {
-            for r in 0..self.k_re {
-                for s in 0..self.k_re {
-                    let row = self.b_index(g, r);
-                    let col = self.b_index(g, s);
-                    h[[row, col]] += inv[[r, s]];
+            for r in 0..k {
+                for c in 0..k {
+                    blocks[g][[r, c]] += grad[self.re_indices[r]] * grad[self.re_indices[c]];
                 }
             }
         }
-
-        match h.cholesky(UPLO::Lower) {
-            Ok(chol) => {
-                let logdet_h: f64 = (0..q).map(|i| chol[[i, i]].max(1e-12).ln()).sum::<f64>() * 2.0;
-                logdet_h + self.m as f64 * log_det_sigma(self.k_re, theta)
-            }
-            Err(_) => f64::INFINITY,
+        let mut total = self.m as f64 * log_det_sigma(k, theta);
+        for block in blocks {
+            let Ok(chol) = block.cholesky(UPLO::Lower) else {
+                return f64::INFINITY;
+            };
+            total += 2.0 * chol.diag().iter().map(|x| x.ln()).sum::<f64>();
         }
+        total
     }
 
-    fn add_re_prior_terms(
-        &self,
-        jtj: &mut Array2<f64>,
-        rhs: &mut Array1<f64>,
-        b: &Array1<f64>,
-        theta: &[f64],
-        col_offset: usize,
-    ) {
-        let inv = sigma_inv_from_theta(self.k_re, theta);
-        for g in 0..self.m {
-            for r in 0..self.k_re {
-                let row = col_offset + self.b_index(g, r);
-                let mut prior_grad = 0.0;
-                for s in 0..self.k_re {
-                    let col = col_offset + self.b_index(g, s);
-                    jtj[[row, col]] += inv[[r, s]];
-                    prior_grad += inv[[r, s]] * b[self.b_index(g, s)];
-                }
-                // Preserve the established scalar nlmer profiling path; the coupled
-                // prior-gradient correction is needed for correlated multivariate RE.
-                if self.k_re > 1 {
-                    rhs[row] -= prior_grad;
-                }
-            }
-        }
-    }
-
-    fn inner_gauss_newton(
+    fn inner_gauss_newton_status(
         &self,
         theta: &[f64],
         start: &NlmmStart,
         max_iter: usize,
-    ) -> (Vec<f64>, Array1<f64>, f64) {
+    ) -> (Vec<f64>, Array1<f64>, f64, bool, usize) {
         let mut params: Vec<f64> = self.mean.default_start_values(&self.param_names);
         for (name, value) in start {
             if let Some(idx) = self.param_names.iter().position(|n| n == name) {
@@ -253,16 +216,16 @@ impl NlmmProblem {
         let mut b = Array1::<f64>::zeros(self.m * self.k_re);
         let n = self.y.len();
         let p_fix = self.n_fix;
-        let p = p_fix + self.m * self.k_re;
         let mut lambda_lm = if self.k_re == 1 && self.mean.uses_scalar_rss_sigma() {
             1e-2
         } else {
             1e-4
         };
-        for _ in 0..max_iter {
-            let mut j = Array2::<f64>::zeros((n, p));
-            let mut r = Array1::<f64>::zeros(n);
-
+        let mut converged = false;
+        let mut iterations = 0;
+        for iteration in 0..max_iter {
+            iterations = iteration + 1;
+            let mut normal = super::block_solve::BlockNormal::new(p_fix, self.k_re, self.m);
             for i in 0..n {
                 let g = self.group[i];
                 let re_off = self.re_offsets_for_group(&b, g);
@@ -273,32 +236,35 @@ impl NlmmProblem {
                     &self.re_indices,
                     &re_off,
                 );
-                r[i] = self.y[i] - mui;
-                for j_fix in 0..p_fix {
-                    j[[i, j_fix]] = grad[j_fix];
-                }
-                for r_slot in 0..self.k_re {
-                    let param_idx = self.re_indices[r_slot];
-                    j[[i, p_fix + self.b_index(g, r_slot)]] = grad[param_idx];
-                }
+                let random: Vec<f64> = self.re_indices.iter().map(|&j| grad[j]).collect();
+                let fixed: Vec<f64> = grad
+                    .iter()
+                    .enumerate()
+                    .map(|(j, &v)| {
+                        if self.lower[j] == self.upper[j] {
+                            0.0
+                        } else {
+                            v
+                        }
+                    })
+                    .collect();
+                normal.accumulate(g, &fixed, &random, self.y[i] - mui);
             }
-
-            let mut jtj = j.t().dot(&j);
-            let mut rhs = j.t().dot(&r);
-            self.add_re_prior_terms(&mut jtj, &mut rhs, &b, theta, p_fix);
+            normal.add_prior(&sigma_inv_from_theta(self.k_re, theta), &b, true);
             let old_obj = self.penalized_rss(&params, &b, theta);
 
             let mut accepted = false;
             let mut step_norm = 0.0f64;
             for _attempt in 0..12 {
-                let mut damped = jtj.clone();
-                for i in 0..p {
-                    damped[[i, i]] += lambda_lm * damped[[i, i]].max(1e-8);
-                }
-                let delta = match damped.cholesky(UPLO::Lower).and_then(|c| c.solve(&rhs)) {
-                    Ok(d) => d,
-                    Err(_) => break,
+                let delta = match normal.solve(lambda_lm) {
+                    Some(delta) => delta,
+                    None => break,
                 };
+                let proposed_step = delta.iter().map(|v| v.abs()).fold(0.0, f64::max);
+                if proposed_step < 1e-10 {
+                    converged = true;
+                    break;
+                }
 
                 let mut alpha = 1.0;
                 while alpha >= 1e-6 {
@@ -342,6 +308,7 @@ impl NlmmProblem {
                 break;
             }
             if step_norm < 1e-10 {
+                converged = true;
                 break;
             }
         }
@@ -353,6 +320,16 @@ impl NlmmProblem {
             .zip(mu.iter())
             .map(|(&y, &m)| (y - m).powi(2))
             .sum();
+        (params, b, rss, converged, iterations)
+    }
+
+    fn inner_gauss_newton(
+        &self,
+        theta: &[f64],
+        start: &NlmmStart,
+        max_iter: usize,
+    ) -> (Vec<f64>, Array1<f64>, f64) {
+        let (params, b, rss, _, _) = self.inner_gauss_newton_status(theta, start, max_iter);
         (params, b, rss)
     }
 
@@ -380,7 +357,7 @@ impl NlmmProblem {
         } else {
             (pwrss / df).max(1e-12)
         };
-        let re_logdet = if self.k_re > 1 {
+        let re_logdet = if !scalar_ssasymp {
             self.random_effect_logdet(&params, &b, theta)
         } else {
             self.m as f64 * log_det_sigma(self.k_re, theta)
@@ -399,7 +376,7 @@ impl NlmmProblem {
                 + re_logdet
                 + (self.m as f64 * self.k_re as f64 - p) * (1.0 + sigma2.ln())
         } else {
-            n * pwrss.ln() + re_logdet
+            n * (1.0 + (2.0 * std::f64::consts::PI * sigma2).ln()) + re_logdet
         };
         if let Some(agq_q) = self.agq_correction(n_agq, &params, &b, theta, sigma2) {
             crit += agq_q;
@@ -605,6 +582,7 @@ impl NlmmProblem {
 }
 
 /// Golden-section search for a scalar Cholesky diagonal (k = 1).
+#[allow(clippy::too_many_arguments)]
 fn optimize_theta_golden(
     problem: &NlmmProblem,
     start: &NlmmStart,
@@ -613,7 +591,8 @@ fn optimize_theta_golden(
     n_agq: usize,
     lo: f64,
     hi: f64,
-) -> (f64, f64, u64) {
+    max_outer_iters: u64,
+) -> (f64, f64, u64, bool) {
     let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
     let mut a = lo;
     let mut b = hi;
@@ -624,7 +603,7 @@ fn optimize_theta_golden(
     let mut fc_cost = fc.0;
     let mut fd_cost = fd.0;
     let mut iters = 0u64;
-    while (b - a).abs() > 1e-4 && iters < 80 {
+    while (b - a).abs() > 1e-4 && iters < max_outer_iters {
         iters += 1;
         if fc_cost < fd_cost {
             b = d;
@@ -648,7 +627,12 @@ fn optimize_theta_golden(
     let final_cost = problem
         .profile_objective(&[theta0], start, reml, max_inner, n_agq)
         .0;
-    (theta0, final_cost, iters)
+    (
+        theta0,
+        final_cost,
+        iters,
+        (b - a).abs() <= 1e-4 && final_cost.is_finite(),
+    )
 }
 
 struct ThetaObjective<'a> {
@@ -720,7 +704,7 @@ fn optimize_theta_nelder_mead(
     n_agq: usize,
     init: Array1<f64>,
     max_outer_iters: u64,
-) -> (Array1<f64>, u64) {
+) -> (Array1<f64>, u64, bool) {
     let lower_bounds = theta_lower_bounds(problem.k_re);
     let cost = ThetaObjective {
         problem,
@@ -740,7 +724,11 @@ fn optimize_theta_nelder_mead(
     if let Some(slice) = theta.as_slice_mut() {
         clamp_nlmm_theta(slice, problem.k_re);
     }
-    (theta, result.iterations)
+    (
+        theta,
+        result.iterations,
+        result.converged && result.final_cost < f64::MAX,
+    )
 }
 
 fn default_theta_init(k_re: usize) -> Array1<f64> {
@@ -846,6 +834,8 @@ struct NlmmOptimized {
     b: Array1<f64>,
     deviance: f64,
     outer_iters: u64,
+    converged: bool,
+    inner_iters: usize,
 }
 
 fn optimize_nlmm_at_start(
@@ -854,8 +844,8 @@ fn optimize_nlmm_at_start(
     k_re: usize,
     opts: &NlmerOptions,
 ) -> NlmmOptimized {
-    let (thetas, outer_iters) = if k_re == 1 {
-        let (theta0, _cost, iters) = optimize_theta_golden(
+    let (thetas, outer_iters, outer_converged) = if k_re == 1 {
+        let (theta0, _cost, iters, converged) = optimize_theta_golden(
             problem,
             start,
             opts.reml,
@@ -863,8 +853,9 @@ fn optimize_nlmm_at_start(
             opts.n_agq,
             0.2,
             20.0,
+            opts.max_outer_iters,
         );
-        (Array1::from_vec(vec![theta0]), iters)
+        (Array1::from_vec(vec![theta0]), iters, converged)
     } else {
         let inits = vec![
             default_theta_init(k_re),
@@ -880,15 +871,16 @@ fn optimize_nlmm_at_start(
         let mut best_theta = inits[0].clone();
         let mut best_cost = f64::MAX;
         let mut total_iters = 0u64;
+        let mut best_converged = false;
         for init in inits {
-            let (theta, iters) = optimize_theta_nelder_mead(
+            let (theta, iters, converged) = optimize_theta_nelder_mead(
                 problem,
                 start,
                 opts.reml,
                 opts.max_inner,
                 opts.n_agq,
                 init,
-                opts.max_outer_iters.max(600),
+                opts.max_outer_iters,
             );
             let cost = problem
                 .profile_objective(
@@ -902,22 +894,113 @@ fn optimize_nlmm_at_start(
             if cost < best_cost {
                 best_cost = cost;
                 best_theta = theta;
+                best_converged = converged;
             }
             total_iters += iters;
         }
-        (best_theta, total_iters)
+        (best_theta, total_iters, best_converged)
     };
 
     let theta_slice = thetas.as_slice().unwrap();
-    let (deviance, params, _sigma2_inner, b) =
+    let (mut deviance, mut params, _sigma2_inner, mut b) =
         problem.profile_objective(theta_slice, start, opts.reml, opts.max_inner, opts.n_agq);
 
+    let (_, _, _, mut inner_converged, mut inner_iters) =
+        problem.inner_gauss_newton_status(theta_slice, start, opts.max_inner);
+    let mut thetas = thetas;
+    let mut outer_iters = outer_iters;
+    let mut outer_converged = outer_converged;
+    // Laplace likelihood depends on beta through the random-effect Jacobian.
+    // Refining theta and beta jointly avoids treating the PWRSS beta as its MLE.
+    if !opts.reml && !problem.mean.uses_scalar_rss_sigma() {
+        let objective = JointObjective { problem, opts };
+        let mut initial = thetas.to_vec();
+        initial.extend(&params);
+        let mut lower = theta_lower_bounds(k_re);
+        lower.extend(&problem.lower);
+        if let Ok(result) = nelder_mead_optimize(
+            Array1::from_vec(initial),
+            &lower,
+            opts.max_outer_iters,
+            objective,
+        ) {
+            let (cost, fixed, random, converged, inner) =
+                JointObjective { problem, opts }.evaluate(&result.theta, true);
+            outer_iters += result.iterations;
+            if cost <= deviance {
+                thetas = result
+                    .theta
+                    .slice(ndarray::s![..theta_len(k_re)])
+                    .to_owned();
+                clamp_nlmm_theta(thetas.as_slice_mut().unwrap(), k_re);
+                deviance = cost;
+                params = fixed;
+                b = random;
+                outer_converged = result.converged;
+                inner_converged = converged;
+                inner_iters = inner;
+            }
+        }
+    }
     NlmmOptimized {
+        converged: outer_converged && inner_converged && deviance.is_finite(),
+        inner_iters,
         thetas,
         params,
         b,
         deviance,
         outer_iters,
+    }
+}
+
+struct JointObjective<'a> {
+    problem: &'a NlmmProblem,
+    opts: &'a NlmerOptions,
+}
+impl JointObjective<'_> {
+    fn evaluate(
+        &self,
+        values: &Array1<f64>,
+        diagnostics: bool,
+    ) -> (f64, Vec<f64>, Array1<f64>, bool, usize) {
+        let nt = theta_len(self.problem.k_re);
+        let mut theta = values.slice(ndarray::s![..nt]).to_vec();
+        clamp_nlmm_theta(&mut theta, self.problem.k_re);
+        let mut params = values.slice(ndarray::s![nt..]).to_vec();
+        self.problem.project_params(&mut params);
+        let mut conditional = self.problem.clone();
+        conditional.lower.clone_from(&params);
+        conditional.upper.clone_from(&params);
+        let start = self
+            .problem
+            .param_names
+            .iter()
+            .cloned()
+            .zip(params)
+            .collect();
+        let (cost, params, _, b) = conditional.profile_objective(
+            &theta,
+            &start,
+            false,
+            self.opts.max_inner,
+            self.opts.n_agq,
+        );
+        let (converged, iterations) = if diagnostics {
+            let (_, _, _, c, i) =
+                conditional.inner_gauss_newton_status(&theta, &start, self.opts.max_inner);
+            (c, i)
+        } else {
+            (false, 0)
+        };
+        (cost, params, b, converged, iterations)
+    }
+}
+impl CostFunction for JointObjective<'_> {
+    type Param = Array1<f64>;
+    type Output = f64;
+    fn cost(&self, values: &Self::Param) -> Result<f64, argmin::core::Error> {
+        let cost = self.evaluate(values, false).0;
+        Ok(if cost.is_finite() { cost } else { f64::MAX })
     }
 }
 
@@ -929,6 +1012,11 @@ pub fn fit_nlmer(
     formula_str: &str,
     opts: &NlmerOptions,
 ) -> crate::Result<LmeFit> {
+    if opts.max_inner == 0 || opts.max_outer_iters == 0 {
+        return Err(LmeError::InvalidInput {
+            message: "nlmer iteration limits must be positive".into(),
+        });
+    }
     let re_indices = re_param_indices(parsed)?;
     let k_re = re_indices.len();
     let n_fix = mean.n_params();
@@ -943,6 +1031,12 @@ pub fn fit_nlmer(
 
     let y = column_f64(data, &parsed.response)?;
     let x = column_f64(data, &parsed.covariate)?;
+    if y.is_empty() || opts.start.values().any(|v| !v.is_finite()) {
+        return Err(LmeError::InvalidInput {
+            message: "nonlinear fitting requires observations and finite starting parameters"
+                .into(),
+        });
+    }
     let groups = column_str(data, &parsed.re_group)?;
     let mut level_map = std::collections::HashMap::<String, usize>::new();
     let mut group = Vec::with_capacity(y.len());
@@ -969,9 +1063,9 @@ pub fn fit_nlmer(
     validate_group_bounds_names(&parsed.fixed_param_names, &re_indices, &opts.group_upper)?;
 
     let problem = NlmmProblem {
-        y,
-        x,
-        group,
+        y: Arc::new(y),
+        x: Arc::new(x),
+        group: Arc::new(group),
         m,
         mean: mean.clone(),
         param_names: parsed.fixed_param_names.clone(),
@@ -1011,12 +1105,19 @@ pub fn fit_nlmer(
         b,
         deviance,
         outer_iters,
+        converged,
+        inner_iters,
     } = optimized;
 
+    if !deviance.is_finite() || deviance == f64::MAX || !params.iter().all(|x| x.is_finite()) {
+        return Err(LmeError::NonConvergence {
+            message: "nonlinear objective is not finite".into(),
+        });
+    }
     let theta_slice = thetas.as_slice().unwrap();
 
     let fitted = problem.predict(&params, &b);
-    let residuals = &problem.y - &fitted;
+    let residuals = problem.y.as_ref() - &fitted;
     let n = problem.y.len();
     let rss_nl: f64 = residuals.iter().map(|r| r * r).sum();
     let mut b_pen = 0.0;
@@ -1062,6 +1163,34 @@ pub fn fit_nlmer(
     let bic = deviance + n_params * (n as f64).ln();
 
     Ok(LmeFit {
+        diagnostics: Some(crate::FitDiagnostics {
+            termination: if converged {
+                crate::TerminationReason::Converged
+            } else if inner_iters >= opts.max_inner || outer_iters >= opts.max_outer_iters {
+                crate::TerminationReason::IterationLimit
+            } else {
+                crate::TerminationReason::NoProgress
+            },
+            outer_iterations: outer_iters,
+            inner_iterations: Some(inner_iters),
+            objective: deviance,
+            requested_n_agq: opts.n_agq,
+            effective_n_agq: if problem
+                .agq_correction(
+                    opts.n_agq,
+                    coefficients.as_slice().unwrap(),
+                    &b,
+                    theta_slice,
+                    sigma2,
+                )
+                .is_some()
+            {
+                resolve_gh_order_product(opts.n_agq, k_re).unwrap_or(1)
+            } else {
+                1
+            },
+            warnings: Vec::new(),
+        }),
         coefficients,
         residuals,
         fitted,
@@ -1091,7 +1220,7 @@ pub fn fit_nlmer(
             group_map: level_map,
         }]),
         num_obs: n,
-        converged: Some(true),
+        converged: Some(converged),
         iterations: Some(outer_iters),
         family_name: Some("nlmm".to_string()),
         link_name: None,
@@ -1112,27 +1241,7 @@ pub(crate) fn column_f64(
     df: &polars::prelude::DataFrame,
     name: &str,
 ) -> crate::Result<Array1<f64>> {
-    let s = df.column(name).map_err(|e| LmeError::NotImplemented {
-        feature: format!("Column '{name}': {e}"),
-    })?;
-    if let Ok(ca) = s.f64() {
-        return Ok(Array1::from_iter(
-            ca.into_iter().map(|v| v.unwrap_or(f64::NAN)),
-        ));
-    }
-    if let Ok(ca) = s.i64() {
-        return Ok(Array1::from_iter(
-            ca.into_iter().map(|v| v.unwrap_or(0) as f64),
-        ));
-    }
-    if let Ok(ca) = s.f32() {
-        return Ok(Array1::from_iter(
-            ca.into_iter().map(|v| v.unwrap_or(f32::NAN) as f64),
-        ));
-    }
-    Err(LmeError::NotImplemented {
-        feature: format!("Column '{name}' must be numeric"),
-    })
+    crate::model_matrix::numeric_column_f64(df, name)
 }
 
 pub(crate) fn column_str(
@@ -1142,6 +1251,11 @@ pub(crate) fn column_str(
     let s = df.column(name).map_err(|e| LmeError::NotImplemented {
         feature: format!("Column '{name}': {e}"),
     })?;
+    if s.null_count() > 0 {
+        return Err(LmeError::InvalidInput {
+            message: format!("Grouping column '{name}' contains nulls"),
+        });
+    }
     if let Ok(ca) = s.str() {
         return Ok(ca
             .into_iter()
@@ -1231,7 +1345,7 @@ mod orange_inner {
     use std::fs::File;
 
     #[test]
-    fn inner_at_r_tau_matches_reference() {
+    fn inner_at_r_tau_is_stationary_for_penalized_least_squares() {
         let mut file = File::open("tests/data/orange.csv").unwrap();
         let df = polars::prelude::CsvReadOptions::default()
             .with_has_header(true)
@@ -1257,9 +1371,9 @@ mod orange_inner {
         start.insert("scal".to_string(), 350.0);
         let re_indices = re_param_indices(&parsed).unwrap();
         let problem = NlmmProblem {
-            y,
-            x,
-            group,
+            y: Arc::new(y),
+            x: Arc::new(x),
+            group: Arc::new(group),
             m: 5,
             mean: builtin_mean(mean),
             param_names: parsed.fixed_param_names.clone(),
@@ -1271,15 +1385,24 @@ mod orange_inner {
             group_lower: vec![f64::NEG_INFINITY; 3],
             group_upper: vec![f64::INFINITY; 3],
         };
-        let (params, _, _) = problem.inner_gauss_newton(&[4.03497223047614], &start, 200);
-        assert!(
-            (params[0] - 192.0528).abs() < 3.0,
-            "asym={} xmid={} scal={}",
-            params[0],
-            params[1],
-            params[2]
-        );
-        assert!((params[1] - 727.9045).abs() < 5.0, "xmid={}", params[1]);
+        let theta = [4.03497223047614];
+        let (params, b, _) = problem.inner_gauss_newton(&theta, &start, 200);
+        // PWRSS is not the joint Laplace likelihood. Check its stationarity here;
+        // integration tests compare the final likelihood fit with lme4.
+        for j in 0..params.len() {
+            let h = 1e-4;
+            let mut plus = params.clone();
+            let mut minus = params.clone();
+            plus[j] += h;
+            minus[j] -= h;
+            let derivative = (problem.penalized_rss(&plus, &b, &theta)
+                - problem.penalized_rss(&minus, &b, &theta))
+                / (2.0 * h);
+            assert!(
+                derivative.abs() < 1e-3,
+                "parameter {j}: gradient {derivative}"
+            );
+        }
         assert_eq!(mean, NlmmMeanKind::Sslogis);
     }
 
@@ -1312,9 +1435,9 @@ mod orange_inner {
         start.insert("scal".to_string(), 350.0);
         let re_indices = re_param_indices(&parsed).unwrap();
         let problem = NlmmProblem {
-            y,
-            x,
-            group,
+            y: Arc::new(y),
+            x: Arc::new(x),
+            group: Arc::new(group),
             m: 5,
             mean: builtin_mean(mean),
             param_names: parsed.fixed_param_names.clone(),

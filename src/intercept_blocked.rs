@@ -1024,6 +1024,25 @@ impl InterceptBlockedChol {
         })
     }
 
+    pub(super) fn replace_response(
+        &mut self,
+        xt_y: &ndarray::Array1<f64>,
+        zt_y: &ndarray::Array1<f64>,
+        norm: f64,
+    ) {
+        for (j, block) in self.a_xy_re.iter_mut().enumerate() {
+            let start = self.block_row_start[j];
+            for local in 0..block.ncols() {
+                block[[self.p, local]] = zt_y[start + local];
+            }
+        }
+        for r in 0..self.p {
+            self.a_xy_xy[[r, self.p]] = xt_y[r];
+            self.a_xy_xy[[self.p, r]] = xt_y[r];
+        }
+        self.a_xy_xy[[self.p, self.p]] = norm;
+    }
+
     fn cross_to_dense_scratch(block: &CrossBlock, scratch: &mut Array2<f64>) {
         match block {
             CrossBlock::Dense(d) => {

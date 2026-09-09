@@ -13,15 +13,15 @@ use lme_rs::{glmer, glmer_weighted};
 use ndarray::array;
 use polars::prelude::*;
 
-fn assert_notimplemented_contains(err: &LmeError, needle: &str) {
+fn assert_invalid_input_contains(err: &LmeError, needle: &str) {
     match err {
-        LmeError::NotImplemented { feature } => assert!(
+        LmeError::InvalidInput { message: feature } => assert!(
             feature.contains(needle),
             "expected message containing {:?}, got {}",
             needle,
             feature
         ),
-        e => panic!("expected NotImplemented, got {:?}", e),
+        e => panic!("expected InvalidInput, got {:?}", e),
     }
 }
 
@@ -35,8 +35,8 @@ fn lmer_weights_length_mismatch_is_rejected() {
     .unwrap();
     let w = ndarray::Array1::from_vec(vec![1.0, 1.0]);
     let err = lmer_weighted("y ~ x + (1 | g)", &df, true, Some(w)).unwrap_err();
-    assert_notimplemented_contains(&err, "weights");
-    assert_notimplemented_contains(&err, "length");
+    assert_invalid_input_contains(&err, "weights");
+    assert_invalid_input_contains(&err, "length");
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn lmer_weights_non_positive_is_rejected() {
     .unwrap();
     let w = ndarray::Array1::from_vec(vec![1.0, 0.0]);
     let err = lmer_weighted("y ~ x + (1 | g)", &df, true, Some(w)).unwrap_err();
-    assert_notimplemented_contains(&err, "strictly positive");
+    assert_invalid_input_contains(&err, "strictly positive");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn lmer_weights_nan_is_rejected() {
     .unwrap();
     let w = ndarray::Array1::from_vec(vec![1.0, f64::NAN]);
     let err = lmer_weighted("y ~ x + (1 | g)", &df, true, Some(w)).unwrap_err();
-    assert_notimplemented_contains(&err, "non-finite");
+    assert_invalid_input_contains(&err, "non-finite");
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn glmer_weights_length_mismatch_is_rejected() {
     .unwrap();
     let w = ndarray::Array1::from_vec(vec![1.0]);
     let err = glmer_weighted("y ~ x + (1 | g)", &df, Family::Binomial, 1, Some(w)).unwrap_err();
-    assert_notimplemented_contains(&err, "weights");
+    assert_invalid_input_contains(&err, "weights");
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn glmer_binomial_response_outside_unit_interval_is_rejected() {
     )
     .unwrap();
     let err = glmer("y ~ x + (1 | g)", &df, Family::Binomial, 1).unwrap_err();
-    assert_notimplemented_contains(&err, "binomial");
+    assert_invalid_input_contains(&err, "binomial");
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn glmer_poisson_negative_response_is_rejected() {
     )
     .unwrap();
     let err = glmer("y ~ x + (1 | g)", &df, Family::Poisson, 1).unwrap_err();
-    assert_notimplemented_contains(&err, "Poisson");
+    assert_invalid_input_contains(&err, "Poisson");
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn glmer_gamma_non_positive_response_is_rejected() {
     )
     .unwrap();
     let err = glmer("y ~ x + (1 | g)", &df, Family::Gamma, 1).unwrap_err();
-    assert_notimplemented_contains(&err, "Gamma");
+    assert_invalid_input_contains(&err, "Gamma");
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn lm_df_rank_deficient_fixed_effects_returns_error() {
     let err = lm_df("y ~ x + z", &df).unwrap_err();
     let msg = err.to_string();
     assert!(
-        msg.contains("inversion") || msg.contains("lm failed") || msg.contains("Cholesky"),
+        msg.contains("rank-deficient"),
         "unexpected lm_df error: {}",
         msg
     );
@@ -211,7 +211,7 @@ fn glmm_laplace_deviance_non_finite_when_response_invalid_after_matrix_build() {
 #[test]
 fn glmer_can_surface_pirls_failure_at_optimal_theta() {
     // Tiny separable-ish binomial setup: optimizer may pick a θ where the inner PIRLS Cholesky
-    // path fails (returns `None`), which `glmer` maps to a NotImplemented error.
+    // path fails (returns `None`), which `glmer` maps to a NonConvergence error.
     let df = df!(
         "y" => &[1.0_f64, 1.0, 0.0, 0.0],
         "x" => &[0.0_f64, 1.0, 0.0, 1.0],
@@ -228,7 +228,7 @@ fn glmer_can_surface_pirls_failure_at_optimal_theta() {
                 fit
             );
         }
-        Err(LmeError::NotImplemented { feature }) => {
+        Err(LmeError::NonConvergence { message: feature }) => {
             assert!(
                 feature.contains("PIRLS") || feature.contains("GLMM optimizer"),
                 "unexpected failure mode: {}",

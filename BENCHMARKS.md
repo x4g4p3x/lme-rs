@@ -1,8 +1,38 @@
-# Benchmarks
+# Benchmark guide and measurement history
 
-This repository includes Criterion benchmarks for the Rust crate. Performance is an important selling point of `lme-rs`, but the benchmark suite should be described accurately: it is useful and non-trivial, yet it is not comprehensive enough to support blanket speed claims on its own.
+[Documentation](docs/README.md) · [Coverage map](BENCHMARK_COVERAGE.md) · [Optimization notes](OPTIMIZATION.md) · [Dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/)
 
-**External reference map:** [BENCHMARK_COVERAGE.md](BENCHMARK_COVERAGE.md) lists which workflows have tier-A (fair) MixedModels.jl timing vs Rust-only Criterion benches. Use it before raising [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) percentages.
+Choose a harness by the question you want to answer. Numerical parity and
+throughput are separate forms of evidence.
+
+## Choose a benchmark
+
+| Question | Command | What is timed |
+|:---------|:--------|:--------------|
+| Did a Rust operation regress? | `cargo bench --locked --bench bench_math` | Criterion operations, fit paths, and inference |
+| How does matched fitting compare with Julia? | `task benchmarks:fair-rust-julia` | Fit-only medians with shared inputs and warmups |
+| Where is fitting time spent? | `task benchmarks:perf-breakdown` | Rust phases and Julia optimizer evaluations |
+| What do R inference/NLMM and Python overhead cost? | `task benchmarks:external-timings` | Operations supported by the external harness |
+| Do cross-language example scripts run? | `python scripts/run_cross_language_benchmarks.py` | Whole scripts, including runtime startup |
+| Does the dashboard match its source JSON? | `task docs:check` | Data drift validation, not a new measurement |
+
+Run from the repository root. External harnesses require their reference
+runtimes and packages; a skipped implementation is not a measured comparison.
+See [the coverage map](BENCHMARK_COVERAGE.md#running-benchmarks) for setup.
+
+## Reading order
+
+- [Suite coverage](#current-benchmark-coverage) and [remaining gaps](#what-it-does-not-cover-yet)
+- [Methodology](#cross-language-benchmark-methodology)
+- [Commands](#how-to-run-the-benchmarks)
+- [Fair reference results](#fair-rust-vs-julia-reference-results)
+- [Published artifacts](#latest-published-results)
+- [Interpretation](#how-to-interpret-results)
+
+The detailed experiments below are **dated measurement history**. A wording
+update does not rerun them. The July 22 reference contains 10 LMM and 2 GLMM
+cases; later GLMM fitting changes mean its GLMM rows cannot establish current
+performance. Hardware, revision, BLAS, and timing boundaries matter.
 
 ## Native formula parser optimization (2026-08-10)
 
@@ -76,19 +106,24 @@ What the repo still does not provide is a fully normalized cross-ecosystem harne
 It does not yet isolate or compare:
 
 - prediction throughput on large crossed and nested structures
-- weighted GLMM-style workflows if those are added later
+- weighted GLMM throughput across representative model sizes
 - GLMM inference and post-fit helper costs beyond the currently benchmarked paths
 - confidence interval and simulation throughput across multiple model sizes
 
 ### Missing benchmark dimensions
 
-It does not currently sweep over controlled workload dimensions such as:
+The Rust suite already includes parameterized observation/group-count and
+nested/crossed complexity sweeps. It does not provide a complete factorial
+comparison across every combination of:
 
-- number of observations
-- number of groups
-- random intercept vs random slope structure
-- family and link combinations
-- dense-like vs sparse-like random-effect structure
+- response family and link
+- random-effect dimension and correlation structure
+- dense-like versus sparse-like layouts
+- prediction, simulation, and inference workloads
+- reference language and optimizer configuration
+
+Use a named case that represents your workload rather than inferring coverage
+from the existence of one large synthetic benchmark.
 
 ## Cross-language benchmark methodology
 
@@ -230,7 +265,7 @@ Work on [`src/math.rs`](src/math.rs) and [`src/optimizer.rs`](src/optimizer.rs):
 
 ### 2026-07-08 blocked augmented Cholesky (MixedModels-style)
 
-Implemented [`src/intercept_blocked.rs`](src/intercept_blocked.rs): precomputed per-RE Gram blocks, RE ordering by level count, and per-θ **blocked Cholesky** in the layout of MixedModels.jl [`updateL!`](https://github.com/JuliaStats/MixedModels.jl/blob/main/src/linearmixedmodel.jl) — profile deviance from the factored `Xy` block **without** q-dimensional LDL solves or explicit β on the hot path. Full write-up: **[OPTIMIZATION.md § Blocked augmented Cholesky](OPTIMIZATION.md#blocked-augmented-cholesky--what-delivered-the-crossed-speedup-2026-07-08)**.
+Implemented [`src/intercept_blocked.rs`](src/intercept_blocked.rs): precomputed per-RE Gram blocks, RE ordering by level count, and per-θ **blocked Cholesky** in the layout of MixedModels.jl [`updateL!`](https://github.com/JuliaStats/MixedModels.jl/blob/main/src/linearmixedmodel.jl) — profile deviance from the factored `Xy` block **without** q-dimensional LDL solves or explicit β on the hot path. Full write-up: **[OPTIMIZATION.md § Blocked augmented Cholesky](OPTIMIZATION.md#blocked-augmented-cholesky)**.
 
 **Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`; 2 warmups + 10 measured fits (`scripts/run_fair_rust_julia_benchmark.py --implementations rust`).
 
@@ -246,7 +281,7 @@ Implemented [`src/intercept_blocked.rs`](src/intercept_blocked.rs): precomputed 
 
 ### 2026-07-08 blocked Cholesky hot-path pass
 
-Removed per-θ **clone/alloc** overhead in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) (in-place Schur, fused `assign_scaled`, reused workspaces) and tightened the ML 2D log-grid to **5×5 + 4×4** (~42 evals). Nested sparse crosses remain on reused LDL (`fits_blocked_gate`). Details: **[OPTIMIZATION.md § Closing the crossed_20k gap](OPTIMIZATION.md#closing-the-crossed_20k-gap-vs-julia-14-ms)**.
+Removed per-θ **clone/alloc** overhead in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) (in-place Schur, fused `assign_scaled`, reused workspaces) and tightened the ML 2D log-grid to **5×5 + 4×4** (~42 evals). Nested sparse crosses remain on reused LDL (`fits_blocked_gate`). Details: **[OPTIMIZATION.md § Closing the crossed_20k gap](OPTIMIZATION.md#progress-timeline)**.
 
 **Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`; 2 warmups + 10 measured fits (`--implementations rust`).
 
@@ -262,7 +297,7 @@ Removed per-θ **clone/alloc** overhead in [`src/intercept_blocked.rs`](src/inte
 
 ### 2026-07-08 GEMM, batched trisolve, and prepared fit
 
-Further blocked-kernel tuning in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) plus **`prepare_lmer` / `fit_prepared`** in [`src/lib.rs`](src/lib.rs). Full write-up: **[OPTIMIZATION.md § Blocked kernel tuning](OPTIMIZATION.md#blocked-kernel-tuning--gemm-batched-trisolve-prepared-fit-2026-07-08-continued)**.
+Further blocked-kernel tuning in [`src/intercept_blocked.rs`](src/intercept_blocked.rs) plus **`prepare_lmer` / `fit_prepared`** in [`src/lib.rs`](src/lib.rs). Full write-up: **[OPTIMIZATION.md § Blocked kernel tuning](OPTIMIZATION.md#blocked-kernel-tuning)**.
 
 **Recorded:** 2026-07-08, same Windows AMD64 workstation; `rustc 1.96.0`; `bench_perf_breakdown` with 1 warmup + measured `fit_prepared`.
 
@@ -456,15 +491,24 @@ If you want to cite benchmark results in release notes or external docs, prefer 
 
 ## How to interpret results
 
-Use the existing suite primarily for:
+Compare medians from the same machine, model, and measurement boundary.
 
-- detecting regressions after changes to fitting logic
-- tracking the cost of core LMM and GLMM paths over time
-- sanity-checking large synthetic scaling cases
+| Metric | Includes | Appropriate use |
+|:-------|:---------|:----------------|
+| `cold_fit` | One fit including its setup | One-shot API latency |
+| `prepare_lmer` | Reusable design construction | Setup cost |
+| `fit_prepared` | Fitting a cached design | Repeated fixed-design work |
+| Whole-script elapsed time | Startup, I/O, setup, fitting, and printed output | End-to-end script cost |
+| Criterion operation | The operation selected by the benchmark | Within-Rust regression tracking |
 
-Do not use the current suite alone as evidence that `lme-rs` is universally faster than `lme4`, `statsmodels`, or `MixedModels.jl`.
+A Rust/Julia ratio below 1 means Rust was faster for that measured row.
+Do not compare a hot prepared fit to a competitor's full process startup.
 
-The [fair Rust vs Julia harness](#fair-rust-vs-julia-reference-results) on the 2026-07-06 Windows reference showed **MixedModels.jl still faster on every fit-only case**, but the gap **narrowed sharply** on random-intercept workloads (~**2×** vs ~**5–9×** on the 2026-07-04 baseline). Crossed (~**19×**) and nested (~**8×**) were the main gaps on that reference. An [2026-07-07 pass](#fair-rust-julia-2026-07-07-wip) cuts crossed to ~**8×** and nested to ~**2.5×**; [blocked Cholesky](#fair-rust-julia-2026-07-08-blocked-cholesky) and [hot-path tuning](#fair-rust-julia-2026-07-08-blocked-hotpath) cut cold `lmer()` to ~**52 ms**; a [GEMM + prepared-fit pass](#fair-rust-julia-2026-07-08-gemm-prepared) brings **`fit_prepared` to ~13 ms** (~**1×** Julia on `crossed_20k`); a [setup/post-fit pass](#fair-rust-julia-2026-07-08-setup-postfit) cuts cold `lmer()` to **~22 ms** (~**1.4×** Julia on crossed, **~1.1×** on random intercept); a [prepare ownership pass](#fair-rust-julia-2026-07-08-prepare-ownership) brings **`random_intercept_10k` ahead of Julia** and crossed to **~1.3×**; a [nested blocked path + post-fit backsolve pass](#fair-rust-julia-2026-07-08-nested-postfit) brings tier-A cases **within ~2× Julia** on cold `lmer()` (`crossed_20k` **~1.2×**, hot **`fit_prepared` beats Julia** on all three). See [OPTIMIZATION.md](OPTIMIZATION.md) for engineering detail. Treat these as versioned datapoints — re-run the harness on your hardware before citing speed claims.
+The historical sections document how earlier crossed and nested bottlenecks
+were reduced. They are not predictions for every model shape. The
+[July 22 artifact](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)
+and [coverage map](BENCHMARK_COVERAGE.md) are the concise entry points to that
+reference set. Re-run after relevant code changes before making a new claim.
 
 ## Recommended next extensions
 
@@ -476,15 +520,12 @@ If performance is going to remain a central public claim, the benchmark suite sh
 4. More explicit GLMM post-fit benchmarks beyond fitting, prediction, and Wald intervals.
 5. Benchmarks that isolate optimizer iteration cost separately from formula parsing and matrix construction.
 
-## Recommendation for this repo today
+## Maintaining performance claims
 
-The current benchmarking is meaningful, but not comprehensive.
+Use Criterion as a regression guard and the fair harness for external timing.
+Keep raw artifacts, case names, code revision, environment, and methodology
+with each claim. Refresh only the evidence affected by a change.
 
-That means:
-
-- yes, keep performance as a **completion criterion** for Rust-native workflows, not only regression tracking (Criterion + fair harness)
-- yes, keep **LMM fit optimization** as a regression guard: axis (3) requires **&lt;1.0×** Julia on tier-A `cold_fit` ([2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json))
-- yes, tier-A hot `fit_prepared` and cold `lmer()` both beat MixedModels.jl throughout the current full reference; re-run before citing new speed claims
-- no, Julia bindings to `lme-rs` are not justified by speed — see [fair Rust vs Julia results](BENCHMARKS.md#fair-rust-vs-julia-reference-results)
-- yes, run benchmarks for performance-sensitive changes before release
-- yes, extend the benchmark surface (GLMM fit-only, prediction sweeps) as optimization work proceeds
+Completion thresholds are governed by [the locked manifest](completion_manifest.json)
+and [coverage policy](BENCHMARK_COVERAGE.md). A faster microbenchmark or revised
+description alone does not satisfy a broader completion criterion.

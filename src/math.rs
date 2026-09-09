@@ -3,7 +3,8 @@ use ndarray_linalg::UPLO;
 use ndarray_linalg::{Cholesky, Inverse, Solve};
 use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 
 #[path = "intercept_blocked.rs"]
 mod intercept_blocked;
@@ -39,46 +40,58 @@ pub struct ModelCoefficients {
 ///
 /// Supports optional prior observation weights via `weights`. When provided, all
 /// cross-products are pre-computed as weighted versions (X'WX, X'Wy, Z'WZ, Z'Wy).
-pub struct LmmData {
+/// Immutable design and cross-products shared by independent fit workspaces.
+pub struct LmmDesign {
     /// Dense fixed-effects design matrix ($X$).
     pub x: Array2<f64>,
     /// Sparse transposed random-effects design matrix ($Z^T$).
     pub zt: CsMat<f64>,
-    /// Dependent variable vector ($y$).
-    pub y: Array1<f64>,
     /// Collection of random effect dimensional tracking blocks.
     pub re_blocks: Vec<crate::model_matrix::ReBlock>,
     /// Optional prior observation weights (length n).
     pub weights: Option<Array1<f64>>,
-
     // Cached effective matrices that are independent of theta
     // When weights are present, these are the weighted versions.
     /// Effective Dense fixed-effects design matrix ($X$), optionally scaled by observation weights.
     pub x_eff: Array2<f64>,
     /// Effective Sparse transposed random-effects design matrix ($Z^T$), optionally scaled by observation weights.
     pub zt_eff: CsMat<f64>,
-    /// Effective Dependent variable vector ($y$), optionally scaled by observation weights.
-    pub y_eff: Array1<f64>,
     /// Cross product of the transposed design matrix ($Z^T Z$). This is `zt_eff * zt_eff^T`.
     pub zt_z: CsMat<f64>,
     /// Cross product of the fixed-effects design matrix ($X^T X$). This is `x_eff^T * x_eff`.
     pub xt_x: Array2<f64>,
-    /// Cross product of the fixed-effects design matrix and the dependent variable ($X^T y$). This is `x_eff^T * y_eff`.
-    pub xt_y: Array1<f64>,
     /// Precomputed $Z^T X$ (q × p), independent of θ.
     zt_x: Array2<f64>,
+    /// True when every RE block is intercept-only (k = 1); enables diagonal-Λ fast path.
+    intercept_only_re: bool,
+}
+
+/// Response-dependent products and solver workspace over a shared immutable design.
+pub struct LmmData {
+    design: Arc<LmmDesign>,
+    /// Dependent variable vector ($y$).
+    pub y: Array1<f64>,
+    /// Effective Dependent variable vector ($y$), optionally scaled by observation weights.
+    pub y_eff: Array1<f64>,
+    /// Cross product of the fixed-effects design matrix and the dependent variable ($X^T y$). This is `x_eff^T * y_eff`.
+    pub xt_y: Array1<f64>,
     /// Precomputed $Z^T y$ (length q), independent of θ.
     zt_y: Array1<f64>,
     /// Sparse identity matrix (q × q) for the random-effects solve.
     eye_q: CsMat<f64>,
-    /// True when every RE block is intercept-only (k = 1); enables diagonal-Λ fast path.
-    intercept_only_re: bool,
     /// Reused symbolic/numeric LDLT for intercept-only A = diag(θ) Z^T Z diag(θ) + I.
     intercept_ldl: Option<Mutex<InterceptLdlCache>>,
     /// Block-diagonal ΛᵀZᵀZΛ fast path for one grouping factor with k > 1 (random slopes).
     single_factor_slopes: Option<Mutex<SingleFactorSlopesCache>>,
     /// Cached ‖y_eff‖² for profile deviance (independent of θ).
     y_norm2: f64,
+}
+
+impl Deref for LmmData {
+    type Target = LmmDesign;
+    fn deref(&self) -> &Self::Target {
+        &self.design
+    }
 }
 
 impl LmmData {
@@ -153,21 +166,24 @@ impl LmmData {
                 let y_norm2: f64 = y_w.iter().map(|&xi| xi * xi).sum();
 
                 finish_lmm_data(LmmData {
-                    x,
-                    zt,
+                    design: Arc::new(LmmDesign {
+                        x,
+                        zt,
+                        re_blocks,
+                        weights,
+                        x_eff: x_w,
+                        zt_eff: zt_w,
+                        zt_z,
+                        xt_x,
+                        zt_x,
+                        intercept_only_re,
+                    }),
+
                     y,
-                    re_blocks,
-                    weights,
-                    x_eff: x_w,
-                    zt_eff: zt_w,
                     y_eff: y_w,
-                    zt_z,
-                    xt_x,
                     xt_y,
-                    zt_x,
                     zt_y,
                     eye_q: CsMat::zero((0, 0)),
-                    intercept_only_re,
                     intercept_ldl: None,
                     single_factor_slopes: None,
                     y_norm2,
@@ -189,22 +205,25 @@ impl LmmData {
                 let y_norm2: f64 = y.iter().map(|&xi| xi * xi).sum();
 
                 finish_lmm_data(LmmData {
-                    x,
-                    zt,
+                    design: Arc::new(LmmDesign {
+                        x,
+                        zt,
+                        re_blocks,
+                        weights,
+                        x_eff: Array2::zeros((0, 0)),
+                        zt_eff: CsMat::zero((0, 0)),
+                        zt_z,
+                        xt_x,
+                        zt_x,
+                        intercept_only_re,
+                    }),
+
                     y,
-                    re_blocks,
-                    weights,
                     // Unweighted: cross-products use x/zt/y directly; no duplicate storage.
-                    x_eff: Array2::zeros((0, 0)),
-                    zt_eff: CsMat::zero((0, 0)),
                     y_eff: Array1::zeros(0),
-                    zt_z,
-                    xt_x,
                     xt_y,
-                    zt_x,
                     zt_y,
                     eye_q: CsMat::zero((0, 0)),
-                    intercept_only_re,
                     intercept_ldl: None,
                     single_factor_slopes: None,
                     y_norm2,
@@ -217,61 +236,57 @@ impl LmmData {
     ///
     /// Reuses fixed design matrices and `Z^T Z`; rebuilds intercept / slopes caches.
     pub fn with_response(&self, y: Array1<f64>) -> Self {
-        assert_eq!(y.len(), self.y.len(), "with_response: length mismatch");
-        match &self.weights {
-            Some(w) => {
-                let sqrt_w = w.mapv(|wi| wi.sqrt());
-                let y_w = &y * &sqrt_w;
-                let xt_y = self.x_eff.t().dot(&y_w);
-                let (zt_x, zt_y) = precompute_zt_products(&self.zt_eff, &self.x_eff, &y_w);
-                let y_norm2: f64 = y_w.iter().map(|&xi| xi * xi).sum();
-                finish_lmm_data(LmmData {
-                    x: self.x.clone(),
-                    zt: self.zt.clone(),
-                    y,
-                    re_blocks: self.re_blocks.clone(),
-                    weights: self.weights.clone(),
-                    x_eff: self.x_eff.clone(),
-                    zt_eff: self.zt_eff.clone(),
-                    y_eff: y_w,
-                    zt_z: self.zt_z.clone(),
-                    xt_x: self.xt_x.clone(),
-                    xt_y,
-                    zt_x,
-                    zt_y,
-                    eye_q: self.eye_q.clone(),
-                    intercept_only_re: self.intercept_only_re,
-                    intercept_ldl: None,
-                    single_factor_slopes: None,
-                    y_norm2,
-                })
-            }
-            None => {
-                let xt_y = self.x.t().dot(&y);
-                let (zt_x, zt_y) = precompute_zt_products(&self.zt, &self.x, &y);
-                let y_norm2: f64 = y.iter().map(|&xi| xi * xi).sum();
-                finish_lmm_data(LmmData {
-                    x: self.x.clone(),
-                    zt: self.zt.clone(),
-                    y,
-                    re_blocks: self.re_blocks.clone(),
-                    weights: None,
-                    x_eff: Array2::zeros((0, 0)),
-                    zt_eff: CsMat::zero((0, 0)),
-                    y_eff: Array1::zeros(0),
-                    zt_z: self.zt_z.clone(),
-                    xt_x: self.xt_x.clone(),
-                    xt_y,
-                    zt_x,
-                    zt_y,
-                    eye_q: self.eye_q.clone(),
-                    intercept_only_re: self.intercept_only_re,
-                    intercept_ldl: None,
-                    single_factor_slopes: None,
-                    y_norm2,
-                })
+        let mut workspace = finish_lmm_data(Self {
+            design: Arc::clone(&self.design),
+            y: self.y.clone(),
+            y_eff: self.y_eff.clone(),
+            xt_y: self.xt_y.clone(),
+            zt_y: self.zt_y.clone(),
+            eye_q: self.eye_q.clone(),
+            intercept_ldl: None,
+            single_factor_slopes: None,
+            y_norm2: self.y_norm2,
+        });
+        workspace
+            .replace_response(y)
+            .expect("with_response: invalid response");
+        workspace
+    }
+
+    /// Update only response-dependent products, retaining symbolic solver state.
+    pub fn replace_response(&mut self, y: Array1<f64>) -> crate::Result<()> {
+        if y.len() != self.y.len() || !y.iter().all(|v| v.is_finite()) {
+            return Err(crate::LmeError::InvalidInput {
+                message: "replacement response must be finite and match the prepared row count"
+                    .into(),
+            });
+        }
+        self.y = y;
+        if let Some(weights) = &self.design.weights {
+            self.y_eff = &self.y * &weights.mapv(f64::sqrt);
+        }
+        let (x, zt, y) = if self.design.weights.is_some() {
+            (&self.design.x_eff, &self.design.zt_eff, &self.y_eff)
+        } else {
+            (&self.design.x, &self.design.zt, &self.y)
+        };
+        self.xt_y = x.t().dot(y);
+        self.zt_y.fill(0.0);
+        for (row, values) in zt.outer_iterator().enumerate() {
+            self.zt_y[row] = values.iter().map(|(col, &v)| v * y[col]).sum();
+        }
+        self.y_norm2 = y.dot(y);
+        if let Some(cache) = &mut self.intercept_ldl {
+            let cache = cache
+                .get_mut()
+                .map_err(|_| crate::LmeError::LinearAlgebra {
+                    message: "poisoned fit workspace".into(),
+                })?;
+            if let Some(blocked) = &mut cache.blocked {
+                blocked.replace_response(&self.xt_y, &self.zt_y, self.y_norm2);
             }
         }
+        Ok(())
     }
 
     /// True when a single-factor random-slopes block solver is active (`k > 1`, one RE term).
