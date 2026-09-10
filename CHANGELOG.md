@@ -7,14 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Make the blocked LMM optimizer objective agree with the final deviance for
+  nested random effects such as `(1 | batch/cask)`. Correct the sparse cross-block
+  transpose and dense Schur subtraction; regression coverage includes ML, REML,
+  zero-variance boundaries, and the converged fit
+  ([#25](https://github.com/x4g4p3x/lme-rs/issues/25)).
+- Keep Satterthwaite and Kenward-Roger contrast tests invariant to very small,
+  very large, or negative rescalings of the same hypothesis.
+- Reduce redundant Kenward-Roger contrast rows to an independent basis so
+  duplicate restrictions and differing row units do not cause singular solves
+  or change the test's degrees of freedom. Reject all-zero contrast matrices.
+- Preserve very small Satterthwaite coefficient and contrast p-values by
+  evaluating upper-tail probabilities directly instead of subtracting from one.
+- Respect observation precision weights in Gamma simulation, with variance
+  proportional to dispersion divided by the observation weight.
+- Reject Gaussian and Gamma simulation when residual variance or dispersion is
+  missing, nonfinite, or invalid, including saturated OLS fits with no estimated
+  residual variance. Zero Gaussian residual variance remains valid and produces
+  noiseless draws; Gamma dispersion must be positive. Apply the same checks to
+  sequential and parallel simulation.
+- Return an error for overflowing simulation index ranges instead of panicking
+  or wrapping indices; the last representable single index remains valid.
+
 ## [0.2.3] - 2026-09-09
 
 ### Fixed
 
 - Preserve offsets and observation weights throughout Satterthwaite and Kenward-Roger inference.
 - Use one Kenward-Roger covariance adjustment for marginal and joint tests, confidence
-  intervals, estimated marginal means, and multiple comparisons; retain precision
-  for very small p-values and reject nonfinite contrast inputs.
+  intervals, estimated marginal means, multiple comparisons, and printed model
+  summaries; retain precision for very small p-values and reject nonfinite
+  contrast inputs.
 - Respect precision weights in observation-level and cluster-robust standard errors.
 - Keep nested grouping labels distinct when components contain underscores or backslashes.
 - Honor requested grouped cross-validation fold counts, accept supported numeric
@@ -22,8 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preserve predictors and responses named `intercept` in formula models.
 - Reject nonfinite confidence levels and mismatched or missing robust-inference data.
 - Leave uncertainty unavailable when an OLS fit has no residual degrees of freedom.
-
-
 - Preserve formula offsets in population/conditional predictions and OLS fitting.
 - Preserve precision weights in Gaussian simulation and bootstrap refits; weighted
   residual resampling uses standardized residuals.
