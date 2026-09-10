@@ -86,6 +86,10 @@ jobs:
         id: docs
         continue-on-error: true
         run: python3 scripts/ci/lme_ci.py doc
+      - name: Validate Basin optimizer feature
+        id: basin
+        continue-on-error: true
+        run: python3 scripts/ci/lme_ci.py basin-check
       - name: Report Rust validation failures
         if: >-
           ${{ !cancelled() && (
@@ -94,7 +98,8 @@ jobs:
             steps.check.outcome == 'failure' ||
             steps.tests.outcome == 'failure' ||
             steps.doctests.outcome == 'failure' ||
-            steps.docs.outcome == 'failure'
+            steps.docs.outcome == 'failure' ||
+            steps.basin.outcome == 'failure'
           ) }}
         run: exit 1
 

@@ -1,11 +1,17 @@
 use crate::math::LmmData;
 use crate::model_matrix::ReBlock;
 use crate::quadrature::{resolve_gh_order_joint, resolve_gh_order_product};
-use argmin::core::{CostFunction, Error, Executor, State};
+use argmin::core::{CostFunction, Error};
+#[cfg(not(feature = "basin"))]
+use argmin::core::{Executor, State};
+#[cfg(not(feature = "basin"))]
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
 use sprs::CsMat;
 use std::sync::Arc;
+
+#[cfg(feature = "basin")]
+mod basin_backend;
 
 /// Result of the Nelder-Mead optimization, including convergence diagnostics.
 #[derive(Debug, Clone)]
@@ -68,6 +74,10 @@ where
     nelder_mead_optimize_tolerance(init_theta, lower_bounds, max_iters, 1e-6, cost)
 }
 
+#[cfg(feature = "basin")]
+pub(crate) use basin_backend::optimize as nelder_mead_optimize_tolerance;
+
+#[cfg(not(feature = "basin"))]
 pub(crate) fn nelder_mead_optimize_tolerance<C>(
     init_theta: Array1<f64>,
     lower_bounds: &[f64],
@@ -109,7 +119,7 @@ where
     })
 }
 
-/// Wrapper for the REML deviance function to be used by argmin.
+/// REML deviance objective shared by the optimizer backends.
 struct LmmObjective {
     lmm: Arc<LmmData>,
     reml: bool,
@@ -506,7 +516,7 @@ where
 use crate::family::GlmFamily;
 use crate::glmm_math::{self, GlmmData};
 
-/// Wrapper for the GLMM Laplace / AGQ deviance function to be used by argmin.
+/// GLMM Laplace / AGQ deviance objective shared by the optimizer backends.
 #[derive(Clone)]
 struct GlmmObjective {
     evaluator: Arc<std::sync::Mutex<GlmmData>>,
@@ -771,6 +781,148 @@ mod tests {
     use crate::model_matrix::ReBlock;
     use ndarray::{array, Array2};
     use sprs::TriMat;
+
+    struct TestObjective<F>(F);
+
+    impl<F> CostFunction for TestObjective<F>
+    where
+        F: Fn(&Array1<f64>) -> Result<f64, Error>,
+    {
+        type Param = Array1<f64>;
+        type Output = f64;
+
+        fn cost(&self, theta: &Self::Param) -> Result<f64, Error> {
+            (self.0)(theta)
+        }
+    }
+
+    #[test]
+    fn nelder_mead_recovers_interior_and_negative_unbounded_coordinates() {
+        let objective = |x: &Array1<f64>| Ok((x[0] - 2.0).powi(2) + (x[1] + 1.0).powi(2));
+        let result = nelder_mead_optimize_tolerance(
+            array![1.0, 0.0],
+            &[0.0, f64::NEG_INFINITY],
+            1000,
+            1e-12,
+            TestObjective(objective),
+        )
+        .unwrap();
+        assert!(result.converged, "{result:?}");
+        assert!((result.theta[0] - 2.0).abs() < 1e-5);
+        assert!((result.theta[1] + 1.0).abs() < 1e-5);
+        assert_eq!(result.final_cost, objective(&result.theta).unwrap());
+    }
+
+    #[test]
+    fn nelder_mead_propagates_objective_errors() {
+        let evaluations = std::cell::Cell::new(0);
+        let result = nelder_mead_optimize(
+            array![1.0],
+            &[0.0],
+            100,
+            TestObjective(|x: &Array1<f64>| {
+                evaluations.set(evaluations.get() + 1);
+                if evaluations.get() > 2 {
+                    anyhow::bail!("evaluation failed");
+                }
+                Ok(x[0].powi(2))
+            }),
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("evaluation failed"));
+    }
+
+    #[cfg(feature = "basin")]
+    #[test]
+    fn basin_propagates_initialization_errors() {
+        let result = nelder_mead_optimize(
+            array![1.0],
+            &[0.0],
+            100,
+            TestObjective(|_: &Array1<f64>| anyhow::bail!("initialization failed")),
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("initialization failed"));
+    }
+
+    #[test]
+    fn nelder_mead_reports_exhaustion_with_finite_best_iterate() {
+        let objective = |x: &Array1<f64>| Ok(x[0].powi(2));
+        let result =
+            nelder_mead_optimize(array![1.0], &[0.0], 1, TestObjective(objective)).unwrap();
+        assert!(!result.converged, "{result:?}");
+        assert_eq!(result.iterations, 1);
+        assert!(result.final_cost.is_finite() && result.final_cost < 1.0);
+        assert_eq!(result.final_cost, objective(&result.theta).unwrap());
+    }
+
+    #[cfg(feature = "basin")]
+    #[test]
+    fn basin_invalid_objectives_and_zero_budget_do_not_converge() {
+        for value in [f64::NAN, f64::NEG_INFINITY] {
+            let result = nelder_mead_optimize(
+                array![1.0],
+                &[0.0],
+                2,
+                TestObjective(|_: &Array1<f64>| Ok(value)),
+            )
+            .unwrap();
+            assert!(!result.converged);
+            assert_eq!(result.final_cost, f64::MAX);
+            assert_eq!(result.iterations, 2);
+        }
+        let result = nelder_mead_optimize(
+            array![1.0],
+            &[0.0],
+            0,
+            TestObjective(|_: &Array1<f64>| Ok(1.0)),
+        )
+        .unwrap();
+        assert!(!result.converged);
+        assert_eq!(result.iterations, 0);
+    }
+
+    #[test]
+    fn nelder_mead_rejects_invalid_final_costs() {
+        for value in [f64::MAX, f64::INFINITY] {
+            let result = nelder_mead_optimize(
+                array![1.0],
+                &[0.0],
+                2,
+                TestObjective(|_: &Array1<f64>| Ok(value)),
+            )
+            .unwrap();
+            assert!(!result.converged, "{result:?}");
+            assert_eq!(result.iterations, 2);
+        }
+    }
+
+    #[cfg(feature = "basin")]
+    #[test]
+    fn basin_projects_every_evaluation_and_recovers_boundary_minima() {
+        for target in [0.0, 1e-5, 2.0] {
+            let objective = |x: &Array1<f64>| {
+                assert!(x[0] >= 0.0, "infeasible evaluation: {x:?}");
+                Ok((x[0] - target).powi(2) + (x[1] + 1.0).powi(2))
+            };
+            let result = nelder_mead_optimize_tolerance(
+                array![-2.0, 0.0],
+                &[0.0, f64::NEG_INFINITY],
+                1000,
+                1e-16,
+                TestObjective(objective),
+            )
+            .unwrap();
+            assert!(result.converged, "target={target}: {result:?}");
+            assert!((result.theta[0] - target).abs() < 1e-6, "{result:?}");
+            assert!((result.theta[1] + 1.0).abs() < 1e-6, "{result:?}");
+            assert_eq!(result.final_cost, objective(&result.theta).unwrap());
+        }
+    }
 
     #[test]
     fn test_nan_deviance_cost() {

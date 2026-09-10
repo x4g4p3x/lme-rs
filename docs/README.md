@@ -30,6 +30,7 @@ The docs.rs reference describes published Rust releases.
 ## API and examples
 
 - [Rust API reference](https://docs.rs/lme-rs/latest/lme_rs/): signatures, fields, modules.
+- [Basin optimizer](BASIN.md): optional backend, numerical controls, and comparisons.
 - [Python type reference](../python/lme_python.pyi): signatures and structured results.
 - [Runnable examples](EXAMPLES.md): commands, fixtures, dependencies.
 - [Python verification project](../python/examples/verification_project/README.md):

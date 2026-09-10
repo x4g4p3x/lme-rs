@@ -203,6 +203,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip `cargo build --release --example bench_fair_rust_julia`.",
     )
     parser.add_argument(
+        "--rust-features",
+        default="",
+        help="Comma-separated Cargo features for the Rust build (e.g. basin).",
+    )
+    parser.add_argument(
         "--implementations",
         default="rust,julia",
         help="Comma-separated implementations to run.",
@@ -251,7 +256,10 @@ def resolve_julia(explicit: str | None) -> str | None:
 
 def rust_binary() -> Path:
     suffix = ".exe" if os.name == "nt" else ""
-    return REPO_ROOT / "target" / "release" / "examples" / f"{RUST_EXAMPLE}{suffix}"
+    target_dir = Path(os.environ.get("CARGO_TARGET_DIR", "target"))
+    if not target_dir.is_absolute():
+        target_dir = REPO_ROOT / target_dir
+    return target_dir / "release" / "examples" / f"{RUST_EXAMPLE}{suffix}"
 
 
 def run_capture(command: list[str], timeout: int) -> str:
@@ -340,9 +348,12 @@ def machine_info() -> dict[str, Any]:
     }
 
 
-def build_rust_example() -> None:
+def build_rust_example(features: str = "") -> None:
+    command = ["cargo", "build", "--release", "--locked", "--example", RUST_EXAMPLE]
+    if features:
+        command.extend(["--features", features])
     subprocess.run(
-        ["cargo", "build", "--release", "--locked", "--example", RUST_EXAMPLE],
+        command,
         cwd=REPO_ROOT,
         check=True,
     )
@@ -618,7 +629,7 @@ def main() -> int:
     )
     if needs_rust:
         if not args.skip_rust_build:
-            build_rust_example()
+            build_rust_example(args.rust_features)
         if not rust_binary().exists():
             print(f"Missing Rust example binary: {rust_binary()}", file=sys.stderr)
             return 1
@@ -655,6 +666,15 @@ def main() -> int:
                     else julia_time_command(julia_bin, case, csv_path, args.warmups, args.repeats)
                 )
                 result = run_timing(command, args.timeout)
+                if implementation == "rust":
+                    expected_backend = (
+                        "basin" if "basin" in split_csv(args.rust_features) else "argmin"
+                    )
+                    if result.get("optimizer_backend") != expected_backend:
+                        raise ValueError(
+                            "Rust binary optimizer does not match --rust-features: "
+                            f"expected {expected_backend}"
+                        )
                 check_result(result, case, implementation, args.repeats)
                 results.append(result)
                 case_results[implementation] = result
@@ -737,6 +757,7 @@ def main() -> int:
         "config": {
             "cases": cases,
             "implementations": sorted(implementations),
+            "rust_features": split_csv(args.rust_features),
             "warmups": args.warmups,
             "repeats": args.repeats,
             "threads": args.threads,

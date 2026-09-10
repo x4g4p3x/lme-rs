@@ -67,6 +67,7 @@ struct MetricSamples {
 #[derive(Debug, Serialize)]
 struct TimingReport {
     implementation: &'static str,
+    optimizer_backend: &'static str,
     case: String,
     formula: String,
     model: &'static str,
@@ -78,6 +79,12 @@ struct TimingReport {
     fit_checks: Vec<FitCheck>,
     #[serde(skip_serializing_if = "Option::is_none")]
     prepared_fit_checks: Option<Vec<FitCheck>>,
+    converged: Option<bool>,
+    optimizer_iterations: Option<u64>,
+    objective: Option<f64>,
+    evaluated_objective: Option<f64>,
+    theta: Option<Vec<f64>>,
+    coefficients: Vec<f64>,
     /// Cold end-to-end fit (`lmer` / `glmer` / weighted `lmer`).
     cold_fit: MetricSamples,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -482,8 +489,15 @@ fn cmd_time(args: &[String]) -> anyhow::Result<()> {
             (None, None, None)
         };
 
+    // Keep numerical reporting outside the measured fits.
+    let fit = run_cold_fit(model, &formula, &df, reml)?;
     let report = TimingReport {
         implementation: "rust",
+        optimizer_backend: if cfg!(feature = "basin") {
+            "basin"
+        } else {
+            "argmin"
+        },
         case,
         formula,
         model: model.as_str(),
@@ -493,6 +507,12 @@ fn cmd_time(args: &[String]) -> anyhow::Result<()> {
         repeats,
         fit_checks,
         prepared_fit_checks,
+        converged: fit.converged,
+        optimizer_iterations: fit.iterations,
+        objective: fit.diagnostics.as_ref().map(|d| d.objective),
+        evaluated_objective: fit.deviance,
+        theta: fit.theta.as_ref().map(|v| v.to_vec()),
+        coefficients: fit.coefficients.to_vec(),
         cold_fit: metric_from_samples(cold_samples),
         prepare_lmer,
         fit_prepared,

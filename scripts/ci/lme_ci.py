@@ -143,6 +143,15 @@ def cargo_build_test() -> None:
     run(["cargo", "test", "--verbose", "--locked"])
 
 
+def basin_check() -> None:
+    """Validate the optional optimizer independently of the default build."""
+    features = ["--locked", "--features", "basin"]
+    run(["cargo", "clippy", *features, "--", "-D", "warnings"])
+    run(["cargo", "check", *features, "--workspace", "--all-targets"])
+    run(["cargo", "test", *features])
+    run(["cargo", "doc", *features, "--no-deps"], env={"RUSTDOCFLAGS": "-D warnings"})
+
+
 def cargo_consolidated_test(*, no_run: bool = False) -> None:
     """Run all test bodies with one integration binary, plus docs/examples."""
     harness = ROOT / "tests" / "ci_consolidated.rs"
@@ -956,6 +965,7 @@ def consumer_smoke(*, python: str = "3.11", reuse_venv: bool = False) -> None:
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
     completion_check()
     cargo_build_test()
+    basin_check()
     run(["cargo", "run", "--locked", "--example", "sleepstudy"])
     run_explorations()
     if not skip_python:
@@ -1018,6 +1028,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("test-fast", help="cargo test --lib only").set_defaults(
         fn=lambda _: cargo_test_fast()
     )
+    sub.add_parser(
+        "basin-check", help="lint, check, test, and document the Basin feature"
+    ).set_defaults(fn=lambda _: basin_check())
     sub.add_parser("doctest", help="cargo test --doc").set_defaults(fn=lambda _: cargo_doctest())
     sub.add_parser("doc", help="cargo doc").set_defaults(fn=lambda _: cargo_doc())
     sub.add_parser("benchmark-tests", help="Test benchmark evidence and reporting rules").set_defaults(

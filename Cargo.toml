@@ -15,6 +15,8 @@ categories = ["science", "mathematics"]
 rustdoc-args = ["--extend-css", "docs/rustdoc.css"]
 
 [features]
+# Selects Basin's projected Nelder-Mead for the shared vector searches.
+basin = ["dep:basin"]
 # Enables `bench_load_production` (large synthetic workloads; not run by default `cargo bench`).
 slow-production-benches = []
 # Internal hosted-CI feature used to opt into the single-binary integration-test harness.
@@ -32,6 +34,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 argmin = "0.11.0"
 argmin-math = { version = "0.5.1", features = ["ndarray_v0_16-nolinalg"] }
+basin = { version = "1.10.0", optional = true, default-features = false, features = ["ndarray_v0_16"] }
 sprs = "0.11.4"
 sprs-ldl = "0.10.0"
 log = "0.4"
