@@ -1315,23 +1315,24 @@ impl InterceptBlockedChol {
         let block = &mut xy_hi[0];
         match &self.l_cross[j - 1][jj] {
             CrossBlock::Dense(ljj) => {
-                general_mat_mul(1.0, lij, &ljj.t(), -1.0, block);
+                general_mat_mul(-1.0, lij, &ljj.t(), 1.0, block);
             }
             CrossBlock::Sparse {
                 col_ptr,
                 row_idx,
                 vals,
+                ncols,
                 ..
             } => {
-                let m = block.ncols();
-                for col in 0..m {
-                    for row in 0..block.nrows() {
-                        let mut s = block[[row, col]];
-                        for idx in col_ptr[col]..col_ptr[col + 1] {
-                            let k = row_idx[idx];
-                            s -= lij[[row, k]] * vals[idx];
+                // cross is (n_re[j], n_re[jj]) in CSC storage. Each stored
+                // cross[r, k] contributes lij[:, k] * cross[r, k] to block[:, r].
+                for k in 0..*ncols {
+                    for idx in col_ptr[k]..col_ptr[k + 1] {
+                        let col = row_idx[idx];
+                        let value = vals[idx];
+                        for row in 0..block.nrows() {
+                            block[[row, col]] -= lij[[row, k]] * value;
                         }
-                        block[[row, col]] = s;
                     }
                 }
             }
@@ -1695,6 +1696,121 @@ mod tests {
             },
         ];
         (LmmData::new(x, zt, y, re_blocks), theta)
+    }
+
+    #[test]
+    fn xy_re_schur_subtracts_transposed_cross_in_both_storage_formats() {
+        let (lmm, _) = load_penicillin_lmm();
+        let mut blocked = InterceptBlockedChol::try_new(&lmm).unwrap();
+        let CrossBlock::Dense(cross) = blocked.a_cross[0][0].clone() else {
+            panic!("expected dense penicillin cross");
+        };
+        let expected = &blocked.a_xy_re[1] - &blocked.a_xy_re[0].dot(&cross.t());
+        let mut col_ptr = vec![0];
+        let mut row_idx = Vec::new();
+        let mut vals = Vec::new();
+        for col in cross.columns() {
+            for (row, &value) in col.iter().enumerate() {
+                if value != 0.0 {
+                    row_idx.push(row);
+                    vals.push(value);
+                }
+            }
+            col_ptr.push(vals.len());
+        }
+        let sparse = CrossBlock::Sparse {
+            nrows: cross.nrows(),
+            ncols: cross.ncols(),
+            col_ptr,
+            row_idx,
+            vals,
+        };
+        for cross in [CrossBlock::Dense(cross), sparse] {
+            blocked.l_cross[0][0] = cross;
+            blocked.l_xy_re.clone_from(&blocked.a_xy_re);
+            blocked.schur_sub_xy_re(1, 0).unwrap();
+            assert_eq!(blocked.l_xy_re[1], expected);
+        }
+    }
+
+    #[test]
+    fn nested_sparse_deviance_matches_fresh_profile_on_theta_grid() {
+        use crate::model_matrix::try_build_fair_lmm_design;
+        use polars::prelude::*;
+        use rand::{rngs::StdRng, SeedableRng};
+        use rand_distr::{Distribution, Normal};
+
+        // Same recipe and dimensions as the nested_10k fair-harness fixture in #25.
+        // Generate it in memory so this regression never depends on a local CSV.
+        let mut rng = StdRng::seed_from_u64(2026);
+        let normal = Normal::new(0.0, 1.0).unwrap();
+        let batch_effects: Vec<f64> = (0..200).map(|_| normal.sample(&mut rng)).collect();
+        let cask_effects: Vec<Vec<f64>> = (0..200)
+            .map(|_| (0..10).map(|_| normal.sample(&mut rng)).collect())
+            .collect();
+        let mut x = Vec::new();
+        let mut y = Vec::new();
+        let mut batch = Vec::new();
+        let mut cask = Vec::new();
+        for (b, casks) in cask_effects.iter().enumerate() {
+            for (c, &effect) in casks.iter().enumerate() {
+                for _ in 0..5 {
+                    let xi = normal.sample(&mut rng);
+                    let noise = 0.2 * normal.sample(&mut rng);
+                    x.push(xi);
+                    y.push(2.0 + 1.25 * xi + batch_effects[b] + effect + noise);
+                    batch.push(format!("B{b}"));
+                    cask.push(format!("C{c}"));
+                }
+            }
+        }
+        let df = df!("y" => y, "x" => x, "batch" => batch, "cask" => cask).unwrap();
+        let matrices = try_build_fair_lmm_design("y ~ x + (1 | batch/cask)", &df)
+            .unwrap()
+            .unwrap();
+        let mut lmm = LmmData::new(matrices.x, matrices.zt, matrices.y, matrices.re_blocks);
+        // Blocked setup omits this identity; the independent sparse oracle needs it.
+        lmm.eye_q = super::super::identity_sparse(lmm.zt.rows());
+        let mut blocked = InterceptBlockedChol::try_new(&lmm).expect("nested blocked kernel");
+        assert!(matches!(blocked.a_cross[0][0], CrossBlock::Sparse { .. }));
+        assert!(matches!(blocked.l_re_factor[0], ReFactor::Diagonal(_)));
+        for reml in [false, true] {
+            for theta in [
+                [1.0, 1.0],
+                [5.0, 5.0],
+                [4.977353973775484, 0.014049689640378213],
+                [0.0, 0.0],
+                [0.0, 1.0],
+                [1.0, 0.0],
+                [1.0, 1.0], // Revisit after boundary evaluations to check buffer reset.
+            ] {
+                let reference = lmm.solve_profile_diagonal_fresh(&theta, reml).unwrap();
+                for actual in [
+                    blocked.profile_deviance(&lmm, &theta, reml),
+                    lmm.log_reml_deviance(&theta, reml),
+                    lmm.evaluate(&theta, reml).reml_crit,
+                ] {
+                    assert!(
+                        (actual - reference.reml_crit).abs() < 1e-6,
+                        "theta={theta:?} reml={reml} actual={actual} reference={}",
+                        reference.reml_crit
+                    );
+                }
+            }
+        }
+        let lmm = std::sync::Arc::new(lmm);
+        let fit = crate::optimizer::optimize_theta_lmm(
+            lmm.clone(),
+            Array1::from_vec(vec![1.0, 1.0]),
+            false,
+        )
+        .unwrap();
+        assert!(fit.converged, "{fit:?}");
+        let theta = fit.theta.as_slice().unwrap();
+        let reference = lmm.solve_profile_diagonal_fresh(theta, false).unwrap();
+        assert!((fit.final_cost - reference.reml_crit).abs() < 1e-6);
+        assert!((fit.final_cost - lmm.evaluate(theta, false).reml_crit).abs() < 1e-6);
+        assert!(fit.final_cost <= lmm.log_reml_deviance(&[5.0, 5.0], false));
     }
 
     #[test]
