@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-10
+
 ### Changed
 
 - Rework the Rust API documentation landing page with model-specific entry points,
