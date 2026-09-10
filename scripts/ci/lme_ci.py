@@ -220,7 +220,8 @@ def cargo_doctest() -> None:
 def cargo_doc() -> None:
     run(
         ["cargo", "doc", "--no-deps", "--verbose", "--locked"],
-        env={"RUSTDOCFLAGS": "-D warnings"},
+        # Match the stylesheet in package.metadata.docs.rs for local previews.
+        env={"RUSTDOCFLAGS": "-D warnings --extend-css docs/rustdoc.css"},
     )
 
 

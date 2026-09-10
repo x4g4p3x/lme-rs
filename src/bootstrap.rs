@@ -1,4 +1,4 @@
-//! Parametric and residual bootstrap refits for linear mixed models.
+//! Parametric and residual bootstrap refits for LMMs, and parametric refits for GLMMs.
 //!
 //! Mirrors R's `lme4::bootMer` workflow: simulate or resample responses, refit,
 //! and summarize bootstrap draws. Uses [`crate::prepare_lmer`] + [`crate::fit_prepared_with_response`]

@@ -117,6 +117,9 @@ fn log_s_density(s: f64, df: f64) -> f64 {
 
 /// `P(Q ≤ q)` for the studentized range with `nmeans` groups and `df` residual df.
 pub(crate) fn ptukey(q: f64, nmeans: f64, df: f64) -> f64 {
+    if q.is_nan() || !nmeans.is_finite() || df.is_nan() || df <= 0.0 {
+        return f64::NAN;
+    }
     if !q.is_finite() {
         return if q.is_sign_positive() { 1.0 } else { 0.0 };
     }
@@ -157,6 +160,18 @@ pub(crate) fn tukey_kramer_p(t: f64, n_groups: usize, df: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{ptukey, tukey_kramer_p};
+
+    #[test]
+    fn tukey_preserves_invalid_inputs_and_valid_infinite_limits() {
+        for df in [f64::NAN, f64::NEG_INFINITY, -1.0, 0.0] {
+            assert!(tukey_kramer_p(2.0, 3, df).is_nan());
+        }
+        assert!(tukey_kramer_p(f64::NAN, 3, 20.0).is_nan());
+        assert!(ptukey(2.0, f64::NAN, 20.0).is_nan());
+        assert_eq!(tukey_kramer_p(f64::INFINITY, 3, 20.0), 0.0);
+        assert_eq!(tukey_kramer_p(0.0, 3, f64::INFINITY), 1.0);
+        assert!(tukey_kramer_p(2.0, 3, f64::INFINITY).is_finite());
+    }
 
     fn assert_close(name: &str, got: f64, expected: f64, tol: f64) {
         let diff = (got - expected).abs();

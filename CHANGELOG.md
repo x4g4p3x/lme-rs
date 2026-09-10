@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rework the Rust API documentation landing page with model-specific entry points,
+  prediction and inference guidance, and explicit published/development version
+  boundaries. Add responsive styling for rustdoc's light, dark, and Ayu themes,
+  shared by docs.rs builds and the local documentation checks.
+
 ### Fixed
 
+- Reject likelihood-ratio comparisons that mix ML and REML, use differing or
+  unavailable REML fixed-effects designs, or contain nonfinite deviances. Refit
+  models with ML when comparing different fixed effects; comparisons of REML
+  random-effects structures with identical fixed-effects designs remain supported.
+- Keep coefficient and marginal-mean confidence intervals finite at confidence
+  levels just below one. Reject unavailable/invalid denominator degrees of freedom
+  instead of replacing them with one, and honor valid positive fractional values.
+- Preserve unavailable p-values through Bonferroni, Holm, and Tukey adjustments;
+  Holm retains the original comparison-family size while excluding missing values
+  from its ordering. Invalid Tukey statistics or degrees of freedom remain unavailable.
 - Preserve very small asymptotic p-values in marginal-mean comparisons, multiple
   comparisons, and robust coefficient tests, and small chi-squared p-values in
   likelihood-ratio model comparisons.

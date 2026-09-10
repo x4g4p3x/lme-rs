@@ -1,4 +1,4 @@
-//! Group-structure-preserving cross-validation for linear mixed models.
+//! Group-structure-preserving cross-validation for linear and generalized linear mixed models.
 //!
 //! Splits by grouping units (e.g. subjects) so all observations from one unit stay
 //! in train or test together. Fits on each train fold and evaluates population-level

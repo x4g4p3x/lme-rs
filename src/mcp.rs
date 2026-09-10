@@ -2,7 +2,7 @@
 //!
 //! Pairwise (Tukey) and vs-control (Dunnett) Wald tests with Bonferroni, Holm, or
 //! Tukey–Kramer (`stats::ptukey`) p-value adjustment. Default inference is asymptotic
-//! `z`, matching `multcomp::glht` on `merMod`; pass a [`DdfMethod`](crate::anova::DdfMethod)
+//! `z`, matching `multcomp::glht` on `merMod`; pass a [`DdfMethod`]
 //! for `t` tests with Satterthwaite or Kenward–Roger denominator df.
 
 use ndarray::{Array1, Array2};
@@ -286,7 +286,7 @@ pub(crate) fn adjust_p_values(
     let m = raw.len();
     match adjust {
         McpAdjust::None => Ok(raw.to_vec()),
-        McpAdjust::Bonferroni => Ok(raw.iter().map(|p| (m as f64 * p).min(1.0)).collect()),
+        McpAdjust::Bonferroni => Ok(raw.iter().map(|p| (m as f64 * p).clamp(0.0, 1.0)).collect()),
         McpAdjust::Holm => Ok(holm_adjust(raw)),
         McpAdjust::Tukey => {
             let mut out = Vec::with_capacity(m);
@@ -300,9 +300,11 @@ pub(crate) fn adjust_p_values(
 
 fn holm_adjust(p: &[f64]) -> Vec<f64> {
     let m = p.len();
-    let mut order: Vec<usize> = (0..m).collect();
+    // Missing tests retain their slots and count toward the family size, but
+    // must not participate in sorting or contaminate the valid comparisons.
+    let mut order: Vec<usize> = (0..m).filter(|&i| !p[i].is_nan()).collect();
     order.sort_by(|&i, &j| p[i].partial_cmp(&p[j]).unwrap_or(std::cmp::Ordering::Equal));
-    let mut out = vec![0.0; m];
+    let mut out = vec![f64::NAN; m];
     let mut running = 0.0_f64;
     for (rank, &i) in order.iter().enumerate() {
         let adj = ((m - rank) as f64 * p[i]).min(1.0);
@@ -310,6 +312,30 @@ fn holm_adjust(p: &[f64]) -> Vec<f64> {
         out[i] = running;
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::holm_adjust;
+
+    #[test]
+    fn holm_preserves_missing_slots_and_original_family_size() {
+        for missing in 0..4 {
+            let mut raw = vec![0.01, 0.04, 0.03];
+            raw.insert(missing, f64::NAN);
+            let adjusted = holm_adjust(&raw);
+            assert!(adjusted[missing].is_nan());
+            let observed: Vec<_> = adjusted.into_iter().filter(|p| !p.is_nan()).collect();
+            // Four planned comparisons: sorted multipliers are 4, 3, and 2.
+            for (got, expected) in observed.iter().zip([0.04, 0.09, 0.09]) {
+                assert!((got - expected).abs() < 1e-14);
+            }
+        }
+        assert!(holm_adjust(&[f64::NAN, f64::NAN])
+            .iter()
+            .all(|p| p.is_nan()));
+        assert!(holm_adjust(&[]).is_empty());
+    }
 }
 
 impl fmt::Display for GlhtResult {

@@ -1,0 +1,157 @@
+/* Shared by docs.rs and `task doc` / `task docs:check`.
+ * Extend the built-in rustdoc themes without replacing navigation or search.
+ * Keep all fonts and assets local to rustdoc; no remote dependencies.
+ */
+:root {
+    --lme-accent: #08756c;
+    --lme-tint: #f0f8f6;
+    --lme-muted: #536662;
+}
+
+:root[data-theme="dark"] {
+    --lme-accent: #80d9c6;
+    --lme-tint: #253532;
+    --lme-muted: #b4c7c2;
+}
+
+:root[data-theme="ayu"] {
+    --lme-accent: #80ddd2;
+    --lme-tint: #192b2c;
+    --lme-muted: #b0c5c7;
+}
+
+body.rustdoc main .docblock {
+    font-family: "Fira Sans", system-ui, sans-serif;
+    line-height: 1.7;
+}
+
+body.rustdoc main .docblock a {
+    color: var(--lme-accent);
+    text-underline-offset: 0.18em;
+}
+
+body.rustdoc main .docblock a:hover {
+    text-decoration: underline;
+}
+
+body.rustdoc main .docblock h2 {
+    margin-top: 2.2rem;
+    padding-bottom: 0.5rem;
+}
+
+body.rustdoc main .docblock pre {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.1rem;
+    line-height: 1.55;
+}
+
+body.rustdoc main .docblock table {
+    width: 100%;
+    margin: 1rem 0;
+    font-size: 0.95em;
+}
+
+body.rustdoc main .docblock th,
+body.rustdoc main .docblock td {
+    padding: 0.85rem 1rem;
+    vertical-align: top;
+}
+
+.lme-hero {
+    margin: 1.5rem 0 2rem;
+    padding: 1.75rem 2rem;
+    background: var(--lme-tint);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--lme-accent);
+    border-radius: 4px 12px 12px 4px;
+}
+
+.lme-hero .lme-eyebrow {
+    margin: 0 0 0.65rem;
+    color: var(--lme-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.lme-hero .lme-title {
+    margin: 0;
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.035em;
+}
+
+.lme-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.35rem;
+}
+
+.lme-jump a {
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--lme-accent);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.lme-pathways {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+    margin-top: 1rem;
+}
+
+.lme-path {
+    min-width: 0;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.lme-path p:first-child {
+    margin-top: 0;
+    font-size: 1.1rem;
+}
+
+.lme-path p:last-child {
+    margin-bottom: 0;
+}
+
+.lme-note {
+    margin: 1.25rem 0;
+    padding: 0.1rem 1.25rem;
+    background: var(--lme-tint);
+    border-left: 3px solid var(--lme-accent);
+    border-radius: 0 6px 6px 0;
+}
+
+@media (max-width: 700px) {
+    .lme-hero {
+        padding: 1.25rem;
+    }
+
+    .lme-pathways {
+        grid-template-columns: 1fr;
+    }
+
+    body.rustdoc main .docblock th,
+    body.rustdoc main .docblock td {
+        padding: 0.65rem;
+    }
+}
+
+@media print {
+    .lme-hero,
+    .lme-note {
+        background: transparent;
+    }
+
+    .lme-path {
+        break-inside: avoid;
+    }
+}

@@ -2,7 +2,7 @@
 //!
 //! Enable with environment variable `LME_PERF_DIAG=1` before calling [`crate::lmer`] or
 //! [`crate::math::LmmData::log_reml_deviance`]. After a fit, call
-//! [`take_report`](crate::perf_diag::take_report) for a JSON
+//! [`take_report`] for a JSON
 //! breakdown of where wall time went.
 
 use serde::Serialize;

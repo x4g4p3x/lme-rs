@@ -260,6 +260,30 @@ pub(crate) fn fixed_effect_vcov(fit: &LmeFit) -> crate::Result<Array2<f64>> {
     Ok(xtx_inv * sigma2)
 }
 
+/// Two-sided Wald critical value; callers validate `level` is in (0, 1).
+pub(crate) fn wald_critical_value(level: f64, df: f64) -> crate::Result<f64> {
+    use statrs::distribution::{ContinuousCDF, Normal, StudentsT};
+    if df.is_nan() || df <= 0.0 {
+        return Err(LmeError::InvalidInput {
+            message: format!("Invalid denominator degrees of freedom {df}"),
+        });
+    }
+    // Use symmetry and the lower tail: the corresponding upper probability
+    // rounds to 1 for the largest representable confidence level below 1.
+    let tail = (1.0 - level) / 2.0;
+    if df == f64::INFINITY {
+        Ok(-Normal::new(0.0, 1.0)
+            .expect("standard normal")
+            .inverse_cdf(tail))
+    } else {
+        StudentsT::new(0.0, 1.0, df)
+            .map(|dist| -dist.inverse_cdf(tail))
+            .map_err(|e| LmeError::InvalidInput {
+                message: format!("Invalid denominator degrees of freedom {df}: {e}"),
+            })
+    }
+}
+
 /// If `L` is a single row with one `1`, return that column index.
 pub(crate) fn single_unit_contrast_index(l_mat: &Array2<f64>) -> Option<usize> {
     if l_mat.nrows() != 1 {

@@ -50,6 +50,11 @@ tasks:
     cmds:
       - '{{.RUN}} completion-check'
 
+  doc:
+    desc: Build the styled Rust API documentation for local preview
+    cmds:
+      - '{{.RUN}} doc'
+
   docs:check:
     desc: Validate Markdown links, Rust examples/doctests, and generated docs
     cmds:

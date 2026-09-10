@@ -133,6 +133,15 @@ matching scripts. The tag/manual benchmark workflow requires the formatters.
 
 Use [the documentation index](docs/README.md) as the navigation map.
 
+The Rust API landing page comes from [docs/rustdoc.md](docs/rustdoc.md), included
+by [src/lib.rs](src/lib.rs). Its theme extension is
+[docs/rustdoc.css](docs/rustdoc.css). Run `task doc` to build the styled preview
+at `target/doc/lme_rs/index.html`; `task docs:check` also tests its Rust examples
+and intra-doc links. Keep the stylesheet arguments in `Cargo.toml` and the
+shared CI runner aligned. Check light, dark, and Ayu themes and a narrow viewport
+after styling changes. docs.rs builds the published crate, so repository edits
+reach that site with a new release, following [RELEASING.md](RELEASING.md).
+
 | Content | Canonical location |
 |:--------|:-------------------|
 | Introduction and first successful fit | [README.md](README.md) |

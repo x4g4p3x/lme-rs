@@ -8,12 +8,14 @@
 
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
-use statrs::distribution::{ContinuousCDF, Normal, StudentsT};
+use statrs::distribution::{ContinuousCDF, Normal};
 use std::collections::HashMap;
 use std::fmt;
 
 use crate::anova::DdfMethod;
-use crate::contrast::{fixed_effect_contrast_test, fixed_effect_vcov_for_method};
+use crate::contrast::{
+    fixed_effect_contrast_test, fixed_effect_vcov_for_method, wald_critical_value,
+};
 use crate::mcp::{adjust_p_values, McpAdjust};
 use crate::{LmeError, LmeFit};
 
@@ -107,7 +109,7 @@ impl LmeFit {
             }
             let se = var.sqrt();
             let df = denominator_df(self, &row, ddf)?;
-            let critical = critical_value(confidence_level, df)?;
+            let critical = wald_critical_value(confidence_level, df)?;
             estimate[i] = est;
             std_error[i] = se;
             den_df[i] = df;
@@ -236,20 +238,6 @@ fn denominator_df(fit: &LmeFit, row: &Array1<f64>, ddf: Option<DdfMethod>) -> cr
             Ok(fixed_effect_contrast_test(fit, &l_mat, method, None)?.den_df)
         }
     }
-}
-
-fn critical_value(level: f64, df: f64) -> crate::Result<f64> {
-    let probability = 0.5 + level / 2.0;
-    if df.is_infinite() {
-        return Ok(Normal::new(0.0, 1.0)
-            .expect("standard normal")
-            .inverse_cdf(probability));
-    }
-    StudentsT::new(0.0, 1.0, df)
-        .map(|dist| dist.inverse_cdf(probability))
-        .map_err(|e| LmeError::NotImplemented {
-            feature: format!("Invalid denominator degrees of freedom {df}: {e}"),
-        })
 }
 
 fn reference_grid_linfct(

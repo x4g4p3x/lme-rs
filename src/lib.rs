@@ -1,77 +1,20 @@
 #![warn(missing_docs)]
-//! # lme-rs
-//!
-//! Linear, generalized linear, and nonlinear mixed-effects models with
-//! `lme4`-style formulas and Polars DataFrames.
-//!
-//! # Choose an entry point
-//!
-//! - [`lm_df`] fits ordinary least squares from a formula; [`lm`] accepts arrays.
-//! - [`lmer`] fits Gaussian mixed models with REML or ML.
-//! - [`glmer`] fits a generalized model with a selected [`family::Family`].
-//! - [`nlmer`] fits built-in nonlinear means; [`nlmer_with_mean`] accepts a custom mean.
-//! - [`prepare_lmer`] / [`fit_prepared`] reuse a fixed LMM design.
-//! - [`cv_grouped`] and [`boot_lmer`] provide grouped validation and bootstrap refits.
-//!
-//! # First fit
-//!
-//! ```
-//! use lme_rs::lmer;
-//! use polars::prelude::*;
-//!
-//! # fn main() -> anyhow::Result<()> {
-//! let data = df!(
-//!     "y" => [10.0, 12.0, 13.0, 15.0, 9.0, 11.0, 14.0, 17.0, 8.0, 10.0, 12.0, 14.0],
-//!     "x" => [0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0],
-//!     "group" => ["a", "a", "a", "a", "b", "b", "b", "b", "c", "c", "c", "c"],
-//! )?;
-//! let fit = lmer("y ~ x + (1 | group)", &data, true)?;
-//! let population_predictions = fit.predict(&data)?;
-//! assert_eq!(population_predictions.len(), data.height());
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! # Interpret a fit
-//!
-//! [`LmeFit::predict`] uses fixed effects; [`LmeFit::predict_conditional`] includes
-//! stored group effects. For GLMM response means, use [`LmeFit::predict_response`].
-//! Inspect estimates and convergence diagnostics before inference.
-//! Fit LMMs with ML when comparing different fixed effects on the same observations.
-//!
-//! Numerical compatibility is scoped to the repository's tested models and
-//! reference fixtures. Formula syntax, quadrature, and post-fit inference do not
-//! cover every option in R's mixed-model ecosystem.
-//!
-//! See the [documentation index](https://github.com/x4g4p3x/lme-rs/blob/master/docs/README.md),
-//! [Rust guide](https://github.com/x4g4p3x/lme-rs/blob/master/GUIDE.md), and
-//! [workflow assessment](https://github.com/x4g4p3x/lme-rs/blob/master/USABILITY.md).
-//! Repository links follow the development branch; select a matching release tag
-//! when reading about a published version.
+#![doc = include_str!("../docs/rustdoc.md")]
 
 /// Analysis of Variance (ANOVA) result wrappers and F-tests.
 pub mod anova;
-/// Type II / III contrast construction for fixed-effects ANOVA.
 pub mod anova_contrasts;
 /// Orthogonal polynomials and natural cubic splines for formula terms.
 pub(crate) mod basis;
-/// Parametric and residual bootstrap refits for LMMs (`bootMer`-style).
 pub mod bootstrap;
-/// User-defined fixed-effects contrast tests (Wald F-tests).
 pub mod contrast;
-/// Group-structure-preserving cross-validation for LMMs.
 pub mod cv;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
 pub(crate) mod ddf;
-/// Estimated marginal means and reference-grid pairwise comparisons.
 pub mod emmeans;
-/// Reusable worker-pool execution policy.
 pub mod execution;
-/// Distribution family definitions for Generalized Linear Mixed Models (GLMMs).
 pub mod family;
-/// Wilkinson formula parsing and data matrix construction.
 pub mod formula;
-/// Core penalized iteratively reweighted least squares (PIRLS) evaluator for GLMMs.
 pub mod glmm_math;
 /// Kenward-Roger denominator degrees of freedom approximation.
 pub mod kenward_roger;
@@ -79,9 +22,8 @@ pub mod kenward_roger;
 pub(crate) mod kr_modcomp;
 /// Kenward–Roger adjusted covariance (`pbkrtest::vcovAdj16`).
 pub(crate) mod kr_vcov_adj;
-/// Core linear algebra evaluation routines for generalized models.
+/// Penalized least-squares evaluation for linear mixed models.
 pub mod math;
-/// Multiple comparisons for categorical fixed effects (`glht` / `mcp`).
 pub mod mcp;
 mod model;
 mod prepared;
@@ -89,19 +31,15 @@ pub use prepared::LmerWorkspace;
 mod display;
 /// Building design matrices (X, Z) from DataFrames.
 pub mod model_matrix;
-/// Nonlinear mixed-effects models (`nlmer`-style).
 pub mod nlmm;
 mod ols;
 pub use model::{FitControl, FitDiagnostics, ModelSpec, TerminationReason};
-/// Optimization routines (Nelder-Mead) for theta estimation.
+/// Specialized searches and general optimization for covariance parameters.
 pub mod optimizer;
-/// Optional performance diagnostics (`LME_PERF_DIAG=1`).
 pub mod perf_diag;
 mod predict;
-/// Profile-likelihood confidence intervals for fixed effects.
 pub mod profile_ci;
 pub(crate) mod quadrature;
-/// Robust Standard Errors (Sandwich Estimators).
 pub mod robust;
 /// Satterthwaite denominator degrees of freedom approximation.
 pub mod satterthwaite;
@@ -197,7 +135,7 @@ pub enum LmeError {
     },
 }
 
-/// Represents the fully resolved evaluation output of a structured linear or mixed-effects regression.
+/// Estimates, model metadata, and diagnostics from a fitted regression or mixed model.
 #[derive(Debug, Clone)]
 pub struct LmeFit {
     /// Structured solver diagnostics, absent for ordinary least squares or manually constructed fits.
@@ -308,10 +246,6 @@ impl LmeFit {
             .map(|kr| kr.modcomp.phi_a.diag().mapv(f64::sqrt));
         let se = kr_se.as_ref().unwrap_or(se);
 
-        let alpha = 1.0 - level;
-        let tail = 1.0 - alpha / 2.0;
-        use statrs::distribution::{ContinuousCDF, Normal, StudentsT};
-
         let p = self.coefficients.len();
         let mut lower = ndarray::Array1::<f64>::zeros(p);
         let mut upper = ndarray::Array1::<f64>::zeros(p);
@@ -323,14 +257,8 @@ impl LmeFit {
             .or_else(|| self.satterthwaite.as_ref().map(|st| st.dfs.clone()));
 
         for i in 0..p {
-            let margin = if let Some(ref df_vec) = dfs {
-                let df = df_vec[i].max(1.0);
-                let t = StudentsT::new(0.0, 1.0, df).unwrap();
-                t.inverse_cdf(tail) * se[i]
-            } else {
-                let norm = Normal::new(0.0, 1.0).unwrap();
-                norm.inverse_cdf(tail) * se[i]
-            };
+            let df = dfs.as_ref().map_or(f64::INFINITY, |values| values[i]);
+            let margin = contrast::wald_critical_value(level, df)? * se[i];
             lower[i] = self.coefficients[i] - margin;
             upper[i] = self.coefficients[i] + margin;
         }
@@ -528,7 +456,7 @@ pub struct ConfintResult {
     pub level: f64,
 }
 
-/// Result of `simulate()`: parametric bootstrap samples from the fitted model.
+/// Simulated response draws from fitted conditional means, without refitting.
 #[derive(Debug, Clone)]
 pub struct SimulateResult {
     /// Each element is a simulated response vector of length n_obs.
@@ -665,7 +593,7 @@ pub struct LmerPrepared {
     pub blocked_kernel_detail: &'static str,
 }
 
-/// Prepare a weighted LMM fit (design matrices + [`math::LmmData`]) without optimizing θ.
+/// Prepare an unweighted LMM fit (design matrices + [`math::LmmData`]) without optimizing θ.
 pub fn prepare_lmer(formula_str: &str, data: &DataFrame) -> Result<LmerPrepared> {
     prepare_lmer_weighted(formula_str, data, None)
 }
@@ -1665,6 +1593,10 @@ impl fmt::Display for AnovaResult {
 ///
 /// Both models must be fit on the **same data** (same `num_obs`). The simpler model
 /// (fewer parameters) is automatically identified regardless of argument order.
+/// The caller is responsible for ensuring the models are nested and use the same
+/// observations. ML and REML fits cannot be mixed. REML comparisons require
+/// identical stored fixed-effects design matrices; otherwise refit both models
+/// with ML (`reml = false`). This function does not automatically refit models.
 ///
 /// # Examples
 ///
@@ -1672,8 +1604,8 @@ impl fmt::Display for AnovaResult {
 /// use lme_rs::{lmer, anova};
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     // let fit0 = lmer("Reaction ~ 1 + (1|Subject)", &df, true)?;
-///     // let fit1 = lmer("Reaction ~ Days + (Days|Subject)", &df, true)?;
+///     // let fit0 = lmer("Reaction ~ 1 + (1|Subject)", &df, false)?;
+///     // let fit1 = lmer("Reaction ~ Days + (Days|Subject)", &df, false)?;
 ///     // let lrt = anova(&fit0, &fit1)?;
 ///     // println!("{}", lrt);
 ///     Ok(())
@@ -1687,6 +1619,30 @@ pub fn anova(fit_a: &LmeFit, fit_b: &LmeFit) -> anyhow::Result<AnovaResult> {
     let dev_b = fit_b.deviance.ok_or_else(|| {
         anyhow::anyhow!("Model B has no deviance — was it fit as a mixed-effects model?")
     })?;
+    if !dev_a.is_finite() || !dev_b.is_finite() {
+        return Err(anyhow::anyhow!(
+            "Model comparison requires finite deviances"
+        ));
+    }
+
+    let reml_a = fit_a.reml.is_some();
+    let reml_b = fit_b.reml.is_some();
+    if reml_a != reml_b {
+        return Err(anyhow::anyhow!(
+            "Cannot compare ML and REML likelihoods; refit both models with ML (reml = false)"
+        ));
+    }
+    if reml_a {
+        let same_design = match (&fit_a.fixed_design_x, &fit_b.fixed_design_x) {
+            (Some(a), Some(b)) => a == b,
+            _ => false,
+        };
+        if !same_design {
+            return Err(anyhow::anyhow!(
+                "REML comparisons require identical fixed-effects designs; refit both models with ML (reml = false)"
+            ));
+        }
+    }
 
     // Validate same data size
     if fit_a.num_obs != fit_b.num_obs {

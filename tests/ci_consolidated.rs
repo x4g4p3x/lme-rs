@@ -4,6 +4,8 @@
 //! Ubuntu and locally. Windows and macOS use this harness to avoid linking one
 //! executable per integration-test file while executing the same test bodies.
 
+#[path = "test_inference_guards.rs"]
+mod test_inference_guards;
 #[path = "test_model_contracts.rs"]
 mod test_model_contracts;
 

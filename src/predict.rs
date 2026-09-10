@@ -6,8 +6,10 @@ impl LmeFit {
         self.family_name.as_deref() == Some("nlmm")
     }
 
-    /// Predict population-level expectations given novel data.
-    /// This resolves the Fixed Effects matrix ($X_{new} \hat{\beta}$) ignoring Random Effects groupings (`re.form=NA`).
+    /// Predict from fixed effects and offsets, omitting group effects (`re.form=NA`).
+    ///
+    /// For LMMs and GLMMs, returns `X_new * beta + offset`. GLMM results are on the
+    /// linear-predictor scale; use [`Self::predict_response`] for response means.
     ///
     /// For nonlinear mixed models (`nlmer`), returns the mean function evaluated at the fixed
     /// nonlinear parameters only (random effects set to zero).
@@ -76,14 +78,17 @@ impl LmeFit {
         }
     }
 
-    /// Predict conditional expectations given novel data, including Random Effects (`re.form=NULL`).
-    /// Computes $\hat{y} = X_{new} \hat{\beta} + Z_{new} \hat{b}$ using stored random effects.
+    /// Predict using fixed effects, offsets, and stored group effects (`re.form=NULL`).
+    ///
+    /// For LMMs and GLMMs, returns `X_new * beta + offset + Z_new * b`. GLMM
+    /// results are on the linear-predictor scale; use
+    /// [`Self::predict_conditional_response`] for response means.
     ///
     /// For nonlinear mixed models (`nlmer`), adds stored random effects on the nonlinear parameter
     /// (e.g. `Asym + b_group`) before evaluating the mean function.
     ///
-    /// Groups present in `newdata` but absent from the training data receive zero random-effect
-    /// contributions (population-level predictions), consistent with R's `predict.merMod`.
+    /// If `allow_new_levels` is true, unseen groups receive zero random-effect
+    /// contributions. Otherwise, an unseen group returns an error.
     pub fn predict_conditional(
         &self,
         newdata: &polars::prelude::DataFrame,
