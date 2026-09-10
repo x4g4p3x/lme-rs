@@ -30,7 +30,7 @@ dependencies to its `Cargo.toml`:
 
 ```toml
 [dependencies]
-lme-rs = "0.2.4"
+lme-rs = "0.2.5"
 polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```

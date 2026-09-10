@@ -1,6 +1,7 @@
 /* Shared by docs.rs and `task doc` / `task docs:check`.
  * Extend the built-in rustdoc themes without replacing navigation or search.
  * Keep all fonts and assets local to rustdoc; no remote dependencies.
+ * docs.rs puts .rustdoc on a wrapper div; local rustdoc puts it on body.
  */
 :root {
     --lme-accent: #08756c;
@@ -20,40 +21,40 @@
     --lme-muted: #b0c5c7;
 }
 
-body.rustdoc main .docblock {
+.rustdoc main .docblock {
     font-family: "Fira Sans", system-ui, sans-serif;
     line-height: 1.7;
 }
 
-body.rustdoc main .docblock a {
+.rustdoc main .docblock a {
     color: var(--lme-accent);
     text-underline-offset: 0.18em;
 }
 
-body.rustdoc main .docblock a:hover {
+.rustdoc main .docblock a:hover {
     text-decoration: underline;
 }
 
-body.rustdoc main .docblock h2 {
+.rustdoc main .docblock h2 {
     margin-top: 2.2rem;
     padding-bottom: 0.5rem;
 }
 
-body.rustdoc main .docblock pre {
+.rustdoc main .docblock pre {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.1rem;
     line-height: 1.55;
 }
 
-body.rustdoc main .docblock table {
+.rustdoc main .docblock table {
     width: 100%;
     margin: 1rem 0;
     font-size: 0.95em;
 }
 
-body.rustdoc main .docblock th,
-body.rustdoc main .docblock td {
+.rustdoc main .docblock th,
+.rustdoc main .docblock td {
     padding: 0.85rem 1rem;
     vertical-align: top;
 }
@@ -139,8 +140,8 @@ body.rustdoc main .docblock td {
         grid-template-columns: 1fr;
     }
 
-    body.rustdoc main .docblock th,
-    body.rustdoc main .docblock td {
+    .rustdoc main .docblock th,
+    .rustdoc main .docblock td {
         padding: 0.65rem;
     }
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-11
+
+### Fixed
+
+- Apply the API documentation's typography, link colors, table spacing, and code
+  styling inside the docs.rs wrapper as well as standalone rustdoc pages.
+  Version 0.2.4's new layout was visible on docs.rs, but its body-specific CSS
+  selectors prevented these additional styles from applying there.
+
 ## [0.2.4] - 2026-09-10
 
 ### Changed
