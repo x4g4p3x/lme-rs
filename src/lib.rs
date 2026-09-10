@@ -1738,7 +1738,7 @@ pub fn anova(fit_a: &LmeFit, fit_b: &LmeFit) -> anyhow::Result<AnovaResult> {
     use statrs::distribution::ContinuousCDF;
     let chi2_dist = statrs::distribution::ChiSquared::new(df as f64)
         .map_err(|e| anyhow::anyhow!("Failed to create chi-squared distribution: {}", e))?;
-    let p_value = 1.0 - chi2_dist.cdf(chi_sq);
+    let p_value = chi2_dist.sf(chi_sq);
 
     Ok(AnovaResult {
         n_params_0: np_0,

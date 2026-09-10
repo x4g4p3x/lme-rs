@@ -134,7 +134,7 @@ pub fn compute_robust_se(
     use statrs::distribution::{ContinuousCDF, Normal};
     let normal = Normal::new(0.0, 1.0).unwrap();
     for i in 0..p {
-        robust_p_values[i] = 2.0 * (1.0 - normal.cdf(robust_t[i].abs()));
+        robust_p_values[i] = 2.0 * normal.sf(robust_t[i].abs());
     }
 
     Ok(RobustResult {

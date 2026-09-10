@@ -178,7 +178,7 @@ impl LmeFit {
             let stat = est / se;
             let df = denominator_df(self, &row, ddf)?;
             let raw_p = match ddf {
-                None => (2.0 * (1.0 - normal.cdf(stat.abs()))).clamp(0.0, 1.0),
+                None => (2.0 * normal.sf(stat.abs())).clamp(0.0, 1.0),
                 Some(method) => {
                     let one = l_mat.slice(ndarray::s![i..i + 1, ..]).to_owned();
                     fixed_effect_contrast_test(self, &one, method, None)?.p_value

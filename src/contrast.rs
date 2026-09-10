@@ -268,10 +268,12 @@ pub(crate) fn single_unit_contrast_index(l_mat: &Array2<f64>) -> Option<usize> {
     let mut found = None;
     for j in 0..l_mat.ncols() {
         let v = l_mat[[0, j]];
-        if v.abs() <= 1e-12 {
+        // A small weight can still contribute substantially when coefficients
+        // use different units. Only exact zeros permit the cached unit test.
+        if v == 0.0 {
             continue;
         }
-        if found.is_some() || (v - 1.0).abs() > 1e-12 {
+        if found.is_some() || v != 1.0 {
             return None;
         }
         found = Some(j);
@@ -291,5 +293,45 @@ impl fmt::Display for ContrastTestResult {
             "  NumDF: {:.0}  DenDF: {:.4}  F: {:.4}  Pr(>F): {:.4e}",
             self.num_df, self.den_df, self.f_value, self.p_value
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn tiny_contrast_weights_must_not_use_single_coefficient_cache() {
+        let data = polars::df!("y" => [0.0, 1.0, 4.0], "x" => [0.0, 1.0, 2.0]).unwrap();
+        let mut fit = crate::lm_df("y ~ x", &data).unwrap();
+        // Two independent coefficients with equal standardized effects, expressed
+        // in different units. The joint linear combination has estimate 2,
+        // variance 2, and F = 2; either cached coefficient alone has F = 1.
+        let covariance = array![[1.0, 0.0], [0.0, 1e26]];
+        fit.coefficients = array![1.0, 1e13];
+        fit.sigma2 = Some(1.0);
+        fit.v_beta_unscaled = Some(covariance.clone());
+        fit.beta_t = Some(array![1.0, 1.0]);
+        fit.satterthwaite = Some(crate::SatterthwaiteResult {
+            dfs: array![20.0, 20.0],
+            p_values: array![0.329256577171709, 0.329256577171709],
+            multi_dof: Some(crate::satterthwaite::SatterthwaiteMultiDofData {
+                a_mat: array![[0.1]],
+                jac_vcov: vec![covariance],
+            }),
+        });
+        for weight in [1e-13, -1e-13] {
+            let l_mat = array![[1.0, weight]];
+            let result = fit.test_contrast(&l_mat, DdfMethod::Satterthwaite).unwrap();
+            let explicit_null = fit
+                .test_contrast_vs(&l_mat, &array![0.0, 0.0], DdfMethod::Satterthwaite)
+                .unwrap();
+            let expected_f = if weight > 0.0 { 2.0 } else { 0.0 };
+            assert!((result.f_value - expected_f).abs() < 1e-12, "{result:?}");
+            assert!((result.f_value - explicit_null.f_value).abs() < 1e-12);
+            assert!((result.den_df - 20.0).abs() < 1e-10);
+            assert!((result.p_value - explicit_null.p_value).abs() < 1e-12);
+        }
     }
 }

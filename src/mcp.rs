@@ -122,7 +122,7 @@ impl LmeFit {
             match ddf {
                 None => {
                     den_df[i] = f64::INFINITY;
-                    p_value[i] = (2.0 * (1.0 - norm.cdf(stat.abs()))).clamp(0.0, 1.0);
+                    p_value[i] = (2.0 * norm.sf(stat.abs())).clamp(0.0, 1.0);
                 }
                 Some(method) => {
                     let row_mat = l_mat.slice(ndarray::s![i..i + 1, ..]).to_owned();

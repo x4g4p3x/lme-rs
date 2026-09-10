@@ -170,3 +170,86 @@ fn gamma_simulation_respects_observation_precision() {
         );
     }
 }
+
+fn strong_factor_data() -> DataFrame {
+    df!(
+        "y" => [-1.0, 0.0, 1.0, 9.0, 10.0, 11.0, 19.0, 20.0, 21.0],
+        "group" => ["a", "a", "a", "b", "b", "b", "c", "c", "c"]
+    )
+    .unwrap()
+}
+
+fn assert_normal_tail(statistics: &ndarray::Array1<f64>, p_values: &ndarray::Array1<f64>) {
+    use statrs::distribution::{ContinuousCDF, Normal};
+    let normal = Normal::new(0.0, 1.0).unwrap();
+    let mut checked = 0;
+    for (&z, &p) in statistics.iter().zip(p_values) {
+        // Symmetry gives an independent lower-tail reference without subtracting from one.
+        let expected = 2.0 * normal.cdf(-z.abs());
+        if expected > 0.0 && expected < 1e-16 {
+            assert!(
+                (p / expected - 1.0).abs() < 1e-10,
+                "z={z}, p={p}, expected={expected}"
+            );
+            checked += 1;
+        }
+    }
+    assert!(
+        checked > 0,
+        "fixture must exercise a representable extreme tail"
+    );
+}
+
+#[test]
+fn emmeans_retains_small_normal_tail_probabilities() {
+    let df = strong_factor_data();
+    let fit = lm_df("y ~ group", &df).unwrap();
+    let pairs = fit
+        .emmeans_pairs("group", &df, lme_rs::McpAdjust::Bonferroni, None)
+        .unwrap();
+    assert_normal_tail(&pairs.statistic_values, &pairs.p_value);
+    for (&raw, &adjusted) in pairs.p_value.iter().zip(&pairs.p_adjust) {
+        assert!((adjusted / raw - 3.0).abs() < 1e-10);
+    }
+}
+
+#[test]
+fn mcp_retains_small_normal_tail_probabilities() {
+    let df = strong_factor_data();
+    let fit = lm_df("y ~ group", &df).unwrap();
+    let pairs = fit
+        .glht(
+            "group",
+            lme_rs::McpType::Tukey,
+            lme_rs::McpAdjust::None,
+            None,
+        )
+        .unwrap();
+    assert_normal_tail(&pairs.statistic_values, &pairs.p_value);
+}
+
+#[test]
+fn robust_inference_retains_small_normal_tail_probabilities() {
+    let df = strong_factor_data();
+    let mut fit = lm_df("y ~ group", &df).unwrap();
+    fit.with_robust_se(&df, None).unwrap();
+    let robust = fit.robust.unwrap();
+    assert_normal_tail(&robust.robust_t, robust.robust_p_values.as_ref().unwrap());
+}
+
+#[test]
+fn likelihood_ratio_retains_small_chi_squared_tail_probabilities() {
+    use statrs::distribution::{ContinuousCDF, Normal};
+    let df = sleepstudy();
+    let null = lmer("Reaction ~ 1 + (1 | Subject)", &df, false).unwrap();
+    let alternative = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    let result = lme_rs::anova(&null, &alternative).unwrap();
+    assert_eq!(result.df, 1);
+    // Chi-squared with one degree of freedom is the square of a standard normal.
+    let expected = 2.0 * Normal::new(0.0, 1.0).unwrap().cdf(-result.chi_sq.sqrt());
+    assert!(expected > 0.0 && expected < 1e-16);
+    assert!(
+        (result.p_value / expected - 1.0).abs() < 1e-10,
+        "{result:?}, expected={expected}"
+    );
+}

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve very small asymptotic p-values in marginal-mean comparisons, multiple
+  comparisons, and robust coefficient tests, and small chi-squared p-values in
+  likelihood-ratio model comparisons.
+- Retain small nonzero contrast weights in Satterthwaite tests instead of treating
+  them as zero when selecting cached single-coefficient results.
 - Make the blocked LMM optimizer objective agree with the final deviance for
   nested random effects such as `(1 | batch/cask)`. Correct the sparse cross-block
   transpose and dense Schur subtraction; regression coverage includes ML, REML,
