@@ -17,6 +17,8 @@ mod test_anova_types;
 mod test_bootstrap;
 #[path = "test_bug_hunt.rs"]
 mod test_bug_hunt;
+#[path = "test_bug_hunt_edges.rs"]
+mod test_bug_hunt_edges;
 #[path = "test_bug_hunt_more.rs"]
 mod test_bug_hunt_more;
 #[path = "test_bug_hunt_numerics.rs"]

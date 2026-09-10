@@ -139,6 +139,17 @@ pub(crate) fn fixed_effect_contrast_test(
         });
     }
 
+    let scale = l_mat.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+    if scale == 0.0 {
+        return Err(LmeError::InvalidInput {
+            message: "Contrast matrix must have positive rank".to_string(),
+        });
+    }
+    // A common rescaling preserves the hypothesis and the eigenvectors used
+    // by Satterthwaite, while preventing underflow in variance derivatives.
+    let scaled = matches!(ddf, DdfMethod::Satterthwaite).then(|| l_mat / scale);
+    let l_mat = scaled.as_ref().unwrap_or(l_mat);
+
     let q = l_mat.nrows();
     let (f_value, den_df, p_value, num_df) = match ddf {
         DdfMethod::Satterthwaite => {

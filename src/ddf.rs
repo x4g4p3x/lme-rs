@@ -165,7 +165,7 @@ fn fisher_p(f_stat: f64, num_df: f64, den_df: f64) -> f64 {
     if f_stat.is_nan() || den_df.is_nan() || den_df <= 0.0 || num_df <= 0.0 {
         f64::NAN
     } else if let Ok(dist) = FisherSnedecor::new(num_df, den_df) {
-        1.0 - dist.cdf(f_stat)
+        dist.sf(f_stat)
     } else {
         f64::NAN
     }

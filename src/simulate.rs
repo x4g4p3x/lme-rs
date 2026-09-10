@@ -43,6 +43,10 @@ pub fn simulate_range(
     if count == 0 {
         return Ok(Vec::new());
     }
+    start_index
+        .checked_add(count - 1)
+        .ok_or_else(|| anyhow::anyhow!("simulation index range overflows usize"))?;
+    simulation_dispersion(fit)?;
 
     let workers = resolve_n_jobs(n_jobs, count);
     if workers == 1 {
@@ -90,7 +94,7 @@ fn simulate_sequential(
     count: usize,
     seed: Option<u64>,
 ) -> anyhow::Result<Vec<Array1<f64>>> {
-    let sigma2 = fit.sigma2.unwrap_or(1.0);
+    let sigma2 = simulation_dispersion(fit)?;
     let trials = binomial_trial_sizes(fit.weights.as_ref());
     let mut out = Vec::with_capacity(count);
 
@@ -132,7 +136,7 @@ fn simulate_parallel(
 ) -> anyhow::Result<Vec<Array1<f64>>> {
     let fitted = fit.fitted.clone();
     let family = fit.family;
-    let sigma2 = fit.sigma2.unwrap_or(1.0);
+    let sigma2 = simulation_dispersion(fit)?;
     let trials = binomial_trial_sizes(fit.weights.as_ref());
 
     crate::execution::run(workers, || {
@@ -155,6 +159,25 @@ fn simulate_parallel(
             })
             .collect()
     })?
+}
+
+fn simulation_dispersion(fit: &LmeFit) -> anyhow::Result<f64> {
+    use crate::family::Family;
+    if matches!(fit.family, Some(Family::Binomial | Family::Poisson)) {
+        return Ok(1.0);
+    }
+    let dispersion = fit.sigma2.ok_or_else(|| {
+        anyhow::anyhow!("Simulation requires an estimated residual variance or dispersion")
+    })?;
+    if !dispersion.is_finite()
+        || dispersion < 0.0
+        || (fit.family == Some(Family::Gamma) && dispersion == 0.0)
+    {
+        return Err(anyhow::anyhow!(
+            "Simulation variance or dispersion is invalid"
+        ));
+    }
+    Ok(dispersion)
 }
 
 fn draw_one<R: Rng + ?Sized>(
@@ -218,11 +241,12 @@ fn draw_one<R: Rng + ?Sized>(
             }
         }
         Some(crate::family::Family::Gamma) => {
-            let dispersion = sigma2.max(f64::EPSILON);
-            let shape = (1.0 / dispersion).max(f64::EPSILON);
             for i in 0..n {
+                // Prior precision scales Gamma shape, so Var(Y_i) = phi * mu_i^2 / w_i.
+                let dispersion = sigma2 / weights.map_or(1.0, |w| w[i]);
+                let shape = 1.0 / dispersion;
                 let mu = y_sim[i].max(f64::EPSILON);
-                let scale = (mu * dispersion).max(f64::EPSILON);
+                let scale = mu * dispersion;
                 let gamma = Gamma::new(shape, scale)
                     .map_err(|e| anyhow::anyhow!("Invalid Gamma parameters: {e}"))?;
                 y_sim[i] = rng.sample(gamma);

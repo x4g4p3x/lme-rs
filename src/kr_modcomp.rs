@@ -4,7 +4,7 @@
 //! derivatives as univariate KR inference, not marginal-df pooling.
 
 use ndarray::{Array1, Array2};
-use ndarray_linalg::{Eigh, Solve, UPLO};
+use ndarray_linalg::{Solve, SVD};
 use statrs::distribution::{ContinuousCDF, FisherSnedecor};
 
 use crate::LmeError;
@@ -54,26 +54,40 @@ fn div_zero(num: f64, denom: f64, tol: f64) -> f64 {
     }
 }
 
-/// Effective row rank of contrast matrix `L` (pbkrtest `rankMatrix(L)`).
-fn contrast_rank(l: &Array2<f64>, eps: f64) -> usize {
-    let q = l.nrows();
-    if q == 0 {
-        return 0;
+/// Represent the hypothesis by independent, well-scaled rows. Redundant
+/// restrictions add no information and must not make the covariance solve singular.
+fn contrast_basis(l: &Array2<f64>) -> crate::Result<Array2<f64>> {
+    if l.is_empty() || l.iter().any(|v| !v.is_finite()) {
+        return Err(LmeError::InvalidInput {
+            message: "Contrast matrix must be nonempty and finite".to_string(),
+        });
     }
-    if q == 1 {
-        return if l.iter().any(|v| v.abs() > eps) {
-            1
-        } else {
-            0
-        };
+    let mut normalized = l.clone();
+    for mut row in normalized.rows_mut() {
+        let scale = row.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+        if scale > 0.0 {
+            row.mapv_inplace(|v| v / scale);
+        }
     }
-    let gram = l.dot(&l.t());
-    let (eval, _) = gram
-        .eigh(UPLO::Upper)
-        .unwrap_or_else(|_| (Array1::zeros(q), Array2::zeros((q, q))));
-    let d_max = eval.iter().copied().fold(0.0_f64, f64::max);
-    let tol_eig = (eps * d_max).max(eps);
-    eval.iter().filter(|&&d| d > tol_eig).count().max(1)
+    if normalized.iter().all(|v| *v == 0.0) {
+        return Err(LmeError::InvalidInput {
+            message: "Contrast matrix must have positive rank".to_string(),
+        });
+    }
+    if l.nrows() == 1 {
+        return Ok(normalized);
+    }
+    let (_, singular, vt) = normalized
+        .svd(false, true)
+        .map_err(|e| LmeError::LinearAlgebra {
+            message: format!("Contrast rank decomposition failed: {e}"),
+        })?;
+    let tol = f64::EPSILON * l.nrows().max(l.ncols()) as f64 * singular[0];
+    let rank = singular.iter().filter(|&&v| v > tol).count();
+    let vt = vt.ok_or_else(|| LmeError::LinearAlgebra {
+        message: "Contrast decomposition did not return a row basis".to_string(),
+    })?;
+    Ok(vt.slice(ndarray::s![..rank, ..]).to_owned())
 }
 
 /// Solve `A X = B` for `X` (square `A`, `B` is q × p).
@@ -98,6 +112,16 @@ pub fn kr_modcomp_test(
     beta: &Array1<f64>,
     beta_h: Option<&Array1<f64>>,
 ) -> crate::Result<KrModcompTest> {
+    let basis = contrast_basis(l_mat)?;
+    kr_modcomp_full_rank(data, &basis, beta, beta_h)
+}
+
+fn kr_modcomp_full_rank(
+    data: &KenwardRogerModcompData,
+    l_mat: &Array2<f64>,
+    beta: &Array1<f64>,
+    beta_h: Option<&Array1<f64>>,
+) -> crate::Result<KrModcompTest> {
     let p = beta.len();
     if l_mat.ncols() != p {
         return Err(LmeError::NotImplemented {
@@ -109,15 +133,7 @@ pub fn kr_modcomp_test(
         });
     }
 
-    let eps = f64::EPSILON.sqrt();
-    let q = contrast_rank(l_mat, eps) as f64;
-    if q <= 0.0 {
-        return Ok(KrModcompTest {
-            f_stat: f64::NAN,
-            den_df: f64::NAN,
-            p_value: f64::NAN,
-        });
-    }
+    let q = l_mat.nrows() as f64;
 
     let beta_h = beta_h.cloned().unwrap_or_else(|| Array1::zeros(p));
     let beta_diff = beta - &beta_h;
@@ -265,9 +281,9 @@ pub fn kenward_roger_contrast_f_test(
     l_mat: &Array2<f64>,
     beta_h: Option<&Array1<f64>>,
 ) -> crate::Result<(f64, f64, f64, f64)> {
-    let eps = f64::EPSILON.sqrt();
-    let num_df = contrast_rank(l_mat, eps) as f64;
-    let res = kr_modcomp_test(data, l_mat, beta, beta_h)?;
+    let basis = contrast_basis(l_mat)?;
+    let num_df = basis.nrows() as f64;
+    let res = kr_modcomp_full_rank(data, &basis, beta, beta_h)?;
     Ok((res.f_stat, res.den_df, res.p_value, num_df))
 }
 
@@ -285,7 +301,7 @@ mod tests {
     #[test]
     fn contrast_rank_single_row() {
         let l = array![[0.0, 1.0, 0.0]];
-        assert_eq!(contrast_rank(&l, 1e-10), 1);
+        assert_eq!(contrast_basis(&l).unwrap().nrows(), 1);
     }
 
     #[test]

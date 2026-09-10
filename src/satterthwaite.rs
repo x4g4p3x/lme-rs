@@ -204,7 +204,7 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<Sa
         if t_stat.is_nan() || t_stat.is_infinite() {
             p_values[i] = f64::NAN;
         } else if let Ok(dist) = StudentsT::new(0.0, 1.0, df) {
-            let p_val = 2.0 * (1.0 - dist.cdf(t_stat.abs()));
+            let p_val = 2.0 * dist.sf(t_stat.abs());
             p_values[i] = p_val;
         } else {
             p_values[i] = f64::NAN;
