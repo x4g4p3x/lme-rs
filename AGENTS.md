@@ -1,113 +1,148 @@
-# Contributor and agent pre-flights
+# Agent guide
 
-Use the smallest validation tier that proves the change is sound, then run the extra checks required by the files you changed. Do not claim checks that were skipped.
+This is a Rust statistical library (`lme-rs`) with PyO3/maturin Python bindings
+(`lme_python`). There is no application server to start. Run commands from the
+repository root unless stated otherwise.
 
-## First: choose the required checks
+## Start here
 
-| Change | Required local validation |
+1. Inspect `git status --short --branch` and the relevant diff. Preserve unrelated
+   changes; do not reset, stash, switch branches, or update dependencies as routine setup.
+2. Use `rg` and the map below to find the implementation and existing tests. Read
+   relevant guides rather than scanning the whole repository before a focused fix.
+3. Choose required checks before editing. Reproduce bugs with focused tests, fix
+   the cause, and verify both the regression and affected behavior.
+4. Update [CHANGELOG.md](CHANGELOG.md) under `Unreleased` for user-visible fixes,
+   features, and compatibility changes. Instruction-only edits need no entry.
+5. Review the final diff. Report changes, validation, and failures/skips/limitations;
+   do not claim unrun checks.
+
+## Code map
+
+| Area | Start with |
 |---|---|
-| Rust code | `task lint`, `task test:fast`; use `task rust` for cross-module or public-API changes |
+| Public API, contracts, reusable fits | `src/lib.rs`, `src/model.rs`, `src/prepared.rs` |
+| Formulas and design matrices | `src/formula.rs`, `src/model_matrix.rs`, `src/basis.rs` |
+| LMM / GLMM / nonlinear fitting | `src/math.rs`, `src/optimizer.rs`, `src/intercept_blocked.rs` / `src/glmm_math.rs`, `src/family.rs` / `src/nlmm/` |
+| Inference and post-fit behavior | `src/contrast.rs`, `src/ddf.rs`, `src/satterthwaite.rs`, `src/kenward_roger.rs`, `src/kr_modcomp.rs`; named modules such as `predict.rs`, `simulate.rs`, `emmeans.rs`, `mcp.rs`, `robust.rs` |
+| Python API and tests | `python/src/lib.rs`, `python/tests/` |
+| Regression tests and reference evidence | `tests/`, `tests/data/`, `comparisons/` |
+| Checks, aliases, hooks, tool versions | [scripts/ci/lme_ci.py](scripts/ci/lme_ci.py), [Taskfile.yml](Taskfile.yml), [lefthook.yml](lefthook.yml), [mise.toml](mise.toml) |
+
+## Required validation
+
+Use the smallest tier covering the change. Requirements from multiple rows combine;
+a successful broader check can satisfy its component checks.
+
+| Change | Minimum checks and escalation |
+|---|---|
+| Rust code | `task lint`, `task test:fast`, and affected integration tests; use `task rust` for cross-module or public-API changes |
 | Python bindings | `task lint:python`, `task python` |
 | CI, manifests, release tooling | `task preflight`; use `task ci` before a release or broad refactor |
-| R / Julia comparison scripts | `task lint:comparisons`; use `task lint:comparisons:required` when the formatters are installed |
-| Documentation or portable examples | `task docs:check` (includes dashboard JSON drift); use `task consumer:smoke` when install or example behavior changes |
-| LMM throughput paths (`src/math.rs`, `src/optimizer.rs`) | Read [OPTIMIZATION.md](OPTIMIZATION.md) and run the applicable fair-harness cases |
-| Completion score files: `README.md`, `REPO_COMPLETION_BY_AREA.md`, `completion_manifest.json`, or `scripts/ci/check_completion_score.py` | `task completion:check` |
+| R / Julia comparison scripts | `task lint:comparisons`; use `task lint:comparisons:required` when formatters are installed |
+| Documentation (including this file) or portable examples | `task docs:check`; add `task consumer:smoke` when install or example behavior changes |
+| LMM throughput paths (`src/math.rs`, `src/optimizer.rs`, related caches/solvers) | Read [OPTIMIZATION.md](OPTIMIZATION.md) and run applicable fair-harness cases in addition to Rust checks |
+| `README.md`, `REPO_COMPLETION_BY_AREA.md`, `completion_manifest.json`, `scripts/ci/check_completion_score.py` | `task completion:check` |
 
-For a change that crosses several rows, run every applicable check. Full Rust integration tests are `task test` (or `cargo test --locked`).
+### Avoid redundant work
 
-## Completion score policy
+- Start with `cargo test --locked --test <test_target> <test_filter>` or
+  `cargo test --locked --lib <test_filter>`. Selecting zero tests proves nothing.
+- `task rust` includes Rust lint, all-target compilation, unit/integration tests,
+  doctests, and documentation generation. Add `task lint:python` for the Ruff part
+  of `task lint`; do not separately repeat `task test:fast`.
+- `task test` runs the full Rust suite. On Windows/macOS, `task test:consolidated`
+  runs unit and integration tests with one integration executable, checks examples,
+  and runs doctests. It can replace `task test` when linking is costly. An equivalent
+  Rust validation slice is `task lint:rust`, `task check`, `task test:consolidated`,
+  and `python scripts/ci/lme_ci.py doc`.
+- `task ci` includes Rust, bindings, portable examples, lint, compilation, legal,
+  documentation, and completion checks. It does not replace audits/metadata in
+  `task preflight`, R/Julia checks, or performance harnesses. `task ci:fast` skips
+  the isolated-wheel pass; report that limitation.
+- Reuse passing results for unchanged files/dependencies in the same task. Rerun
+  affected checks after edits; broaden when scope or evidence requires it.
+  Keep hooks enabled even when they repeat earlier checks.
+- Serialize Cargo commands sharing a target directory. Capture verbose logs and
+  inspect exit status and summaries. A timeout or compilation in progress is not a failed test.
 
-The completion headline in [README.md](README.md) and every percentage in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) are generated claims, not values to edit by hand.
+## Correctness and evidence
 
-- [completion_manifest.json](completion_manifest.json) is the source of truth: it declares binary scope commitments, their weights, locked `scope` strings, evidence paths, and a `gap` for every incomplete criterion.
-- `task completion:check` validates schema version 2 (names, scopes, gaps), evidence-path existence, score arithmetic, report rows, and the README headline.
-- A completion item may be marked complete only when its **locked scope** is met and its stated evidence is current. Partial, stale, or substituted evidence earns zero.
-- Do not raise a score merely because an API exists, a focused benchmark passes, or the stated scope has been narrowed or replaced. Do not edit `scope` to make an existing artifact pass. Update the manifest and supporting evidence in the same change.
+- Add regression coverage for bug fixes. Prefer statistical identities, explicit
+  expected behavior, and independent fixtures over duplicating the implementation.
+- Register new integration test files in [tests/ci_consolidated.rs](tests/ci_consolidated.rs).
+- For R/Julia parity, match rows, formula, family/link, weights, offsets, and ML/REML.
+  Explain tolerances; do not loosen them just to make a failure pass.
+- Tie benchmark claims to the revision, environment, and measured cases. Follow
+  [BENCHMARKS.md](BENCHMARKS.md) and [OPTIMIZATION.md](OPTIMIZATION.md); a focused
+  speedup does not establish general parity or completion.
 
-`task ci` runs this check automatically. Run it directly whenever a completion-related file changes.
+### Completion scores are generated claims
 
-## Tooling architecture
+[completion_manifest.json](completion_manifest.json) governs the README headline
+and all percentages in [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md).
+It declares weighted binary commitments, locked `scope` strings, evidence paths,
+and a `gap` for every incomplete criterion.
 
-`scripts/ci/lme_ci.py` is the cross-platform implementation used by `Taskfile.yml`, Lefthook, GitHub Actions, and the legacy `scripts/local_ci.*` wrappers. Keep new checks there rather than duplicating shell logic.
+- Complete an item only when its locked scope is met and evidence is current.
+  Partial, stale, or substituted evidence earns zero; an API or focused benchmark is insufficient.
+- Do not narrow/replace `scope` to earn credit or edit generated percentages by hand.
+  Update the manifest and supporting evidence together.
+- `task completion:check` validates schema version 2, names/scopes/gaps, evidence
+  paths, arithmetic, report rows, and the README headline. `task ci` includes it.
 
-| Component | Role |
-|---|---|
-| [scripts/ci/lme_ci.py](scripts/ci/lme_ci.py) | Shared Python 3.10+ CI runner |
-| [Taskfile.yml](Taskfile.yml) | Thin, user-facing aliases |
-| [lefthook.yml](lefthook.yml) | Staged-file pre-commit checks and pre-push preflight |
-| [mise.toml](mise.toml) | Pinned Rust, Python, `uv`, Lefthook, and Task |
-| `uv` | Locked Python environment and Ruff invocation |
+## Setup and recovery
 
-One-time setup:
+- [mise.toml](mise.toml) configures Rust stable, Python 3.11, uv, Task, and Lefthook.
+  Use `task setup` for tools and hooks; run `mise install` first if Task is missing.
+  With tools already installed, use `task hooks:install`. Pre-push audits also
+  require `cargo-audit` (`cargo install cargo-audit`).
+- For missing PATH entries, use `mise exec -- task <name>`. Locate installed tools
+  before reinstalling. Verify subprocess discovery in the actual environment with
+  `python -c "import shutil; print(shutil.which('uv'))"` when necessary.
+- Without Task, use `python scripts/ci/lme_ci.py <subcommand>` (`python3` where
+  appropriate). Mappings are in [Taskfile.yml](Taskfile.yml): `test:fast` → `test-fast`,
+  `rust` → `rust-all`, `lint:python` → `ruff-lint`, `docs:check` → `docs-check`.
+  Use `--help` for all commands. Implement new checks in this runner, not duplicate shell logic.
+- For Git dubious ownership, use `git -c safe.directory=C:/path/to/lme-rs <command>`
+  with this checkout's absolute forward-slash path; do not trust all directories globally.
+- x86_64 builds link static Intel MKL via `ndarray-linalg`; first builds can be slow.
+  Run numerical examples with `--release`, e.g. `cargo run --release --locked --example sleepstudy`.
+  Leave the CI runner's own build profiles unchanged.
+- Windows linker errors `LNK1318`/`LNK1106` can indicate disk exhaustion. Check space
+  and active builds first. Before cleaning, verify the target belongs to this checkout
+  and no build uses it; avoid broad cache deletion.
+- `uv sync` can uninstall the editable Python extension. Restore it from `python/`
+  with `uv run --no-sync maturin develop --release`, or rerun `task python`.
+  Run Python examples there with `uv run --no-sync python examples/<name>.py`.
 
-```powershell
-mise install
-task setup
-```
+## Git, hooks, and release boundaries
 
-If tools are already installed, run `task hooks:install`.
+- Follow the user's commit/push scope; commit authorization alone does not authorize
+  pushing. When already authorized, complete validation and delivery without asking again.
+- For requested updates, fetch before comparing branches; fast-forward only when
+  ancestry and local changes permit it. After pushing, verify HEAD, the tracking ref,
+  and live remote branch SHA agree, and report remaining local changes.
+- Lefthook checks matching staged files: Rust format/Clippy, Python Ruff, comparison
+  formatting, manifests, benchmarks/dashboard, and metadata. Hooks may auto-stage
+  formatting; inspect the result. They do not run full Rust/bindings suites or `pip-audit`.
+- Pre-push runs `task preflight`: lint, all-target compilation, Cargo audits,
+  legal/provenance, and metadata validation. Use `--no-verify` only when explicitly
+  necessary; report the bypass and omitted checks.
+- Hosted validation runs on PRs, `v*` tags, and manual dispatch, not ordinary branch
+  pushes. Cache-prime is not validation. Hosted coverage adds the OS/Python matrix,
+  production-load gates, and `pip-audit`; PRs skip the four heavy ignored cases.
+- Inspect the exact failing CI job/log before changing code. Do not merge with a
+  failing security audit. For metadata authentication, use `REPO_ADMIN_TOKEN` with
+  `task repo-metadata`; a hosted `401` requires checking/rotating the Actions secret.
+- Preserve full-SHA action pins and readable version comments. After BLAS target-table
+  or release-workflow changes, run `task ci` or manually dispatch CI before tagging;
+  Windows/Linux cannot validate macOS Apple Silicon BLAS.
+- Tag CI gates crates.io publishing and dispatches PyPI only after validation succeeds.
+  Keep PyPI top-level for Trusted Publishing attestations; publishing workflows must
+  not independently listen to tags. Read [RELEASING.md](RELEASING.md) before releases.
+- R/Julia benchmark workflow coverage belongs in tag/manual runs. `task benchmarks:preflight`
+  includes Rust smoke and R smoke when R/lme4 is installed. Optional tool skips are not passes.
 
-## What hooks do
-
-### Commit
-
-Lefthook runs matching staged checks in parallel:
-
-- Rust: format, then Clippy.
-- Python: Ruff check and format with auto-staging.
-- R / Julia comparisons: formatter when its runtime and formatter package are available.
-- Cargo manifests: `cargo check --all-targets`.
-- Benchmark inputs: Rust benchmark smoke.
-- Repository metadata inputs: metadata dry run, and token verification when `REPO_ADMIN_TOKEN` is set.
-
-The commit hook does not run the full Rust suite, Python bindings suite, or `pip-audit`.
-
-### Push
-
-The pre-push hook runs `task preflight`, which includes linting, `cargo check --workspace --all-targets --locked`, `cargo audit`, legal/provenance checks, and repository-metadata validation. It is not a substitute for `task ci` after broad changes.
-
-Use `--no-verify` only when explicitly necessary; report the bypass and the checks not run.
-
-## CI and release boundaries
-
-GitHub Actions validation runs automatically on pull requests and `v*` tags, and can be manually dispatched. Ordinary non-PR branch pushes do not receive the hosted validation matrix automatically. A lightweight cache-prime workflow runs when Rust dependency inputs change on `master` and weekly so new PRs can reuse trusted dependency artifacts. Pull requests run the full matrix except the four ignored heavy production-load cases. The tag CI calls the crates.io workflow and dispatches the top-level PyPI workflow only after every validation job succeeds; the publishing workflows do not listen to tags independently. The PyPI workflow must remain top-level because Trusted Publishing attestations do not support a reusable publishing workflow.
-
-External GitHub Actions are pinned to full commit SHAs, with the readable release line retained as a comment. Dependabot proposes grouped weekly pin updates; do not replace SHA pins with mutable tags. Dependency audits and libFuzzer smoke tests run weekly in addition to their release/manual entry points.
-
-- `task ci` mirrors the core hosted flow: Rust tests, Python bindings, portable consumer examples, lint, all-targets check, legal checks, documentation/link verification, and the completion-score check.
-- Hosted-only coverage includes the multi-OS matrix, Python 3.10–3.13, production-load gates, and `pip-audit`.
-- After changing BLAS target tables or release workflows, run `task ci` locally or manually dispatch CI before tagging; macOS Apple Silicon BLAS is not exercised on Windows/Linux.
-- Benchmark workflow coverage requiring R or Julia belongs in the tag/manual workflow. `task benchmarks:preflight` runs the Rust smoke plus the R smoke when R/lme4 is available.
-
-For repository-metadata token issues, set `REPO_ADMIN_TOKEN` locally and run `task repo-metadata`; a hosted `401` means the Actions secret must be rotated.
-
-## Command reference
-
-| Command | Purpose |
-|---|---|
-| `task lint` | Rust format/Clippy plus Python Ruff |
-| `task test:fast` / `task test` | Rust unit-only / full Rust suite |
-| `task test:consolidated` | Hosted non-Linux single-binary integration suite, doctests, and example checks |
-| `task rust` / `task python` | Rust-only CI slice / bindings build and pytest flow |
-| `task preflight` | Pre-push checks: lint, check, audit, legal, metadata |
-| `task ci` / `task ci:fast` | Core CI mirror / reuse the editable Python environment and skip the isolated-wheel pass |
-| `task audit` / `task legal` | Security audit / provenance and license checks |
-| `task completion:check` | Verify the manifest-derived completion score and published markers |
-| `task docs:check` / `task consumer:smoke` | Validate docs/links/API examples / run clean-install Rust and Python workflows |
-| `task benchmarks:site` | Regenerate `docs/benchmarks/data/latest.json` from checked-in reference JSON |
-| `task benchmarks:fair-rust-julia` | Fair fit-only Rust vs MixedModels.jl timing when Julia packages are installed |
-| `task benchmarks:perf-breakdown` | Rust phase timings against Julia optimizer evaluation counts |
-| `task benchmarks:external-timings` | Fair-ish `nlmer`, post-fit inference, and Python FFI timings vs R when available |
-| `task explorations` | Standalone native-parser AST, θ-grid, and MCP exploration examples |
-| `task lint:comparisons` | Optional R/Julia comparison formatting check |
-
-Run `python scripts/ci/lme_ci.py --help` for the complete command list. See [CONTRIBUTING.md](CONTRIBUTING.md) for contributor workflow and [RELEASING.md](RELEASING.md) for release steps.
-
-## Cursor Cloud specific instructions
-
-This repo is a pure Rust library (`lme-rs`) plus a PyO3/maturin Python binding (`lme_python`); there are no servers or long-running services. "Running the app" means building the crate and running examples/tests. See the command reference above for the canonical `task` aliases.
-
-- Toolchain comes from `mise` (per [mise.toml](mise.toml): Rust stable, Python 3.11, `uv`, `task`, `lefthook`). The startup update script runs `mise install`. Interactive shells auto-activate mise via `~/.bashrc`. In a non-interactive shell where `mise`/`task`/`uv` aren't on `PATH`, run `eval "$($HOME/.local/bin/mise activate bash --shims)"` first (or invoke tools with `$HOME/.local/bin/mise exec -- <cmd>`).
-- On x86_64 the core crate links Intel MKL statically via `ndarray-linalg`, so no `gfortran`/system BLAS is needed; the first `cargo build`/`task test:fast` compiles MKL and takes a few minutes (subsequent builds are cached). Examples must be run with `--release` (e.g. `cargo run --release --example sleepstudy`) — a debug build is very slow.
-- Python bindings gotcha: `uv sync` / `task ci` / `task python` reinstall the venv and **uninstall** the maturin-built `lme_python` before rebuilding it. If you run a bare `uv sync` (or interrupt `task python` before its maturin step), `import lme_python` breaks; restore it with `cd python && uv run --no-sync maturin develop --release` (or re-run `task python`). Run Python examples from `python/` via `uv run --no-sync python examples/<name>.py`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for extended guidance and
+[Taskfile.yml](Taskfile.yml) for less common commands.
