@@ -12,7 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmark_evidence import assess_timing, check_result, fit_agreement
 from build_benchmark_site import transform_fair
-from run_fair_rust_julia_benchmark import FAIR_CASES, compare_case, parse_args
+from run_fair_rust_julia_benchmark import (
+    FAIR_CASES,
+    check_optimizer_backend,
+    compare_case,
+    parse_args,
+)
 
 CASE = FAIR_CASES["sleepstudy_reml"]
 
@@ -39,6 +44,28 @@ def result(implementation, seconds=1.0, repeats=10):
 
 
 class BenchmarkEvidenceTests(unittest.TestCase):
+    def test_wrong_or_unidentified_rust_backend_is_rejected(self):
+        for features, expected, wrong in [
+            ("", "argmin", "basin"),
+            ("basin", "basin", "argmin"),
+        ]:
+            check_optimizer_backend(
+                {"implementation": "rust", "optimizer_backend": expected}, features
+            )
+            for backend in [wrong, None]:
+                with self.assertRaisesRegex(ValueError, "does not match"):
+                    check_optimizer_backend(
+                        {"implementation": "rust", "optimizer_backend": backend},
+                        features,
+                    )
+
+    def test_rust_backend_selection_does_not_reject_julia(self):
+        check_optimizer_backend(result("julia"), "basin")
+        check_optimizer_backend(
+            {"implementation": "rust", "optimizer_backend": "basin"},
+            "perf-diagnostics, basin",
+        )
+
     def test_invalid_measurement_settings_are_rejected(self):
         for args in (
             ["--repeats", "0"],

@@ -16,11 +16,17 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 struct BreakdownReport {
+    optimizer_backend: &'static str,
     case: String,
     formula: String,
     reml: bool,
     n_obs: usize,
     optimizer_iterations: u64,
+    converged: Option<bool>,
+    objective: Option<f64>,
+    evaluated_objective: Option<f64>,
+    theta: Option<Vec<f64>>,
+    coefficients: Vec<f64>,
     /// Full `lmer()` wall time (prepare + optimize + post-fit).
     fit_wall_seconds: f64,
     /// One-time `prepare_lmer` wall time.
@@ -129,11 +135,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fit_wall = cold_started.elapsed();
 
     let report = BreakdownReport {
+        optimizer_backend: if cfg!(feature = "basin") {
+            "basin"
+        } else {
+            "argmin"
+        },
         case,
         formula,
         reml,
         n_obs,
         optimizer_iterations: fit.iterations.unwrap_or(0),
+        converged: fit.converged,
+        objective: fit.diagnostics.as_ref().map(|d| d.objective),
+        evaluated_objective: fit.deviance,
+        theta: fit.theta.as_ref().map(|v| v.to_vec()),
+        coefficients: fit.coefficients.to_vec(),
         fit_wall_seconds: fit_wall.as_secs_f64(),
         prepare_wall_seconds: prepare_wall.as_secs_f64(),
         prepare_perf,

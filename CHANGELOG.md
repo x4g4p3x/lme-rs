@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add an optional `basin` Cargo feature using Basin 1.10.0 for projected
+  Nelder-Mead searches, with paired comparisons against the default Argmin backend.
+
 ### Changed
 
 - Qualify fair Rust/Julia benchmark speed claims with per-fit LMM agreement and

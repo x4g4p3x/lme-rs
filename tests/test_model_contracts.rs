@@ -253,6 +253,30 @@ fn iteration_limits_are_visible_and_can_be_required() {
 }
 
 #[test]
+fn singular_random_slopes_recover_zero_variance_components() {
+    // Identical groups have no between-group variation, while curvature leaves
+    // positive residual variance after fitting the common linear trend.
+    let x: Vec<f64> = (0..60).map(|i| (i % 5) as f64 - 2.0).collect();
+    let y: Vec<f64> = x.iter().map(|&v| 3.0 + 2.0 * v + 0.1 * v * v).collect();
+    let group: Vec<String> = (0..60).map(|i| format!("g{}", i / 5)).collect();
+    let df = df!("x" => x, "y" => y, "group" => group).unwrap();
+    let fixed = lm_df("y ~ x", &df).unwrap();
+    for reml in [false, true] {
+        let fit = lmer("y ~ x + (1 + x | group)", &df, reml).unwrap();
+        assert_eq!(fit.converged, Some(true));
+        let theta = fit.theta.as_ref().unwrap();
+        assert!(theta[0] >= 0.0 && theta[0] < 1e-3, "{theta:?}");
+        assert!(theta[2] >= 0.0 && theta[2] < 1e-3, "{theta:?}");
+        assert!(fit.diagnostics.as_ref().unwrap().objective.is_finite());
+        close(
+            fit.coefficients.as_slice().unwrap(),
+            fixed.coefficients.as_slice().unwrap(),
+            1e-6,
+        );
+    }
+}
+
+#[test]
 fn execution_context_preserves_caller_pool_and_environment() {
     let before = std::env::var_os("MKL_NUM_THREADS");
     let context = lme_rs::execution::ExecutionContext::new(2).unwrap();

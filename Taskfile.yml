@@ -172,6 +172,11 @@ tasks:
     cmds:
       - '{{.RUN}} consolidated-test'
 
+  basin:check:
+    desc: Lint, check, test, and document the optional Basin optimizer
+    cmds:
+      - '{{.RUN}} basin-check'
+
   rust:
     desc: Rust-only CI slice (fmt check, clippy, check, build/test, doctest, doc)
     cmds:
