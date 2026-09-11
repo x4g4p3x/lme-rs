@@ -1,133 +1,90 @@
-# Benchmark coverage map
+# Benchmark coverage
 
-[Documentation](docs/README.md) · [Benchmark guide](BENCHMARKS.md) · [Optimization notes](OPTIMIZATION.md)
+[Documentation](docs/README.md) · [Run the benchmarks](BENCHMARKS.md) · [Dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) · [Numerical comparisons](comparisons/COMPARISONS.md)
 
-This file maps **which parts of `lme-rs` have external performance references** (not just Rust-only Criterion benches). Use it to ground [REPO_COMPLETION_BY_AREA.md](REPO_COMPLETION_BY_AREA.md) axis (3) and [USABILITY.md](USABILITY.md) performance posture.
-
-**Evidence assessment:** 2026-08-15. The catalog below reports dated artifacts,
-not measurements rerun during documentation maintenance.
-
-**Jump to:** [Harness tiers](#harness-tiers) · [Case catalog](#tier-a-case-catalog) ·
-[Commands](#running-benchmarks) · [Claim policy](#what-each-completion-row-may-claim)
-
----
+Use this map to check whether a published result covers your workload.
+Timings, numerical correctness, and supported API scope are separate kinds of
+evidence. The presence of a benchmark does not establish a speed advantage.
 
 ## Harness tiers
 
-| Tier | Entry point | External reference | Times | Use for completion % |
-|:-----|:------------|:-------------------|:------|:---------------------|
-| **A — Fair fit-only** | [`scripts/run_fair_rust_julia_benchmark.py`](scripts/run_fair_rust_julia_benchmark.py) | **MixedModels.jl** (+ GLM.jl for GLMM) | `cold_fit`; optional Rust `prepare_lmer`, `fit_prepared` | **Yes** — axis (3) thresholds |
-| **B — Phase breakdown** | [`scripts/run_perf_breakdown.py`](scripts/run_perf_breakdown.py) | Julia `optsum.feval` | Rust phases + Julia eval count | Engineering only |
-| **C — Example scripts** | [`scripts/run_cross_language_benchmarks.py`](scripts/run_cross_language_benchmarks.py) | R / Julia / Python / Rust | Whole script (unfair) | Smoke / regression, not axis (3) |
-| **D — Criterion** | [`benches/bench_math.rs`](benches/bench_math.rs) | None | Rust-only | Regression guard |
-
-**Numerical parity** ([`tests/test_golden_parity.rs`](tests/test_golden_parity.rs), [`comparisons/COMPARISONS.md`](comparisons/COMPARISONS.md)) is **correctness**, not throughput.
-
----
-
-## Axis (3) threshold
-
-Default target: **Rust median &lt; 1.0× Julia median** on `cold_fit` for tier-A LMM cases on the reference workstation (strictly faster than MixedModels.jl).
-
-Prior milestones: **≤ 2×** (through 2026-07-08) while crossed/nested were multi× slower; **≤ 1.5×** (2026-07-09–15); selected crossed/nested strict passes on 2026-07-16. The [2026-07-22 full tier-A reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json) records all 12 cases at the **1.0×** gate on that revision. LMM rows remain the current LMM evidence (`math.rs` / `optimizer.rs` unchanged); the two GLMM rows predate Gamma PIRLS phi profiling and multivariate AGQ-in-θ.
-
-```powershell
-python scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases --repeats 10
-```
-
-Hot-path target (batch / CV): **`fit_prepared` ≤ ~1× Julia `fit`** when `--with-phases` is set (LMM only). Override cold threshold: `--target-ratio 1.5` (legacy bar).
-
----
+| Suite | Coverage | Reference | Measures |
+|:---|:---|:---|:---|
+| **A · Fair fits** | 10 LMM + 2 GLMM cases | MixedModels.jl | Complete fit; optional Rust preparation and reuse |
+| **B · Phase breakdown** | Crossed 20k, nested 10k, random intercept 10k | Julia evaluation counts | Setup, objective work, solver phases, post-fit cost |
+| **C · Whole scripts** | 7 example cases in 4 languages | R, Julia, Python, Rust | Whole process, including imports and JIT |
+| **D · Criterion** | Formula, design, fitting, prediction, inference, scaling | Rust baselines | Operation-level regression evidence |
+| **E · External operations** | LMM, Orange NLMM, Satterthwaite, Kenward–Roger, Python binding | R and Rust | Selected fit/inference calls after setup |
+| **Production Criterion** | Large rows/groups/slopes, bursts, prediction | Rust baselines | Optional larger workload suite |
 
 ## Tier A case catalog
 
-| Case | Model | Fixture | Reference | `cold_fit` vs Julia | `fit_prepared` vs Julia | Notes |
-|:-----|:------|:--------|:----------|:--------------------|:------------------------|:------|
-| `sleepstudy_reml` | LMM | Real (180 obs, random slopes) | MixedModels.jl | **0.934×** | **0.848×** | Canonical real-world LMM; block LDL fast path |
-| `sleepstudy_weighted_reml` | LMM weighted | Real | MixedModels.jl `wts` | **0.923×** | **0.807×** | Same weights as [`benches/bench_math.rs`](benches/bench_math.rs) |
-| `penicillin_crossed_reml` | LMM | Real crossed intercept | MixedModels.jl | **0.398×** | **0.305×** | Smaller *n* than `crossed_20k` |
-| `pastes_nested_reml` | LMM | Real nested intercept | MixedModels.jl | **0.495×** | **0.390×** | |
-| `random_intercept_10k` | LMM | Synthetic | MixedModels.jl | **0.661×** | **0.173×** | |
-| `random_intercept_50k` | LMM | Synthetic | MixedModels.jl | **0.569×** | **0.174×** | Single-factor setup fast path |
-| `random_intercept_100k` | LMM | Synthetic | MixedModels.jl | **0.509×** | **0.171×** | Single-factor setup fast path |
-| `large_random_slopes_100k` | LMM | Synthetic (100k obs; 2k groups) | MixedModels.jl | **0.898×** | **0.646×** | Showcase: correlated intercept/slope, 3 θ; linear cache setup |
-| `crossed_20k` | LMM | Synthetic | MixedModels.jl | **0.879×** | **0.677×** | Direct two-factor Gram + allocation-free blocked gate |
-| `nested_10k` | LMM | Synthetic | MixedModels.jl | **0.961×** | **0.492×** | Direct slash design + membership Gram |
-| `cbpp_binomial_ml` | GLMM | Real binomial | MixedModels.jl GLMM | **0.749×** | N/A | Historical Laplace timing; rerun after GLMM changes |
-| `grouseticks_poisson_ml` | GLMM | Real Poisson | MixedModels.jl GLMM | **0.033×** | N/A | Historical Laplace timing; rerun after GLMM changes |
+The [dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) carries current
+measurements and their qualifications. This table describes the test coverage,
+so historical speed ratios do not become stale claims here.
 
-Cases not in tier A (no fair MixedModels.jl fit timing yet):
+| Case | Data and structure | Mode | Special consideration |
+|:---|:---|:---|:---|
+| `sleepstudy_reml` | 180 rows; correlated random intercept/slope | REML | Canonical random-slope fixture |
+| `sleepstudy_weighted_reml` | Same fixture with shared weights | REML | Objective normalization must agree |
+| `penicillin_crossed_reml` | Real crossed random intercepts | REML | Multiple grouping factors |
+| `pastes_nested_reml` | Real nested random intercepts | REML | Nested grouping structure |
+| `random_intercept_10k` | Synthetic, 10,000 rows | ML | Small end of the scaling sweep |
+| `random_intercept_50k` | Synthetic, 50,000 rows | ML | Same model family at larger scale |
+| `random_intercept_100k` | Synthetic, 100,000 rows | ML | Large single-factor workload |
+| `large_random_slopes_100k` | 100,000 rows; 2,000 groups | ML | Correlated intercept/slope, three variance parameters |
+| `crossed_20k` | Synthetic, 20,000 rows | ML | Two crossed grouping factors |
+| `nested_10k` | Synthetic, 10,000 rows | ML | Batch/cask-style nesting |
+| `cbpp_binomial_ml` | Real binary response | ML / Laplace | GLMM objective equivalence is not automatically qualified |
+| `grouseticks_poisson_ml` | Real count response | ML / Laplace | GLMM likelihood conventions differ |
 
-| Area | Rust bench | Comparable | Status |
-|:-----|:-----------|:-----------|:-------|
-| `nlmer` / Orange | Golden parity + [`scripts/run_external_timings.py`](scripts/run_external_timings.py) | `lme4::nlmer` | **External R timing** (not Julia; inspect the dated artifact) |
-| GLMM AGQ (`n_agq > 1`) | Criterion | Match integration and optimizer settings | **No** matched external timing in this tier |
-| Post-fit inference (KR, ANOVA, predict) | Criterion + external harness | `lmerTest` when installed | **External R timing** for KR / Satterthwaite ANOVA |
-| LMM estimated marginal means / pairs | Criterion (`inference/emmeans_*`) | R `emmeans` correctness fixture | **Rust microbenchmark**; no cross-language speed claim |
-| Python `lme_python` FFI | External harness | Rust `lmer` | **External Python timing** (inspect the dated artifact) |
-| `lm` / `lm_df` | Minimal | R `lm` | **No** (usually negligible) |
+All cases time complete fitting. Prepared-fit phases are available for the LMM
+cases. Comparing a reused Rust design with a new Julia model remains diagnostic.
 
-The 2026-08-14 Windows Criterion run measured `inference/emmeans_reference_grid` at **42.5–43.1 µs** and `inference/emmeans_pairs_tukey` at **52.9–56.8 µs** on the pastes fixture. These are post-fit operations and do not warrant a specialized cache at the current scale.
+## Coverage outside the fair fit suite
 
----
-
-## What each completion row may claim
-
-| Summary row | Throughput claim valid when |
-|:------------|:----------------------------|
-| **1 LMM** | Tier-A LMM cases meet `cold_fit` target (or documented exception) |
-| **2 GLMM** | Tier-A GLMM cases measured; do not infer from LMM row 13 alone |
-| **13 Throughput** | Named LMM cases at target from a **current** artifact; full-suite-including-GLMM needs a rerun after GLMM fit-math changes |
-| **4 Inference** | Correctness / API only unless tier added |
-
----
+| Area | Available evidence | Still missing |
+|:---|:---|:---|
+| Nonlinear mixed models | R golden fixtures; Orange fit timing | Broad matched timing across nonlinear means and difficult starts |
+| GLMM adaptive quadrature | Rust Criterion and golden fixtures | Fair external throughput across matched quadrature settings |
+| Inference | Rust Criterion; selected R Satterthwaite/KR timings | Broad cross-language inference timing |
+| Estimated marginal means | Rust Criterion and R correctness fixtures | Matched external throughput |
+| Prediction | Rust group/observation sweeps | Matched R/Julia throughput |
+| Python bindings | Shared Rust engine; one direct binding timing | Broad binding and data-conversion overhead survey |
+| Optimizer choice | Argmin/Basin tests and paired timings | Evidence must cover every workload used to justify a default change |
 
 ## Running benchmarks
 
-### Full tier A (all cases, with Rust phases)
+The [benchmark guide](BENCHMARKS.md#run-the-suites) contains complete commands,
+runtime requirements, interpretation rules, and publishing steps.
 
-```powershell
-task benchmarks:fair-rust-julia
-# or:
-python scripts/run_fair_rust_julia_benchmark.py --implementations rust,julia --with-phases --repeats 10
+For a quick functionality check:
+
+```sh
+task benchmarks:preflight
+python scripts/run_fair_rust_julia_benchmark.py --cases sleepstudy_reml --warmups 1 --repeats 2
 ```
 
-### LMM core only (CI smoke when Julia is installed)
+Those short runs are smoke tests. Use at least two warmups and ten measured fits
+for a timing assessment, then repeat independent sessions for optimizer decisions.
 
-```powershell
-python scripts/run_fair_rust_julia_benchmark.py --cases sleepstudy_reml,random_intercept_10k --warmups 1 --repeats 2
-```
+## What each completion row may claim
 
-### Julia dependencies
+The [completion manifest](completion_manifest.json) is authoritative. Its locked
+scopes, current evidence, and open gaps govern the generated report.
 
-```julia
-using Pkg; Pkg.add(["CSV", "DataFrames", "JSON", "MixedModels"])
-# GLM only for GLMM tier-A cases (cbpp, grouseticks):
-using Pkg; Pkg.add("GLM")
-```
+| Claim | Evidence required |
+|:---|:---|
+| An LMM throughput target is met | The specified current cases qualify numerically and satisfy their timing threshold |
+| GLMM throughput is established | Matching GLMM settings and numerical objectives, not an LMM result |
+| An inference workflow is faster | Timings for that operation, not the existence of its API |
+| The full suite is competitive | Complete applicable coverage, including regressions and unqualified cases |
 
-[`comparisons/bench_fair_julia_timing.jl`](comparisons/bench_fair_julia_timing.jl) lazy-loads **GLM** only when `--model` is `glmm_*`, so LMM-only runs do not require GLM installed.
-
----
-
-### External nlmer / inference / Python timings
-
-Julia is not required. Times Rust and R `nlmer`, Rust Kenward–Roger / Satterthwaite ANOVA (and `lmerTest` when installed), and `lme_python.lmer` FFI overhead:
-
-```powershell
-python scripts/run_external_timings.py --repeats 5 --output benchmarks/external-nlmm-inference-python-timings.json
-task benchmarks:external-timings
-```
-
-A dated reference JSON lives under [`benchmarks/`](benchmarks/). Use `--rust-only` for a smoke that skips R and Python.
-
----
+Older thresholds and results remain in [the measurement archive](BENCHMARK_HISTORY.md).
+Do not edit completion percentages or narrow a commitment to fit a benchmark result.
 
 ## Maintenance
 
-1. After optimization work on a workflow, add or refresh its tier-A case.
-2. Record medians in [BENCHMARKS.md](BENCHMARKS.md) and/or commit a dated reference JSON under [`benchmarks/`](benchmarks/).
-3. Update **Measured** / **Re-run** cells in the case catalog above.
-4. Update [completion_manifest.json](completion_manifest.json) and its supporting
-   evidence only when the existing locked scope is met. Keep generated report
-   markers aligned and run `task completion:check`; do not edit percentages by hand.
+Add new cases when a workflow changes, retain raw dated results, record skipped
+tools, and update links to current evidence. Run `task completion:check` whenever
+the completion manifest or generated report changes.

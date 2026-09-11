@@ -1,0 +1,337 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-11T09:54:22.661297+00:00",
+  "host": {
+    "system": "Windows",
+    "machine": "AMD64",
+    "python": "3.11.15"
+  },
+  "warmups": 3,
+  "repeats": 11,
+  "rust_features": "",
+  "families_present": [
+    "lmm_fit",
+    "nlmm_fit",
+    "post_fit_inference",
+    "python_ffi"
+  ],
+  "skipped": [],
+  "reports": [
+    {
+      "case": "sleepstudy_lmer",
+      "family": "lmm_fit",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "rust",
+      "n_obs": 180,
+      "optimizer_backend": "argmin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0006327,
+        0.0006338,
+        0.000638,
+        0.0006428,
+        0.0006885,
+        0.0006314,
+        0.0006065,
+        0.0006127,
+        0.0006182,
+        0.0006215,
+        0.0006159
+      ],
+      "summary": {
+        "max_seconds": 0.0006885,
+        "mean_seconds": 0.0006310909090909092,
+        "median_seconds": 0.0006314,
+        "min_seconds": 0.0006065
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "r_lme4",
+      "case": "sleepstudy_lmer",
+      "family": "lmm_fit",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "n_obs": 180,
+      "warmups": 3,
+      "repeats": 11,
+      "batch_iterations": 32,
+      "batch_elapsed_seconds": [
+        0.38,
+        0.35,
+        0.35,
+        0.39,
+        0.510000000000001,
+        0.46,
+        0.39,
+        0.39,
+        0.499999999999999,
+        0.42,
+        0.4
+      ],
+      "calibration_calls": 63,
+      "samples_seconds": [
+        0.011875,
+        0.0109375,
+        0.0109375,
+        0.0121875,
+        0.0159375,
+        0.014375,
+        0.0121875,
+        0.0121875,
+        0.015625,
+        0.013125,
+        0.0125
+      ],
+      "summary": {
+        "min_seconds": 0.0109375,
+        "max_seconds": 0.0159375,
+        "mean_seconds": 0.0128977272727273,
+        "median_seconds": 0.0121875
+      }
+    },
+    {
+      "case": "sleepstudy_satterthwaite",
+      "family": "post_fit_inference",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "rust",
+      "n_obs": 180,
+      "optimizer_backend": "argmin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0005092,
+        0.0005123,
+        0.0005014,
+        0.0005036,
+        0.0004873,
+        0.0004958,
+        0.0004896,
+        0.0004919,
+        0.0005132,
+        0.0004897,
+        0.0004883
+      ],
+      "summary": {
+        "max_seconds": 0.0005132,
+        "mean_seconds": 0.0004983909090909091,
+        "median_seconds": 0.0004958,
+        "min_seconds": 0.0004873
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "r_lmerTest",
+      "case": "sleepstudy_satterthwaite",
+      "family": "post_fit_inference",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "n_obs": 180,
+      "warmups": 3,
+      "repeats": 11,
+      "batch_iterations": 256,
+      "batch_elapsed_seconds": [
+        0.23,
+        0.22,
+        0.22,
+        0.220000000000001,
+        0.23,
+        0.22,
+        0.22,
+        0.220000000000001,
+        0.22,
+        0.22,
+        0.22
+      ],
+      "calibration_calls": 511,
+      "samples_seconds": [
+        0.0008984375,
+        0.000859375000000001,
+        0.000859374999999999,
+        0.000859375000000002,
+        0.000898437500000002,
+        0.000859374999999999,
+        0.000859374999999999,
+        0.000859375000000002,
+        0.000859374999999999,
+        0.000859374999999999,
+        0.000859374999999999
+      ],
+      "summary": {
+        "min_seconds": 0.000859374999999999,
+        "max_seconds": 0.000898437500000002,
+        "mean_seconds": 0.000866477272727273,
+        "median_seconds": 0.000859374999999999
+      }
+    },
+    {
+      "case": "sleepstudy_kenward_roger",
+      "family": "post_fit_inference",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "rust",
+      "n_obs": 180,
+      "optimizer_backend": "argmin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0054558,
+        0.0060881,
+        0.0055203,
+        0.0059414,
+        0.0056254,
+        0.0053264,
+        0.0064905,
+        0.0059015,
+        0.0052279,
+        0.0048425,
+        0.0046643
+      ],
+      "summary": {
+        "max_seconds": 0.0064905,
+        "mean_seconds": 0.005553099999999999,
+        "median_seconds": 0.0055203,
+        "min_seconds": 0.0046643
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "r_lmerTest",
+      "case": "sleepstudy_kenward_roger",
+      "family": "post_fit_inference",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "n_obs": 180,
+      "warmups": 3,
+      "repeats": 11,
+      "batch_iterations": 8,
+      "batch_elapsed_seconds": [
+        0.28,
+        0.29,
+        0.26,
+        0.3,
+        0.3,
+        0.28,
+        0.300000000000001,
+        0.28,
+        0.28,
+        0.28,
+        0.279999999999999
+      ],
+      "calibration_calls": 15,
+      "samples_seconds": [
+        0.035,
+        0.03625,
+        0.0325,
+        0.0375,
+        0.0375,
+        0.035,
+        0.0375000000000001,
+        0.035,
+        0.035,
+        0.035,
+        0.0349999999999999
+      ],
+      "summary": {
+        "min_seconds": 0.0325,
+        "max_seconds": 0.0375000000000001,
+        "mean_seconds": 0.0355681818181818,
+        "median_seconds": 0.035
+      }
+    },
+    {
+      "case": "orange_nlmer",
+      "family": "nlmm_fit",
+      "formula": "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+      "implementation": "rust",
+      "n_obs": 35,
+      "optimizer_backend": "argmin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0485559,
+        0.051413,
+        0.0485861,
+        0.0483994,
+        0.048552,
+        0.0489213,
+        0.0482777,
+        0.0499173,
+        0.0486686,
+        0.0487279,
+        0.0485522
+      ],
+      "summary": {
+        "max_seconds": 0.051413,
+        "mean_seconds": 0.048961036363636364,
+        "median_seconds": 0.0485861,
+        "min_seconds": 0.0482777
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "r_lme4",
+      "case": "orange_nlmer",
+      "family": "nlmm_fit",
+      "formula": "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+      "n_obs": 35,
+      "warmups": 3,
+      "repeats": 11,
+      "batch_iterations": 8,
+      "batch_elapsed_seconds": [
+        0.4,
+        0.41,
+        0.42,
+        0.46,
+        0.399999999999999,
+        0.41,
+        0.44,
+        0.39,
+        0.46,
+        0.43,
+        0.42
+      ],
+      "calibration_calls": 15,
+      "samples_seconds": [
+        0.05,
+        0.05125,
+        0.0525,
+        0.0575,
+        0.0499999999999999,
+        0.05125,
+        0.0549999999999999,
+        0.04875,
+        0.0575,
+        0.05375,
+        0.0525
+      ],
+      "summary": {
+        "min_seconds": 0.04875,
+        "max_seconds": 0.0575,
+        "mean_seconds": 0.0527272727272727,
+        "median_seconds": 0.0525
+      }
+    },
+    {
+      "implementation": "python_lme_python",
+      "case": "sleepstudy_lmer",
+      "family": "python_ffi",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "n_obs": 180,
+      "warmups": 3,
+      "repeats": 11,
+      "samples_seconds": [
+        0.0009456999832764268,
+        0.0015544999914709479,
+        0.0009272000170312822,
+        0.0008789999992586672,
+        0.000892700016265735,
+        0.0012182000209577382,
+        0.000953300012042746,
+        0.0009300000092480332,
+        0.0008969000191427767,
+        0.0011223999899812043,
+        0.0012131999828852713
+      ],
+      "summary": {
+        "min_seconds": 0.0008789999992586672,
+        "max_seconds": 0.0015544999914709479,
+        "mean_seconds": 0.0010484636401418936,
+        "median_seconds": 0.0009456999832764268
+      }
+    }
+  ]
+}

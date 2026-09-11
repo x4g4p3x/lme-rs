@@ -7,7 +7,16 @@ methods for your question. This guide describes the development checkout;
 use the matching Git tag for an exact release. Full signatures are in
 [the Rust API reference](https://docs.rs/lme-rs/latest/lme_rs/).
 
-## Table of Contents
+## Choose your next step
+
+| If you want to… | Start with… |
+|:---|:---|
+| Fit your first model | [Installation and a complete example](#getting-started) |
+| Choose a model or inference method | [Modeling workflows](#modeling-workflows) and [diagnostics](#inference-and-diagnostics) |
+| Refit many responses efficiently | [Repeated fits](#repeated-fits-and-cross-validation) |
+| Check speed or optimizer choice | [Current benchmark evidence](BENCHMARKS.md) and [Basin](docs/BASIN.md) |
+
+## Contents
 
 - [Getting Started](#getting-started)
 - [Data Requirements](#data-requirements)
@@ -753,7 +762,11 @@ Even with those optimizations, performance depends heavily on:
 - whether you fit random slopes as well as intercepts
 - how well-scaled the predictors are for optimization
 
-Fair fit-only timings vs MixedModels.jl are documented in [BENCHMARKS.md](BENCHMARKS.md#fair-rust-vs-julia-reference-results). LMM tier-A `cold_fit` cases passed the strict 1.0× gate on the [2026-07-22 full reference](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json); that file's GLMM rows predate later PIRLS/AGQ changes.
+Use the [current benchmark guide](BENCHMARKS.md) and
+[dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) for measured complete-fit
+costs and their numerical qualifications. Historical results are tied to their
+recorded revision; they do not establish current performance. See the
+[optimizer guide](docs/BASIN.md) before selecting Basin.
 
 For concrete parity outputs, use the scripts and datasets in `comparisons/` and `tests/data/`.
 

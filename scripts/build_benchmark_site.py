@@ -16,17 +16,12 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FAIR = (
-    REPO_ROOT / "benchmarks" / "fair-rust-julia-reference-2026-07-22-full-tier-a.json"
-)
-DEFAULT_EXTERNAL = (
-    REPO_ROOT
-    / "benchmarks"
-    / "external-nlmm-inference-python-timings-2026-08-14.json"
-)
+DEFAULT_FAIR = REPO_ROOT / "benchmarks" / "fair-rust-julia-2026-09-11-argmin.json"
+DEFAULT_EXTERNAL = REPO_ROOT / "benchmarks" / "external-timings-2026-09-11-argmin.json"
 DEFAULT_OUTPUT = REPO_ROOT / "docs" / "benchmarks" / "data"
+DEFAULT_OPTIMIZER = REPO_ROOT / "benchmarks" / "optimizer-comparison-2026-09-11.json"
+DEFAULT_CROSS = REPO_ROOT / "benchmarks" / "cross-language-2026-09-11.json"
 SITE_SCHEMA_VERSION = 2
 REPO_BLOB = "https://github.com/x4g4p3x/lme-rs/blob/master"
 IMPL_LABELS = {
@@ -47,13 +42,11 @@ FAMILY_LABELS = {
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Prepare data files for the benchmark dashboard."
-    )
+    parser = argparse.ArgumentParser(description="Prepare data files for the benchmark dashboard.")
     parser.add_argument(
         "--fair-json",
         default=str(DEFAULT_FAIR),
-        help="Checked-in fair Rust vs Julia reference JSON (completion baseline).",
+        help="Current checked-in fair Rust vs Julia measurement JSON.",
     )
     parser.add_argument(
         "--external-json",
@@ -67,8 +60,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--cross-language-json",
-        default="",
+        default=str(DEFAULT_CROSS),
         help="Optional whole-script cross-language JSON (startup/JIT inclusive).",
+    )
+    parser.add_argument(
+        "--optimizer-json",
+        default=str(DEFAULT_OPTIMIZER),
+        help="Order-balanced Argmin/Basin comparison report.",
     )
     parser.add_argument(
         "--output-dir",
@@ -224,6 +222,7 @@ def transform_fair(payload: dict[str, Any], *, label: str, source_path: str) -> 
         "source_path": source_path,
         "generated_at": payload.get("generated_at"),
         "git_sha": payload.get("git_sha"),
+        "provenance": payload.get("provenance") or {},
         "methodology": payload.get("methodology") or {},
         "machine_info": payload.get("machine_info") or {},
         "runtime_versions": payload.get("runtime_versions") or {},
@@ -255,9 +254,7 @@ def transform_fair(payload: dict[str, Any], *, label: str, source_path: str) -> 
     }
 
 
-def transform_cross_language(
-    payload: dict[str, Any], *, source_path: str
-) -> dict[str, Any]:
+def transform_cross_language(payload: dict[str, Any], *, source_path: str) -> dict[str, Any]:
     config = payload["config"]
     cases = list(config["cases"])
     implementations = list(config["implementations"])
@@ -273,9 +270,7 @@ def transform_cross_language(
 
     case_cards = []
     ratios_by_implementation: dict[str, list[float]] = {
-        implementation: []
-        for implementation in implementations
-        if implementation != "rust"
+        implementation: [] for implementation in implementations if implementation != "rust"
     }
     for case in cases:
         case_results = results_by_case.get(case, {})
@@ -369,9 +364,7 @@ def transform_external(payload: dict[str, Any], *, source_path: str) -> dict[str
     for report in payload.get("reports") or []:
         family = str(report.get("family") or "other")
         case = str(report["case"])
-        families.setdefault(family, {}).setdefault(case, {})[str(report["implementation"])] = (
-            report
-        )
+        families.setdefault(family, {}).setdefault(case, {})[str(report["implementation"])] = report
 
     family_cards = []
     for family, cases in families.items():
@@ -430,9 +423,18 @@ def build_site_payload(args: argparse.Namespace) -> dict[str, Any]:
     fair_path = Path(args.fair_json)
     if not fair_path.is_absolute():
         fair_path = REPO_ROOT / fair_path
+    fair_raw = load_json(fair_path)
+    backends = sorted(
+        {
+            row["optimizer_backend"]
+            for row in fair_raw.get("results", [])
+            if row.get("optimizer_backend")
+        }
+    )
+    backend_label = ", ".join(name.title() for name in backends) or "backend unspecified"
     fair = transform_fair(
-        load_json(fair_path),
-        label="Engineering reference (workstation)",
+        fair_raw,
+        label=f"Workstation measurement · {backend_label}",
         source_path=display_source(fair_path),
     )
     if not fair["cases"]:
@@ -470,6 +472,19 @@ def build_site_payload(args: argparse.Namespace) -> dict[str, Any]:
             source_path=display_source(cross_path),
         )
 
+    optimizer = None
+    if args.optimizer_json:
+        optimizer_path = Path(args.optimizer_json)
+        if not optimizer_path.is_absolute():
+            optimizer_path = REPO_ROOT / optimizer_path
+        raw_optimizer = load_json(optimizer_path)
+        optimizer = {
+            key: raw_optimizer[key]
+            for key in ["git_sha", "generated_at", "protocol", "cases", "caveat", "decision_text"]
+            if key in raw_optimizer
+        }
+        optimizer["source_path"] = display_source(optimizer_path)
+
     summary = fair["summary"]
     names = {
         "criterion": args.criterion_asset_name,
@@ -496,6 +511,12 @@ def build_site_payload(args: argparse.Namespace) -> dict[str, Any]:
             "release_url": args.release_url or None,
             "methodology_url": f"{args.repo_blob_url}/BENCHMARKS.md",
             "coverage_url": f"{args.repo_blob_url}/BENCHMARK_COVERAGE.md",
+            "optimizer_url": f"{args.repo_blob_url}/docs/BASIN.md",
+            "report_url": f"{args.repo_blob_url}/benchmarks/refresh-2026-09-11.md",
+            "fair_source_url": f"{args.repo_blob_url}/{display_source(fair_path)}",
+            "optimizer_source_url": f"{args.repo_blob_url}/{optimizer['source_path']}"
+            if optimizer
+            else None,
             "repo_url": "https://github.com/x4g4p3x/lme-rs",
             "assets": {
                 "criterion": args.criterion_asset_name or None,
@@ -508,6 +529,7 @@ def build_site_payload(args: argparse.Namespace) -> dict[str, Any]:
         "ci_fair": ci_fair,
         "cross_language": cross_language,
         "external": external,
+        "optimizer_comparison": optimizer,
     }
 
 
@@ -518,9 +540,7 @@ def main() -> int:
         output_dir = REPO_ROOT / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     payload = build_site_payload(args)
-    (output_dir / "latest.json").write_text(
-        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
-    )
+    (output_dir / "latest.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return 0
 
 

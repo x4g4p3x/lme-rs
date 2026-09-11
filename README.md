@@ -160,11 +160,14 @@ from field experience.
 
 ### Performance evidence
 
-The [2026-07-22 reference run](benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json)
-recorded lower Rust cold-fit medians than Julia on all **10 LMM cases** in its
-12-case suite. Its two GLMM measurements predate later fitting changes.
-Treat timings as measurements of a named revision and machine.
-See [methodology](BENCHMARKS.md) and [coverage](BENCHMARK_COVERAGE.md).
+Explore the [current benchmark dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/)
+for complete-fit timings, numerical qualifications, and optimizer comparisons.
+Results vary by model: a faster median on one workload does not establish a
+general speed advantage. Prepared fits are useful when the same design is reused.
+
+The [benchmark guide](BENCHMARKS.md) explains reproduction and uncertainty;
+the [coverage map](BENCHMARK_COVERAGE.md) shows what is measured. Older results
+remain available in the [measurement archive](BENCHMARK_HISTORY.md).
 
 ## Limitations and compatibility notes
 

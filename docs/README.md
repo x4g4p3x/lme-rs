@@ -1,10 +1,19 @@
-# Documentation
+# lme-rs documentation
 
 [Repository home](../README.md) · [Rust guide](../GUIDE.md) · [Python guide](../python/PYTHON_GUIDE.md)
 
-Documentation on `master` describes the development checkout. For a published
-package, consult the matching release tag and [changelog](../CHANGELOG.md).
-The docs.rs reference describes published Rust releases.
+Fit a first model, choose the right inference workflow, or inspect the evidence
+behind a performance claim. Rust and Python use the same fitting engine.
+
+> **Choose the right version.** These guides describe the development checkout.
+> For an installed package, use its release tag and [changelog](../CHANGELOG.md).
+> The docs.rs API reference describes published Rust releases.
+
+| Start a model | Improve an analysis | Evaluate the library |
+|:---|:---|:---|
+| [Rust quick start](../README.md#rust-1) | [Prediction and inference](../GUIDE.md#inference-and-diagnostics) | [Supported workflows](../USABILITY.md) |
+| [Python installation](../python/README.md#install) | [Repeated fits](../GUIDE.md#repeated-fits-and-cross-validation) | [Performance results](../BENCHMARKS.md) |
+| [Runnable examples](EXAMPLES.md) | [Troubleshooting](TROUBLESHOOTING.md) | [Optimizer choice](BASIN.md) |
 
 ## Start here
 
@@ -48,7 +57,9 @@ The docs.rs reference describes published Rust releases.
 | [Benchmarks](../BENCHMARKS.md) | Which harness should I run and how do I interpret it? |
 | [Benchmark coverage](../BENCHMARK_COVERAGE.md) | Which models have external timing evidence? |
 | [Dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) | How can I explore published timing artifacts? |
-| [Optimization notes](../OPTIMIZATION.md) | Which implementation choices were measured and why? |
+| [Performance engineering](../OPTIMIZATION.md) | How do I profile and safely change a fitting path? |
+| [Measurement archive](../BENCHMARK_HISTORY.md) | Which results belong to earlier revisions? |
+| [Experiment archive](../OPTIMIZATION_HISTORY.md) | Which approaches were tried, kept, or rejected? |
 | [Completion report](../REPO_COMPLETION_BY_AREA.md) | Which locked commitments are complete or open? |
 
 A numerical test, a benchmark, and a completion percentage answer different

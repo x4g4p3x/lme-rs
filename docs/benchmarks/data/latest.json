@@ -1,21 +1,25 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-07-22T12:53:31.753989+00:00",
+  "generated_at": "2026-09-11T08:57:36.126550+00:00",
   "ref_name": null,
   "headline": {
     "title": "Fair fit-only vs MixedModels.jl",
-    "source_label": "Engineering reference (workstation)",
+    "source_label": "Workstation measurement \u00b7 Argmin",
     "cold_fit_target": 1.0,
-    "cold_fit_passes": 12,
-    "cold_fit_cases": 12,
-    "geometric_mean_rust_over_julia_cold_fit": 0.5393295481665669,
-    "median_rust_over_julia_cold_fit": 0.7049246475239022
+    "cold_fit_passes": 3,
+    "cold_fit_cases": 6,
+    "geometric_mean_rust_over_julia_cold_fit": 0.9840634685171076,
+    "median_rust_over_julia_cold_fit": 0.9386058063535573
   },
   "links": {
     "run_url": null,
     "release_url": null,
     "methodology_url": "https://github.com/x4g4p3x/lme-rs/blob/master/BENCHMARKS.md",
     "coverage_url": "https://github.com/x4g4p3x/lme-rs/blob/master/BENCHMARK_COVERAGE.md",
+    "optimizer_url": "https://github.com/x4g4p3x/lme-rs/blob/master/docs/BASIN.md",
+    "report_url": "https://github.com/x4g4p3x/lme-rs/blob/master/benchmarks/refresh-2026-09-11.md",
+    "fair_source_url": "https://github.com/x4g4p3x/lme-rs/blob/master/benchmarks/fair-rust-julia-2026-09-11-argmin.json",
+    "optimizer_source_url": "https://github.com/x4g4p3x/lme-rs/blob/master/benchmarks/optimizer-comparison-2026-09-11.json",
     "repo_url": "https://github.com/x4g4p3x/lme-rs",
     "assets": {
       "criterion": null,
@@ -29,10 +33,30 @@
     }
   },
   "fair": {
-    "label": "Engineering reference (workstation)",
-    "source_path": "benchmarks/fair-rust-julia-reference-2026-07-22-full-tier-a.json",
-    "generated_at": "2026-07-22T12:53:31.753989+00:00",
-    "git_sha": "95f2ba206b787bb8604829f9b39a90254dcd25f3",
+    "label": "Workstation measurement \u00b7 Argmin",
+    "source_path": "benchmarks/fair-rust-julia-2026-09-11-argmin.json",
+    "generated_at": "2026-09-11T08:57:36.126550+00:00",
+    "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+    "provenance": {
+      "working_tree_dirty": true,
+      "working_tree_status": "M BENCHMARKS.md\n M BENCHMARK_COVERAGE.md\n M CHANGELOG.md\n M GUIDE.md\n M OPTIMIZATION.md\n M README.md\n M comparisons/glmm_cbpp.R\n M comparisons/glmm_gaussian.R\n M docs/BASIN.md\n M docs/README.md\n M docs/benchmarks/app.js\n M docs/benchmarks/index.html\n M docs/benchmarks/styles.css\n M examples/bench_external_timings.rs\n M scripts/build_benchmark_site.py\n M scripts/ci/r_format.R\n M scripts/run_cross_language_benchmarks.py\n M scripts/run_external_timings.py\n?? BENCHMARK_HISTORY.md\n?? OPTIMIZATION_HISTORY.md\n?? benchmarks/optimizer-comparison-2026-09-11.json\n?? scripts/tests/test_benchmark_runtimes.py\n?? scripts/tests/test_r_formatter.py",
+      "rust_binary_sha256": "f2f13172e4f76cb222fbdaceda3a6b636b73d95c1ff0f88e1c30512c084e59ed",
+      "rust_build_verified_this_run": false,
+      "source_content_sha256": "caedd62019672602e733da43f48640aa6920607dc64e274b2ea865a93179859d",
+      "cargo_lock_sha256": "550008a73c75b5aef8a2357463731416106b78643d04939b4b7a3873f564e82b",
+      "harness_sha256": "c2c0fb564f7c7fb259554cac10145f9e127394e017a9c484554922540bf562fd",
+      "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+      "rustflags": null,
+      "cargo_encoded_rustflags": null,
+      "thread_environment": {
+        "OMP_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "RAYON_NUM_THREADS": "1",
+        "POLARS_MAX_THREADS": "1",
+        "JULIA_NUM_THREADS": "1"
+      }
+    },
     "methodology": {
       "description": "Shared CSV fixtures; data loaded once; model fit timed per metric; Julia JIT warmed up.",
       "coverage_doc": "BENCHMARK_COVERAGE.md",
@@ -40,7 +64,9 @@
       "rust_engine": "lme-rs lmer/glmer/lmer_weighted; optional prepare_lmer + fit_prepared",
       "julia_engine": "MixedModels.jl fit / GeneralizedLinearMixedModel (GLM.jl)",
       "target_ratio_cold_fit": 1.0,
-      "note": "Different optimizers and likelihood paths; compare throughput, not coefficient identity."
+      "note": "Speed claims require converged LMM fits with matching objectives/coefficients. GLMM equivalence remains unverified.",
+      "timing_boundary": "Fresh model construction and fit on loaded data; warmed runtime; excludes destruction and fit-check extraction. Not process-cold latency.",
+      "execution_order": "rust-first per case; separate processes; no between-session uncertainty estimate."
     },
     "machine_info": {
       "platform": "Windows-10-10.0.26200-SP0",
@@ -49,10 +75,11 @@
       "machine": "AMD64",
       "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
       "python_version": "3.11.15",
-      "cpu_count": 12
+      "cpu_count": 12,
+      "cpu_model": "AMD Ryzen 5 8600G w/ Radeon 760M Graphics"
     },
     "runtime_versions": {
-      "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
       "julia": "julia version 1.12.6"
     },
     "config": {
@@ -74,20 +101,20 @@
         "julia",
         "rust"
       ],
-      "warmups": 2,
-      "repeats": 10,
+      "warmups": 3,
+      "repeats": 11,
       "with_phases": true,
       "target_ratio": 1.0
     },
     "summary": {
-      "cold_fit_passes": 12,
-      "cold_fit_cases": 12,
-      "prepared_passes": 10,
-      "prepared_cases": 10,
-      "geometric_mean_rust_over_julia_cold_fit": 0.5393295481665669,
-      "median_rust_over_julia_cold_fit": 0.7049246475239022,
-      "geometric_mean_rust_over_julia_prepared": 0.39395211595478163,
-      "median_rust_over_julia_prepared": 0.4411454412901409
+      "cold_fit_passes": 3,
+      "cold_fit_cases": 6,
+      "prepared_passes": 0,
+      "prepared_cases": 0,
+      "geometric_mean_rust_over_julia_cold_fit": 0.9840634685171076,
+      "median_rust_over_julia_cold_fit": 0.9386058063535573,
+      "geometric_mean_rust_over_julia_prepared": null,
+      "median_rust_over_julia_prepared": null
     },
     "cases": [
       {
@@ -97,52 +124,72 @@
         "n_obs": 180,
         "reference": "MixedModels.jl; random slopes (real fixture)",
         "cold_fit": {
-          "rust_median_seconds": 0.00072965,
-          "julia_median_seconds": 0.0007810499999999999,
-          "rust_over_julia_median": 0.9341911529351514,
+          "rust_median_seconds": 0.0006159,
+          "julia_median_seconds": 0.0007258,
+          "rust_over_julia_median": 0.8485808762744558,
           "faster_implementation": "rust",
           "meets_target": true,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00072965,
+              "median_seconds": 0.0006159,
               "is_fastest": true,
-              "width_fraction": 0.9341911529351514
+              "width_fraction": 0.8485808762744558
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0007810499999999999,
+              "median_seconds": 0.0007258,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.8159935811714363,
+            0.8888740304894357
+          ],
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.0006623,
-          "julia_median_seconds": 0.0007810499999999999,
-          "rust_over_julia_median": 0.8479610780359773,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.000591,
+          "julia_median_seconds": 0.0007258,
+          "rust_over_julia_median": 0.8142739046569304,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0006623,
+              "median_seconds": 0.000591,
               "is_fastest": true,
-              "width_fraction": 0.8479610780359773
+              "width_fraction": 0.8142739046569304
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0007810499999999999,
+              "median_seconds": 0.0007258,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 4.425e-05
+        "prepare_lmer_seconds": 2.96e-05
       },
       {
         "case": "sleepstudy_weighted_reml",
@@ -151,52 +198,74 @@
         "n_obs": 180,
         "reference": "MixedModels.jl wts=\u2026",
         "cold_fit": {
-          "rust_median_seconds": 0.0005991499999999999,
-          "julia_median_seconds": 0.0006489,
-          "rust_over_julia_median": 0.923331792263831,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0005573,
+          "julia_median_seconds": 0.0006701,
+          "rust_over_julia_median": 0.8316669153857634,
+          "faster_implementation": "unverified",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0005991499999999999,
+              "median_seconds": 0.0005573,
               "is_fastest": true,
-              "width_fraction": 0.923331792263831
+              "width_fraction": 0.8316669153857634
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0006489,
+              "median_seconds": 0.0006701,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.7988165680473372,
+            0.8700682290121624
+          ],
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.0005239,
-          "julia_median_seconds": 0.0006489,
-          "rust_over_julia_median": 0.8073663122206811,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.000496,
+          "julia_median_seconds": 0.0006701,
+          "rust_over_julia_median": 0.7401880316370691,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0005239,
+              "median_seconds": 0.000496,
               "is_fastest": true,
-              "width_fraction": 0.8073663122206811
+              "width_fraction": 0.7401880316370691
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0006489,
+              "median_seconds": 0.0006701,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 3.6450000000000005e-05
+        "prepare_lmer_seconds": 2.61e-05
       },
       {
         "case": "penicillin_crossed_reml",
@@ -205,52 +274,72 @@
         "n_obs": 144,
         "reference": "MixedModels.jl; real crossed intercept",
         "cold_fit": {
-          "rust_median_seconds": 0.00015245,
-          "julia_median_seconds": 0.00038265,
-          "rust_over_julia_median": 0.398405853913498,
+          "rust_median_seconds": 0.0001488,
+          "julia_median_seconds": 0.0004288,
+          "rust_over_julia_median": 0.34701492537313433,
           "faster_implementation": "rust",
           "meets_target": true,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00015245,
+              "median_seconds": 0.0001488,
               "is_fastest": true,
-              "width_fraction": 0.398405853913498
+              "width_fraction": 0.34701492537313433
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.00038265,
+              "median_seconds": 0.0004288,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.2954358552631579,
+            0.35761904761904756
+          ],
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.00011655,
-          "julia_median_seconds": 0.00038265,
-          "rust_over_julia_median": 0.30458643669149355,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0001172,
+          "julia_median_seconds": 0.0004288,
+          "rust_over_julia_median": 0.27332089552238803,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00011655,
+              "median_seconds": 0.0001172,
               "is_fastest": true,
-              "width_fraction": 0.30458643669149355
+              "width_fraction": 0.27332089552238803
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.00038265,
+              "median_seconds": 0.0004288,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 2.425e-05
+        "prepare_lmer_seconds": 2e-05
       },
       {
         "case": "pastes_nested_reml",
@@ -259,52 +348,72 @@
         "n_obs": 60,
         "reference": "MixedModels.jl; real nested intercept",
         "cold_fit": {
-          "rust_median_seconds": 0.00021329999999999998,
-          "julia_median_seconds": 0.00043099999999999996,
-          "rust_over_julia_median": 0.49489559164733177,
+          "rust_median_seconds": 0.0001953,
+          "julia_median_seconds": 0.0002999,
+          "rust_over_julia_median": 0.6512170723574524,
           "faster_implementation": "rust",
           "meets_target": true,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00021329999999999998,
+              "median_seconds": 0.0001953,
               "is_fastest": true,
-              "width_fraction": 0.49489559164733177
+              "width_fraction": 0.6512170723574524
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.00043099999999999996,
+              "median_seconds": 0.0002999,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.44813671967718965,
+            0.6679206566347469
+          ],
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.00016825,
-          "julia_median_seconds": 0.00043099999999999996,
-          "rust_over_julia_median": 0.3903712296983759,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0001664,
+          "julia_median_seconds": 0.0002999,
+          "rust_over_julia_median": 0.5548516172057352,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00016825,
+              "median_seconds": 0.0001664,
               "is_fastest": true,
-              "width_fraction": 0.3903712296983759
+              "width_fraction": 0.5548516172057352
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.00043099999999999996,
+              "median_seconds": 0.0002999,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 1.76e-05
+        "prepare_lmer_seconds": 1.71e-05
       },
       {
         "case": "random_intercept_10k",
@@ -313,52 +422,74 @@
         "n_obs": 10000,
         "reference": "MixedModels.jl fit",
         "cold_fit": {
-          "rust_median_seconds": 0.00090025,
-          "julia_median_seconds": 0.001362,
-          "rust_over_julia_median": 0.6609765051395008,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0008961,
+          "julia_median_seconds": 0.0015038,
+          "rust_over_julia_median": 0.5958904109589042,
+          "faster_implementation": "unverified",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00090025,
+              "median_seconds": 0.0008961,
               "is_fastest": true,
-              "width_fraction": 0.6609765051395008
+              "width_fraction": 0.5958904109589042
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.001362,
+              "median_seconds": 0.0015038,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.5416942860930665,
+            0.7111563135659521
+          ],
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.0002353,
-          "julia_median_seconds": 0.001362,
-          "rust_over_julia_median": 0.17276064610866373,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0002108,
+          "julia_median_seconds": 0.0015038,
+          "rust_over_julia_median": 0.14017821518818993,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0002353,
+              "median_seconds": 0.0002108,
               "is_fastest": true,
-              "width_fraction": 0.17276064610866373
+              "width_fraction": 0.14017821518818993
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.001362,
+              "median_seconds": 0.0015038,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 0.0006328
+        "prepare_lmer_seconds": 0.0005503
       },
       {
         "case": "random_intercept_50k",
@@ -367,52 +498,74 @@
         "n_obs": 50000,
         "reference": "MixedModels.jl fit",
         "cold_fit": {
-          "rust_median_seconds": 0.0035081,
-          "julia_median_seconds": 0.0061633,
-          "rust_over_julia_median": 0.5691918290526179,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0027281,
+          "julia_median_seconds": 0.0056705,
+          "rust_over_julia_median": 0.4811039590865003,
+          "faster_implementation": "unverified",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0035081,
+              "median_seconds": 0.0027281,
               "is_fastest": true,
-              "width_fraction": 0.5691918290526179
+              "width_fraction": 0.4811039590865003
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0061633,
+              "median_seconds": 0.0056705,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.42541384053502823,
+            0.5624988626644587
+          ],
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.00107325,
-          "julia_median_seconds": 0.0061633,
-          "rust_over_julia_median": 0.17413560917041196,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0007932,
+          "julia_median_seconds": 0.0056705,
+          "rust_over_julia_median": 0.13988184463451195,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00107325,
+              "median_seconds": 0.0007932,
               "is_fastest": true,
-              "width_fraction": 0.17413560917041196
+              "width_fraction": 0.13988184463451195
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0061633,
+              "median_seconds": 0.0056705,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 0.0019783500000000002
+        "prepare_lmer_seconds": 0.0020058
       },
       {
         "case": "random_intercept_100k",
@@ -421,52 +574,75 @@
         "n_obs": 100000,
         "reference": "MixedModels.jl fit",
         "cold_fit": {
-          "rust_median_seconds": 0.0062498,
-          "julia_median_seconds": 0.0122769,
-          "rust_over_julia_median": 0.5090698792040336,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0053234,
+          "julia_median_seconds": 0.0129271,
+          "rust_over_julia_median": 0.4118015641559205,
+          "faster_implementation": "unverified",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0062498,
+              "median_seconds": 0.0053234,
               "is_fastest": true,
-              "width_fraction": 0.5090698792040336
+              "width_fraction": 0.4118015641559205
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0122769,
+              "median_seconds": 0.0129271,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.2025076652692925,
+            0.5622648998259018
+          ],
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "not every measured fit established convergence",
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.00209745,
-          "julia_median_seconds": 0.0122769,
-          "rust_over_julia_median": 0.1708452459497104,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0014409,
+          "julia_median_seconds": 0.0129271,
+          "rust_over_julia_median": 0.11146351463205204,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00209745,
+              "median_seconds": 0.0014409,
               "is_fastest": true,
-              "width_fraction": 0.1708452459497104
+              "width_fraction": 0.11146351463205204
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.0122769,
+              "median_seconds": 0.0129271,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 0.00442865
+        "prepare_lmer_seconds": 0.0038236
       },
       {
         "case": "large_random_slopes_100k",
@@ -475,52 +651,72 @@
         "n_obs": 100000,
         "reference": "MixedModels.jl; synthetic correlated random slopes",
         "cold_fit": {
-          "rust_median_seconds": 0.057797600000000005,
-          "julia_median_seconds": 0.06436525,
-          "rust_over_julia_median": 0.8979627982490553,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.066006,
+          "julia_median_seconds": 0.0641688,
+          "rust_over_julia_median": 1.0286307364326588,
+          "faster_implementation": "inconclusive",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.057797600000000005,
-              "is_fastest": true,
-              "width_fraction": 0.8979627982490553
+              "median_seconds": 0.066006,
+              "is_fastest": false,
+              "width_fraction": 1.0
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.06436525,
-              "is_fastest": false,
-              "width_fraction": 1.0
+              "median_seconds": 0.0641688,
+              "is_fastest": true,
+              "width_fraction": 0.9721661667121171
             }
-          ]
+          ],
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.8886778376281353,
+            1.0969708020096995
+          ],
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.04157975,
-          "julia_median_seconds": 0.06436525,
-          "rust_over_julia_median": 0.6459968694287679,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.044331,
+          "julia_median_seconds": 0.0641688,
+          "rust_over_julia_median": 0.6908497587612672,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.04157975,
+              "median_seconds": 0.044331,
               "is_fastest": true,
-              "width_fraction": 0.6459968694287679
+              "width_fraction": 0.6908497587612672
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.06436525,
+              "median_seconds": 0.0641688,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 0.010653949999999999
+        "prepare_lmer_seconds": 0.0158197
       },
       {
         "case": "crossed_20k",
@@ -529,52 +725,72 @@
         "n_obs": 20000,
         "reference": "MixedModels.jl fit",
         "cold_fit": {
-          "rust_median_seconds": 0.0128673,
-          "julia_median_seconds": 0.014632949999999999,
-          "rust_over_julia_median": 0.8793373858312917,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0260632,
+          "julia_median_seconds": 0.0110215,
+          "rust_over_julia_median": 2.3647597876877016,
+          "faster_implementation": "julia",
+          "meets_target": false,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0128673,
-              "is_fastest": true,
-              "width_fraction": 0.8793373858312917
+              "median_seconds": 0.0260632,
+              "is_fastest": false,
+              "width_fraction": 1.0
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.014632949999999999,
-              "is_fastest": false,
-              "width_fraction": 1.0
+              "median_seconds": 0.0110215,
+              "is_fastest": true,
+              "width_fraction": 0.4228759323490592
             }
-          ]
+          ],
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            2.1608520014689683,
+            2.42318760883512
+          ],
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.00990995,
-          "julia_median_seconds": 0.014632949999999999,
-          "rust_over_julia_median": 0.67723528065086,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0236401,
+          "julia_median_seconds": 0.0110215,
+          "rust_over_julia_median": 2.144907680442771,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.00990995,
-              "is_fastest": true,
-              "width_fraction": 0.67723528065086
+              "median_seconds": 0.0236401,
+              "is_fastest": false,
+              "width_fraction": 1.0
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.014632949999999999,
-              "is_fastest": false,
-              "width_fraction": 1.0
+              "median_seconds": 0.0110215,
+              "is_fastest": true,
+              "width_fraction": 0.4662205320620471
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 0.00248285
+        "prepare_lmer_seconds": 0.0025573
       },
       {
         "case": "nested_10k",
@@ -583,52 +799,72 @@
         "n_obs": 10000,
         "reference": "MixedModels.jl fit",
         "cold_fit": {
-          "rust_median_seconds": 0.0066316,
-          "julia_median_seconds": 0.00690255,
-          "rust_over_julia_median": 0.9607463908265785,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0120798,
+          "julia_median_seconds": 0.0062049,
+          "rust_over_julia_median": 1.9468162258859933,
+          "faster_implementation": "julia",
+          "meets_target": false,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0066316,
-              "is_fastest": true,
-              "width_fraction": 0.9607463908265785
+              "median_seconds": 0.0120798,
+              "is_fastest": false,
+              "width_fraction": 1.0
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.00690255,
-              "is_fastest": false,
-              "width_fraction": 1.0
+              "median_seconds": 0.0062049,
+              "is_fastest": true,
+              "width_fraction": 0.5136591665424924
             }
-          ]
+          ],
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            1.6730952151197254,
+            2.023474491497166
+          ],
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": {
-          "rust_median_seconds": 0.0033955,
-          "julia_median_seconds": 0.00690255,
-          "rust_over_julia_median": 0.4919196528819059,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0091294,
+          "julia_median_seconds": 0.0062049,
+          "rust_over_julia_median": 1.4713210527164013,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0033955,
-              "is_fastest": true,
-              "width_fraction": 0.4919196528819059
+              "median_seconds": 0.0091294,
+              "is_fastest": false,
+              "width_fraction": 1.0
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.00690255,
-              "is_fastest": false,
-              "width_fraction": 1.0
+              "median_seconds": 0.0062049,
+              "is_fastest": true,
+              "width_fraction": 0.6796613139965387
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": null,
+          "fit_agreement": null,
+          "sampling_status": null,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
         },
-        "prepare_lmer_seconds": 0.0029552
+        "prepare_lmer_seconds": 0.0022558
       },
       {
         "case": "cbpp_binomial_ml",
@@ -637,27 +873,44 @@
         "n_obs": 842,
         "reference": "MixedModels.jl GLMM (Laplace); not lme4 AGQ-in-\u03b8",
         "cold_fit": {
-          "rust_median_seconds": 0.008130100000000001,
-          "julia_median_seconds": 0.01085645,
-          "rust_over_julia_median": 0.7488727899083034,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0129299,
+          "julia_median_seconds": 0.0118732,
+          "rust_over_julia_median": 1.0889987534952665,
+          "faster_implementation": "unverified",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.008130100000000001,
-              "is_fastest": true,
-              "width_fraction": 0.7488727899083034
+              "median_seconds": 0.0129299,
+              "is_fastest": false,
+              "width_fraction": 1.0
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.01085645,
-              "is_fastest": false,
-              "width_fraction": 1.0
+              "median_seconds": 0.0118732,
+              "is_fastest": true,
+              "width_fraction": 0.9182746966333847
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            1.0530834836804985,
+            1.1053348660961384
+          ],
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "GLMM objective equivalence has not been established"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": null,
         "prepare_lmer_seconds": null
@@ -669,27 +922,44 @@
         "n_obs": 403,
         "reference": "MixedModels.jl GLMM (Laplace)",
         "cold_fit": {
-          "rust_median_seconds": 0.0051378,
-          "julia_median_seconds": 0.1569684,
-          "rust_over_julia_median": 0.032731428746168016,
-          "faster_implementation": "rust",
-          "meets_target": true,
+          "rust_median_seconds": 0.0074853,
+          "julia_median_seconds": 0.1448932,
+          "rust_over_julia_median": 0.05166080947898176,
+          "faster_implementation": "unverified",
+          "meets_target": null,
           "entries": [
             {
               "implementation": "rust",
               "label": "Rust",
-              "median_seconds": 0.0051378,
+              "median_seconds": 0.0074853,
               "is_fastest": true,
-              "width_fraction": 0.032731428746168016
+              "width_fraction": 0.05166080947898176
             },
             {
               "implementation": "julia",
               "label": "Julia",
-              "median_seconds": 0.1569684,
+              "median_seconds": 0.1448932,
               "is_fastest": false,
               "width_fraction": 1.0
             }
-          ]
+          ],
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.04936748732300243,
+            0.05290017003701804
+          ],
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "GLMM objective equivalence has not been established"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          },
+          "sampling_status": "measured",
+          "timing_boundary": null
         },
         "fit_prepared": null,
         "prepare_lmer_seconds": null
@@ -698,18 +968,434 @@
     "failures": []
   },
   "ci_fair": null,
-  "cross_language": null,
+  "cross_language": {
+    "label": "Whole-script example timings",
+    "source_path": "benchmarks/cross-language-2026-09-11.json",
+    "generated_at": "2026-09-11T09:53:02.911084+00:00",
+    "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+    "machine_info": {
+      "platform": "Windows-10-10.0.26200-SP0",
+      "system": "Windows",
+      "release": "10",
+      "machine": "AMD64",
+      "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+      "python_version": "3.11.15",
+      "cpu_count": 12
+    },
+    "runtime_versions": {
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+      "python": "Python 3.11.15",
+      "Rscript": "Rscript (R) version 4.6.1 (2026-06-24)",
+      "julia": "julia version 1.12.6"
+    },
+    "config": {
+      "cases": [
+        "sleepstudy",
+        "pastes",
+        "cbpp",
+        "grouseticks",
+        "categorical",
+        "weighted",
+        "gaussian_glmm"
+      ],
+      "implementations": [
+        "rust",
+        "python",
+        "r",
+        "julia"
+      ],
+      "warmups": 2,
+      "repeats": 10,
+      "timeout_seconds": 900
+    },
+    "implementation_summary": [
+      {
+        "implementation": "rust",
+        "label": "Rust",
+        "geometric_mean_relative_to_rust": 1.0
+      },
+      {
+        "implementation": "python",
+        "label": "Python",
+        "geometric_mean_relative_to_rust": 123.1217512242219
+      },
+      {
+        "implementation": "r",
+        "label": "R",
+        "geometric_mean_relative_to_rust": 80.41704318770397
+      },
+      {
+        "implementation": "julia",
+        "label": "Julia",
+        "geometric_mean_relative_to_rust": 1015.3497099400275
+      }
+    ],
+    "cases": [
+      {
+        "case": "sleepstudy",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.0095904000045266,
+            "is_fastest": true,
+            "width_fraction": 0.0007461479891852567,
+            "mean_seconds": 0.009674390006694011,
+            "min_seconds": 0.008573900006012991,
+            "max_seconds": 0.012132700008805841,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 2.022208700000192,
+            "is_fastest": false,
+            "width_fraction": 0.1573309720664311,
+            "mean_seconds": 2.0465211299975636,
+            "min_seconds": 1.9862756000075024,
+            "max_seconds": 2.2082487999869045,
+            "relative_to_rust": 210.8575970810106
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 0.9760388500144472,
+            "is_fastest": false,
+            "width_fraction": 0.07593733576923092,
+            "mean_seconds": 0.9831997600063914,
+            "min_seconds": 0.9647970999940298,
+            "max_seconds": 1.045626800012542,
+            "relative_to_rust": 101.7724859811649
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 12.853214300019317,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 12.954688760000863,
+            "min_seconds": 12.495611399994232,
+            "max_seconds": 13.561779899988323,
+            "relative_to_rust": 1340.2167056590645
+          }
+        ]
+      },
+      {
+        "case": "pastes",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.010006450014770962,
+            "is_fastest": true,
+            "width_fraction": 0.0006226077688017701,
+            "mean_seconds": 0.010083010004018433,
+            "min_seconds": 0.009186199982650578,
+            "max_seconds": 0.010832300002221018,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 1.6592084500007331,
+            "is_fastest": false,
+            "width_fraction": 0.10323701907340661,
+            "mean_seconds": 1.66566531000135,
+            "min_seconds": 1.6154483999998774,
+            "max_seconds": 1.7335276000085287,
+            "relative_to_rust": 165.81389479300876
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 0.9529348499927437,
+            "is_fastest": false,
+            "width_fraction": 0.059292220506935875,
+            "mean_seconds": 0.9538457999995444,
+            "min_seconds": 0.9451223000069149,
+            "max_seconds": 0.9668468000018038,
+            "relative_to_rust": 95.23206017979149
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 16.071836100003566,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 16.101455350001924,
+            "min_seconds": 15.958477800013497,
+            "max_seconds": 16.389701399981277,
+            "relative_to_rust": 1606.1476423985748
+          }
+        ]
+      },
+      {
+        "case": "cbpp",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.09194395001395606,
+            "is_fastest": true,
+            "width_fraction": 0.005852782808103034,
+            "mean_seconds": 0.09277420000289567,
+            "min_seconds": 0.09041319999960251,
+            "max_seconds": 0.09922200001892634,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 1.6583805499976734,
+            "is_fastest": false,
+            "width_fraction": 0.10556584931195095,
+            "mean_seconds": 1.6632973999949172,
+            "min_seconds": 1.6391626999829896,
+            "max_seconds": 1.7010416999983136,
+            "relative_to_rust": 18.036864304241334
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 1.502742099997704,
+            "is_fastest": false,
+            "width_fraction": 0.09565853029529617,
+            "mean_seconds": 1.501879839997855,
+            "min_seconds": 1.472284599993145,
+            "max_seconds": 1.5296875999774784,
+            "relative_to_rust": 16.344110730174247
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 15.709441649989458,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 15.706351640002685,
+            "min_seconds": 15.542915600002743,
+            "max_seconds": 15.816164800024126,
+            "relative_to_rust": 170.85889444172173
+          }
+        ]
+      },
+      {
+        "case": "grouseticks",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.016960749999270774,
+            "is_fastest": true,
+            "width_fraction": 0.0010084101941889383,
+            "mean_seconds": 0.01721055000089109,
+            "min_seconds": 0.016362399997888133,
+            "max_seconds": 0.018479100021068007,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 1.939602950005792,
+            "is_fastest": false,
+            "width_fraction": 0.11532010008689902,
+            "mean_seconds": 1.9389862800046103,
+            "min_seconds": 1.889520500000799,
+            "max_seconds": 1.9821407000126783,
+            "relative_to_rust": 114.35832437181051
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 1.1784305999899516,
+            "is_fastest": false,
+            "width_fraction": 0.07006420295241347,
+            "mean_seconds": 1.1780651499982924,
+            "min_seconds": 1.1627441000018734,
+            "max_seconds": 1.1865428000164684,
+            "relative_to_rust": 69.4798638055875
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 16.819296450004913,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 16.86541155000159,
+            "min_seconds": 16.388544799992815,
+            "max_seconds": 17.453123600018444,
+            "relative_to_rust": 991.6599472740331
+          }
+        ]
+      },
+      {
+        "case": "categorical",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.009035050010425039,
+            "is_fastest": true,
+            "width_fraction": 0.000641376479756667,
+            "mean_seconds": 0.009097579997614957,
+            "min_seconds": 0.007948200014652684,
+            "max_seconds": 0.010225000005448237,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 1.645193449992803,
+            "is_fastest": false,
+            "width_fraction": 0.11678832792929617,
+            "mean_seconds": 1.6480081300018354,
+            "min_seconds": 1.5996257000078913,
+            "max_seconds": 1.7020396000007167,
+            "relative_to_rust": 182.09013210712794
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 1.4999519999983022,
+            "is_fastest": false,
+            "width_fraction": 0.10647798655822005,
+            "mean_seconds": 1.5024051600019448,
+            "min_seconds": 1.4774735000100918,
+            "max_seconds": 1.5346578000171576,
+            "relative_to_rust": 166.0147977341123
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 14.086968100004015,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 14.103333649999694,
+            "min_seconds": 13.677167699992424,
+            "max_seconds": 14.449306599999545,
+            "relative_to_rust": 1559.146665901113
+          }
+        ]
+      },
+      {
+        "case": "weighted",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.009242749991244636,
+            "is_fastest": true,
+            "width_fraction": 0.0007212580578453093,
+            "mean_seconds": 0.009278619996621273,
+            "min_seconds": 0.008486299979267642,
+            "max_seconds": 0.009869700006674975,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 1.672618650001823,
+            "is_fastest": false,
+            "width_fraction": 0.1305228076231568,
+            "mean_seconds": 1.6714635799988173,
+            "min_seconds": 1.6055394999857526,
+            "max_seconds": 1.7139356000116095,
+            "relative_to_rust": 180.96547581469167
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 0.9933237000077497,
+            "is_fastest": false,
+            "width_fraction": 0.07751402162321491,
+            "mean_seconds": 1.054032540001208,
+            "min_seconds": 0.9709451000089757,
+            "max_seconds": 1.2911369999928866,
+            "relative_to_rust": 107.4705797461463
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 12.814761500005261,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 12.974058890002198,
+            "min_seconds": 12.589305000001332,
+            "max_seconds": 14.09601969999494,
+            "relative_to_rust": 1386.4663127472102
+          }
+        ]
+      },
+      {
+        "case": "gaussian_glmm",
+        "fastest_implementation": "rust",
+        "entries": [
+          {
+            "implementation": "rust",
+            "label": "Rust",
+            "median_seconds": 0.009135300002526492,
+            "is_fastest": true,
+            "width_fraction": 0.0007086758035049862,
+            "mean_seconds": 0.00916461999877356,
+            "min_seconds": 0.0082408000016585,
+            "max_seconds": 0.010035699990112334,
+            "relative_to_rust": 1.0
+          },
+          {
+            "implementation": "python",
+            "label": "Python",
+            "median_seconds": 1.648713400005363,
+            "is_fastest": false,
+            "width_fraction": 0.12789982739210537,
+            "mean_seconds": 1.662862080000923,
+            "min_seconds": 1.6389133000047877,
+            "max_seconds": 1.7599231000058353,
+            "relative_to_rust": 180.47720376445093
+          },
+          {
+            "implementation": "r",
+            "label": "R",
+            "median_seconds": 1.0117875000141794,
+            "is_fastest": false,
+            "width_fraction": 0.07848995866042116,
+            "mean_seconds": 1.0119894200091948,
+            "min_seconds": 0.9757406999997329,
+            "max_seconds": 1.0550871000159532,
+            "relative_to_rust": 110.75580437800136
+          },
+          {
+            "implementation": "julia",
+            "label": "Julia",
+            "median_seconds": 12.890661650002585,
+            "is_fastest": false,
+            "width_fraction": 1.0,
+            "mean_seconds": 12.901459060006891,
+            "min_seconds": 12.720701400015969,
+            "max_seconds": 13.03493689998868,
+            "relative_to_rust": 1411.0824654294327
+          }
+        ]
+      }
+    ],
+    "failures": [],
+    "caveat": "Times whole example scripts, including process startup and Julia JIT. Small fixtures favor a prebuilt Rust binary; do not use these bars as fit-only throughput vs MixedModels.jl."
+  },
   "external": {
     "label": "nlmer, inference, and Python FFI",
-    "source_path": "benchmarks/external-nlmm-inference-python-timings-2026-08-14.json",
-    "generated_at": "2026-08-14T11:14:55.086683+00:00",
+    "source_path": "benchmarks/external-timings-2026-09-11-argmin.json",
+    "generated_at": "2026-09-11T09:54:22.661297+00:00",
     "host": {
-      "system": "Linux",
-      "machine": "x86_64",
+      "system": "Windows",
+      "machine": "AMD64",
       "python": "3.11.15"
     },
-    "warmups": 1,
-    "repeats": 5,
+    "warmups": 3,
+    "repeats": 11,
     "families": [
       {
         "family": "lmm_fit",
@@ -723,14 +1409,14 @@
               {
                 "implementation": "rust",
                 "label": "Rust",
-                "median_seconds": 0.000617963,
+                "median_seconds": 0.0006314,
                 "is_fastest": true,
-                "width_fraction": 0.0617963
+                "width_fraction": 0.05180717948717948
               },
               {
                 "implementation": "r_lme4",
                 "label": "R lme4",
-                "median_seconds": 0.01,
+                "median_seconds": 0.0121875,
                 "is_fastest": false,
                 "width_fraction": 1.0
               }
@@ -750,14 +1436,14 @@
               {
                 "implementation": "rust",
                 "label": "Rust",
-                "median_seconds": 0.000537706,
+                "median_seconds": 0.0004958,
                 "is_fastest": true,
-                "width_fraction": 0.5377059999999408
+                "width_fraction": 0.5769309090909097
               },
               {
                 "implementation": "r_lmerTest",
                 "label": "R lmerTest",
-                "median_seconds": 0.00100000000000011,
+                "median_seconds": 0.000859374999999999,
                 "is_fastest": false,
                 "width_fraction": 1.0
               }
@@ -771,8 +1457,15 @@
               {
                 "implementation": "rust",
                 "label": "Rust",
-                "median_seconds": 0.003752532,
+                "median_seconds": 0.0055203,
                 "is_fastest": true,
+                "width_fraction": 0.1577228571428571
+              },
+              {
+                "implementation": "r_lmerTest",
+                "label": "R lmerTest",
+                "median_seconds": 0.035,
+                "is_fastest": false,
                 "width_fraction": 1.0
               }
             ]
@@ -791,14 +1484,14 @@
               {
                 "implementation": "rust",
                 "label": "Rust",
-                "median_seconds": 0.038120925,
+                "median_seconds": 0.0485861,
                 "is_fastest": true,
-                "width_fraction": 0.9774596153846178
+                "width_fraction": 0.9254495238095238
               },
               {
                 "implementation": "r_lme4",
                 "label": "R lme4",
-                "median_seconds": 0.0389999999999999,
+                "median_seconds": 0.0525,
                 "is_fastest": false,
                 "width_fraction": 1.0
               }
@@ -818,7 +1511,7 @@
               {
                 "implementation": "python_lme_python",
                 "label": "Python FFI",
-                "median_seconds": 0.0011895610005012713,
+                "median_seconds": 0.0009456999832764268,
                 "is_fastest": true,
                 "width_fraction": 1.0
               }
@@ -827,8 +1520,420 @@
         ]
       }
     ],
-    "skipped": [
-      "R:sleepstudy_kenward_roger (pbkrtest package required for Kenward-Roger's method)"
-    ]
+    "skipped": []
+  },
+  "optimizer_comparison": {
+    "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+    "generated_at": "2026-09-11T08:54:27.922910+00:00",
+    "protocol": {
+      "block_orders": [
+        "ABBA",
+        "BAAB",
+        "ABBA"
+      ],
+      "warmups": 3,
+      "repeats": 11,
+      "threads": 1,
+      "processes_per_backend": 6,
+      "samples_per_case_backend_metric": 66,
+      "noninferiority_margin": 1.05,
+      "bootstrap_resamples": 2000,
+      "interval_unit": "paired execution block; three blocks on one workstation"
+    },
+    "cases": [
+      {
+        "case": "sleepstudy_reml",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0006282,
+          "basin_seconds": 0.0005963,
+          "basin_over_argmin": 0.9378896693236524,
+          "block_ratios": [
+            0.9378896693236524,
+            0.9296466231989052,
+            0.9380850084394661
+          ],
+          "ratio_interval_95": [
+            0.9296466231989052,
+            0.9380850084394661
+          ],
+          "competitive": true
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.0005765,
+          "basin_seconds": 0.0005472,
+          "basin_over_argmin": 0.9749741111494649,
+          "block_ratios": [
+            0.9749741111494649,
+            0.9365648788170443,
+            1.0242223577589962
+          ],
+          "ratio_interval_95": [
+            0.9365648788170443,
+            1.0242223577589962
+          ],
+          "competitive": true
+        }
+      },
+      {
+        "case": "sleepstudy_weighted_reml",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0005533000000000001,
+          "basin_seconds": 0.00051955,
+          "basin_over_argmin": 0.9381661153987505,
+          "block_ratios": [
+            0.9032677472479846,
+            0.9390687522735538,
+            0.9381661153987505
+          ],
+          "ratio_interval_95": [
+            0.9032677472479846,
+            0.9390687522735538
+          ],
+          "competitive": true
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.0005001999999999999,
+          "basin_seconds": 0.0004635,
+          "basin_over_argmin": 0.9299004324650508,
+          "block_ratios": [
+            0.9239464551313834,
+            0.9299004324650508,
+            0.9542686074119955
+          ],
+          "ratio_interval_95": [
+            0.9239464551313834,
+            0.9542686074119955
+          ],
+          "competitive": true
+        }
+      },
+      {
+        "case": "penicillin_crossed_reml",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0001473,
+          "basin_seconds": 0.0001383,
+          "basin_over_argmin": 0.932845744680851,
+          "block_ratios": [
+            0.932845744680851,
+            0.8106884057971013,
+            1.1338825952626157
+          ],
+          "ratio_interval_95": [
+            0.8106884057971013,
+            1.1338825952626157
+          ],
+          "competitive": false
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.0001169,
+          "basin_seconds": 0.00010615,
+          "basin_over_argmin": 0.902376910016978,
+          "block_ratios": [
+            0.8995762711864408,
+            0.902376910016978,
+            0.93071000855432
+          ],
+          "ratio_interval_95": [
+            0.8995762711864408,
+            0.93071000855432
+          ],
+          "competitive": true
+        }
+      },
+      {
+        "case": "pastes_nested_reml",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0002003,
+          "basin_seconds": 0.00018774999999999998,
+          "basin_over_argmin": 0.919569030318216,
+          "block_ratios": [
+            0.919569030318216,
+            0.9190651906519065,
+            1.0049925112331504
+          ],
+          "ratio_interval_95": [
+            0.9190651906519065,
+            1.0049925112331504
+          ],
+          "competitive": true
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.00016764999999999998,
+          "basin_seconds": 0.0001557,
+          "basin_over_argmin": 0.9287205487623025,
+          "block_ratios": [
+            0.925214306828259,
+            0.9287205487623025,
+            0.9440601503759398
+          ],
+          "ratio_interval_95": [
+            0.925214306828259,
+            0.9440601503759398
+          ],
+          "competitive": true
+        }
+      },
+      {
+        "case": "random_intercept_10k",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0009313,
+          "basin_seconds": 0.00101905,
+          "basin_over_argmin": 1.014873574615766,
+          "block_ratios": [
+            1.2355918367346936,
+            0.9540345668539922,
+            1.014873574615766
+          ],
+          "ratio_interval_95": [
+            0.9540345668539922,
+            1.2355918367346936
+          ],
+          "competitive": false
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.00022605,
+          "basin_seconds": 0.0002603,
+          "basin_over_argmin": 1.2099105299380593,
+          "block_ratios": [
+            1.2140483048969646,
+            1.086310804993543,
+            1.2099105299380593
+          ],
+          "ratio_interval_95": [
+            1.086310804993543,
+            1.2140483048969646
+          ],
+          "competitive": false
+        }
+      },
+      {
+        "case": "random_intercept_50k",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0029154000000000003,
+          "basin_seconds": 0.0027599499999999997,
+          "basin_over_argmin": 0.9769637462235651,
+          "block_ratios": [
+            1.020872637464412,
+            0.9419178279500197,
+            0.9769637462235651
+          ],
+          "ratio_interval_95": [
+            0.9419178279500197,
+            1.020872637464412
+          ],
+          "competitive": true
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.000861,
+          "basin_seconds": 0.0008853,
+          "basin_over_argmin": 1.04801544215225,
+          "block_ratios": [
+            1.240087844254511,
+            1.04801544215225,
+            0.9085989176187612
+          ],
+          "ratio_interval_95": [
+            0.9085989176187612,
+            1.240087844254511
+          ],
+          "competitive": false
+        }
+      },
+      {
+        "case": "random_intercept_100k",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.005655149999999999,
+          "basin_seconds": 0.00595565,
+          "basin_over_argmin": 1.0650347910392697,
+          "block_ratios": [
+            1.0932069951831254,
+            1.0478804377025985,
+            1.0650347910392697
+          ],
+          "ratio_interval_95": [
+            1.0478804377025985,
+            1.0932069951831254
+          ],
+          "competitive": false
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.0015955499999999998,
+          "basin_seconds": 0.00157375,
+          "basin_over_argmin": 1.0113047421611816,
+          "block_ratios": [
+            1.0113047421611816,
+            0.8798498122653318,
+            1.16561647395089
+          ],
+          "ratio_interval_95": [
+            0.8798498122653318,
+            1.16561647395089
+          ],
+          "competitive": false
+        }
+      },
+      {
+        "case": "large_random_slopes_100k",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.0667767,
+          "basin_seconds": 0.06753885000000001,
+          "basin_over_argmin": 1.0089782692562588,
+          "block_ratios": [
+            1.0089782692562588,
+            0.9506425974621561,
+            1.1266583656642195
+          ],
+          "ratio_interval_95": [
+            0.9506425974621561,
+            1.1266583656642195
+          ],
+          "competitive": false
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.0439594,
+          "basin_seconds": 0.044793,
+          "basin_over_argmin": 1.0118685981475228,
+          "block_ratios": [
+            1.0118685981475228,
+            0.9975693480802741,
+            1.067150519519547
+          ],
+          "ratio_interval_95": [
+            0.9975693480802741,
+            1.067150519519547
+          ],
+          "competitive": false
+        }
+      },
+      {
+        "case": "crossed_20k",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.02675125,
+          "basin_seconds": 0.02705255,
+          "basin_over_argmin": 1.0005718237911372,
+          "block_ratios": [
+            1.0030655152994181,
+            0.9971348078440627,
+            1.0005718237911372
+          ],
+          "ratio_interval_95": [
+            0.9971348078440627,
+            1.0030655152994181
+          ],
+          "competitive": true
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.023675599999999998,
+          "basin_seconds": 0.023754499999999998,
+          "basin_over_argmin": 0.9910738963290534,
+          "block_ratios": [
+            0.9910738963290534,
+            0.9776291689915598,
+            1.0156747677064062
+          ],
+          "ratio_interval_95": [
+            0.9776291689915598,
+            1.0156747677064062
+          ],
+          "competitive": true
+        }
+      },
+      {
+        "case": "nested_10k",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.01178275,
+          "basin_seconds": 0.012054200000000001,
+          "basin_over_argmin": 1.029450484302665,
+          "block_ratios": [
+            1.029450484302665,
+            1.0137356554723302,
+            1.0847490815905194
+          ],
+          "ratio_interval_95": [
+            1.0137356554723302,
+            1.0847490815905194
+          ],
+          "competitive": false
+        },
+        "fit_prepared": {
+          "argmin_seconds": 0.00932925,
+          "basin_seconds": 0.00938805,
+          "basin_over_argmin": 0.9931906102098683,
+          "block_ratios": [
+            0.9931906102098683,
+            0.9791740653772151,
+            1.0505774847924538
+          ],
+          "ratio_interval_95": [
+            0.9791740653772151,
+            1.0505774847924538
+          ],
+          "competitive": false
+        }
+      },
+      {
+        "case": "cbpp_binomial_ml",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.013253299999999999,
+          "basin_seconds": 0.0132041,
+          "basin_over_argmin": 0.9942768970746909,
+          "block_ratios": [
+            1.0016521364354682,
+            0.9924657767164539,
+            0.9942768970746909
+          ],
+          "ratio_interval_95": [
+            0.9924657767164539,
+            1.0016521364354682
+          ],
+          "competitive": true
+        }
+      },
+      {
+        "case": "grouseticks_poisson_ml",
+        "fit_agreement": true,
+        "reasons": [],
+        "cold_fit": {
+          "argmin_seconds": 0.00742475,
+          "basin_seconds": 0.00746775,
+          "basin_over_argmin": 1.0036324886568504,
+          "block_ratios": [
+            1.0036324886568504,
+            1.001120858026887,
+            1.0085051563775183
+          ],
+          "ratio_interval_95": [
+            1.001120858026887,
+            1.0085051563775183
+          ],
+          "competitive": true
+        }
+      }
+    ],
+    "caveat": "Intervals over three blocks are limited workstation evidence; use other suites and supported-platform checks before changing defaults.",
+    "decision_text": "Argmin remains the default. Basin matches all 12 measured workloads, but the 5% runtime margin is not established across complete and prepared fits. See the full report for Criterion, production, R/Python, and numerical qualification limits.",
+    "source_path": "benchmarks/optimizer-comparison-2026-09-11.json"
   }
 }

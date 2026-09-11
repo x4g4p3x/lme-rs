@@ -1,4 +1,17 @@
-# Optional Basin optimizer
+# Choosing an optimizer
+
+[Documentation](README.md) · [Benchmark guide](../BENCHMARKS.md) · [Dashboard](https://x4g4p3x.github.io/lme-rs/benchmarks/) · [Engineering](../OPTIMIZATION.md)
+
+**Argmin is the default; Basin is opt-in.** Both serve the shared simplex-search
+paths. Choose using evidence from the models you fit, including convergence and
+boundary behavior as well as runtime.
+
+| Choice | What it provides | How to select it |
+|:---|:---|:---|
+| Argmin | Existing shared Nelder–Mead backend | Normal build |
+| Basin | Projected Nelder–Mead with boundary recovery | `--features basin` |
+
+## Enable Basin
 
 The development checkout provides a `basin` Cargo feature. Default builds use
 Argmin. Enable the feature when building this checkout:
@@ -22,6 +35,13 @@ existing dispatch rules. There is no runtime optimizer selector, and enabling
 the feature in any dependency enables it for the unified Cargo build.
 
 ## Bounds and numerical controls
+
+| Control | Meaning with either backend |
+|:---|:---|
+| `tolerance` | Strict sample standard deviation threshold for simplex costs |
+| `max_iterations` | Iteration budget per search stage, not an objective-call budget |
+| `require_convergence` | Fail when the fit does not meet its convergence contract |
+
 
 Basin projects simplex vertices onto the supplied lower bounds before each
 objective evaluation. LMM and GLMM Cholesky diagonals are nonnegative, and
@@ -47,14 +67,33 @@ does not imply that Basin is faster or more accurate for every model.
 
 ## Validation and comparison
 
-The [comparison report](../benchmarks/basin-optimizer-2026-09-10.md)
+The [11 September full refresh](../benchmarks/refresh-2026-09-11.md) retains
+Argmin as the default. All 12 paired workloads reproduce their measured fits,
+but the predeclared 5% runtime margin is not established across complete and
+prepared fits. The report separates inconclusive timing from numerical failures
+and includes the broader operation and production suites.
+
+The current default decision is assessed against complete, order-balanced
+measurements. Before switching the default, require matching fits, boundary and
+budget regressions, competitive runtime across affected model families, and
+validation on supported platforms. A small difference in one timing run is
+insufficient. Full-suite evidence and remaining gaps are recorded in the
+[benchmark guide](../BENCHMARKS.md).
+
+The earlier [contributor comparison](../benchmarks/basin-optimizer-2026-09-10.md)
 contains paired measurements and validation results for Basin 1.10.0 and Argmin
 on its recorded upstream revision.
 
 `task basin:check` runs feature-enabled Clippy, all-target checks, tests, and
 documentation. Ubuntu CI and `task ci` run it alongside the default backend.
 
-Compare both builds with the existing fair harness:
+For a reproducible alternating comparison of both builds:
+
+```sh
+python scripts/run_optimizer_comparison.py --output benchmark-results/optimizer-comparison.json
+```
+
+For individual fair-harness runs:
 
 ```sh
 python scripts/run_fair_rust_julia_benchmark.py --implementations rust \

@@ -1,0 +1,451 @@
+[
+  {
+    "case": "crossed_20k",
+    "formula": "y ~ x + (1 | plate) + (1 | sample)",
+    "reml": false,
+    "n_obs": 20000,
+    "rust": {
+      "optimizer_backend": "argmin",
+      "case": "crossed_20k",
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "reml": false,
+      "n_obs": 20000,
+      "optimizer_iterations": 74,
+      "converged": true,
+      "objective": 3739.4374429627387,
+      "evaluated_objective": 3739.4374429614472,
+      "theta": [
+        4.136127022022988,
+        4.194467940992785
+      ],
+      "coefficients": [
+        1.501550443000918,
+        0.7525529217728233
+      ],
+      "fit_wall_seconds": 0.024976,
+      "prepare_wall_seconds": 0.0023794,
+      "prepare_perf": {
+        "kernel": null,
+        "kernel_detail": "blocked_active",
+        "deviance_eval_count": 0,
+        "phases": [
+          {
+            "phase": "lmer_setup",
+            "count": 1,
+            "total_seconds": 0.0023783,
+            "mean_seconds": 0.0023783
+          },
+          {
+            "phase": "setup_lmm_data",
+            "count": 1,
+            "total_seconds": 0.0001142,
+            "mean_seconds": 0.0001142
+          }
+        ],
+        "fit_wall_seconds": 0.0023794,
+        "optimize_fraction_of_fit": 0.0,
+        "deviance_fraction_of_fit": 0.0
+      },
+      "fit_prepared_wall_seconds": 0.024976,
+      "blocked_kernel": true,
+      "blocked_kernel_detail": "blocked_active",
+      "kernel": "blocked",
+      "deviance_eval_count": 103,
+      "mean_deviance_eval_seconds": 0.00023292135922330095,
+      "phases": [
+        {
+          "phase": "lmer_optimize",
+          "count": 1,
+          "total_seconds": 0.0240771,
+          "mean_seconds": 0.0240771,
+          "fraction_of_deviance": 1.003593029023505
+        },
+        {
+          "phase": "deviance_eval",
+          "count": 103,
+          "total_seconds": 0.0239909,
+          "mean_seconds": 0.00023292135922330095,
+          "fraction_of_deviance": 1.0
+        },
+        {
+          "phase": "blocked_rank_chol",
+          "count": 208,
+          "total_seconds": 0.0184276,
+          "mean_seconds": 8.859423076923076e-05,
+          "fraction_of_deviance": 0.7681079075816247
+        },
+        {
+          "phase": "blocked_trisolve",
+          "count": 312,
+          "total_seconds": 0.0039777,
+          "mean_seconds": 1.2749038461538461e-05,
+          "fraction_of_deviance": 0.16580036597209774
+        },
+        {
+          "phase": "blocked_schur_xy",
+          "count": 208,
+          "total_seconds": 0.0009537,
+          "mean_seconds": 4.585096153846154e-06,
+          "fraction_of_deviance": 0.03975257285053917
+        },
+        {
+          "phase": "blocked_reset",
+          "count": 104,
+          "total_seconds": 0.0007841,
+          "mean_seconds": 7.5394230769230775e-06,
+          "fraction_of_deviance": 0.03268322572308667
+        },
+        {
+          "phase": "lmer_post_fit",
+          "count": 1,
+          "total_seconds": 0.0002084,
+          "mean_seconds": 0.0002084,
+          "fraction_of_deviance": 0.008686627012742332
+        },
+        {
+          "phase": "blocked_deviance_tail",
+          "count": 103,
+          "total_seconds": 4.8e-06,
+          "mean_seconds": 4.660194174757281e-08,
+          "fraction_of_deviance": 0.00020007586209771204
+        }
+      ],
+      "optimize_fraction_of_fit": 0.9640094490711082,
+      "deviance_fraction_of_fit": 0.9605581358103779
+    },
+    "julia": {
+      "case": "crossed_20k",
+      "fit_wall_seconds": 0.0124425,
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "implementation": "julia",
+      "mean_feval_seconds": 0.000207375,
+      "n_obs": 20000,
+      "optsum": {
+        "backend": "nlopt",
+        "ftol_abs": 1e-08,
+        "ftol_rel": 1e-12,
+        "maxfeval": -1,
+        "optimizer": "LN_NEWUOA",
+        "optimizer_feval": 60,
+        "optimizer_fmin": 3739.437442652561,
+        "returnvalue": "FTOL_REACHED"
+      },
+      "reml": false,
+      "warmups": 3
+    },
+    "comparison": {
+      "rust_deviance_eval_count": 103,
+      "julia_optimizer_feval": 60,
+      "rust_over_julia_feval": 1.7166666666666666,
+      "julia_over_rust_feval": 0.5825242718446602,
+      "rust_mean_eval_seconds": 0.00023292135922330095,
+      "julia_mean_feval_seconds": 0.000207375,
+      "rust_over_julia_mean_eval": 1.123189194566852,
+      "julia_over_rust_mean_eval": 0.8903219554080923,
+      "rust_fit_wall_seconds": 0.024976,
+      "julia_fit_wall_seconds": 0.0124425,
+      "rust_over_julia_fit": 2.0073136427566807,
+      "julia_over_rust_fit": 0.4981782511210762
+    },
+    "failures": []
+  },
+  {
+    "case": "nested_10k",
+    "formula": "y ~ x + (1 | batch/cask)",
+    "reml": false,
+    "n_obs": 10000,
+    "rust": {
+      "optimizer_backend": "argmin",
+      "case": "nested_10k",
+      "formula": "y ~ x + (1 | batch/cask)",
+      "reml": false,
+      "n_obs": 10000,
+      "optimizer_iterations": 84,
+      "converged": true,
+      "objective": 5944.826928394521,
+      "evaluated_objective": 5944.826928379154,
+      "theta": [
+        4.987494145328055,
+        5.059652262073164
+      ],
+      "coefficients": [
+        2.053054354538009,
+        1.247491413925234
+      ],
+      "fit_wall_seconds": 0.0097187,
+      "prepare_wall_seconds": 0.0020167,
+      "prepare_perf": {
+        "kernel": null,
+        "kernel_detail": "blocked_active",
+        "deviance_eval_count": 0,
+        "phases": [
+          {
+            "phase": "lmer_setup",
+            "count": 1,
+            "total_seconds": 0.0020153,
+            "mean_seconds": 0.0020153
+          },
+          {
+            "phase": "setup_lmm_data",
+            "count": 1,
+            "total_seconds": 0.0001091,
+            "mean_seconds": 0.0001091
+          }
+        ],
+        "fit_wall_seconds": 0.0020167,
+        "optimize_fraction_of_fit": 0.0,
+        "deviance_fraction_of_fit": 0.0
+      },
+      "fit_prepared_wall_seconds": 0.0097187,
+      "blocked_kernel": true,
+      "blocked_kernel_detail": "blocked_active",
+      "kernel": "blocked",
+      "deviance_eval_count": 124,
+      "mean_deviance_eval_seconds": 6.974919354838709e-05,
+      "phases": [
+        {
+          "phase": "lmer_optimize",
+          "count": 1,
+          "total_seconds": 0.0086994,
+          "mean_seconds": 0.0086994,
+          "fraction_of_deviance": 1.0058388928071778
+        },
+        {
+          "phase": "deviance_eval",
+          "count": 124,
+          "total_seconds": 0.0086489,
+          "mean_seconds": 6.974919354838709e-05,
+          "fraction_of_deviance": 1.0
+        },
+        {
+          "phase": "blocked_rank_chol",
+          "count": 250,
+          "total_seconds": 0.0046588,
+          "mean_seconds": 1.86352e-05,
+          "fraction_of_deviance": 0.5386580952491069
+        },
+        {
+          "phase": "blocked_schur_xy",
+          "count": 250,
+          "total_seconds": 0.0023457,
+          "mean_seconds": 9.3828e-06,
+          "fraction_of_deviance": 0.2712136803524148
+        },
+        {
+          "phase": "blocked_trisolve",
+          "count": 375,
+          "total_seconds": 0.001192,
+          "mean_seconds": 3.1786666666666663e-06,
+          "fraction_of_deviance": 0.1378209945773451
+        },
+        {
+          "phase": "lmer_post_fit",
+          "count": 1,
+          "total_seconds": 0.0006158,
+          "mean_seconds": 0.0006158,
+          "fraction_of_deviance": 0.07119980575564523
+        },
+        {
+          "phase": "blocked_reset",
+          "count": 125,
+          "total_seconds": 0.0004588,
+          "mean_seconds": 3.6704e-06,
+          "fraction_of_deviance": 0.05304720831550833
+        },
+        {
+          "phase": "blocked_deviance_tail",
+          "count": 124,
+          "total_seconds": 5.6e-06,
+          "mean_seconds": 4.516129032258064e-08,
+          "fraction_of_deviance": 0.0006474811825781313
+        }
+      ],
+      "optimize_fraction_of_fit": 0.8951197176577114,
+      "deviance_fraction_of_fit": 0.8899235494459135
+    },
+    "julia": {
+      "case": "nested_10k",
+      "fit_wall_seconds": 0.0065221,
+      "formula": "y ~ x + (1 | batch/cask)",
+      "implementation": "julia",
+      "mean_feval_seconds": 0.00011245000000000001,
+      "n_obs": 10000,
+      "optsum": {
+        "backend": "nlopt",
+        "ftol_abs": 1e-08,
+        "ftol_rel": 1e-12,
+        "maxfeval": -1,
+        "optimizer": "LN_NEWUOA",
+        "optimizer_feval": 58,
+        "optimizer_fmin": 5944.826928011232,
+        "returnvalue": "FTOL_REACHED"
+      },
+      "reml": false,
+      "warmups": 3
+    },
+    "comparison": {
+      "rust_deviance_eval_count": 124,
+      "julia_optimizer_feval": 58,
+      "rust_over_julia_feval": 2.1379310344827585,
+      "julia_over_rust_feval": 0.46774193548387094,
+      "rust_mean_eval_seconds": 6.974919354838709e-05,
+      "julia_mean_feval_seconds": 0.00011245000000000001,
+      "rust_over_julia_mean_eval": 0.6202685064329665,
+      "julia_over_rust_mean_eval": 1.612205020291598,
+      "rust_fit_wall_seconds": 0.0097187,
+      "julia_fit_wall_seconds": 0.0065221,
+      "rust_over_julia_fit": 1.4901182134588553,
+      "julia_over_rust_fit": 0.6710876969141963
+    },
+    "failures": []
+  },
+  {
+    "case": "random_intercept_10k",
+    "formula": "y ~ x + (1 | group)",
+    "reml": false,
+    "n_obs": 10000,
+    "rust": {
+      "optimizer_backend": "argmin",
+      "case": "random_intercept_10k",
+      "formula": "y ~ x + (1 | group)",
+      "reml": false,
+      "n_obs": 10000,
+      "optimizer_iterations": 17,
+      "converged": true,
+      "objective": 28296.271103991578,
+      "evaluated_objective": 28296.27110399167,
+      "theta": [
+        0.12678409642427774
+      ],
+      "coefficients": [
+        1.011744369202149,
+        1.9995222041015355
+      ],
+      "fit_wall_seconds": 0.0002041,
+      "prepare_wall_seconds": 0.0006878,
+      "prepare_perf": {
+        "kernel": null,
+        "kernel_detail": "blocked_active",
+        "deviance_eval_count": 0,
+        "phases": [
+          {
+            "phase": "lmer_setup",
+            "count": 1,
+            "total_seconds": 0.0006876,
+            "mean_seconds": 0.0006876
+          },
+          {
+            "phase": "setup_lmm_data",
+            "count": 1,
+            "total_seconds": 0.0003527,
+            "mean_seconds": 0.0003527
+          }
+        ],
+        "fit_wall_seconds": 0.0006878,
+        "optimize_fraction_of_fit": 0.0,
+        "deviance_fraction_of_fit": 0.0
+      },
+      "fit_prepared_wall_seconds": 0.0002041,
+      "blocked_kernel": true,
+      "blocked_kernel_detail": "blocked_active",
+      "kernel": "blocked",
+      "deviance_eval_count": 21,
+      "mean_deviance_eval_seconds": 1.5333333333333332e-06,
+      "phases": [
+        {
+          "phase": "lmer_post_fit",
+          "count": 1,
+          "total_seconds": 4.31e-05,
+          "mean_seconds": 4.31e-05,
+          "fraction_of_deviance": 1.3385093167701865
+        },
+        {
+          "phase": "lmer_optimize",
+          "count": 1,
+          "total_seconds": 3.32e-05,
+          "mean_seconds": 3.32e-05,
+          "fraction_of_deviance": 1.0310559006211182
+        },
+        {
+          "phase": "deviance_eval",
+          "count": 21,
+          "total_seconds": 3.22e-05,
+          "mean_seconds": 1.5333333333333332e-06,
+          "fraction_of_deviance": 1.0
+        },
+        {
+          "phase": "blocked_rank_chol",
+          "count": 22,
+          "total_seconds": 1.12e-05,
+          "mean_seconds": 5.090909090909091e-07,
+          "fraction_of_deviance": 0.3478260869565218
+        },
+        {
+          "phase": "blocked_trisolve",
+          "count": 22,
+          "total_seconds": 6.7e-06,
+          "mean_seconds": 3.045454545454546e-07,
+          "fraction_of_deviance": 0.20807453416149072
+        },
+        {
+          "phase": "blocked_schur_xy",
+          "count": 22,
+          "total_seconds": 6.5e-06,
+          "mean_seconds": 2.9545454545454545e-07,
+          "fraction_of_deviance": 0.2018633540372671
+        },
+        {
+          "phase": "blocked_reset",
+          "count": 22,
+          "total_seconds": 3.2e-06,
+          "mean_seconds": 1.4545454545454545e-07,
+          "fraction_of_deviance": 0.09937888198757765
+        },
+        {
+          "phase": "blocked_deviance_tail",
+          "count": 21,
+          "total_seconds": 6e-07,
+          "mean_seconds": 2.857142857142857e-08,
+          "fraction_of_deviance": 0.018633540372670808
+        }
+      ],
+      "optimize_fraction_of_fit": 0.16266536011758942,
+      "deviance_fraction_of_fit": 0.15776580107790297
+    },
+    "julia": {
+      "case": "random_intercept_10k",
+      "fit_wall_seconds": 0.0010411,
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "mean_feval_seconds": 4.957619047619048e-05,
+      "n_obs": 10000,
+      "optsum": {
+        "backend": "nlopt",
+        "ftol_abs": 1e-08,
+        "ftol_rel": 1e-12,
+        "maxfeval": -1,
+        "optimizer": "LN_BOBYQA",
+        "optimizer_feval": 21,
+        "optimizer_fmin": 28270.742057470386,
+        "returnvalue": "FTOL_REACHED"
+      },
+      "reml": false,
+      "warmups": 3
+    },
+    "comparison": {
+      "rust_deviance_eval_count": 21,
+      "julia_optimizer_feval": 21,
+      "rust_over_julia_feval": 1.0,
+      "julia_over_rust_feval": 1.0,
+      "rust_mean_eval_seconds": 1.5333333333333332e-06,
+      "julia_mean_feval_seconds": 4.957619047619048e-05,
+      "rust_over_julia_mean_eval": 0.030928825280952834,
+      "julia_over_rust_mean_eval": 32.33229813664597,
+      "rust_fit_wall_seconds": 0.0002041,
+      "julia_fit_wall_seconds": 0.0010411,
+      "rust_over_julia_fit": 0.19604264720007683,
+      "julia_over_rust_fit": 5.100930916217541
+    },
+    "failures": []
+  }
+]

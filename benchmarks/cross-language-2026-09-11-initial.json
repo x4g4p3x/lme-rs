@@ -1,0 +1,656 @@
+{
+  "generated_at": "2026-09-11T09:42:37.061647+00:00",
+  "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "python": "Python 3.11.15",
+    "Rscript": "Rscript (R) version 4.6.1 (2026-06-24)",
+    "julia": "julia version 1.12.6"
+  },
+  "config": {
+    "cases": [
+      "sleepstudy",
+      "pastes",
+      "cbpp",
+      "grouseticks",
+      "categorical",
+      "weighted",
+      "gaussian_glmm"
+    ],
+    "implementations": [
+      "rust",
+      "python",
+      "r",
+      "julia"
+    ],
+    "warmups": 2,
+    "repeats": 10,
+    "timeout_seconds": 900
+  },
+  "results": [
+    {
+      "case": "sleepstudy",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\sleepstudy.exe"
+      ],
+      "samples_seconds": [
+        0.009011499991174787,
+        0.009741000016219914,
+        0.012132700008805841,
+        0.00950459999148734,
+        0.00916680000955239,
+        0.009678500005975366,
+        0.008573900006012991,
+        0.009817400015890598,
+        0.009441300004255027,
+        0.009676200017565861
+      ],
+      "summary": {
+        "min_seconds": 0.008573900006012991,
+        "max_seconds": 0.012132700008805841,
+        "mean_seconds": 0.009674390006694011,
+        "median_seconds": 0.0095904000045266,
+        "stdev_seconds": 0.0009463089470140212
+      }
+    },
+    {
+      "case": "sleepstudy",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\sleepstudy.R"
+      ],
+      "samples_seconds": [
+        0.9761359000112861,
+        0.9837840000109281,
+        1.045626800012542,
+        0.9753942000097595,
+        0.9647970999940298,
+        0.9847821000148542,
+        0.9759418000176083,
+        0.9732343000068795,
+        0.9685755000100471,
+        0.9837258999759797
+      ],
+      "summary": {
+        "min_seconds": 0.9647970999940298,
+        "max_seconds": 1.045626800012542,
+        "mean_seconds": 0.9831997600063914,
+        "median_seconds": 0.9760388500144472,
+        "stdev_seconds": 0.02289006922116072
+      }
+    },
+    {
+      "case": "sleepstudy",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\sleepstudy.jl"
+      ],
+      "samples_seconds": [
+        12.635328500007745,
+        12.72551790002035,
+        13.06065430000308,
+        12.706109999999171,
+        13.561779899988323,
+        13.142764699994586,
+        12.980910700018285,
+        12.70875019999221,
+        13.52945999999065,
+        12.495611399994232
+      ],
+      "summary": {
+        "min_seconds": 12.495611399994232,
+        "max_seconds": 13.561779899988323,
+        "mean_seconds": 12.954688760000863,
+        "median_seconds": 12.853214300019317,
+        "stdev_seconds": 0.3702476546556791
+      }
+    },
+    {
+      "case": "pastes",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\lmm_pastes.exe"
+      ],
+      "samples_seconds": [
+        0.010292299994034693,
+        0.00975329999346286,
+        0.009955700021237135,
+        0.010302500013494864,
+        0.010007800010498613,
+        0.010005100019043311,
+        0.010832300002221018,
+        0.009186199982650578,
+        0.009763000009115785,
+        0.010731899994425476
+      ],
+      "summary": {
+        "min_seconds": 0.009186199982650578,
+        "max_seconds": 0.010832300002221018,
+        "mean_seconds": 0.010083010004018433,
+        "median_seconds": 0.010006450014770962,
+        "stdev_seconds": 0.000485087566912942
+      }
+    },
+    {
+      "case": "pastes",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmm_pastes.R"
+      ],
+      "samples_seconds": [
+        0.9658115000056569,
+        0.9530692999833263,
+        0.9497140999883413,
+        0.9451223000069149,
+        0.9478282000054605,
+        0.9539619999995921,
+        0.9469624999910593,
+        0.9563409000111278,
+        0.9668468000018038,
+        0.952800400002161
+      ],
+      "summary": {
+        "min_seconds": 0.9451223000069149,
+        "max_seconds": 0.9668468000018038,
+        "mean_seconds": 0.9538457999995444,
+        "median_seconds": 0.9529348499927437,
+        "stdev_seconds": 0.007430422026538004
+      }
+    },
+    {
+      "case": "pastes",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmm_pastes.jl"
+      ],
+      "samples_seconds": [
+        15.982297100010328,
+        16.09623960001045,
+        16.09591810000711,
+        16.029038899985608,
+        16.389701399981277,
+        16.0518591,
+        16.09181310000713,
+        15.958477800013497,
+        16.048924100003205,
+        16.27028430000064
+      ],
+      "summary": {
+        "min_seconds": 15.958477800013497,
+        "max_seconds": 16.389701399981277,
+        "mean_seconds": 16.101455350001924,
+        "median_seconds": 16.071836100003566,
+        "stdev_seconds": 0.1320120233043645
+      }
+    },
+    {
+      "case": "cbpp",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\glmm_cbpp.exe"
+      ],
+      "samples_seconds": [
+        0.09163479998824187,
+        0.0922603000071831,
+        0.09188380002160557,
+        0.093981599988183,
+        0.09334900000249036,
+        0.09200410000630654,
+        0.09041319999960251,
+        0.0912090000056196,
+        0.09178419999079779,
+        0.09922200001892634
+      ],
+      "summary": {
+        "min_seconds": 0.09041319999960251,
+        "max_seconds": 0.09922200001892634,
+        "mean_seconds": 0.09277420000289567,
+        "median_seconds": 0.09194395001395606,
+        "stdev_seconds": 0.00247913064090626
+      }
+    },
+    {
+      "case": "cbpp",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_cbpp.R"
+      ],
+      "samples_seconds": [
+        1.5289174999925308,
+        1.5296875999774784,
+        1.5164256999851204,
+        1.4978591999970376,
+        1.5029859000060242,
+        1.5026567000022624,
+        1.5028274999931455,
+        1.472284599993145,
+        1.482967500021914,
+        1.4821862000098918
+      ],
+      "summary": {
+        "min_seconds": 1.472284599993145,
+        "max_seconds": 1.5296875999774784,
+        "mean_seconds": 1.501879839997855,
+        "median_seconds": 1.502742099997704,
+        "stdev_seconds": 0.019310829983341223
+      }
+    },
+    {
+      "case": "cbpp",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_cbpp.jl"
+      ],
+      "samples_seconds": [
+        15.542915600002743,
+        15.659483800001908,
+        15.805563800007803,
+        15.64761380001437,
+        15.638333100010641,
+        15.676043799991021,
+        15.742839499987895,
+        15.750878699996974,
+        15.816164800024126,
+        15.783679499989375
+      ],
+      "summary": {
+        "min_seconds": 15.542915600002743,
+        "max_seconds": 15.816164800024126,
+        "mean_seconds": 15.706351640002685,
+        "median_seconds": 15.709441649989458,
+        "stdev_seconds": 0.08762214213278903
+      }
+    },
+    {
+      "case": "grouseticks",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\glmm_grouseticks.exe"
+      ],
+      "samples_seconds": [
+        0.01688579999608919,
+        0.017527799995150417,
+        0.016467300010845065,
+        0.01746509998338297,
+        0.016362399997888133,
+        0.018203400017227978,
+        0.01682069999515079,
+        0.018479100021068007,
+        0.01703570000245236,
+        0.016858199989655986
+      ],
+      "summary": {
+        "min_seconds": 0.016362399997888133,
+        "max_seconds": 0.018479100021068007,
+        "mean_seconds": 0.01721055000089109,
+        "median_seconds": 0.016960749999270774,
+        "stdev_seconds": 0.0007027217863689769
+      }
+    },
+    {
+      "case": "grouseticks",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_grouseticks.R"
+      ],
+      "samples_seconds": [
+        1.1757875999901444,
+        1.1718341000087094,
+        1.1769917999918107,
+        1.1733194999978878,
+        1.1858068000001367,
+        1.1851478999888059,
+        1.1627441000018734,
+        1.1865428000164684,
+        1.1826074999989942,
+        1.1798693999880925
+      ],
+      "summary": {
+        "min_seconds": 1.1627441000018734,
+        "max_seconds": 1.1865428000164684,
+        "mean_seconds": 1.1780651499982924,
+        "median_seconds": 1.1784305999899516,
+        "stdev_seconds": 0.00751500993369821
+      }
+    },
+    {
+      "case": "grouseticks",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_grouseticks.jl"
+      ],
+      "samples_seconds": [
+        17.453123600018444,
+        17.171642600005725,
+        16.793756200000644,
+        16.676247199997306,
+        16.910379400011152,
+        16.844836700009182,
+        16.388544799992815,
+        16.7736242999963,
+        16.69688259999384,
+        16.945078099990496
+      ],
+      "summary": {
+        "min_seconds": 16.388544799992815,
+        "max_seconds": 17.453123600018444,
+        "mean_seconds": 16.86541155000159,
+        "median_seconds": 16.819296450004913,
+        "stdev_seconds": 0.2892752524096415
+      }
+    },
+    {
+      "case": "categorical",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\categorical_anova.exe"
+      ],
+      "samples_seconds": [
+        0.0089890000235755,
+        0.010225000005448237,
+        0.009542499989038333,
+        0.009422199975233525,
+        0.007948200014652684,
+        0.008754099981160834,
+        0.00977559998864308,
+        0.009081099997274578,
+        0.008565500000258908,
+        0.008672600000863895
+      ],
+      "summary": {
+        "min_seconds": 0.007948200014652684,
+        "max_seconds": 0.010225000005448237,
+        "mean_seconds": 0.009097579997614957,
+        "median_seconds": 0.009035050010425039,
+        "stdev_seconds": 0.000662398847646448
+      }
+    },
+    {
+      "case": "categorical",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\categorical_anova.jl"
+      ],
+      "samples_seconds": [
+        14.268657699984033,
+        14.02362359999097,
+        14.120411500014598,
+        13.98982060002163,
+        14.10584820000804,
+        13.996007799985819,
+        13.677167699992424,
+        14.449306599999545,
+        14.068087999999989,
+        14.334404799999902
+      ],
+      "summary": {
+        "min_seconds": 13.677167699992424,
+        "max_seconds": 14.449306599999545,
+        "mean_seconds": 14.103333649999694,
+        "median_seconds": 14.086968100004015,
+        "stdev_seconds": 0.21456379299472159
+      }
+    },
+    {
+      "case": "weighted",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\lmer_weighted.exe"
+      ],
+      "samples_seconds": [
+        0.008486299979267642,
+        0.009869700006674975,
+        0.009836799988988787,
+        0.009309499990195036,
+        0.009613400005036965,
+        0.008898700005374849,
+        0.009175999992294237,
+        0.008779700001468882,
+        0.009822799998801202,
+        0.00899329999811016
+      ],
+      "summary": {
+        "min_seconds": 0.008486299979267642,
+        "max_seconds": 0.009869700006674975,
+        "mean_seconds": 0.009278619996621273,
+        "median_seconds": 0.009242749991244636,
+        "stdev_seconds": 0.0004925075659908656
+      }
+    },
+    {
+      "case": "weighted",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmer_weighted.R"
+      ],
+      "samples_seconds": [
+        1.1002369000052568,
+        1.2911369999928866,
+        1.2442984999797773,
+        1.0031849999795668,
+        0.9746341000136454,
+        0.9857607000158168,
+        0.9709451000089757,
+        0.9889906999887899,
+        0.9976567000267096,
+        0.9834807000006549
+      ],
+      "summary": {
+        "min_seconds": 0.9709451000089757,
+        "max_seconds": 1.2911369999928866,
+        "mean_seconds": 1.054032540001208,
+        "median_seconds": 0.9933237000077497,
+        "stdev_seconds": 0.11897473736916464
+      }
+    },
+    {
+      "case": "weighted",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmer_weighted.jl"
+      ],
+      "samples_seconds": [
+        13.319648100004997,
+        12.999964999995427,
+        12.778484500013292,
+        12.790127000014763,
+        12.589305000001332,
+        14.09601969999494,
+        12.912916000001132,
+        12.839395999995759,
+        12.706747799995355,
+        12.707979800004978
+      ],
+      "summary": {
+        "min_seconds": 12.589305000001332,
+        "max_seconds": 14.09601969999494,
+        "mean_seconds": 12.974058890002198,
+        "median_seconds": 12.814761500005261,
+        "stdev_seconds": 0.44261103738391083
+      }
+    },
+    {
+      "case": "gaussian_glmm",
+      "implementation": "rust",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\target\\full-refresh\\builds\\argmin\\release\\examples\\glmm_gaussian.exe"
+      ],
+      "samples_seconds": [
+        0.009006400010548532,
+        0.00859469998977147,
+        0.009201200009556487,
+        0.009442000009585172,
+        0.009221199987223372,
+        0.0082408000016585,
+        0.009069399995496497,
+        0.010035699990112334,
+        0.009948099992470816,
+        0.00888670000131242
+      ],
+      "summary": {
+        "min_seconds": 0.0082408000016585,
+        "max_seconds": 0.010035699990112334,
+        "mean_seconds": 0.00916461999877356,
+        "median_seconds": 0.009135300002526492,
+        "stdev_seconds": 0.0005521365025397801
+      }
+    },
+    {
+      "case": "gaussian_glmm",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_gaussian.R"
+      ],
+      "samples_seconds": [
+        0.9967449000105262,
+        0.9757406999997329,
+        0.9852083000005223,
+        1.0318901000136975,
+        1.0045952000073157,
+        1.0550871000159532,
+        1.0502171000116505,
+        1.0212888999958523,
+        1.018979800021043,
+        0.9801421000156552
+      ],
+      "summary": {
+        "min_seconds": 0.9757406999997329,
+        "max_seconds": 1.0550871000159532,
+        "mean_seconds": 1.0119894200091948,
+        "median_seconds": 1.0117875000141794,
+        "stdev_seconds": 0.028250207682912476
+      }
+    },
+    {
+      "case": "gaussian_glmm",
+      "implementation": "julia",
+      "command": [
+        "julia",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_gaussian.jl"
+      ],
+      "samples_seconds": [
+        13.029745100007858,
+        12.806642200011993,
+        12.883621100016171,
+        12.830054899997776,
+        12.878556400013622,
+        12.720701400015969,
+        12.914668500015978,
+        13.03493689998868,
+        12.897702199988998,
+        13.01796190001187
+      ],
+      "summary": {
+        "min_seconds": 12.720701400015969,
+        "max_seconds": 13.03493689998868,
+        "mean_seconds": 12.901459060006891,
+        "median_seconds": 12.890661650002585,
+        "stdev_seconds": 0.1030857270860832
+      }
+    }
+  ],
+  "failures": [
+    {
+      "case": "sleepstudy",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\sleepstudy.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\sleepstudy.py']' returned non-zero exit status 1.",
+      "details": "Please install pandas and statsmodels to run this example:\npip install pandas statsmodels"
+    },
+    {
+      "case": "pastes",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmm_pastes.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\lmm_pastes.py']' returned non-zero exit status 1.",
+      "details": "Please install pandas and statsmodels:\npip install pandas statsmodels"
+    },
+    {
+      "case": "cbpp",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_cbpp.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\glmm_cbpp.py']' returned non-zero exit status 1.",
+      "details": "Traceback (most recent call last):\n  File \"C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_cbpp.py\", line 17, in <module>\n    from statsmodels.genmod.bayes_mixed_glm import BinomialBayesMixedGLM\nModuleNotFoundError: No module named 'statsmodels'"
+    },
+    {
+      "case": "grouseticks",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_grouseticks.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\glmm_grouseticks.py']' returned non-zero exit status 1.",
+      "details": "Please install pandas and statsmodels to run this example:\npip install pandas statsmodels"
+    },
+    {
+      "case": "categorical",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\categorical_anova.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\categorical_anova.py']' returned non-zero exit status 1.",
+      "details": "Traceback (most recent call last):\n  File \"C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\categorical_anova.py\", line 2, in <module>\n    import statsmodels.formula.api as smf\nModuleNotFoundError: No module named 'statsmodels'"
+    },
+    {
+      "case": "categorical",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\categorical_anova.R"
+      ],
+      "error": "Command '['Rscript', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\categorical_anova.R']' returned non-zero exit status 1.",
+      "details": "During startup - Warning messages:\n1: Setting LC_COLLATE=C.UTF-8 failed \n2: Setting LC_CTYPE=C.UTF-8 failed \n3: Setting LC_MONETARY=C.UTF-8 failed \n4: Setting LC_TIME=C.UTF-8 failed \nError in library(car) : there is no package called 'car'\nCalls: suppressPackageStartupMessages -> withCallingHandlers -> library\nExecution halted"
+    },
+    {
+      "case": "weighted",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmer_weighted.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\lmer_weighted.py']' returned non-zero exit status 1.",
+      "details": "Please install pandas and statsmodels to run this example:\npip install pandas statsmodels numpy"
+    },
+    {
+      "case": "gaussian_glmm",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_gaussian.py"
+      ],
+      "error": "Command '['C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\python\\\\.venv\\\\Scripts\\\\python.exe', 'C:\\\\Users\\\\x4g4p\\\\CascadeProjects\\\\lme-rs\\\\comparisons\\\\glmm_gaussian.py']' returned non-zero exit status 1.",
+      "details": "Please install pandas and statsmodels to run this example:\npip install pandas statsmodels"
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-11T09:19:55.229164+00:00",
+  "host": {
+    "system": "Windows",
+    "machine": "AMD64",
+    "python": "3.11.15"
+  },
+  "warmups": 3,
+  "repeats": 11,
+  "rust_features": "basin",
+  "families_present": [
+    "lmm_fit",
+    "nlmm_fit",
+    "post_fit_inference"
+  ],
+  "skipped": [],
+  "reports": [
+    {
+      "case": "sleepstudy_lmer",
+      "family": "lmm_fit",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "rust",
+      "n_obs": 180,
+      "optimizer_backend": "basin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0005996,
+        0.0006128,
+        0.0006525,
+        0.0006195,
+        0.000608,
+        0.0010699,
+        0.0011274,
+        0.0010968,
+        0.0010974,
+        0.0010869,
+        0.00125
+      ],
+      "summary": {
+        "max_seconds": 0.00125,
+        "mean_seconds": 0.0008927999999999999,
+        "median_seconds": 0.0010699,
+        "min_seconds": 0.0005996
+      },
+      "warmups": 3
+    },
+    {
+      "case": "sleepstudy_satterthwaite",
+      "family": "post_fit_inference",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "rust",
+      "n_obs": 180,
+      "optimizer_backend": "basin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0004991,
+        0.0004956,
+        0.0004966,
+        0.0005015,
+        0.0004893,
+        0.0004863,
+        0.0005102,
+        0.0005309,
+        0.0004858,
+        0.000487,
+        0.0004852
+      ],
+      "summary": {
+        "max_seconds": 0.0005309,
+        "mean_seconds": 0.0004970454545454545,
+        "median_seconds": 0.0004956,
+        "min_seconds": 0.0004852
+      },
+      "warmups": 3
+    },
+    {
+      "case": "sleepstudy_kenward_roger",
+      "family": "post_fit_inference",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "rust",
+      "n_obs": 180,
+      "optimizer_backend": "basin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0060964,
+        0.0047438,
+        0.0048962,
+        0.0049229,
+        0.0047263,
+        0.0044746,
+        0.0049706,
+        0.0053173,
+        0.0051277,
+        0.0050351,
+        0.0046352
+      ],
+      "summary": {
+        "max_seconds": 0.0060964,
+        "mean_seconds": 0.0049951,
+        "median_seconds": 0.0049229,
+        "min_seconds": 0.0044746
+      },
+      "warmups": 3
+    },
+    {
+      "case": "orange_nlmer",
+      "family": "nlmm_fit",
+      "formula": "circumference ~ SSlogis(age, Asym, xmid, scal) ~ Asym|Tree",
+      "implementation": "rust",
+      "n_obs": 35,
+      "optimizer_backend": "basin",
+      "repeats": 11,
+      "samples_seconds": [
+        0.0600466,
+        0.0588793,
+        0.059701,
+        0.0600322,
+        0.0609647,
+        0.0599437,
+        0.0599802,
+        0.0594563,
+        0.0594172,
+        0.0608548,
+        0.0605373
+      ],
+      "summary": {
+        "max_seconds": 0.0609647,
+        "mean_seconds": 0.059983027272727266,
+        "median_seconds": 0.0599802,
+        "min_seconds": 0.0588793
+      },
+      "warmups": 3
+    }
+  ]
+}

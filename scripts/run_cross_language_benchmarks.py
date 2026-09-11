@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_CASES = {
     "sleepstudy": {
@@ -168,7 +167,10 @@ def runtime_versions() -> dict[str, str | None]:
 
 def rust_binary_path(example_name: str) -> Path:
     suffix = ".exe" if os.name == "nt" else ""
-    return REPO_ROOT / "target" / "release" / "examples" / f"{example_name}{suffix}"
+    target = Path(os.environ.get("CARGO_TARGET_DIR", "target"))
+    if not target.is_absolute():
+        target = REPO_ROOT / target
+    return target / "release" / "examples" / f"{example_name}{suffix}"
 
 
 def available_implementations(requested: Iterable[str]) -> dict[str, bool]:
@@ -183,7 +185,7 @@ def available_implementations(requested: Iterable[str]) -> dict[str, bool]:
 
 def prepare_rust_examples() -> None:
     subprocess.run(
-        ["cargo", "build", "--release", "--examples"],
+        ["cargo", "build", "--release", "--locked", "--examples"],
         cwd=REPO_ROOT,
         check=True,
     )
@@ -197,9 +199,7 @@ def build_commands(cases: list[str], implementations: list[str]) -> list[Benchma
         if available["rust"]:
             rust_binary = rust_binary_path(spec["rust_example"])
             if rust_binary.exists():
-                commands.append(
-                    BenchmarkCommand("rust", case, [str(rust_binary)])
-                )
+                commands.append(BenchmarkCommand("rust", case, [str(rust_binary)]))
         if available["python"]:
             commands.append(
                 BenchmarkCommand(
@@ -309,11 +309,9 @@ def main() -> int:
     results = []
     failures = []
     for item in commands:
-        print(f"Benchmarking {item.case} [{item.implementation}] ...")
+        print(f"Benchmarking {item.case} [{item.implementation}] ...", flush=True)
         try:
-            results.append(
-                benchmark_command(item, args.warmups, args.repeats, args.timeout)
-            )
+            results.append(benchmark_command(item, args.warmups, args.repeats, args.timeout))
         except Exception as exc:
             failures.append(
                 {

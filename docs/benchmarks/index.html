@@ -3,27 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>lme-rs Benchmarks</title>
+  <title>Performance and optimizer evidence · lme-rs</title>
   <meta name="description" content="Fair fit-only lme-rs timings versus MixedModels.jl, plus external nlmer, inference, and Python FFI measurements.">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#results">Skip to results</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="../">lme-rs <span>/ performance</span></a>
+    <div><a href="https://github.com/x4g4p3x/lme-rs/blob/master/docs/README.md">Documentation</a><a href="https://docs.rs/lme-rs/latest/lme_rs/">Rust API</a><a href="https://github.com/x4g4p3x/lme-rs">GitHub ↗</a></div>
+  </nav>
   <div class="page-shell">
     <header class="hero">
-      <p class="eyebrow">lme-rs Benchmark Dashboard</p>
-      <h1>Fair fit-only vs MixedModels.jl</h1>
+      <p class="eyebrow">Measured performance · Reproducible evidence</p>
+      <h1>Mixed-model performance,<br><span>case by case.</span></h1>
       <p class="hero-copy">
-        Shared CSV fixtures, warmed-up runtimes, and timed fit calls — not whole-script
-        startup. This is the throughput comparison the repository uses for completion
-        claims. Absolute times are machine-specific; ratios are the quantity to read.
+        Explore complete fits, optimizer tradeoffs, and the cost of repeated work.
+        Every result belongs to a recorded model, revision, and environment.
+        Numerical agreement and uncertainty determine which speed claims qualify.
       </p>
       <div class="hero-links" id="hero-links"></div>
     </header>
 
-    <main class="content-grid">
+    <nav class="section-nav" aria-label="On this page"><a href="#results">Fit results</a><a href="#optimizer-section">Optimizer choice</a><a href="#external-section">R &amp; Python</a><a href="#environment">Environment</a></nav>
+    <main class="content-grid" id="results">
       <section class="panel summary-panel">
         <div class="panel-header">
-          <h2>Reference run</h2>
+          <p class="section-number">01 / Current evidence</p>
+          <h2>At a glance</h2>
           <p id="run-meta">Loading benchmark metadata...</p>
         </div>
         <div class="stats-grid" id="stats-grid"></div>
@@ -31,7 +38,7 @@
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Rust / Julia cold fit</h2>
+          <h2>Complete fit · Rust / Julia</h2>
           <p>Values below 1.0× indicate a lower measured median for <code>lme-rs</code>. Check fit agreement, uncertainty, and timing boundaries before interpreting a speed advantage.</p>
         </div>
         <div id="ratio-summary" class="ratio-summary"></div>
@@ -40,15 +47,24 @@
       <section class="panel panel-wide">
         <div class="panel-header case-panel-header">
           <div>
-            <h2>Tier-A cases</h2>
-            <p>Median wall time after warmup. Prepared-fit reuses Rust's design while Julia constructs a fresh model; those ratios are diagnostic. Historical references retain their original assessment.</p>
+            <h2>Explore the workloads</h2>
+            <p>Complete fits use matching data and model settings. Prepared fits reuse Rust's design; their comparison with a new Julia model is diagnostic.</p>
           </div>
-          <div class="metric-toggle" role="tablist" aria-label="Fair-harness metric">
-            <button type="button" class="metric-btn is-active" data-metric="cold_fit">Cold fit</button>
-            <button type="button" class="metric-btn" data-metric="fit_prepared">Prepared fit</button>
+          <div class="metric-toggle" role="group" aria-label="Fair-harness metric">
+            <button type="button" class="metric-btn is-active" data-metric="cold_fit" aria-pressed="true">Complete fit</button>
+            <button type="button" class="metric-btn" data-metric="fit_prepared" aria-pressed="false">Prepared fit</button>
           </div>
         </div>
+        <div class="case-controls"><label for="case-search">Find a workload<input id="case-search" type="search" placeholder="Search model, formula, or case…"></label><span id="case-count" aria-live="polite"></span></div>
         <div id="case-grid" class="case-grid"></div>
+      </section>
+
+      <section class="panel panel-wide optimizer-panel" id="optimizer-section" hidden>
+        <div class="panel-header"><p class="section-number">02 / Optimizer decision</p><h2>Argmin or Basin?</h2><p id="optimizer-decision"></p></div>
+        <p id="optimizer-protocol" class="method-note"></p>
+        <label class="optimizer-control" for="optimizer-metric">Timing boundary <select id="optimizer-metric"><option value="cold_fit">Complete fit · 12 cases</option><option value="fit_prepared">Prepared fit · 10 LMM cases</option></select></label>
+        <div class="table-scroll"><table class="optimizer-table"><caption id="optimizer-caption"></caption><thead><tr><th scope="col">Workload</th><th scope="col">Argmin</th><th scope="col">Basin</th><th scope="col">Basin / Argmin</th><th scope="col">Assessment</th></tr></thead><tbody id="optimizer-rows"></tbody></table></div>
+        <p class="method-note">Ratios below 1 favor Basin. The interval resamples independent execution blocks, not individual timed fits. See the <a href="https://github.com/x4g4p3x/lme-rs/blob/master/docs/BASIN.md">optimizer guide</a> for the decision and its limits.</p>
       </section>
 
       <section class="panel panel-wide" id="ci-fair-section" hidden>
@@ -64,8 +80,8 @@
 
       <section class="panel panel-wide" id="external-section" hidden>
         <div class="panel-header">
-          <h2>nlmer, inference, and Python FFI</h2>
-          <p>Julia is not required. R packages are used when installed; skipped rows are listed in the environment panel.</p>
+          <h2>Nonlinear fits, inference, and Python calls</h2>
+          <p>R uses calibrated batches and reports amortized time per call. These selected operations have not passed the fair harness's numerical qualification. Skipped rows are listed in the environment panel.</p>
         </div>
         <div id="external-grid"></div>
       </section>
@@ -82,7 +98,7 @@
         <div id="cross-case-grid" class="case-grid"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="environment">
         <div class="panel-header">
           <h2>Environment</h2>
           <p>Recorded with the fair-harness reference unless noted.</p>
@@ -98,12 +114,13 @@
         <ul class="caveat-list">
           <li>The fair harness loads shared CSVs once, warms up each runtime, and times only the fit call.</li>
           <li>New runs require converged LMM fits with matching objectives and fixed effects before making speed claims. GLMM equivalence is not yet established.</li>
-          <li>Intervals describe variation within each process. They do not measure drift between sessions or machines; inconclusive and unverified results are not wins.</li>
+          <li>Rust/Julia intervals describe variation within each process. Optimizer intervals resample three execution blocks. Neither establishes performance on other machines; inconclusive and unverified results are not wins.</li>
           <li>GitHub-hosted runner numbers are useful for tag-to-tag diffs. Re-run the harness on your hardware before citing speed.</li>
           <li>Whole-script example bars include process startup and JIT; small fixtures favor a prebuilt Rust binary.</li>
         </ul>
       </section>
     </main>
+    <footer class="site-footer"><span>lme-rs · Open statistical computing</span><a href="https://github.com/x4g4p3x/lme-rs/blob/master/BENCHMARKS.md">Methodology and reproduction ↗</a></footer>
   </div>
 
   <template id="case-card-template">

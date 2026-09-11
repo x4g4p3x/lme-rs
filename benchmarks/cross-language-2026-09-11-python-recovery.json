@@ -1,0 +1,228 @@
+{
+  "generated_at": "2026-09-11T09:51:16.158873+00:00",
+  "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "python": "Python 3.11.15",
+    "Rscript": "Rscript (R) version 4.6.1 (2026-06-24)",
+    "julia": "julia version 1.12.6"
+  },
+  "config": {
+    "cases": [
+      "sleepstudy",
+      "pastes",
+      "cbpp",
+      "grouseticks",
+      "categorical",
+      "weighted",
+      "gaussian_glmm"
+    ],
+    "implementations": [
+      "python"
+    ],
+    "warmups": 2,
+    "repeats": 10,
+    "timeout_seconds": 900
+  },
+  "results": [
+    {
+      "case": "sleepstudy",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\sleepstudy.py"
+      ],
+      "samples_seconds": [
+        2.121542099979706,
+        2.0308473000186495,
+        1.9862756000075024,
+        2.017883799999254,
+        2.009353999979794,
+        2.060931000014534,
+        1.99474029999692,
+        2.0088547999912407,
+        2.2082487999869045,
+        2.0265336000011303
+      ],
+      "summary": {
+        "min_seconds": 1.9862756000075024,
+        "max_seconds": 2.2082487999869045,
+        "mean_seconds": 2.0465211299975636,
+        "median_seconds": 2.022208700000192,
+        "stdev_seconds": 0.0687732366480102
+      }
+    },
+    {
+      "case": "pastes",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmm_pastes.py"
+      ],
+      "samples_seconds": [
+        1.6620636000006925,
+        1.7335276000085287,
+        1.714698199997656,
+        1.664941800001543,
+        1.6545168999873567,
+        1.6643465000088327,
+        1.6563533000007737,
+        1.6376801000151318,
+        1.6530766999931075,
+        1.6154483999998774
+      ],
+      "summary": {
+        "min_seconds": 1.6154483999998774,
+        "max_seconds": 1.7335276000085287,
+        "mean_seconds": 1.66566531000135,
+        "median_seconds": 1.6592084500007331,
+        "stdev_seconds": 0.0344788718782203
+      }
+    },
+    {
+      "case": "cbpp",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_cbpp.py"
+      ],
+      "samples_seconds": [
+        1.6873070999863558,
+        1.6706943000026513,
+        1.6485650999820791,
+        1.6391626999829896,
+        1.655927799991332,
+        1.6490620000113267,
+        1.6512962999986485,
+        1.7010416999983136,
+        1.6608333000040147,
+        1.669083699991461
+      ],
+      "summary": {
+        "min_seconds": 1.6391626999829896,
+        "max_seconds": 1.7010416999983136,
+        "mean_seconds": 1.6632973999949172,
+        "median_seconds": 1.6583805499976734,
+        "stdev_seconds": 0.019136566187174384
+      }
+    },
+    {
+      "case": "grouseticks",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_grouseticks.py"
+      ],
+      "samples_seconds": [
+        1.9331351000000723,
+        1.9436644999950659,
+        1.967152500001248,
+        1.946966599993175,
+        1.9355414000165183,
+        1.9334930000186432,
+        1.889520500000799,
+        1.8992927999934182,
+        1.9821407000126783,
+        1.958955700014485
+      ],
+      "summary": {
+        "min_seconds": 1.889520500000799,
+        "max_seconds": 1.9821407000126783,
+        "mean_seconds": 1.9389862800046103,
+        "median_seconds": 1.939602950005792,
+        "stdev_seconds": 0.02836019173541977
+      }
+    },
+    {
+      "case": "categorical",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\categorical_anova.py"
+      ],
+      "samples_seconds": [
+        1.5996257000078913,
+        1.6144175000081304,
+        1.6187174000078812,
+        1.652233199973125,
+        1.6907418000046164,
+        1.6733025000139605,
+        1.6381537000124808,
+        1.6235506999946665,
+        1.7020396000007167,
+        1.6672991999948863
+      ],
+      "summary": {
+        "min_seconds": 1.5996257000078913,
+        "max_seconds": 1.7020396000007167,
+        "mean_seconds": 1.6480081300018354,
+        "median_seconds": 1.645193449992803,
+        "stdev_seconds": 0.03463745651785755
+      }
+    },
+    {
+      "case": "weighted",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\lmer_weighted.py"
+      ],
+      "samples_seconds": [
+        1.6055394999857526,
+        1.6581743999850005,
+        1.6860499999893364,
+        1.674547500006156,
+        1.67068979999749,
+        1.7139356000116095,
+        1.676209099998232,
+        1.7037654000159819,
+        1.6599515000125393,
+        1.6657729999860749
+      ],
+      "summary": {
+        "min_seconds": 1.6055394999857526,
+        "max_seconds": 1.7139356000116095,
+        "mean_seconds": 1.6714635799988173,
+        "median_seconds": 1.672618650001823,
+        "stdev_seconds": 0.029401757854091267
+      }
+    },
+    {
+      "case": "gaussian_glmm",
+      "implementation": "python",
+      "command": [
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\python\\.venv\\Scripts\\python.exe",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\glmm_gaussian.py"
+      ],
+      "samples_seconds": [
+        1.6438402000057977,
+        1.6494117999973241,
+        1.644618000020273,
+        1.6389133000047877,
+        1.6504293999751098,
+        1.639806099992711,
+        1.702690399979474,
+        1.7599231000058353,
+        1.6480150000134017,
+        1.6509735000145156
+      ],
+      "summary": {
+        "min_seconds": 1.6389133000047877,
+        "max_seconds": 1.7599231000058353,
+        "mean_seconds": 1.662862080000923,
+        "median_seconds": 1.648713400005363,
+        "stdev_seconds": 0.038735847609285376
+      }
+    }
+  ],
+  "failures": []
+}

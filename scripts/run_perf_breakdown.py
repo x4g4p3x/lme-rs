@@ -56,7 +56,10 @@ FAIR_CASES: dict[str, FairCase] = {
 
 def rust_binary(name: str) -> Path:
     suffix = ".exe" if sys.platform == "win32" else ""
-    return REPO_ROOT / "target" / "release" / "examples" / f"{name}{suffix}"
+    target = Path(os.environ.get("CARGO_TARGET_DIR", "target"))
+    if not target.is_absolute():
+        target = REPO_ROOT / target
+    return target / "release" / "examples" / f"{name}{suffix}"
 
 
 def resolve_julia(explicit: str | None) -> str | None:
@@ -78,9 +81,12 @@ def resolve_julia(explicit: str | None) -> str | None:
     return None
 
 
-def build_perf_example() -> None:
+def build_perf_example(features: str = "") -> None:
+    command = ["cargo", "build", "--release", "--locked", "--example", PERF_EXAMPLE]
+    if features:
+        command.extend(["--features", features])
     subprocess.run(
-        ["cargo", "build", "--release", "--locked", "--example", PERF_EXAMPLE],
+        command,
         cwd=REPO_ROOT,
         check=True,
     )
@@ -187,9 +193,7 @@ def rust_breakdown(case: FairCase, csv_path: Path, warmups: int) -> dict[str, An
     return run_json(cmd)
 
 
-def julia_breakdown(
-    julia_bin: str, case: FairCase, csv_path: Path, warmups: int
-) -> dict[str, Any]:
+def julia_breakdown(julia_bin: str, case: FairCase, csv_path: Path, warmups: int) -> dict[str, Any]:
     cmd = [
         julia_bin,
         str(JULIA_SCRIPT),
@@ -262,6 +266,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-dir", default=str(DEFAULT_DATA_DIR))
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--skip-build", action="store_true")
+    parser.add_argument("--rust-features", default="")
+    parser.add_argument("--output", default="benchmark-results/perf-breakdown.json")
     parser.add_argument(
         "--implementations",
         default="rust,julia",
@@ -277,6 +283,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.warmups < 0:
+        raise SystemExit("--warmups must be nonnegative")
     data_dir = Path(args.data_dir)
     implementations = {part.strip() for part in args.implementations.split(",") if part.strip()}
 
@@ -293,7 +301,7 @@ def main() -> int:
         return 1
 
     if "rust" in implementations and not args.skip_build:
-        build_perf_example()
+        build_perf_example(args.rust_features)
 
     reports: list[dict[str, Any]] = []
     for name in [c.strip() for c in args.cases.split(",") if c.strip()]:
@@ -310,6 +318,14 @@ def main() -> int:
         if "rust" in implementations:
             try:
                 rust_report = rust_breakdown(case, csv_path, args.warmups)
+                expected = (
+                    "basin"
+                    if "basin" in [part.strip() for part in args.rust_features.split(",")]
+                    else "argmin"
+                )
+                if rust_report.get("optimizer_backend") != expected:
+                    rust_report = None
+                    raise ValueError(f"Expected optimizer_backend={expected}")
             except Exception as exc:
                 failures.append({"implementation": "rust", "error": str(exc)})
 
@@ -332,10 +348,13 @@ def main() -> int:
         reports.append(entry)
         print(json.dumps(entry, indent=2))
 
-    out_path = REPO_ROOT / "benchmark-results" / "perf-breakdown.json"
+    out_path = Path(args.output)
+    if not out_path.is_absolute():
+        out_path = REPO_ROOT / out_path
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(reports, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {out_path}", file=sys.stderr)
-    return 0
+    return int(any(report["failures"] for report in reports))
 
 
 if __name__ == "__main__":

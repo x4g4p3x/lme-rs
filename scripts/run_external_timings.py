@@ -39,7 +39,7 @@ def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=ROOT, text=True, check=True, capture_output=True)
 
 
-def rust_report(case: str, warmups: int, repeats: int) -> dict[str, Any]:
+def rust_report(case: str, warmups: int, repeats: int, features: str = "") -> dict[str, Any]:
     completed = _run(
         [
             "cargo",
@@ -48,6 +48,7 @@ def rust_report(case: str, warmups: int, repeats: int) -> dict[str, Any]:
             "--locked",
             "--example",
             RUST_EXAMPLE,
+            *(["--features", features] if features else []),
             "--",
             "--case",
             case,
@@ -61,7 +62,11 @@ def rust_report(case: str, warmups: int, repeats: int) -> dict[str, Any]:
     start = text.find("{")
     if start < 0:
         raise RuntimeError(f"rust example produced no JSON for {case}: {text[-500:]}")
-    return json.loads(text[start:])
+    report = json.loads(text[start:])
+    expected = "basin" if "basin" in [item.strip() for item in features.split(",")] else "argmin"
+    if report.get("optimizer_backend") != expected:
+        raise ValueError(f"Rust external benchmark must report optimizer_backend={expected}")
+    return report
 
 
 def rscript_available() -> bool:
@@ -160,6 +165,9 @@ def main() -> int:
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
+        "--rust-features", default="", help="Cargo features for Rust timings, e.g. basin"
+    )
+    parser.add_argument(
         "--skip-python",
         action="store_true",
         help="Do not time lme_python (useful before maturin develop)",
@@ -180,6 +188,8 @@ def main() -> int:
         help="Comma-separated case list",
     )
     args = parser.parse_args()
+    if args.warmups < 0 or args.repeats < 1:
+        parser.error("warmups must be nonnegative and repeats must be positive")
     cases = [item.strip() for item in args.cases.split(",") if item.strip()]
     unknown = [item for item in cases if item not in CASES]
     if unknown:
@@ -189,7 +199,7 @@ def main() -> int:
     skipped: list[str] = []
 
     for case in cases:
-        reports.append(rust_report(case, args.warmups, args.repeats))
+        reports.append(rust_report(case, args.warmups, args.repeats, args.rust_features))
         if args.rust_only or args.skip_r:
             continue
         r_payload = r_report(case, args.warmups, args.repeats)
@@ -218,6 +228,7 @@ def main() -> int:
         },
         "warmups": args.warmups,
         "repeats": args.repeats,
+        "rust_features": args.rust_features,
         "families_present": families,
         "skipped": skipped,
         "reports": reports,

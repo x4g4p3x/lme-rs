@@ -11,9 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add an optional `basin` Cargo feature using Basin 1.10.0 for projected
   Nelder-Mead searches, with paired comparisons against the default Argmin backend.
+- Add a reproducible, order-balanced optimizer comparison with per-fit numerical
+  checks, raw process reports, and uncertainty over execution blocks.
 
 ### Changed
 
+- Reorganize the benchmark, coverage, and optimization guides around current
+  evidence and reproducible workflows; preserve older experiments in labeled
+  archives. Refresh the benchmark dashboard's typography, navigation, workload
+  search, numerical qualifications, and optimizer comparison.
+- Identify the optimizer in external fit/inference benchmarks and allow their
+  Rust feature selection. Honor custom Cargo target directories in whole-script
+  and phase benchmarks so separately built optimizer binaries can be measured
+  reliably, and fail phase reports when a requested measurement fails.
+- Preserve Unicode text when the R formatter runs under a non-UTF-8 Windows
+  locale, avoiding changes to comments and string values during formatting.
+- Calibrate R external timings in batches so fast inference calls do not round
+  to zero on coarse clocks; retain per-batch elapsed times and iteration counts.
+- Fix the R categorical-ANOVA example to request the supported `Chisq`
+  statistic from `car::Anova`.
 - Qualify fair Rust/Julia benchmark speed claims with per-fit LMM agreement and
   convergence checks, minimum sampling, and timing-ratio uncertainty intervals.
   Record reproducibility metadata, use explicit thread limits, and distinguish

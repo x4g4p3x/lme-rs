@@ -258,5 +258,11 @@ fn main() {
         std::process::exit(2);
     });
     let report = run_case(case, warmups, repeats);
+    let mut report = serde_json::to_value(report).unwrap();
+    report["optimizer_backend"] = serde_json::json!(if cfg!(feature = "basin") {
+        "basin"
+    } else {
+        "argmin"
+    });
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
 }

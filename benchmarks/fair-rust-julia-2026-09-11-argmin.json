@@ -1,0 +1,5720 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-09-11T08:57:36.126550+00:00",
+  "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+  "provenance": {
+    "working_tree_dirty": true,
+    "working_tree_status": "M BENCHMARKS.md\n M BENCHMARK_COVERAGE.md\n M CHANGELOG.md\n M GUIDE.md\n M OPTIMIZATION.md\n M README.md\n M comparisons/glmm_cbpp.R\n M comparisons/glmm_gaussian.R\n M docs/BASIN.md\n M docs/README.md\n M docs/benchmarks/app.js\n M docs/benchmarks/index.html\n M docs/benchmarks/styles.css\n M examples/bench_external_timings.rs\n M scripts/build_benchmark_site.py\n M scripts/ci/r_format.R\n M scripts/run_cross_language_benchmarks.py\n M scripts/run_external_timings.py\n?? BENCHMARK_HISTORY.md\n?? OPTIMIZATION_HISTORY.md\n?? benchmarks/optimizer-comparison-2026-09-11.json\n?? scripts/tests/test_benchmark_runtimes.py\n?? scripts/tests/test_r_formatter.py",
+    "rust_binary_sha256": "f2f13172e4f76cb222fbdaceda3a6b636b73d95c1ff0f88e1c30512c084e59ed",
+    "rust_build_verified_this_run": false,
+    "source_content_sha256": "caedd62019672602e733da43f48640aa6920607dc64e274b2ea865a93179859d",
+    "cargo_lock_sha256": "550008a73c75b5aef8a2357463731416106b78643d04939b4b7a3873f564e82b",
+    "harness_sha256": "c2c0fb564f7c7fb259554cac10145f9e127394e017a9c484554922540bf562fd",
+    "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+    "rustflags": null,
+    "cargo_encoded_rustflags": null,
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "RAYON_NUM_THREADS": "1",
+      "POLARS_MAX_THREADS": "1",
+      "JULIA_NUM_THREADS": "1"
+    }
+  },
+  "fixtures": {
+    "sleepstudy_reml": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\tests\\data\\sleepstudy.csv",
+      "sha256": "ca44cdff66d50743895a2315243626aa8f8cc04d1dc92e98e2f2a6b61dc6bda5"
+    },
+    "sleepstudy_weighted_reml": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\tests\\data\\sleepstudy.csv",
+      "sha256": "ca44cdff66d50743895a2315243626aa8f8cc04d1dc92e98e2f2a6b61dc6bda5"
+    },
+    "penicillin_crossed_reml": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\tests\\data\\penicillin.csv",
+      "sha256": "b558cb6917c06c0f062ce63eaea7ab6650c5d1c622790aa8a1f1c7eb3de841d0"
+    },
+    "pastes_nested_reml": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\tests\\data\\pastes.csv",
+      "sha256": "9888ef1733d85db35299d32a29119677ab42cae03dc2f02212f3d645ba81c3a3"
+    },
+    "random_intercept_10k": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data\\random_intercept_10k.csv",
+      "sha256": "3efd9802f0587a74650e0bc4c9e4df35fb7bb60270e3f4193abd68fefe4a6476"
+    },
+    "random_intercept_50k": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data\\random_intercept_50k.csv",
+      "sha256": "dca542c9a88fc10505fa68fe0b448a484fbdc16b710373fbd7ff2b64ada36d78"
+    },
+    "random_intercept_100k": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data\\random_intercept_100k.csv",
+      "sha256": "8c1f53364ec5af1a8fa5049e9ec227702f4ec506c6498d7f1463117cb9d74733"
+    },
+    "large_random_slopes_100k": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data\\large_random_slopes_100k.csv",
+      "sha256": "8ced47cee316d09856f34956ad7dacd927463f114947e2bdf19b3d64dd06075a"
+    },
+    "crossed_20k": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data\\crossed_20k.csv",
+      "sha256": "2288bc283c79464ad90be60b99a970a52183e271c25e7e3a81bb70991016e167"
+    },
+    "nested_10k": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data\\nested_10k.csv",
+      "sha256": "1fcaf7c829bb367938300c980ae33bf02c9fe78c8e1270b4569c692f349f01ba"
+    },
+    "cbpp_binomial_ml": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\tests\\data\\cbpp_binary.csv",
+      "sha256": "882d1d704d5584b8abefa969c31d4e6842ccb6b679dac6b603989c1f48a0ac25"
+    },
+    "grouseticks_poisson_ml": {
+      "path": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\tests\\data\\grouseticks.csv",
+      "sha256": "e246fd63c5ac1d5aefcc8c10a938e9607b79a087c46c1bb64cc988b6537b7769"
+    }
+  },
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; model fit timed per metric; Julia JIT warmed up.",
+    "coverage_doc": "BENCHMARK_COVERAGE.md",
+    "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+    "rust_engine": "lme-rs lmer/glmer/lmer_weighted; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit / GeneralizedLinearMixedModel (GLM.jl)",
+    "target_ratio_cold_fit": 1.0,
+    "note": "Speed claims require converged LMM fits with matching objectives/coefficients. GLMM equivalence remains unverified.",
+    "timing_boundary": "Fresh model construction and fit on loaded data; warmed runtime; excludes destruction and fit-check extraction. Not process-cold latency.",
+    "execution_order": "rust-first per case; separate processes; no between-session uncertainty estimate."
+  },
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12,
+    "cpu_model": "AMD Ryzen 5 8600G w/ Radeon 760M Graphics"
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "julia": "julia version 1.12.6"
+  },
+  "config": {
+    "cases": [
+      "sleepstudy_reml",
+      "sleepstudy_weighted_reml",
+      "penicillin_crossed_reml",
+      "pastes_nested_reml",
+      "random_intercept_10k",
+      "random_intercept_50k",
+      "random_intercept_100k",
+      "large_random_slopes_100k",
+      "crossed_20k",
+      "nested_10k",
+      "cbpp_binomial_ml",
+      "grouseticks_poisson_ml"
+    ],
+    "implementations": [
+      "julia",
+      "rust"
+    ],
+    "rust_features": [],
+    "warmups": 3,
+    "repeats": 11,
+    "threads": 1,
+    "order": "rust-first",
+    "timeout_seconds": 3600,
+    "with_phases": true,
+    "target_ratio": 1.0,
+    "data_dir": "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\benchmark-results\\fair-rust-julia-data"
+  },
+  "results": [
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "sleepstudy_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 180,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 68,
+      "objective": 1743.6282727862238,
+      "evaluated_objective": 1743.628272786221,
+      "theta": [
+        0.9665850632103228,
+        0.015190060309490404,
+        0.23093612208988026
+      ],
+      "coefficients": [
+        251.4051048484841,
+        10.467285959595815
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0006647,
+          0.00064,
+          0.0006159,
+          0.0006284,
+          0.0006864,
+          0.0006152,
+          0.0005915,
+          0.0005959,
+          0.0006102,
+          0.0006018,
+          0.0006198
+        ],
+        "summary": {
+          "min_seconds": 0.0005915,
+          "max_seconds": 0.0006864,
+          "mean_seconds": 0.0006245272727272728,
+          "median_seconds": 0.0006159,
+          "stdev_seconds": 2.917598638980663e-05
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          2.96e-05,
+          2.12e-05,
+          1.97e-05,
+          2.35e-05,
+          3e-05,
+          3.08e-05,
+          3.22e-05,
+          3.41e-05,
+          3.3e-05,
+          2.38e-05,
+          1.87e-05
+        ],
+        "summary": {
+          "min_seconds": 1.87e-05,
+          "max_seconds": 3.41e-05,
+          "mean_seconds": 2.696363636363637e-05,
+          "median_seconds": 2.96e-05,
+          "stdev_seconds": 5.674023744622987e-06
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0005641,
+          0.0005738,
+          0.0005713,
+          0.0008628,
+          0.0008154,
+          0.000591,
+          0.0006184,
+          0.0007751,
+          0.0006713,
+          0.0005787,
+          0.0005726
+        ],
+        "summary": {
+          "min_seconds": 0.0005641,
+          "max_seconds": 0.0008628,
+          "mean_seconds": 0.0006540454545454545,
+          "median_seconds": 0.000591,
+          "stdev_seconds": 0.00011112948630886731
+        }
+      }
+    },
+    {
+      "case": "sleepstudy_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0007478,
+          0.0010452,
+          0.0007643,
+          0.0007291,
+          0.0007505,
+          0.0007258,
+          0.0007164,
+          0.000712,
+          0.0007006,
+          0.0007086,
+          0.000715
+        ],
+        "summary": {
+          "max_seconds": 0.0010452,
+          "mean_seconds": 0.0007559363636363636,
+          "median_seconds": 0.0007258,
+          "min_seconds": 0.0007006,
+          "stdev_seconds": 9.794881594718004e-05
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            251.40510484848448,
+            10.46728595959583
+          ],
+          "converged": true,
+          "iterations": 69,
+          "objective": 1743.6282719585101,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 180,
+      "reml": true,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "sleepstudy_weighted_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "model": "lmm_weighted",
+      "reml": true,
+      "n_obs": 180,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 56,
+      "objective": 1675.7551505567628,
+      "evaluated_objective": 1675.75515055677,
+      "theta": [
+        1.2270643054982706,
+        -0.002398390090546093,
+        0.2880575997283134
+      ],
+      "coefficients": [
+        250.17703311749486,
+        10.670950360191142
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0005637,
+          0.0005389,
+          0.0005535,
+          0.0005345,
+          0.000555,
+          0.0005414,
+          0.0005573,
+          0.0005904,
+          0.0005783,
+          0.0005866,
+          0.0005729
+        ],
+        "summary": {
+          "min_seconds": 0.0005345,
+          "max_seconds": 0.0005904,
+          "mean_seconds": 0.0005611363636363636,
+          "median_seconds": 0.0005573,
+          "stdev_seconds": 1.9100956663333512e-05
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          8.18e-05,
+          7.63e-05,
+          3.04e-05,
+          2.9e-05,
+          2.64e-05,
+          2.61e-05,
+          2.6e-05,
+          2.41e-05,
+          2.4e-05,
+          2.43e-05,
+          2.47e-05
+        ],
+        "summary": {
+          "min_seconds": 2.4e-05,
+          "max_seconds": 8.18e-05,
+          "mean_seconds": 3.573636363636364e-05,
+          "median_seconds": 2.61e-05,
+          "stdev_seconds": 2.1544571136473e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0004901,
+          0.0004975,
+          0.0004892,
+          0.0004886,
+          0.0004818,
+          0.000496,
+          0.0004963,
+          0.0004924,
+          0.0005455,
+          0.0005014,
+          0.0004966
+        ],
+        "summary": {
+          "min_seconds": 0.0004818,
+          "max_seconds": 0.0005455,
+          "mean_seconds": 0.0004977636363636363,
+          "median_seconds": 0.000496,
+          "stdev_seconds": 1.672813634134255e-05
+        }
+      }
+    },
+    {
+      "case": "sleepstudy_weighted_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0007578,
+          0.001013,
+          0.0006936,
+          0.0006742,
+          0.0006623,
+          0.0006929,
+          0.0006608,
+          0.0006557,
+          0.0006522,
+          0.0006623,
+          0.0006701
+        ],
+        "summary": {
+          "max_seconds": 0.001013,
+          "mean_seconds": 0.0007086272727272727,
+          "median_seconds": 0.0006701,
+          "min_seconds": 0.0006522,
+          "stdev_seconds": 0.00010524670152464724
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            250.17703311749412,
+            10.67095036019162
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 1743.764614061546,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "implementation": "julia",
+      "model": "lmm_weighted",
+      "n_obs": 180,
+      "reml": true,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "penicillin_crossed_reml",
+      "formula": "diameter ~ 1 + (1 | plate) + (1 | sample)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 144,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 330.86058931928585,
+          "coefficients": [
+            22.97222222222591
+          ],
+          "converged": true,
+          "iterations": 64
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 64,
+      "objective": 330.86058931945,
+      "evaluated_objective": 330.86058931928585,
+      "theta": [
+        1.5396442917325568,
+        3.5130378872243444
+      ],
+      "coefficients": [
+        22.97222222222591
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0001574,
+          0.0001502,
+          0.0001548,
+          0.0001488,
+          0.0001505,
+          0.0001458,
+          0.0001498,
+          0.0001435,
+          0.0001422,
+          0.0001437,
+          0.0001445
+        ],
+        "summary": {
+          "min_seconds": 0.0001422,
+          "max_seconds": 0.0001574,
+          "mean_seconds": 0.0001482909090909091,
+          "median_seconds": 0.0001488,
+          "stdev_seconds": 4.879642311779536e-06
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          2.25e-05,
+          2.03e-05,
+          2e-05,
+          2.02e-05,
+          2.01e-05,
+          1.99e-05,
+          2e-05,
+          2e-05,
+          1.99e-05,
+          1.95e-05,
+          1.97e-05
+        ],
+        "summary": {
+          "min_seconds": 1.95e-05,
+          "max_seconds": 2.25e-05,
+          "mean_seconds": 2.019090909090909e-05,
+          "median_seconds": 2e-05,
+          "stdev_seconds": 7.968118290469157e-07
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0001173,
+          0.0001177,
+          0.0001174,
+          0.0001172,
+          0.0001169,
+          0.0001169,
+          0.0001168,
+          0.0001171,
+          0.0001167,
+          0.0001214,
+          0.0001177
+        ],
+        "summary": {
+          "min_seconds": 0.0001167,
+          "max_seconds": 0.0001214,
+          "mean_seconds": 0.00011755454545454547,
+          "median_seconds": 0.0001172,
+          "stdev_seconds": 1.3193662390433027e-06
+        }
+      }
+    },
+    {
+      "case": "penicillin_crossed_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0003954,
+          0.0007386,
+          0.0004953,
+          0.0004288,
+          0.00042,
+          0.0004845,
+          0.0004196,
+          0.0004864,
+          0.0004254,
+          0.0004074,
+          0.0004994
+        ],
+        "summary": {
+          "max_seconds": 0.0007386,
+          "mean_seconds": 0.00047279999999999995,
+          "median_seconds": 0.0004288,
+          "min_seconds": 0.0003954,
+          "stdev_seconds": 9.6048977089816e-05
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            22.972222222220633
+          ],
+          "converged": true,
+          "iterations": 45,
+          "objective": 330.86058899110526,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "diameter ~ 1 + (1 | plate) + (1 | sample)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 144,
+      "reml": true,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "pastes_nested_reml",
+      "formula": "strength ~ 1 + (1 | batch/cask)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 60,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        },
+        {
+          "objective": 246.99074627211002,
+          "coefficients": [
+            60.05333333333306
+          ],
+          "converged": true,
+          "iterations": 63
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 63,
+      "objective": 246.99074627237835,
+      "evaluated_objective": 246.99074627211002,
+      "theta": [
+        3.5272368848323827,
+        1.562849001735312
+      ],
+      "coefficients": [
+        60.05333333333306
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0002085,
+          0.0002006,
+          0.0001969,
+          0.0001966,
+          0.0001953,
+          0.0001927,
+          0.0001875,
+          0.0001866,
+          0.0001868,
+          0.0001888,
+          0.0001981
+        ],
+        "summary": {
+          "min_seconds": 0.0001866,
+          "max_seconds": 0.0002085,
+          "mean_seconds": 0.00019439999999999998,
+          "median_seconds": 0.0001953,
+          "stdev_seconds": 6.806614430096653e-06
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          2.29e-05,
+          1.71e-05,
+          1.64e-05,
+          1.9e-05,
+          1.81e-05,
+          1.8e-05,
+          1.68e-05,
+          1.69e-05,
+          2.06e-05,
+          1.67e-05,
+          1.64e-05
+        ],
+        "summary": {
+          "min_seconds": 1.64e-05,
+          "max_seconds": 2.29e-05,
+          "mean_seconds": 1.8081818181818183e-05,
+          "median_seconds": 1.71e-05,
+          "stdev_seconds": 2.0488134038111833e-06
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0001667,
+          0.000167,
+          0.0001665,
+          0.0001662,
+          0.0001659,
+          0.000166,
+          0.0001692,
+          0.0001657,
+          0.0001664,
+          0.0001892,
+          0.0001656
+        ],
+        "summary": {
+          "min_seconds": 0.0001656,
+          "max_seconds": 0.0001892,
+          "mean_seconds": 0.0001685818181818182,
+          "median_seconds": 0.0001664,
+          "stdev_seconds": 6.909098086120672e-06
+        }
+      }
+    },
+    {
+      "case": "pastes_nested_reml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0004213,
+          0.000716,
+          0.0003295,
+          0.0002999,
+          0.000299,
+          0.0002906,
+          0.0002927,
+          0.0002924,
+          0.0002976,
+          0.0004711,
+          0.0004279
+        ],
+        "summary": {
+          "max_seconds": 0.000716,
+          "mean_seconds": 0.0003761818181818182,
+          "median_seconds": 0.0002999,
+          "min_seconds": 0.0002906,
+          "stdev_seconds": 0.00013062900763752142
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            60.05333333333389
+          ],
+          "converged": true,
+          "iterations": 28,
+          "objective": 246.99074585353358,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "strength ~ 1 + (1 | batch/cask)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 60,
+      "reml": true,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "random_intercept_10k",
+      "formula": "y ~ x + (1 | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 10000,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 28296.27110399167,
+          "coefficients": [
+            1.011744369202149,
+            1.9995222041015355
+          ],
+          "converged": true,
+          "iterations": 17
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 17,
+      "objective": 28296.271103991578,
+      "evaluated_objective": 28296.27110399167,
+      "theta": [
+        0.12678409642427774
+      ],
+      "coefficients": [
+        1.011744369202149,
+        1.9995222041015355
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0011453,
+          0.0010095,
+          0.0008961,
+          0.000823,
+          0.0009621,
+          0.0008172,
+          0.0008076,
+          0.0008039,
+          0.0008923,
+          0.000909,
+          0.0009337
+        ],
+        "summary": {
+          "min_seconds": 0.0008039,
+          "max_seconds": 0.0011453,
+          "mean_seconds": 0.0009090636363636364,
+          "median_seconds": 0.0008961,
+          "stdev_seconds": 0.00010342345258912285
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.000581,
+          0.0005616,
+          0.0005543,
+          0.0005472,
+          0.0005348,
+          0.0005578,
+          0.0005317,
+          0.0005395,
+          0.0005414,
+          0.0005503,
+          0.0006105
+        ],
+        "summary": {
+          "min_seconds": 0.0005317,
+          "max_seconds": 0.0006105,
+          "mean_seconds": 0.0005554636363636363,
+          "median_seconds": 0.0005503,
+          "stdev_seconds": 2.2945251043615673e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0002156,
+          0.0002204,
+          0.0002151,
+          0.0002143,
+          0.0002081,
+          0.000211,
+          0.0002064,
+          0.000208,
+          0.0002108,
+          0.0002078,
+          0.0002095
+        ],
+        "summary": {
+          "min_seconds": 0.0002064,
+          "max_seconds": 0.0002204,
+          "mean_seconds": 0.00021154545454545452,
+          "median_seconds": 0.0002108,
+          "stdev_seconds": 4.3017121327126565e-06
+        }
+      }
+    },
+    {
+      "case": "random_intercept_10k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0011281,
+          0.0017013,
+          0.0014042,
+          0.001536,
+          0.0015086,
+          0.001529,
+          0.0014826,
+          0.0015038,
+          0.0015112,
+          0.0012782,
+          0.0012207
+        ],
+        "summary": {
+          "max_seconds": 0.0017013,
+          "mean_seconds": 0.0014367,
+          "median_seconds": 0.0015038,
+          "min_seconds": 0.0011281,
+          "stdev_seconds": 0.0001654661536387427
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.012247824791536,
+            1.9996748923091145
+          ],
+          "converged": true,
+          "iterations": 21,
+          "objective": 28270.742057470386,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 10000,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "random_intercept_50k",
+      "formula": "y ~ x + (1 | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 50000,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 141522.05580629664,
+          "coefficients": [
+            0.9969270342668802,
+            1.9965595558088776
+          ],
+          "converged": true,
+          "iterations": 17
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 17,
+      "objective": 141522.05580629624,
+      "evaluated_objective": 141522.05580629664,
+      "theta": [
+        0.12678409642427774
+      ],
+      "coefficients": [
+        0.9969270342668802,
+        1.9965595558088776
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0027353,
+          0.0027281,
+          0.0026734,
+          0.0026588,
+          0.0026907,
+          0.0026754,
+          0.0026315,
+          0.0030911,
+          0.0032772,
+          0.0032763,
+          0.0031329
+        ],
+        "summary": {
+          "min_seconds": 0.0026315,
+          "max_seconds": 0.0032772,
+          "mean_seconds": 0.0028700636363636362,
+          "median_seconds": 0.0027281,
+          "stdev_seconds": 0.0002640700106893142
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0021477,
+          0.0022227,
+          0.002085,
+          0.0019888,
+          0.002126,
+          0.0019236,
+          0.0019756,
+          0.0019126,
+          0.0019955,
+          0.0020058,
+          0.0020326
+        ],
+        "summary": {
+          "min_seconds": 0.0019126,
+          "max_seconds": 0.0022227,
+          "mean_seconds": 0.002037809090909091,
+          "median_seconds": 0.0020058,
+          "stdev_seconds": 9.700512826181366e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0009972,
+          0.0007692,
+          0.0008143,
+          0.0007698,
+          0.0007981,
+          0.0007595,
+          0.0007932,
+          0.0007747,
+          0.0007923,
+          0.0008647,
+          0.0008336
+        ],
+        "summary": {
+          "min_seconds": 0.0007595,
+          "max_seconds": 0.0009972,
+          "mean_seconds": 0.0008151454545454545,
+          "median_seconds": 0.0007932,
+          "stdev_seconds": 6.792224029927697e-05
+        }
+      }
+    },
+    {
+      "case": "random_intercept_50k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0056705,
+          0.0054953,
+          0.0055172,
+          0.006659,
+          0.0062485,
+          0.0179806,
+          0.0055332,
+          0.0053475,
+          0.005355,
+          0.0059456,
+          0.0063249
+        ],
+        "summary": {
+          "max_seconds": 0.0179806,
+          "mean_seconds": 0.006916118181818182,
+          "median_seconds": 0.0056705,
+          "min_seconds": 0.0053475,
+          "stdev_seconds": 0.0036954485911234597
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            0.9968391079884796,
+            1.9966197993158115
+          ],
+          "converged": true,
+          "iterations": 18,
+          "objective": 141356.4816140569,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 50000,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "random_intercept_100k",
+      "formula": "y ~ x + (1 | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 100000,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        },
+        {
+          "objective": 283506.25762692094,
+          "coefficients": [
+            1.000130439807794,
+            1.996423525107823
+          ],
+          "converged": true,
+          "iterations": 17
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 17,
+      "objective": 283506.2576269213,
+      "evaluated_objective": 283506.25762692094,
+      "theta": [
+        0.12678409642427774
+      ],
+      "coefficients": [
+        1.000130439807794,
+        1.996423525107823
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0053234,
+          0.0049383,
+          0.0049838,
+          0.0051796,
+          0.0062331,
+          0.0064796,
+          0.0068442,
+          0.0063588,
+          0.0060547,
+          0.0051825,
+          0.0051206
+        ],
+        "summary": {
+          "min_seconds": 0.0049383,
+          "max_seconds": 0.0068442,
+          "mean_seconds": 0.005699872727272726,
+          "median_seconds": 0.0053234,
+          "stdev_seconds": 0.0006978738010427232
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0034744,
+          0.0034264,
+          0.0036726,
+          0.0040524,
+          0.0038236,
+          0.0035156,
+          0.0034708,
+          0.0040807,
+          0.0042621,
+          0.0038387,
+          0.0042971
+        ],
+        "summary": {
+          "min_seconds": 0.0034264,
+          "max_seconds": 0.0042971,
+          "mean_seconds": 0.0038104,
+          "median_seconds": 0.0038236,
+          "stdev_seconds": 0.00032482103380169206
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0014463,
+          0.0015451,
+          0.0014684,
+          0.0014644,
+          0.0014409,
+          0.0014534,
+          0.0014338,
+          0.0014065,
+          0.0014287,
+          0.0014268,
+          0.0014153
+        ],
+        "summary": {
+          "min_seconds": 0.0014065,
+          "max_seconds": 0.0015451,
+          "mean_seconds": 0.0014481454545454545,
+          "median_seconds": 0.0014409,
+          "stdev_seconds": 3.7431093054741634e-05
+        }
+      }
+    },
+    {
+      "case": "random_intercept_100k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0136483,
+          0.0262874,
+          0.0110857,
+          0.0108404,
+          0.0185337,
+          0.010902,
+          0.0106262,
+          0.0358627,
+          0.2425436,
+          0.0129271,
+          0.0125559
+        ],
+        "summary": {
+          "max_seconds": 0.2425436,
+          "mean_seconds": 0.03689209090909091,
+          "median_seconds": 0.0129271,
+          "min_seconds": 0.0106262,
+          "stdev_seconds": 0.06867312420285616
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        },
+        {
+          "coefficients": [
+            1.000064689760135,
+            1.9962362310935589
+          ],
+          "converged": false,
+          "iterations": 22,
+          "objective": 283166.26471268485,
+          "termination": "ROUNDOFF_LIMITED"
+        }
+      ],
+      "formula": "y ~ x + (1 | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 100000,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "large_random_slopes_100k",
+      "formula": "y ~ x + (1 + x | group)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 100000,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        },
+        {
+          "objective": 31380.120722045336,
+          "coefficients": [
+            1.0306780847557555,
+            1.2790308469559843
+          ],
+          "converged": true,
+          "iterations": 90
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 90,
+      "objective": 31380.12072204679,
+      "evaluated_objective": 31380.120722045336,
+      "theta": [
+        3.972507568326125,
+        1.3554697613489997,
+        2.6362121881730722
+      ],
+      "coefficients": [
+        1.0306780847557555,
+        1.2790308469559843
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0713205,
+          0.0555605,
+          0.0631309,
+          0.0613754,
+          0.0761462,
+          0.066006,
+          0.0622781,
+          0.0703913,
+          0.0675686,
+          0.0595583,
+          0.0661533
+        ],
+        "summary": {
+          "min_seconds": 0.0555605,
+          "max_seconds": 0.0761462,
+          "mean_seconds": 0.06540810000000001,
+          "median_seconds": 0.066006,
+          "stdev_seconds": 0.005857616496835551
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.0151865,
+          0.0148731,
+          0.0148227,
+          0.0171012,
+          0.0170591,
+          0.0166001,
+          0.0143873,
+          0.016422,
+          0.0158197,
+          0.0136557,
+          0.0159431
+        ],
+        "summary": {
+          "min_seconds": 0.0136557,
+          "max_seconds": 0.0171012,
+          "mean_seconds": 0.01562459090909091,
+          "median_seconds": 0.0158197,
+          "stdev_seconds": 0.0011301458777118515
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0406383,
+          0.0437397,
+          0.0436273,
+          0.0448726,
+          0.0450756,
+          0.0403852,
+          0.046017,
+          0.0446882,
+          0.0446154,
+          0.044331,
+          0.043549
+        ],
+        "summary": {
+          "min_seconds": 0.0403852,
+          "max_seconds": 0.046017,
+          "mean_seconds": 0.0437763,
+          "median_seconds": 0.044331,
+          "stdev_seconds": 0.0017656710407094516
+        }
+      }
+    },
+    {
+      "case": "large_random_slopes_100k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0739653,
+          0.0622982,
+          0.065399,
+          0.0943821,
+          0.3183466,
+          0.0635268,
+          0.062985,
+          0.0626608,
+          0.0641688,
+          0.067019,
+          0.0634111
+        ],
+        "summary": {
+          "max_seconds": 0.3183466,
+          "mean_seconds": 0.09074206363636363,
+          "median_seconds": 0.0641688,
+          "min_seconds": 0.0622982,
+          "stdev_seconds": 0.07606934012792897
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.0306780850648822,
+            1.2790308472057115
+          ],
+          "converged": true,
+          "iterations": 115,
+          "objective": 31380.120720786123,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "y ~ x + (1 + x | group)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 100000,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "crossed_20k",
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 20000,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        },
+        {
+          "objective": 3739.4374429614472,
+          "coefficients": [
+            1.501550443000918,
+            0.7525529217728233
+          ],
+          "converged": true,
+          "iterations": 74
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 74,
+      "objective": 3739.4374429627387,
+      "evaluated_objective": 3739.4374429614472,
+      "theta": [
+        4.136127022022988,
+        4.194467940992785
+      ],
+      "coefficients": [
+        1.501550443000918,
+        0.7525529217728233
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.025746,
+          0.0267986,
+          0.0260632,
+          0.0258896,
+          0.0260756,
+          0.0264394,
+          0.0273967,
+          0.0257704,
+          0.0258475,
+          0.0258249,
+          0.0260727
+        ],
+        "summary": {
+          "min_seconds": 0.025746,
+          "max_seconds": 0.0273967,
+          "mean_seconds": 0.026174963636363634,
+          "median_seconds": 0.0260632,
+          "stdev_seconds": 0.0005141207703890732
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.003054,
+          0.0025573,
+          0.0027406,
+          0.0024841,
+          0.0028643,
+          0.0025003,
+          0.0026697,
+          0.0026106,
+          0.0023914,
+          0.0024223,
+          0.0024154
+        ],
+        "summary": {
+          "min_seconds": 0.0023914,
+          "max_seconds": 0.003054,
+          "mean_seconds": 0.0026100000000000003,
+          "median_seconds": 0.0025573,
+          "stdev_seconds": 0.00020832040226535662
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0236586,
+          0.0247576,
+          0.0234174,
+          0.0243951,
+          0.0236401,
+          0.023727,
+          0.0235069,
+          0.0235484,
+          0.023504,
+          0.0235834,
+          0.0239205
+        ],
+        "summary": {
+          "min_seconds": 0.0234174,
+          "max_seconds": 0.0247576,
+          "mean_seconds": 0.023787181818181822,
+          "median_seconds": 0.0236401,
+          "stdev_seconds": 0.0004201035725108316
+        }
+      }
+    },
+    {
+      "case": "crossed_20k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0108477,
+          0.0115415,
+          0.0110215,
+          0.0362893,
+          0.010555,
+          0.0105525,
+          0.0107888,
+          0.010911,
+          0.0120707,
+          0.0119812,
+          0.0117666
+        ],
+        "summary": {
+          "max_seconds": 0.0362893,
+          "mean_seconds": 0.013484163636363638,
+          "median_seconds": 0.0110215,
+          "min_seconds": 0.0105525,
+          "stdev_seconds": 0.0075837421551992025
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            1.5015504431014994,
+            0.7525529218105286
+          ],
+          "converged": true,
+          "iterations": 60,
+          "objective": 3739.437442652561,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 20000,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "nested_10k",
+      "formula": "y ~ x + (1 | batch/cask)",
+      "model": "lmm",
+      "reml": false,
+      "n_obs": 10000,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        },
+        {
+          "objective": 5944.826928379154,
+          "coefficients": [
+            2.053054354538009,
+            1.247491413925234
+          ],
+          "converged": true,
+          "iterations": 84
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 84,
+      "objective": 5944.826928394521,
+      "evaluated_objective": 5944.826928379154,
+      "theta": [
+        4.987494145328055,
+        5.059652262073164
+      ],
+      "coefficients": [
+        2.053054354538009,
+        1.247491413925234
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0115285,
+          0.0121771,
+          0.0121368,
+          0.0112138,
+          0.0112298,
+          0.0114363,
+          0.0121345,
+          0.0134056,
+          0.0120798,
+          0.0129852,
+          0.0115893
+        ],
+        "summary": {
+          "min_seconds": 0.0112138,
+          "max_seconds": 0.0134056,
+          "mean_seconds": 0.011992427272727273,
+          "median_seconds": 0.0120798,
+          "stdev_seconds": 0.0007028726372407865
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          0.002614,
+          0.002469,
+          0.0022558,
+          0.0021766,
+          0.0023574,
+          0.0026621,
+          0.0020571,
+          0.0025139,
+          0.0021307,
+          0.002026,
+          0.0020807
+        ],
+        "summary": {
+          "min_seconds": 0.002026,
+          "max_seconds": 0.0026621,
+          "mean_seconds": 0.0023039363636363636,
+          "median_seconds": 0.0022558,
+          "stdev_seconds": 0.000231336016533212
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0098405,
+          0.0091224,
+          0.009172,
+          0.0090032,
+          0.0090763,
+          0.0091185,
+          0.0096372,
+          0.0096272,
+          0.0091454,
+          0.0091294,
+          0.0091177
+        ],
+        "summary": {
+          "min_seconds": 0.0090032,
+          "max_seconds": 0.0098405,
+          "mean_seconds": 0.009271799999999998,
+          "median_seconds": 0.0091294,
+          "stdev_seconds": 0.0002844986889249232
+        }
+      }
+    },
+    {
+      "case": "nested_10k",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0062049,
+          0.0062958,
+          0.0353355,
+          0.0060078,
+          0.0058144,
+          0.0060869,
+          0.0058973,
+          0.005998,
+          0.0063688,
+          0.0072541,
+          0.0069826
+        ],
+        "summary": {
+          "max_seconds": 0.0353355,
+          "mean_seconds": 0.008931463636363636,
+          "median_seconds": 0.0062049,
+          "min_seconds": 0.0058144,
+          "stdev_seconds": 0.008768692413612502
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            2.0530543545339706,
+            1.2474914169092768
+          ],
+          "converged": true,
+          "iterations": 58,
+          "objective": 5944.826928011232,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "y ~ x + (1 | batch/cask)",
+      "implementation": "julia",
+      "model": "lmm",
+      "n_obs": 10000,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "cbpp_binomial_ml",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "model": "glmm_binomial",
+      "reml": false,
+      "n_obs": 842,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 64,
+      "objective": 555.0599103136977,
+      "evaluated_objective": 555.0599103136977,
+      "theta": [
+        0.6418208648170779
+      ],
+      "coefficients": [
+        -1.3604727354905992,
+        -0.9761764260625783,
+        -1.1110758793203548,
+        -1.559679323490428
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0127605,
+          0.0130717,
+          0.0127278,
+          0.0128768,
+          0.0130359,
+          0.0128413,
+          0.0129299,
+          0.0129298,
+          0.0133829,
+          0.0133228,
+          0.0129805
+        ],
+        "summary": {
+          "min_seconds": 0.0127278,
+          "max_seconds": 0.0133829,
+          "mean_seconds": 0.012987263636363638,
+          "median_seconds": 0.0129299,
+          "stdev_seconds": 0.00020916426689435874
+        }
+      }
+    },
+    {
+      "case": "cbpp_binomial_ml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.0140518,
+          0.0115622,
+          0.0118367,
+          0.0123616,
+          0.0122373,
+          0.0122188,
+          0.0117435,
+          0.0118732,
+          0.0118439,
+          0.0116269,
+          0.012194
+        ],
+        "summary": {
+          "max_seconds": 0.0140518,
+          "mean_seconds": 0.0121409,
+          "median_seconds": 0.0118732,
+          "min_seconds": 0.0115622,
+          "stdev_seconds": 0.0006875939688508035
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            -1.3985270371819438,
+            -0.992335240608163,
+            -1.1286742548791562,
+            -1.5803147025224233
+          ],
+          "converged": true,
+          "iterations": 63,
+          "objective": 555.0038830983733,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "implementation": "julia",
+      "model": "glmm_binomial",
+      "n_obs": 842,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "grouseticks_poisson_ml",
+      "formula": "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+      "model": "glmm_poisson",
+      "reml": false,
+      "n_obs": 403,
+      "warmups": 3,
+      "repeats": 11,
+      "fit_checks": [
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 1100.136915586966,
+          "coefficients": [
+            55.323241297553906,
+            -0.45379903548338885,
+            -0.023936482953549387
+          ],
+          "converged": true,
+          "iterations": 64
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 64,
+      "objective": 1100.136915586966,
+      "evaluated_objective": 1100.136915586966,
+      "theta": [
+        1.2470597976213997
+      ],
+      "coefficients": [
+        55.323241297553906,
+        -0.45379903548338885,
+        -0.023936482953549387
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0075881,
+          0.0074853,
+          0.0076383,
+          0.0075983,
+          0.0075769,
+          0.0075092,
+          0.007476,
+          0.0074582,
+          0.0074189,
+          0.0074523,
+          0.0072594
+        ],
+        "summary": {
+          "min_seconds": 0.0072594,
+          "max_seconds": 0.0076383,
+          "mean_seconds": 0.007496445454545453,
+          "median_seconds": 0.0074853,
+          "stdev_seconds": 0.00010568389057596584
+        }
+      }
+    },
+    {
+      "case": "grouseticks_poisson_ml",
+      "cold_fit": {
+        "samples_seconds": [
+          0.1448932,
+          0.1848047,
+          0.1441851,
+          0.1414986,
+          0.1514357,
+          0.1480606,
+          0.1443268,
+          0.1389158,
+          0.13927,
+          0.1453004,
+          0.1648002
+        ],
+        "summary": {
+          "max_seconds": 0.1848047,
+          "mean_seconds": 0.14977191818181818,
+          "median_seconds": 0.1448932,
+          "min_seconds": 0.1389158,
+          "stdev_seconds": 0.013638524233788503
+        }
+      },
+      "fit_checks": [
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        },
+        {
+          "coefficients": [
+            57.033327968251356,
+            -0.4650888319304842,
+            -0.025545320385828015
+          ],
+          "converged": true,
+          "iterations": 772,
+          "objective": 1099.1400503284592,
+          "termination": "FTOL_REACHED"
+        }
+      ],
+      "formula": "TICKS ~ YEAR + HEIGHT + (1 | BROOD)",
+      "implementation": "julia",
+      "model": "glmm_poisson",
+      "n_obs": 403,
+      "reml": false,
+      "repeats": 11,
+      "runtime": {
+        "blas": "LBTConfig([ILP64] libopenblas64_.dll)",
+        "blas_threads": 1,
+        "julia_threads": 1,
+        "mixedmodels_version": "5.7.0"
+      },
+      "warmups": 3
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "sleepstudy_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; random slopes (real fixture)",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0006159,
+          "julia_median_seconds": 0.0007258,
+          "rust_over_julia_median": 0.8485808762744558,
+          "julia_over_rust_median": 1.1784380581263192,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.8159935811714363,
+            0.8888740304894357
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.000591,
+          "julia_median_seconds": 0.0007258,
+          "rust_over_julia_median": 0.8142739046569304,
+          "julia_over_rust_median": 1.2280879864636207,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 2.96e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "sleepstudy_weighted_reml",
+      "model": "lmm_weighted",
+      "reference": "MixedModels.jl wts=\u2026",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0005573,
+          "julia_median_seconds": 0.0006701,
+          "rust_over_julia_median": 0.8316669153857634,
+          "julia_over_rust_median": 1.2024044500269153,
+          "faster_implementation": "unverified",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.7988165680473372,
+            0.8700682290121624
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.000496,
+          "julia_median_seconds": 0.0006701,
+          "rust_over_julia_median": 0.7401880316370691,
+          "julia_over_rust_median": 1.3510080645161289,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 2.61e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "penicillin_crossed_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; real crossed intercept",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0001488,
+          "julia_median_seconds": 0.0004288,
+          "rust_over_julia_median": 0.34701492537313433,
+          "julia_over_rust_median": 2.8817204301075265,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.2954358552631579,
+            0.35761904761904756
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0001172,
+          "julia_median_seconds": 0.0004288,
+          "rust_over_julia_median": 0.27332089552238803,
+          "julia_over_rust_median": 3.658703071672355,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 2e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "pastes_nested_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; real nested intercept",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0001953,
+          "julia_median_seconds": 0.0002999,
+          "rust_over_julia_median": 0.6512170723574524,
+          "julia_over_rust_median": 1.5355862775217615,
+          "faster_implementation": "rust",
+          "meets_target": true,
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.44813671967718965,
+            0.6679206566347469
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0001664,
+          "julia_median_seconds": 0.0002999,
+          "rust_over_julia_median": 0.5548516172057352,
+          "julia_over_rust_median": 1.802283653846154,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 1.71e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "random_intercept_10k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0008961,
+          "julia_median_seconds": 0.0015038,
+          "rust_over_julia_median": 0.5958904109589042,
+          "julia_over_rust_median": 1.6781609195402298,
+          "faster_implementation": "unverified",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.5416942860930665,
+            0.7111563135659521
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0002108,
+          "julia_median_seconds": 0.0015038,
+          "rust_over_julia_median": 0.14017821518818993,
+          "julia_over_rust_median": 7.133776091081594,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0005503,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "random_intercept_50k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0027281,
+          "julia_median_seconds": 0.0056705,
+          "rust_over_julia_median": 0.4811039590865003,
+          "julia_over_rust_median": 2.0785528389721786,
+          "faster_implementation": "unverified",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.42541384053502823,
+            0.5624988626644587
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0007932,
+          "julia_median_seconds": 0.0056705,
+          "rust_over_julia_median": 0.13988184463451195,
+          "julia_over_rust_median": 7.1488905698436715,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0020058,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "random_intercept_100k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0053234,
+          "julia_median_seconds": 0.0129271,
+          "rust_over_julia_median": 0.4118015641559205,
+          "julia_over_rust_median": 2.428354059435699,
+          "faster_implementation": "unverified",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.2025076652692925,
+            0.5622648998259018
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "not every measured fit established convergence",
+              "objective or fixed-effect estimates exceed declared tolerances"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0014409,
+          "julia_median_seconds": 0.0129271,
+          "rust_over_julia_median": 0.11146351463205204,
+          "julia_over_rust_median": 8.971545561801653,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0038236,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "large_random_slopes_100k",
+      "model": "lmm",
+      "reference": "MixedModels.jl; synthetic correlated random slopes",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.066006,
+          "julia_median_seconds": 0.0641688,
+          "rust_over_julia_median": 1.0286307364326588,
+          "julia_over_rust_median": 0.9721661667121171,
+          "faster_implementation": "inconclusive",
+          "meets_target": null,
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            0.8886778376281353,
+            1.0969708020096995
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.044331,
+          "julia_median_seconds": 0.0641688,
+          "rust_over_julia_median": 0.6908497587612672,
+          "julia_over_rust_median": 1.4474927251810243,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0158197,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "crossed_20k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0260632,
+          "julia_median_seconds": 0.0110215,
+          "rust_over_julia_median": 2.3647597876877016,
+          "julia_over_rust_median": 0.4228759323490592,
+          "faster_implementation": "julia",
+          "meets_target": false,
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            2.1608520014689683,
+            2.42318760883512
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0236401,
+          "julia_median_seconds": 0.0110215,
+          "rust_over_julia_median": 2.144907680442771,
+          "julia_over_rust_median": 0.4662205320620471,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0025573,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "nested_10k",
+      "model": "lmm",
+      "reference": "MixedModels.jl fit",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0120798,
+          "julia_median_seconds": 0.0062049,
+          "rust_over_julia_median": 1.9468162258859933,
+          "julia_over_rust_median": 0.5136591665424924,
+          "faster_implementation": "julia",
+          "meets_target": false,
+          "eligible_for_speed_claim": true,
+          "ratio_interval_95": [
+            1.6730952151197254,
+            2.023474491497166
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "passed",
+            "reasons": [],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        },
+        {
+          "metric": "fit_prepared_vs_julia_fit",
+          "rust_median_seconds": 0.0091294,
+          "julia_median_seconds": 0.0062049,
+          "rust_over_julia_median": 1.4713210527164013,
+          "julia_over_rust_median": 0.6796613139965387,
+          "faster_implementation": "not_comparable",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+        },
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 0.0022558,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "cbpp_binomial_ml",
+      "model": "glmm_binomial",
+      "reference": "MixedModels.jl GLMM (Laplace); not lme4 AGQ-in-\u03b8",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0129299,
+          "julia_median_seconds": 0.0118732,
+          "rust_over_julia_median": 1.0889987534952665,
+          "julia_over_rust_median": 0.9182746966333847,
+          "faster_implementation": "unverified",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            1.0530834836804985,
+            1.1053348660961384
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "GLMM objective equivalence has not been established"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        }
+      ]
+    },
+    {
+      "case": "grouseticks_poisson_ml",
+      "model": "glmm_poisson",
+      "reference": "MixedModels.jl GLMM (Laplace)",
+      "metrics": [
+        {
+          "metric": "cold_fit",
+          "rust_median_seconds": 0.0074853,
+          "julia_median_seconds": 0.1448932,
+          "rust_over_julia_median": 0.05166080947898176,
+          "julia_over_rust_median": 19.35703311824509,
+          "faster_implementation": "unverified",
+          "meets_target": null,
+          "eligible_for_speed_claim": false,
+          "ratio_interval_95": [
+            0.04936748732300243,
+            0.05290017003701804
+          ],
+          "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+          "sampling_status": "measured",
+          "fit_agreement": {
+            "status": "unverified",
+            "reasons": [
+              "GLMM objective equivalence has not been established"
+            ],
+            "objective_atol": 1e-05,
+            "objective_rtol": 1e-06,
+            "coefficient_atol": 0.0001,
+            "coefficient_rtol": 0.0001
+          }
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

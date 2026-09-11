@@ -23,6 +23,9 @@ while (i <= length(args)) {
 if (is.na(case)) {
   stop("missing --case")
 }
+if (is.na(warmups) || warmups < 0L || is.na(repeats) || repeats < 1L) {
+  stop("warmups must be nonnegative and repeats must be positive")
+}
 
 suppressPackageStartupMessages(library(lme4))
 suppressPackageStartupMessages(library(jsonlite))
@@ -46,10 +49,32 @@ time_body <- function(warmups, repeats, body) {
       body()
     }
   }
-  samples <- numeric(repeats)
-  for (k in seq_len(repeats)) {
-    samples[[k]] <- system.time(body())[["elapsed"]]
+  # Windows elapsed-time clocks can round a short inference call to zero.
+  # Calibrate outside measured samples, then report elapsed time per call.
+  batch <- 1L
+  calibration_calls <- 0L
+  repeat {
+    elapsed <- system.time(for (j in seq_len(batch)) body())[["elapsed"]]
+    calibration_calls <- calibration_calls + batch
+    if (elapsed >= 0.2) {
+      break
+    }
+    if (batch >= 1048576L) {
+      stop("could not resolve elapsed time during calibration")
+    }
+    batch <- batch * 2L
   }
+  elapsed_samples <- numeric(repeats)
+  for (k in seq_len(repeats)) {
+    elapsed_samples[[k]] <- system.time(for (j in seq_len(batch)) body())[["elapsed"]]
+  }
+  if (any(!is.finite(elapsed_samples) | elapsed_samples <= 0)) {
+    stop("elapsed-time samples must be positive and finite")
+  }
+  samples <- elapsed_samples / batch
+  attr(samples, "batch_iterations") <- batch
+  attr(samples, "batch_elapsed_seconds") <- elapsed_samples
+  attr(samples, "calibration_calls") <- calibration_calls
   samples
 }
 
@@ -62,6 +87,9 @@ emit <- function(implementation, family, formula, n_obs, samples) {
     n_obs = jsonlite::unbox(as.integer(n_obs)),
     warmups = jsonlite::unbox(as.integer(warmups)),
     repeats = jsonlite::unbox(as.integer(repeats)),
+    batch_iterations = jsonlite::unbox(attr(samples, "batch_iterations")),
+    batch_elapsed_seconds = attr(samples, "batch_elapsed_seconds"),
+    calibration_calls = jsonlite::unbox(attr(samples, "calibration_calls")),
     samples_seconds = as.numeric(samples),
     summary = summarize(samples)
   )

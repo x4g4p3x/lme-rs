@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-09-11T09:53:02.729011+00:00",
+  "git_sha": "961efad54134ed683a0b8574463f161a1596280a",
+  "machine_info": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "python": "Python 3.11.15",
+    "Rscript": "Rscript (R) version 4.6.1 (2026-06-24)",
+    "julia": "julia version 1.12.6"
+  },
+  "config": {
+    "cases": [
+      "categorical"
+    ],
+    "implementations": [
+      "r"
+    ],
+    "warmups": 2,
+    "repeats": 10,
+    "timeout_seconds": 900
+  },
+  "results": [
+    {
+      "case": "categorical",
+      "implementation": "r",
+      "command": [
+        "Rscript",
+        "C:\\Users\\x4g4p\\CascadeProjects\\lme-rs\\comparisons\\categorical_anova.R"
+      ],
+      "samples_seconds": [
+        1.5110783999843989,
+        1.5346578000171576,
+        1.4919027000141796,
+        1.4967581999953836,
+        1.4892720000061672,
+        1.5031458000012208,
+        1.505078100017272,
+        1.4829131999867968,
+        1.5317718999867793,
+        1.4774735000100918
+      ],
+      "summary": {
+        "min_seconds": 1.4774735000100918,
+        "max_seconds": 1.5346578000171576,
+        "mean_seconds": 1.5024051600019448,
+        "median_seconds": 1.4999519999983022,
+        "stdev_seconds": 0.019153619741394925
+      }
+    }
+  ],
+  "failures": []
+}

@@ -15,4 +15,4 @@ cat("\n=== Type III ANOVA (Satterthwaite) ===\n")
 print(anova(fit, ddf = "Satterthwaite", type = 3))
 
 cat("\n=== Type III ANOVA (Wald Chi-Square approximation for joint) ===\n")
-print(car::Anova(fit, type = 3, test.statistic = "Wald"))
+print(car::Anova(fit, type = 3, test.statistic = "Chisq"))

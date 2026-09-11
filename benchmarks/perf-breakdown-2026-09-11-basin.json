@@ -1,0 +1,355 @@
+[
+  {
+    "case": "crossed_20k",
+    "formula": "y ~ x + (1 | plate) + (1 | sample)",
+    "reml": false,
+    "n_obs": 20000,
+    "rust": {
+      "optimizer_backend": "basin",
+      "case": "crossed_20k",
+      "formula": "y ~ x + (1 | plate) + (1 | sample)",
+      "reml": false,
+      "n_obs": 20000,
+      "optimizer_iterations": 74,
+      "converged": true,
+      "objective": 3739.4374429627387,
+      "evaluated_objective": 3739.4374429614472,
+      "theta": [
+        4.136127022022988,
+        4.194467940992785
+      ],
+      "coefficients": [
+        1.501550443000918,
+        0.7525529217728233
+      ],
+      "fit_wall_seconds": 0.0238365,
+      "prepare_wall_seconds": 0.0024838,
+      "prepare_perf": {
+        "kernel": null,
+        "kernel_detail": "blocked_active",
+        "deviance_eval_count": 0,
+        "phases": [
+          {
+            "phase": "lmer_setup",
+            "count": 1,
+            "total_seconds": 0.0024822,
+            "mean_seconds": 0.0024822
+          },
+          {
+            "phase": "setup_lmm_data",
+            "count": 1,
+            "total_seconds": 0.000121,
+            "mean_seconds": 0.000121
+          }
+        ],
+        "fit_wall_seconds": 0.0024838,
+        "optimize_fraction_of_fit": 0.0,
+        "deviance_fraction_of_fit": 0.0
+      },
+      "fit_prepared_wall_seconds": 0.0238365,
+      "blocked_kernel": true,
+      "blocked_kernel_detail": "blocked_active",
+      "kernel": "blocked",
+      "deviance_eval_count": 103,
+      "mean_deviance_eval_seconds": 0.00022412718446601944,
+      "phases": [
+        {
+          "phase": "lmer_optimize",
+          "count": 1,
+          "total_seconds": 0.023124,
+          "mean_seconds": 0.023124,
+          "fraction_of_deviance": 1.0016850695903416
+        },
+        {
+          "phase": "deviance_eval",
+          "count": 103,
+          "total_seconds": 0.0230851,
+          "mean_seconds": 0.00022412718446601944,
+          "fraction_of_deviance": 1.0
+        },
+        {
+          "phase": "blocked_rank_chol",
+          "count": 208,
+          "total_seconds": 0.0177347,
+          "mean_seconds": 8.526298076923076e-05,
+          "fraction_of_deviance": 0.768231456653859
+        },
+        {
+          "phase": "blocked_trisolve",
+          "count": 312,
+          "total_seconds": 0.0038607,
+          "mean_seconds": 1.237403846153846e-05,
+          "fraction_of_deviance": 0.1672377420933849
+        },
+        {
+          "phase": "blocked_schur_xy",
+          "count": 208,
+          "total_seconds": 0.0009063,
+          "mean_seconds": 4.357211538461539e-06,
+          "fraction_of_deviance": 0.039259089196061525
+        },
+        {
+          "phase": "blocked_reset",
+          "count": 104,
+          "total_seconds": 0.0007525,
+          "mean_seconds": 7.235576923076923e-06,
+          "fraction_of_deviance": 0.032596783206483834
+        },
+        {
+          "phase": "lmer_post_fit",
+          "count": 1,
+          "total_seconds": 0.0001402,
+          "mean_seconds": 0.0001402,
+          "fraction_of_deviance": 0.006073181402722968
+        },
+        {
+          "phase": "blocked_deviance_tail",
+          "count": 103,
+          "total_seconds": 4.3e-06,
+          "mean_seconds": 4.174757281553398e-08,
+          "fraction_of_deviance": 0.00018626733260847906
+        }
+      ],
+      "optimize_fraction_of_fit": 0.9701088666540809,
+      "deviance_fraction_of_fit": 0.9684769156545634
+    },
+    "julia": null,
+    "comparison": null,
+    "failures": []
+  },
+  {
+    "case": "nested_10k",
+    "formula": "y ~ x + (1 | batch/cask)",
+    "reml": false,
+    "n_obs": 10000,
+    "rust": {
+      "optimizer_backend": "basin",
+      "case": "nested_10k",
+      "formula": "y ~ x + (1 | batch/cask)",
+      "reml": false,
+      "n_obs": 10000,
+      "optimizer_iterations": 84,
+      "converged": true,
+      "objective": 5944.826928394521,
+      "evaluated_objective": 5944.826928379154,
+      "theta": [
+        4.987494145328055,
+        5.059652262073164
+      ],
+      "coefficients": [
+        2.053054354538009,
+        1.247491413925234
+      ],
+      "fit_wall_seconds": 0.0100716,
+      "prepare_wall_seconds": 0.00214,
+      "prepare_perf": {
+        "kernel": null,
+        "kernel_detail": "blocked_active",
+        "deviance_eval_count": 0,
+        "phases": [
+          {
+            "phase": "lmer_setup",
+            "count": 1,
+            "total_seconds": 0.0021389,
+            "mean_seconds": 0.0021389
+          },
+          {
+            "phase": "setup_lmm_data",
+            "count": 1,
+            "total_seconds": 9.01e-05,
+            "mean_seconds": 9.01e-05
+          }
+        ],
+        "fit_wall_seconds": 0.00214,
+        "optimize_fraction_of_fit": 0.0,
+        "deviance_fraction_of_fit": 0.0
+      },
+      "fit_prepared_wall_seconds": 0.0100716,
+      "blocked_kernel": true,
+      "blocked_kernel_detail": "blocked_active",
+      "kernel": "blocked",
+      "deviance_eval_count": 124,
+      "mean_deviance_eval_seconds": 7.155967741935483e-05,
+      "phases": [
+        {
+          "phase": "lmer_optimize",
+          "count": 1,
+          "total_seconds": 0.0088951,
+          "mean_seconds": 0.0088951,
+          "fraction_of_deviance": 1.0024455113034463
+        },
+        {
+          "phase": "deviance_eval",
+          "count": 124,
+          "total_seconds": 0.0088734,
+          "mean_seconds": 7.155967741935483e-05,
+          "fraction_of_deviance": 1.0
+        },
+        {
+          "phase": "blocked_rank_chol",
+          "count": 250,
+          "total_seconds": 0.0048329,
+          "mean_seconds": 1.93316e-05,
+          "fraction_of_deviance": 0.5446503031532446
+        },
+        {
+          "phase": "blocked_schur_xy",
+          "count": 250,
+          "total_seconds": 0.0023764,
+          "mean_seconds": 9.5056e-06,
+          "fraction_of_deviance": 0.2678116618207226
+        },
+        {
+          "phase": "blocked_trisolve",
+          "count": 375,
+          "total_seconds": 0.00122,
+          "mean_seconds": 3.2533333333333332e-06,
+          "fraction_of_deviance": 0.13748957558545766
+        },
+        {
+          "phase": "lmer_post_fit",
+          "count": 1,
+          "total_seconds": 0.0007956,
+          "mean_seconds": 0.0007956,
+          "fraction_of_deviance": 0.08966123470146731
+        },
+        {
+          "phase": "blocked_reset",
+          "count": 125,
+          "total_seconds": 0.000453,
+          "mean_seconds": 3.624e-06,
+          "fraction_of_deviance": 0.05105145716410846
+        },
+        {
+          "phase": "blocked_deviance_tail",
+          "count": 124,
+          "total_seconds": 4.5e-06,
+          "mean_seconds": 3.629032258064516e-08,
+          "fraction_of_deviance": 0.0005071336804381635
+        }
+      ],
+      "optimize_fraction_of_fit": 0.8831863854799634,
+      "deviance_fraction_of_fit": 0.8810318122244728
+    },
+    "julia": null,
+    "comparison": null,
+    "failures": []
+  },
+  {
+    "case": "random_intercept_10k",
+    "formula": "y ~ x + (1 | group)",
+    "reml": false,
+    "n_obs": 10000,
+    "rust": {
+      "optimizer_backend": "basin",
+      "case": "random_intercept_10k",
+      "formula": "y ~ x + (1 | group)",
+      "reml": false,
+      "n_obs": 10000,
+      "optimizer_iterations": 17,
+      "converged": true,
+      "objective": 28296.271103991578,
+      "evaluated_objective": 28296.27110399167,
+      "theta": [
+        0.12678409642427774
+      ],
+      "coefficients": [
+        1.011744369202149,
+        1.9995222041015355
+      ],
+      "fit_wall_seconds": 0.0002079,
+      "prepare_wall_seconds": 0.0006092,
+      "prepare_perf": {
+        "kernel": null,
+        "kernel_detail": "blocked_active",
+        "deviance_eval_count": 0,
+        "phases": [
+          {
+            "phase": "lmer_setup",
+            "count": 1,
+            "total_seconds": 0.0006089,
+            "mean_seconds": 0.0006089
+          },
+          {
+            "phase": "setup_lmm_data",
+            "count": 1,
+            "total_seconds": 0.0002885,
+            "mean_seconds": 0.0002885
+          }
+        ],
+        "fit_wall_seconds": 0.0006092,
+        "optimize_fraction_of_fit": 0.0,
+        "deviance_fraction_of_fit": 0.0
+      },
+      "fit_prepared_wall_seconds": 0.0002079,
+      "blocked_kernel": true,
+      "blocked_kernel_detail": "blocked_active",
+      "kernel": "blocked",
+      "deviance_eval_count": 21,
+      "mean_deviance_eval_seconds": 1.5333333333333332e-06,
+      "phases": [
+        {
+          "phase": "lmer_post_fit",
+          "count": 1,
+          "total_seconds": 5.08e-05,
+          "mean_seconds": 5.08e-05,
+          "fraction_of_deviance": 1.5776397515527953
+        },
+        {
+          "phase": "lmer_optimize",
+          "count": 1,
+          "total_seconds": 3.32e-05,
+          "mean_seconds": 3.32e-05,
+          "fraction_of_deviance": 1.0310559006211182
+        },
+        {
+          "phase": "deviance_eval",
+          "count": 21,
+          "total_seconds": 3.22e-05,
+          "mean_seconds": 1.5333333333333332e-06,
+          "fraction_of_deviance": 1.0
+        },
+        {
+          "phase": "blocked_rank_chol",
+          "count": 22,
+          "total_seconds": 1.15e-05,
+          "mean_seconds": 5.227272727272727e-07,
+          "fraction_of_deviance": 0.3571428571428572
+        },
+        {
+          "phase": "blocked_trisolve",
+          "count": 22,
+          "total_seconds": 7.2e-06,
+          "mean_seconds": 3.272727272727273e-07,
+          "fraction_of_deviance": 0.2236024844720497
+        },
+        {
+          "phase": "blocked_schur_xy",
+          "count": 22,
+          "total_seconds": 6.3e-06,
+          "mean_seconds": 2.8636363636363637e-07,
+          "fraction_of_deviance": 0.1956521739130435
+        },
+        {
+          "phase": "blocked_reset",
+          "count": 22,
+          "total_seconds": 3.2e-06,
+          "mean_seconds": 1.4545454545454545e-07,
+          "fraction_of_deviance": 0.09937888198757765
+        },
+        {
+          "phase": "blocked_deviance_tail",
+          "count": 21,
+          "total_seconds": 5e-07,
+          "mean_seconds": 2.380952380952381e-08,
+          "fraction_of_deviance": 0.015527950310559008
+        }
+      ],
+      "optimize_fraction_of_fit": 0.1596921596921597,
+      "deviance_fraction_of_fit": 0.15488215488215484
+    },
+    "julia": null,
+    "comparison": null,
+    "failures": []
+  }
+]
