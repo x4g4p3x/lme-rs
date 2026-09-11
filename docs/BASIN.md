@@ -49,7 +49,7 @@ does not imply that Basin is faster or more accurate for every model.
 
 The [comparison report](../benchmarks/basin-optimizer-2026-09-10.md)
 contains paired measurements and validation results for Basin 1.10.0 and Argmin
-on the current upstream base.
+on its recorded upstream revision.
 
 `task basin:check` runs feature-enabled Clippy, all-target checks, tests, and
 documentation. Ubuntu CI and `task ci` run it alongside the default backend.
@@ -67,6 +67,9 @@ python scripts/run_fair_rust_julia_benchmark.py --implementations rust \
 Reports identify the compiled backend and include fitted parameters, objective,
 convergence, and iterations from an untimed fit. Timing samples exclude data
 loading and numerical reporting. Both commands use identical fixture recipes.
+Each measured cold and prepared fit also retains its own `fit_checks` or
+`prepared_fit_checks`, extracted after timing. Rust/Julia accuracy and speed
+qualifications use these per-fit checks, rather than the extra untimed summary.
 `objective` comes from the optimizer diagnostics; `evaluated_objective` comes
 from the final fitted model's deviance calculation. Compare both when checking
 numerical results.

@@ -235,6 +235,16 @@ def split_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def check_optimizer_backend(result: dict, features: str) -> None:
+    if result.get("implementation") != "rust":
+        return
+    expected = "basin" if "basin" in split_csv(features) else "argmin"
+    if result.get("optimizer_backend") != expected:
+        raise ValueError(
+            f"Rust binary optimizer does not match --rust-features: expected {expected}"
+        )
+
+
 def resolve_julia(explicit: str | None) -> str | None:
     if explicit:
         path = Path(explicit)
@@ -666,16 +676,8 @@ def main() -> int:
                     else julia_time_command(julia_bin, case, csv_path, args.warmups, args.repeats)
                 )
                 result = run_timing(command, args.timeout)
-                if implementation == "rust":
-                    expected_backend = (
-                        "basin" if "basin" in split_csv(args.rust_features) else "argmin"
-                    )
-                    if result.get("optimizer_backend") != expected_backend:
-                        raise ValueError(
-                            "Rust binary optimizer does not match --rust-features: "
-                            f"expected {expected_backend}"
-                        )
                 check_result(result, case, implementation, args.repeats)
+                check_optimizer_backend(result, args.rust_features)
                 results.append(result)
                 case_results[implementation] = result
             except Exception as exc:
