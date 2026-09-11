@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Qualify fair Rust/Julia benchmark speed claims with per-fit LMM agreement and
+  convergence checks, minimum sampling, and timing-ratio uncertainty intervals.
+  Record reproducibility metadata, use explicit thread limits, and distinguish
+  prepared-fit diagnostics from equivalent full-fit comparisons. Preserve these
+  qualifications in the benchmark dashboard and exclude unverified aggregates.
+- Use compatible Ubuntu R benchmark dependencies and fail early if required
+  packages cannot load; increase hosted benchmark defaults to two warmups and
+  ten measured repetitions.
+
 ## [0.2.5] - 2026-09-11
 
 ### Fixed

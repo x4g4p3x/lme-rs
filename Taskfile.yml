@@ -70,6 +70,11 @@ tasks:
     cmds:
       - '{{.RUN}} benchmarks-smoke'
 
+  benchmarks:test:
+    desc: Test benchmark evidence and reporting rules without external runtimes
+    cmds:
+      - '{{.RUN}} benchmark-tests'
+
   benchmarks:preflight:
     desc: benchmarks-smoke + optional R sleepstudy.R when lme4 is installed
     cmds:
@@ -211,7 +216,7 @@ tasks:
   gha:benchmarks:
     desc: Manually dispatch benchmarks workflow
     cmds:
-      - gh workflow run benchmarks.yml --ref {{.REF | default "master"}} -f warmups={{.WARMUPS | default "1"}} -f repeats={{.REPEATS | default "3"}}
+      - gh workflow run benchmarks.yml --ref {{.REF | default "master"}} -f warmups={{.WARMUPS | default "2"}} -f repeats={{.REPEATS | default "10"}}
 
   gha:python-release:
     desc: Manually dispatch Python wheel build (no PyPI publish)

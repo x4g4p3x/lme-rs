@@ -146,7 +146,7 @@ function renderRatioSummary(data) {
       fill.style.width = `${width}%`;
       track.append(fill);
       const value = document.createElement("div");
-      value.textContent = formatVsJulia(ratio);
+      value.textContent = `${formatRatio(ratio)} Julia (descriptive aggregate)`;
       row.append(name, track, value);
       return row;
     }),
@@ -187,8 +187,16 @@ function renderFairCaseCards(target, cases, metricKey) {
         return fragment;
       }
       const ratio = metric.rust_over_julia_median;
-      const targetNote = metric.meets_target ? "meets target" : "misses target";
-      fastest.textContent = `${formatVsJulia(ratio)} · ${targetNote}`;
+      const targetNote = metric.meets_target == null ? "target unresolved" :
+        metric.meets_target ? "meets target" : "misses target";
+      if (metric.eligible_for_speed_claim === false) {
+        fastest.textContent = `${formatRatio(ratio)} Julia · ${metric.timing_boundary || "fit agreement or sampling not established"}`;
+      } else if (metric.ratio_interval_95) {
+        const [low, high] = metric.ratio_interval_95;
+        fastest.textContent = `${formatRatio(ratio)} Julia · 95% interval ${formatRatio(low)}–${formatRatio(high)} · ${metric.faster_implementation} · ${targetNote}`;
+      } else {
+        fastest.textContent = `${formatVsJulia(ratio)} · ${targetNote}`;
+      }
       fillBars(fragment.querySelector(".bars"), metric.entries || [], (entry) => {
         if (entry.implementation === "rust" && ratio != null) {
           return `${formatSeconds(entry.median_seconds)} (${formatRatio(ratio)})`;

@@ -127,6 +127,63 @@ from the existence of one large synthetic benchmark.
 
 ## Cross-language benchmark methodology
 
+### Evidence rules for new fair-harness runs
+
+The September 11 harness revision checks the fitted result as well as elapsed
+time. Historical JSON files retain their original interpretation and are not
+retroactively validated by these rules.
+
+- Each measured fit records its objective, fixed-effect coefficients, convergence
+  flag, and optimizer evaluation count **after** stopping the timer. For LMMs,
+  every Rust and Julia fit must agree on the observation count, objective, and
+  coefficients before a speed claim is eligible. Objective tolerances are
+  `atol=1e-5, rtol=1e-6`; coefficient tolerances are `atol=1e-4, rtol=1e-4`.
+  These are comparison acceptance bounds for the declared fixtures, not an
+  optimizer stopping rule or a proof of global optimality. Do not loosen them
+  just because a case fails. GLMM objective equivalence remains unverified.
+- Defaults are two warmups, ten measurements, and one worker/BLAS thread per
+  implementation. `--threads` changes the common limit. Fewer than ten repeats
+  or no warmup yields a smoke result, with no winner or target pass.
+- The 95% interval uses 2,000 independent bootstrap resamples of each runtime's
+  measurements and the ratio of their medians. A winner requires the entire
+  interval to lie on one side of 1. Target status is unresolved when the interval
+  straddles the threshold. These are **within-process descriptive intervals**;
+  they do not include between-session drift, thermal effects, or hardware changes.
+  Rust runs before Julia per case by default. Repeat independent sessions with
+  `--order julia-first` before making a general performance claim.
+- `cold_fit` means constructing and fitting a fresh model with data already
+  loaded and the runtime warmed. It includes model construction and each public
+  API's fitting work: Rust parses its formula string inside the call, while Julia
+  uses an `@formula` object constructed before timing. This measures the APIs'
+  normal costs, not identical optimizer kernels. It excludes process startup,
+  CSV loading, fit destruction, and result checking.
+  Rust `fit_prepared` versus Julia full fit remains visible as a diagnostic, with
+  no winner or target pass, because its timing boundaries differ.
+- JSON includes raw samples and checks, CSV and executable hashes, the source
+  revision and dirty-tree status, compiler/runtime versions, Julia's BLAS and
+  MixedModels versions, and requested thread limits. `--skip-rust-build` marks
+  build provenance unverified: the installed compiler may differ from the one
+  that produced the binary. Use a normal build for compiler comparisons.
+- Unverified cases retain their raw ratios, reasons, and timings, but are excluded
+  from the dashboard's qualified aggregate ratios. A successful harness exit
+  means measurements were collected, not that every fit passed comparison.
+
+Run the assessment regressions without Julia or Rust compilation:
+
+```bash
+task benchmarks:test
+```
+
+For an initial measured comparison with optional setup/reuse diagnostics:
+
+```bash
+python scripts/run_fair_rust_julia_benchmark.py --cases sleepstudy_reml,random_intercept_10k,crossed_20k,nested_10k --warmups 2 --repeats 10 --threads 1 --with-phases
+```
+
+The hosted workflow installs the R statistical packages from Ubuntu's compatible
+package set and verifies every required namespace before benchmarking. This
+prevents source-install warnings from becoming a misleading partial comparison.
+
 If you want to make public performance claims against R, Python, or Julia, use a fixed methodology and record it alongside the results. The repo now automates example-level cross-language timing, but the methodology still matters because the ecosystems do not all expose exactly the same optimizers or post-fit APIs.
 
 Recommended rules:

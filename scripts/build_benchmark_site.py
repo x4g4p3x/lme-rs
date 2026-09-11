@@ -143,7 +143,7 @@ def metric_block(metric: dict[str, Any] | None) -> dict[str, Any] | None:
         named.append(("rust", float(rust_seconds)))
     if julia_seconds is not None:
         named.append(("julia", float(julia_seconds)))
-    return {
+    block = {
         "rust_median_seconds": rust_seconds,
         "julia_median_seconds": julia_seconds,
         "rust_over_julia_median": metric.get("rust_over_julia_median"),
@@ -151,6 +151,18 @@ def metric_block(metric: dict[str, Any] | None) -> dict[str, Any] | None:
         "meets_target": metric.get("meets_target"),
         "entries": bar_entries(named),
     }
+    # Old references retain their historical interpretation. New evidence must
+    # preserve its qualification instead of becoming an unconditional speed win.
+    if "eligible_for_speed_claim" in metric:
+        for key in (
+            "eligible_for_speed_claim",
+            "ratio_interval_95",
+            "fit_agreement",
+            "sampling_status",
+            "timing_boundary",
+        ):
+            block[key] = metric.get(key)
+    return block
 
 
 def transform_fair(payload: dict[str, Any], *, label: str, source_path: str) -> dict[str, Any]:
@@ -172,13 +184,21 @@ def transform_fair(payload: dict[str, Any], *, label: str, source_path: str) -> 
         prepared = metric_block(metrics.get("fit_prepared_vs_julia_fit"))
         prepare = metrics.get("prepare_lmer_rust_only") or {}
 
-        if cold and cold.get("rust_over_julia_median") is not None:
+        if (
+            cold
+            and cold.get("rust_over_julia_median") is not None
+            and cold.get("eligible_for_speed_claim", True)
+        ):
             ratio = float(cold["rust_over_julia_median"])
             cold_ratios.append(ratio)
             cold_total += 1
             if cold.get("meets_target"):
                 cold_passes += 1
-        if prepared and prepared.get("rust_over_julia_median") is not None:
+        if (
+            prepared
+            and prepared.get("rust_over_julia_median") is not None
+            and prepared.get("eligible_for_speed_claim", True)
+        ):
             ratio = float(prepared["rust_over_julia_median"])
             prepared_ratios.append(ratio)
             prepared_total += 1

@@ -8,6 +8,7 @@ using DataFrames
 using JSON
 using MixedModels
 using Statistics
+using LinearAlgebra
 
 function ensure_glm!()
     if !isdefined(@__MODULE__, :GLM)
@@ -102,6 +103,8 @@ end
 
 function main()
     opts = parse_cli_args()
+    opts.repeats > 0 || error("--repeats must be positive")
+    BLAS.set_num_threads(parse(Int, get(ENV, "OPENBLAS_NUM_THREADS", "1")))
     df = CSV.read(opts.data, DataFrame)
     normalize_df!(df)
     form = eval(Meta.parse("@formula($(opts.formula))"))
@@ -111,9 +114,23 @@ function main()
     end
 
     samples = Float64[]
+    fit_checks = []
     for _ in 1:opts.repeats
-        elapsed = @elapsed fit_model(form, df, opts)
+        elapsed = @elapsed model = fit_model(form, df, opts)
         push!(samples, elapsed)
+        # Check every measured fit after stopping its timer. Unknown optimizer
+        # termination codes deliberately do not count as established convergence.
+        push!(
+            fit_checks,
+            Dict(
+                "objective" => objective(model),
+                "coefficients" => coef(model),
+                "converged" => model.optsum.returnvalue in
+                (:SUCCESS, :FTOL_REACHED, :XTOL_REACHED, :STOPVAL_REACHED),
+                "termination" => string(model.optsum.returnvalue),
+                "iterations" => model.optsum.feval,
+            ),
+        )
     end
 
     payload = Dict(
@@ -125,6 +142,13 @@ function main()
         "n_obs" => nrow(df),
         "warmups" => opts.warmups,
         "repeats" => opts.repeats,
+        "fit_checks" => fit_checks,
+        "runtime" => Dict(
+            "mixedmodels_version" => string(pkgversion(MixedModels)),
+            "blas" => string(BLAS.get_config()),
+            "blas_threads" => BLAS.get_num_threads(),
+            "julia_threads" => Threads.nthreads(),
+        ),
         "cold_fit" => Dict(
             "samples_seconds" => samples,
             "summary" => summarize(samples),

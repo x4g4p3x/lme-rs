@@ -15,17 +15,20 @@ MixedModels, and GLM (for GLMM cases). See BENCHMARK_COVERAGE.md.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import os
 import platform
 import shutil
-import statistics
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from benchmark_evidence import assess_timing, check_result, fit_agreement
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUST_EXAMPLE = "bench_fair_rust_julia"
@@ -173,8 +176,20 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated fair benchmark cases.",
     )
     parser.add_argument("--warmups", type=int, default=2)
-    parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--repeats", type=int, default=10)
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="Worker/BLAS thread limit for both implementations (default 1).",
+    )
     parser.add_argument("--timeout", type=int, default=3600)
+    parser.add_argument(
+        "--order",
+        choices=("rust-first", "julia-first"),
+        default="rust-first",
+        help="Implementation order; reverse it in a separate session to check drift.",
+    )
     parser.add_argument("--data-dir", default=str(DEFAULT_DATA_DIR))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     parser.add_argument(
@@ -203,7 +218,12 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
         help="Target rust/julia median ratio for cold_fit (axis 3 threshold; default 1.0).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.warmups < 0 or args.repeats < 1 or args.threads < 1 or args.timeout < 1:
+        parser.error("warmups must be nonnegative; repeats, threads and timeout must be positive")
+    if not math.isfinite(args.target_ratio) or args.target_ratio <= 0:
+        parser.error("target-ratio must be finite and positive")
+    return args
 
 
 def split_csv(value: str) -> list[str]:
@@ -257,6 +277,47 @@ def git_sha() -> str | None:
     return maybe_version(["git", "rev-parse", "HEAD"])
 
 
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def provenance(built: bool) -> dict[str, Any]:
+    status = maybe_version(["git", "status", "--porcelain", "--untracked-files=normal"])
+    source_files = [
+        *sorted((REPO_ROOT / "src").rglob("*.rs")),
+        REPO_ROOT / "Cargo.toml",
+        REPO_ROOT / "comparisons/bench_fair_rust_julia.rs",
+        JULIA_SCRIPT,
+    ]
+    source_digest = hashlib.sha256()
+    for path in source_files:
+        source_digest.update(path.relative_to(REPO_ROOT).as_posix().encode())
+        source_digest.update(bytes.fromhex(sha256(path)))
+    return {
+        "working_tree_dirty": bool(status) if status is not None else None,
+        "working_tree_status": status,
+        "rust_binary_sha256": sha256(rust_binary()) if rust_binary().exists() else None,
+        "rust_build_verified_this_run": built,
+        "source_content_sha256": source_digest.hexdigest(),
+        "cargo_lock_sha256": sha256(REPO_ROOT / "Cargo.lock"),
+        "harness_sha256": sha256(Path(__file__)),
+        "evidence_code_sha256": sha256(REPO_ROOT / "scripts/benchmark_evidence.py"),
+        "rustflags": os.environ.get("RUSTFLAGS"),
+        "cargo_encoded_rustflags": os.environ.get("CARGO_ENCODED_RUSTFLAGS"),
+        "thread_environment": {
+            key: os.environ.get(key)
+            for key in (
+                "OMP_NUM_THREADS",
+                "MKL_NUM_THREADS",
+                "OPENBLAS_NUM_THREADS",
+                "RAYON_NUM_THREADS",
+                "POLARS_MAX_THREADS",
+                "JULIA_NUM_THREADS",
+            )
+        },
+    }
+
+
 def machine_info() -> dict[str, Any]:
     return {
         "platform": platform.platform(),
@@ -266,6 +327,16 @@ def machine_info() -> dict[str, Any]:
         "processor": platform.processor(),
         "python_version": platform.python_version(),
         "cpu_count": os.cpu_count(),
+        "cpu_model": maybe_version(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_Processor).Name",
+            ]
+        )
+        if os.name == "nt"
+        else platform.processor(),
     }
 
 
@@ -440,11 +511,7 @@ def compare_metric(
         "rust_over_julia_median": rust_over,
         "julia_over_rust_median": ratio(julia_med, rust_med),
         "faster_implementation": (
-            "rust"
-            if rust_med < julia_med
-            else "julia"
-            if julia_med < rust_med
-            else "tie"
+            "rust" if rust_med < julia_med else "julia" if julia_med < rust_med else "tie"
         ),
         "meets_target": rust_over is not None and rust_over <= target_ratio,
     }
@@ -459,6 +526,7 @@ def compare_case(
     rows: list[dict[str, Any]] = []
     cold = compare_metric(rust, julia, "cold_fit", target_ratio)
     if cold is not None:
+        cold.update(assess_timing(rust, julia, fit_agreement(case, rust, julia), target_ratio))
         rows.append(cold)
     if rust is not None and rust.get("fit_prepared") is not None and julia is not None:
         rust_med = metric_median(rust, "fit_prepared")
@@ -471,14 +539,12 @@ def compare_case(
                 "julia_median_seconds": julia_med,
                 "rust_over_julia_median": rust_over,
                 "julia_over_rust_median": ratio(julia_med, rust_med),
-                "faster_implementation": (
-                    "rust"
-                    if rust_med < julia_med
-                    else "julia"
-                    if julia_med < rust_med
-                    else "tie"
+                "faster_implementation": "not_comparable",
+                "meets_target": None,
+                "eligible_for_speed_claim": False,
+                "timing_boundary": (
+                    "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
                 ),
-                "meets_target": rust_over is not None and rust_over <= target_ratio,
             }
         )
     if rust is not None and rust.get("prepare_lmer") is not None:
@@ -501,6 +567,24 @@ def main() -> int:
     args = parse_args()
     cases = split_csv(args.cases)
     implementations = set(split_csv(args.implementations))
+    if not cases or len(cases) != len(set(cases)):
+        print(
+            "Select at least one unique case; duplicates are not independent evidence.",
+            file=sys.stderr,
+        )
+        return 1
+    if not implementations or implementations - {"rust", "julia"}:
+        print("Select rust, julia, or both implementations.", file=sys.stderr)
+        return 1
+    for key in (
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "RAYON_NUM_THREADS",
+        "POLARS_MAX_THREADS",
+        "JULIA_NUM_THREADS",
+    ):
+        os.environ[key] = str(args.threads)
     unknown = [case for case in cases if case not in FAIR_CASES]
     if unknown:
         print(f"Unknown cases: {', '.join(unknown)}", file=sys.stderr)
@@ -522,13 +606,17 @@ def main() -> int:
             print(
                 "GLM.jl is required for GLMM fair cases "
                 f"({', '.join(glmm_cases)}). Install with: "
-                'julia -e \'using Pkg; Pkg.add("GLM")\'',
+                "julia -e 'using Pkg; Pkg.add(\"GLM\")'",
                 file=sys.stderr,
             )
             print(f"Probe failed: {exc}", file=sys.stderr)
             return 1
 
-    if "rust" in implementations:
+    # The Rust generator is also needed for Julia-only synthetic cases.
+    needs_rust = "rust" in implementations or any(
+        FAIR_CASES[name].generator != "fixture" for name in cases
+    )
+    if needs_rust:
         if not args.skip_rust_build:
             build_rust_example()
         if not rust_binary().exists():
@@ -539,59 +627,49 @@ def main() -> int:
     if not data_dir.is_absolute():
         data_dir = REPO_ROOT / data_dir
 
+    run_provenance = provenance(needs_rust and not args.skip_rust_build)
     results: list[dict[str, Any]] = []
     comparisons: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
+    fixtures: dict[str, Any] = {}
 
     for case_name in cases:
         case = FAIR_CASES[case_name]
-        print(f"Fair benchmark: {case_name} ...")
+        print(f"Fair benchmark: {case_name} ...", flush=True)
         try:
             csv_path = ensure_data(case, data_dir, args.timeout)
+            fixtures[case_name] = {"path": str(csv_path), "sha256": sha256(csv_path)}
         except Exception as exc:
             failures.append({"case": case_name, "stage": "data", "error": str(exc)})
             continue
 
-        rust_result = None
-        julia_result = None
-
-        if "rust" in implementations:
+        case_results = {}
+        order = ("rust", "julia") if args.order == "rust-first" else ("julia", "rust")
+        for implementation in order:
+            if implementation not in implementations:
+                continue
             try:
-                rust_result = run_timing(
-                    rust_time_command(
-                        case, csv_path, args.warmups, args.repeats, args.with_phases
-                    ),
-                    args.timeout,
+                command = (
+                    rust_time_command(case, csv_path, args.warmups, args.repeats, args.with_phases)
+                    if implementation == "rust"
+                    else julia_time_command(julia_bin, case, csv_path, args.warmups, args.repeats)
                 )
-                results.append(rust_result)
+                result = run_timing(command, args.timeout)
+                check_result(result, case, implementation, args.repeats)
+                results.append(result)
+                case_results[implementation] = result
             except Exception as exc:
                 failures.append(
                     {
                         "case": case_name,
-                        "implementation": "rust",
+                        "implementation": implementation,
                         "error": str(exc),
                     }
                 )
 
-        if "julia" in implementations and julia_bin:
-            try:
-                julia_result = run_timing(
-                    julia_time_command(
-                        julia_bin, case, csv_path, args.warmups, args.repeats
-                    ),
-                    args.timeout,
-                )
-                results.append(julia_result)
-            except Exception as exc:
-                failures.append(
-                    {
-                        "case": case_name,
-                        "implementation": "julia",
-                        "error": str(exc),
-                    }
-                )
-
-        case_rows = compare_case(case, rust_result, julia_result, args.target_ratio)
+        case_rows = compare_case(
+            case, case_results.get("rust"), case_results.get("julia"), args.target_ratio
+        )
         if case_rows:
             comparisons.append(
                 {
@@ -609,7 +687,7 @@ def main() -> int:
                     ratio_s = row["rust_over_julia_median"]
                     print(
                         f"  {metric}: rust={rust_med:.4f}s julia={julia_med:.4f}s "
-                        f"ratio={ratio_s:.2f} target<={args.target_ratio}"
+                        f"ratio={ratio_s:.2f} assessment={row['faster_implementation']}"
                     )
                 else:
                     print(f"  {metric}: rust={rust_med:.4f}s")
@@ -620,16 +698,36 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload = {
+        "schema_version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha(),
+        "provenance": run_provenance,
+        "fixtures": fixtures,
         "methodology": {
-            "description": "Shared CSV fixtures; data loaded once; model fit timed per metric; Julia JIT warmed up.",
+            "description": (
+                "Shared CSV fixtures; data loaded once; model fit timed per metric; "
+                "Julia JIT warmed up."
+            ),
             "coverage_doc": "BENCHMARK_COVERAGE.md",
-            "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+            "data_generation": (
+                "comparisons/bench_fair_rust_julia.rs generate "
+                "(matches benches/bench_math.rs RNG recipes)"
+            ),
             "rust_engine": "lme-rs lmer/glmer/lmer_weighted; optional prepare_lmer + fit_prepared",
             "julia_engine": "MixedModels.jl fit / GeneralizedLinearMixedModel (GLM.jl)",
             "target_ratio_cold_fit": args.target_ratio,
-            "note": "Different optimizers and likelihood paths; compare throughput, not coefficient identity.",
+            "note": (
+                "Speed claims require converged LMM fits with matching objectives/coefficients. "
+                "GLMM equivalence remains unverified."
+            ),
+            "timing_boundary": (
+                "Fresh model construction and fit on loaded data; warmed runtime; "
+                "excludes destruction and fit-check extraction. Not process-cold latency."
+            ),
+            "execution_order": (
+                f"{args.order} per case; separate processes; "
+                "no between-session uncertainty estimate."
+            ),
         },
         "machine_info": machine_info(),
         "runtime_versions": {
@@ -641,6 +739,8 @@ def main() -> int:
             "implementations": sorted(implementations),
             "warmups": args.warmups,
             "repeats": args.repeats,
+            "threads": args.threads,
+            "order": args.order,
             "timeout_seconds": args.timeout,
             "with_phases": args.with_phases,
             "target_ratio": args.target_ratio,
@@ -650,7 +750,7 @@ def main() -> int:
         "comparisons": comparisons,
         "failures": failures,
     }
-    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(payload, indent=2, allow_nan=False), encoding="utf-8")
     print(f"Wrote {output_path}")
 
     if failures:

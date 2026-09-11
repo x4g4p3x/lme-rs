@@ -6,11 +6,11 @@ on:
       warmups:
         description: Warmup runs per benchmark command
         required: true
-        default: "1"
+        default: "2"
       repeats:
         description: Measured runs per benchmark command
         required: true
-        default: "3"
+        default: "10"
   push:
     tags:
       - "v*"
@@ -81,8 +81,8 @@ jobs:
     name: Cross-Language Benchmarks
     runs-on: ubuntu-latest
     env:
-      BENCH_WARMUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.warmups || '1' }}
-      BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '3' }}
+      BENCH_WARMUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.warmups || '2' }}
+      BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '10' }}
       R_LIBS_USER: ${{ github.workspace }}/.r-lib
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,7 +98,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenblas-dev libcurl4-openssl-dev libssl-dev libxml2-dev r-base
+          sudo apt-get install -y libopenblas-dev libcurl4-openssl-dev libssl-dev libxml2-dev r-base r-cran-lme4 r-cran-lmertest r-cran-car r-cran-rlang
           curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-${JULIA_VERSION}-linux-x86_64.tar.gz" -o /tmp/julia.tar.gz
           sudo tar -xzf /tmp/julia.tar.gz -C /opt
           sudo ln -sf "/opt/julia-${JULIA_VERSION}/bin/julia" /usr/local/bin/julia
@@ -127,7 +127,12 @@ jobs:
       - name: Install R benchmark dependencies
         run: |
           mkdir -p "$R_LIBS_USER"
-          Rscript -e 'install.packages(c("lme4", "lmerTest", "car", "rlang", "styler"), repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER"))'
+          # Ubuntu supplies a compatible statistical dependency set, including
+          # car's transitive dependencies. R source installs can warn yet exit 0.
+          Rscript -e 'install.packages("styler", repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER")); for (pkg in c("lme4", "lmerTest", "car", "rlang", "styler")) { stopifnot(requireNamespace(pkg, quietly=TRUE)); cat(pkg, as.character(packageVersion(pkg)), "\n") }'
+
+      - name: Test benchmark evidence rules
+        run: python3 scripts/ci/lme_ci.py benchmark-tests
 
       - name: Install Julia benchmark dependencies
         run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "JSON", "MixedModels", "GLM", "JuliaFormatter"])'

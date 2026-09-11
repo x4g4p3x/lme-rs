@@ -294,10 +294,16 @@ def markdown_links_check() -> None:
 def documentation_check() -> None:
     """Validate local links, Rust API examples/doctests, and generated documentation."""
     markdown_links_check()
+    benchmark_tests()
     benchmark_site(check=True)
     cargo_examples_check()
     cargo_doctest()
     cargo_doc()
+
+
+def benchmark_tests() -> None:
+    """Validate benchmark claims independently of numerical runtime availability."""
+    run([sys.executable, "-m", "unittest", "discover", "-s", "scripts/tests", "-v"])
 
 
 def cargo_audit() -> None:
@@ -1014,6 +1020,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub.add_parser("doctest", help="cargo test --doc").set_defaults(fn=lambda _: cargo_doctest())
     sub.add_parser("doc", help="cargo doc").set_defaults(fn=lambda _: cargo_doc())
+    sub.add_parser("benchmark-tests", help="Test benchmark evidence and reporting rules").set_defaults(
+        fn=lambda _: benchmark_tests()
+    )
     sub.add_parser(
         "docs-links",
         help="Validate local link targets in tracked Markdown documents",

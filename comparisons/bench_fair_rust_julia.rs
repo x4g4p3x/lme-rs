@@ -74,12 +74,35 @@ struct TimingReport {
     n_obs: usize,
     warmups: usize,
     repeats: usize,
+    /// Extracted after each timer stops, so validation is outside the fit timing.
+    fit_checks: Vec<FitCheck>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prepared_fit_checks: Option<Vec<FitCheck>>,
     /// Cold end-to-end fit (`lmer` / `glmer` / weighted `lmer`).
     cold_fit: MetricSamples,
     #[serde(skip_serializing_if = "Option::is_none")]
     prepare_lmer: Option<MetricSamples>,
     #[serde(skip_serializing_if = "Option::is_none")]
     fit_prepared: Option<MetricSamples>,
+}
+
+#[derive(Debug, Serialize)]
+struct FitCheck {
+    objective: Option<f64>,
+    coefficients: Vec<f64>,
+    converged: Option<bool>,
+    iterations: Option<u64>,
+}
+
+impl From<&lme_rs::LmeFit> for FitCheck {
+    fn from(fit: &lme_rs::LmeFit) -> Self {
+        Self {
+            objective: fit.reml.or(fit.deviance),
+            coefficients: fit.coefficients.to_vec(),
+            converged: fit.converged,
+            iterations: fit.iterations,
+        }
+    }
 }
 
 fn generate_large_synthetic_df(n_obs: usize, n_groups: usize) -> DataFrame {
@@ -306,23 +329,21 @@ fn metric_from_samples(samples: Vec<f64>) -> MetricSamples {
     }
 }
 
-fn run_cold_fit(model: FitModel, formula: &str, df: &DataFrame, reml: bool) -> anyhow::Result<()> {
-    match model {
-        FitModel::Lmm => {
-            lme_rs::lmer(formula, df, reml)?;
-        }
+fn run_cold_fit(
+    model: FitModel,
+    formula: &str,
+    df: &DataFrame,
+    reml: bool,
+) -> anyhow::Result<lme_rs::LmeFit> {
+    Ok(match model {
+        FitModel::Lmm => lme_rs::lmer(formula, df, reml)?,
         FitModel::LmmWeighted => {
             let w = ndarray::Array1::from_vec(sleepstudy_weights(df.height()));
-            lme_rs::lmer_weighted(formula, df, reml, Some(w))?;
+            lme_rs::lmer_weighted(formula, df, reml, Some(w))?
         }
-        FitModel::GlmmBinomial => {
-            lme_rs::glmer(formula, df, Family::Binomial, 1)?;
-        }
-        FitModel::GlmmPoisson => {
-            lme_rs::glmer(formula, df, Family::Poisson, 1)?;
-        }
-    }
-    Ok(())
+        FitModel::GlmmBinomial => lme_rs::glmer(formula, df, Family::Binomial, 1)?,
+        FitModel::GlmmPoisson => lme_rs::glmer(formula, df, Family::Poisson, 1)?,
+    })
 }
 
 fn run_prepare(
@@ -406,6 +427,7 @@ fn cmd_time(args: &[String]) -> anyhow::Result<()> {
     let reml = parse_bool(args, "--reml")?;
     let warmups = parse_usize(args, "--warmups")?;
     let repeats = parse_usize(args, "--repeats")?;
+    anyhow::ensure!(repeats > 0, "--repeats must be positive");
     let model = if arg_flag(args, "--model") {
         FitModel::parse(arg_value(args, "--model")?)?
     } else {
@@ -421,37 +443,44 @@ fn cmd_time(args: &[String]) -> anyhow::Result<()> {
     }
 
     let mut cold_samples = Vec::with_capacity(repeats);
+    let mut fit_checks = Vec::with_capacity(repeats);
     for _ in 0..repeats {
         let started = Instant::now();
-        run_cold_fit(model, &formula, &df, reml)?;
+        let fit = run_cold_fit(model, &formula, &df, reml)?;
         cold_samples.push(started.elapsed().as_secs_f64());
+        fit_checks.push(FitCheck::from(&fit));
     }
 
-    let (prepare_lmer, fit_prepared) = if with_phases && model.supports_phases() {
-        let mut prepare_samples = Vec::with_capacity(repeats);
-        for _ in 0..repeats {
-            let started = Instant::now();
-            let _ = run_prepare(model, &formula, &df)?;
-            prepare_samples.push(started.elapsed().as_secs_f64());
-        }
+    let (prepare_lmer, fit_prepared, prepared_fit_checks) =
+        if with_phases && model.supports_phases() {
+            let mut prepare_samples = Vec::with_capacity(repeats);
+            for _ in 0..repeats {
+                let started = Instant::now();
+                let prepared = run_prepare(model, &formula, &df)?;
+                prepare_samples.push(started.elapsed().as_secs_f64());
+                std::hint::black_box(prepared);
+            }
 
-        let prepared = run_prepare(model, &formula, &df)?;
-        for _ in 0..warmups {
-            let _ = lme_rs::fit_prepared(&prepared, reml)?;
-        }
-        let mut hot_samples = Vec::with_capacity(repeats);
-        for _ in 0..repeats {
-            let started = Instant::now();
-            let _ = lme_rs::fit_prepared(&prepared, reml)?;
-            hot_samples.push(started.elapsed().as_secs_f64());
-        }
-        (
-            Some(metric_from_samples(prepare_samples)),
-            Some(metric_from_samples(hot_samples)),
-        )
-    } else {
-        (None, None)
-    };
+            let prepared = run_prepare(model, &formula, &df)?;
+            for _ in 0..warmups {
+                let _ = lme_rs::fit_prepared(&prepared, reml)?;
+            }
+            let mut hot_samples = Vec::with_capacity(repeats);
+            let mut hot_checks = Vec::with_capacity(repeats);
+            for _ in 0..repeats {
+                let started = Instant::now();
+                let fit = lme_rs::fit_prepared(&prepared, reml)?;
+                hot_samples.push(started.elapsed().as_secs_f64());
+                hot_checks.push(FitCheck::from(&fit));
+            }
+            (
+                Some(metric_from_samples(prepare_samples)),
+                Some(metric_from_samples(hot_samples)),
+                Some(hot_checks),
+            )
+        } else {
+            (None, None, None)
+        };
 
     let report = TimingReport {
         implementation: "rust",
@@ -462,6 +491,8 @@ fn cmd_time(args: &[String]) -> anyhow::Result<()> {
         n_obs,
         warmups,
         repeats,
+        fit_checks,
+        prepared_fit_checks,
         cold_fit: metric_from_samples(cold_samples),
         prepare_lmer,
         fit_prepared,

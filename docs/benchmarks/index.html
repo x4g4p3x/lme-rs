@@ -32,7 +32,7 @@
       <section class="panel">
         <div class="panel-header">
           <h2>Rust / Julia cold fit</h2>
-          <p>Values below 1.0× mean <code>lme-rs</code> was faster than MixedModels.jl on that metric.</p>
+          <p>Values below 1.0× indicate a lower measured median for <code>lme-rs</code>. Check fit agreement, uncertainty, and timing boundaries before interpreting a speed advantage.</p>
         </div>
         <div id="ratio-summary" class="ratio-summary"></div>
       </section>
@@ -41,7 +41,7 @@
         <div class="panel-header case-panel-header">
           <div>
             <h2>Tier-A cases</h2>
-            <p>Median wall time of the fit call after warmup. Toggle prepared-fit to amortize design-matrix setup.</p>
+            <p>Median wall time after warmup. Prepared-fit reuses Rust's design while Julia constructs a fresh model; those ratios are diagnostic. Historical references retain their original assessment.</p>
           </div>
           <div class="metric-toggle" role="tablist" aria-label="Fair-harness metric">
             <button type="button" class="metric-btn is-active" data-metric="cold_fit">Cold fit</button>
@@ -97,7 +97,8 @@
         </div>
         <ul class="caveat-list">
           <li>The fair harness loads shared CSVs once, warms up each runtime, and times only the fit call.</li>
-          <li>Optimizers and likelihood paths still differ from MixedModels.jl; this is throughput, not coefficient identity.</li>
+          <li>New runs require converged LMM fits with matching objectives and fixed effects before making speed claims. GLMM equivalence is not yet established.</li>
+          <li>Intervals describe variation within each process. They do not measure drift between sessions or machines; inconclusive and unverified results are not wins.</li>
           <li>GitHub-hosted runner numbers are useful for tag-to-tag diffs. Re-run the harness on your hardware before citing speed.</li>
           <li>Whole-script example bars include process startup and JIT; small fixtures favor a prebuilt Rust binary.</li>
         </ul>
