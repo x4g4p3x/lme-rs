@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Recover Basin LMM searches that collapse onto a covariance boundary, including
+  numerically near-zero faces and equivalent Cholesky-column orientations.
+  Recovery respects the existing iteration budget and cost tolerance, reuses
+  its successful probe, and leaves the default Argmin backend unchanged.
+
 ### Added
 
 - Add an optional `basin` Cargo feature using Basin 1.10.0 for projected

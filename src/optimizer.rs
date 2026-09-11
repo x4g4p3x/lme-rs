@@ -126,6 +126,25 @@ struct LmmObjective {
     lower_bounds: Vec<f64>,
 }
 
+impl LmmObjective {
+    fn optimize(
+        self,
+        start: Array1<f64>,
+        bounds: &[f64],
+        max_iterations: u64,
+        tolerance: f64,
+    ) -> Result<OptimizeResult, anyhow::Error> {
+        #[cfg(feature = "basin")]
+        {
+            basin_backend::optimize_lmm(start, bounds, max_iterations, tolerance, self)
+        }
+        #[cfg(not(feature = "basin"))]
+        {
+            nelder_mead_optimize_tolerance(start, bounds, max_iterations, tolerance, self)
+        }
+    }
+}
+
 impl CostFunction for LmmObjective {
     type Param = Array1<f64>;
     type Output = f64;
@@ -191,13 +210,7 @@ pub fn optimize_theta_lmm_control(
         reml,
         lower_bounds: bounds.clone(),
     };
-    nelder_mead_optimize_tolerance(
-        start,
-        &bounds,
-        control.max_iterations,
-        control.tolerance,
-        cost,
-    )
+    cost.optimize(start, &bounds, control.max_iterations, control.tolerance)
 }
 
 fn optimize_theta_lmm_inner(
@@ -222,7 +235,7 @@ fn optimize_theta_lmm_inner(
                     reml,
                     lower_bounds: lower_bounds.clone(),
                 };
-                nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
+                cost.optimize(init_theta, &lower_bounds, 1000, 1e-6)
             }
         };
     }
@@ -233,7 +246,7 @@ fn optimize_theta_lmm_inner(
         lower_bounds: lower_bounds.clone(),
     };
 
-    nelder_mead_optimize(init_theta, &lower_bounds, 1000, cost)
+    cost.optimize(init_theta, &lower_bounds, 1000, 1e-6)
 }
 
 /// Golden-section profile search for intercept-only models with |θ| = 1.
@@ -361,7 +374,7 @@ fn optimize_theta_intercept_2d(
         reml,
         lower_bounds: lower_bounds.to_vec(),
     };
-    let mut result = nelder_mead_optimize(theta, lower_bounds, NM_POLISH_ITERS, cost)?;
+    let mut result = cost.optimize(theta, lower_bounds, NM_POLISH_ITERS, 1e-6)?;
     result.iterations += grid_evals;
     Ok(result)
 }

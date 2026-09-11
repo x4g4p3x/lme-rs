@@ -1,0 +1,53 @@
+{
+  "R": "R version 4.6.1 (2026-06-24 ucrt)",
+  "lme4": "2.0.1",
+  "recipe": "tests/test_basin_boundary_recovery.rs: 80000 rows, 3000 groups, StdRng seed 106; weights 0.5 + (zero-based row modulo 7)/3",
+  "formula": "y ~ x + (x | group)",
+  "start": [1, 0, 1],
+  "cases": [
+    {
+      "reml": false,
+      "weighted": false,
+      "objective": 226267.82374844627,
+      "theta": [0.042607847118758924, -0.0083869798038024423, 0.024120734728155232],
+      "coefficients": [1.0027942793996747, 1.2470515359111427],
+      "convergence": {
+        "opt": 0,
+        "lme4": {}
+      }
+    },
+    {
+      "reml": false,
+      "weighted": true,
+      "objective": 236239.92885760049,
+      "theta": [0.078077266541998772, -0.0040914875547103683, 0.067568927657252156],
+      "coefficients": [1.0025860305594634, 1.2467719443458189],
+      "convergence": {
+        "opt": 0,
+        "lme4": {}
+      }
+    },
+    {
+      "reml": true,
+      "weighted": false,
+      "objective": 226286.68813958773,
+      "theta": [0.042749023953568624, -0.0083545469457921174, 0.024362446947978494],
+      "coefficients": [1.0027943103792585, 1.2470521303768438],
+      "convergence": {
+        "opt": 0,
+        "lme4": {}
+      }
+    },
+    {
+      "reml": true,
+      "weighted": true,
+      "objective": 236258.45967467123,
+      "theta": [0.078137462486589343, -0.0040988175247866389, 0.067647028706287915],
+      "coefficients": [1.0025863981100644, 1.2467725718296589],
+      "convergence": {
+        "opt": 0,
+        "lme4": {}
+      }
+    }
+  ]
+}
