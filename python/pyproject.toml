@@ -11,6 +11,11 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = ["version"]
 dependencies = [
@@ -25,6 +30,8 @@ Changelog = "https://github.com/x4g4p3x/lme-rs/blob/master/CHANGELOG.md"
 Issues = "https://github.com/x4g4p3x/lme-rs/issues"
 
 [project.optional-dependencies]
+# Nullable and categorical pandas columns require Arrow during Polars conversion.
+pandas = ["pandas>=2.0", "pyarrow>=14.0"]
 dev = [
     "maturin>=1.8,<2.0",
     "pytest>=7.0",

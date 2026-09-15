@@ -1370,6 +1370,48 @@ impl PyLmeFit {
         }
     }
 
+    /// Fixed-effect design rows in `fixed_names` order, using training encodings.
+    /// Excludes offsets and random effects. For formula-based LM/LMM/GLMM fits.
+    pub fn design_matrix<'py>(
+        &self,
+        py: Python<'py>,
+        newdata: &Bound<'py, PyAny>,
+    ) -> PyResult<Vec<Vec<f64>>> {
+        if self.inner.family_name.as_deref() == Some("nlmm") {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "design_matrix is only available for formula-based LM, LMM, and GLMM fits",
+            ));
+        }
+        let df = input::read_dataframe(py, newdata, self.inner.formula.as_deref(), &[])?;
+        py.detach(|| {
+            if let Some(factors) = &self.inner.categorical_levels {
+                for (name, levels) in factors {
+                    if let Ok(column) = df.column(name) {
+                        let labels = column.cast(&DataType::String).map_err(|e| {
+                            lme_rs::LmeError::InvalidInput {
+                                message: e.to_string(),
+                            }
+                        })?;
+                        if labels.str().unwrap().into_iter().any(|label| {
+                            label.is_none_or(|label| !levels.iter().any(|level| level == label))
+                        }) {
+                            return Err(lme_rs::LmeError::InvalidInput {
+                                message: format!(
+                                    "Missing or unknown fixed-effect level in '{name}'"
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+            self.inner
+                .model_spec()
+                .prediction_matrix(&df)
+                .map(|(x, _)| x.rows().into_iter().map(|row| row.to_vec()).collect())
+        })
+        .map_err(model_error)
+    }
+
     /// Conditional predictions including random effects (Xβ + Zb).
     #[pyo3(signature = (newdata, allow_new_levels=false))]
     pub fn predict_conditional<'py>(

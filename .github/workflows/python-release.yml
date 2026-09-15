@@ -87,13 +87,14 @@ jobs:
     strategy:
       matrix:
         target: [x86_64, aarch64]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.RELEASE_REF }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: stable
@@ -103,7 +104,7 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path python/Cargo.toml -i python3.10
+          args: --release --locked --out dist --manifest-path python/Cargo.toml -i python${{ matrix.python-version }}
           sccache: 'true'
           manylinux: auto
           before-script-linux: |
@@ -123,7 +124,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: wheels-linux-${{ matrix.target }}
+          name: wheels-linux-${{ matrix.target }}-py${{ matrix.python-version }}
           path: dist
 
   windows:
@@ -132,13 +133,14 @@ jobs:
     strategy:
       matrix:
         target: [x64]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.RELEASE_REF }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.target }}
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
@@ -149,14 +151,14 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path python/Cargo.toml
+          args: --release --locked --out dist --manifest-path python/Cargo.toml -i python
           sccache: 'true'
       - name: Add third-party notices to wheels
         run: Get-ChildItem dist/*.whl | ForEach-Object { python scripts/ci/package_wheel_notices.py $_.FullName }
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: wheels-windows-${{ matrix.target }}
+          name: wheels-windows-${{ matrix.target }}-py${{ matrix.python-version }}
           path: dist
 
   macos:
@@ -165,13 +167,14 @@ jobs:
     strategy:
       matrix:
         target: [x86_64, aarch64]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.RELEASE_REF }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: stable
@@ -184,7 +187,7 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path python/Cargo.toml
+          args: --release --locked --out dist --manifest-path python/Cargo.toml -i python
           sccache: 'true'
       - name: Add third-party notices to wheels
         run: |
@@ -194,7 +197,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: wheels-macos-${{ matrix.target }}
+          name: wheels-macos-${{ matrix.target }}-py${{ matrix.python-version }}
           path: dist
 
   sdist:
@@ -220,9 +223,39 @@ jobs:
           name: wheels-sdist
           path: dist
 
+  wheel-smoke:
+    name: Install release wheel / Python ${{ matrix.python-version }} / ${{ matrix.platform }}
+    needs: [linux, windows, macos]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        platform: [linux-x86_64, windows-x64, macos-aarch64]
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-latest
+          - platform: windows-x64
+            os: windows-latest
+          - platform: macos-aarch64
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheels-${{ matrix.platform }}-py${{ matrix.python-version }}
+          path: wheelhouse
+      - name: Install and test the actual wheel
+        run: python scripts/ci/lme_ci.py release-wheel-smoke --wheel-dir wheelhouse --python-version ${{ matrix.python-version }}
+
   publish:
     name: Publish to PyPI
-    needs: [linux, windows, macos, sdist]
+    needs: [linux, windows, macos, sdist, wheel-smoke]
     runs-on: ubuntu-latest
     # Publication requires the explicit opt-in and exact tag/SHA verification above.
     if: inputs.publish

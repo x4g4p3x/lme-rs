@@ -110,7 +110,11 @@ The complete bindings flow checks the extension's version and import path,
 runs the editable package tests, then builds and tests an isolated wheel.
 `task consumer:smoke` additionally installs the wheel in a dependency-only
 environment and runs the portable examples. CI tests source builds on Python
-3.10–3.13; the full identity/consumer flow is centered on 3.11.
+3.10–3.14; the full identity/consumer flow is centered on 3.11. Windows and macOS
+also test 3.14. The release workflow builds a wheel per interpreter version and
+tests the native Linux x86_64, Windows x64, and macOS aarch64 artifacts before
+publishing. Run `python scripts/ci/lme_ci.py release-wheel-smoke --wheel-dir PATH
+--python-version 3.14` to exercise an already-built wheel locally.
 
 ## Comparison scripts
 

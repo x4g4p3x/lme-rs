@@ -434,11 +434,14 @@ print(gboot.confint(0.95).lower)
 
 **Scope:** `boot_lmer` — LMM (parametric + residual). `boot_glmer` — GLMM (parametric only). Not NLMM. Requires the same formula and data as the reference fit. Percentile CIs use converged replicates only (`which="fixed"|"vc"|"all"`). Does not implement semiparametric or case bootstrap; validate against R `bootMer` for publication work.
 
-Python's `fit_prepared` and `fit_prepared_glmer` reuse the stored response;
-they do not accept a replacement response vector. Use the bootstrap helpers
-above, rebuild from changed data, or use the Rust
-[response-replacement APIs](../GUIDE.md#custom-parallel-refits-grids-manual-bootstrap).
-Cross-validation builds each training-fold design separately.
+Python's `prepared.fit(y=new_response)` and
+`fit_prepared(prepared, y=new_response)` (also `fit_prepared_glmer`) accept a
+replacement response on the original rows. Omitting `y` reuses the stored response.
+Keep the row order, predictors, weights, and grouping structure unchanged; prepare
+again when any of those change. This supports custom null-model bootstrap tests
+that draw fresh random effects, as shown in the
+[repeated-measures example](examples/repeated_measures.py). Cross-validation and leave-one-animal-out
+influence checks must build each reduced-row design separately.
 
 ## Parametric simulation at scale
 
@@ -460,7 +463,7 @@ Formula entry points accept **Polars**, **pandas**, or **PyArrow** tabular data.
 | Input type | Notes |
 |:-----------|:------|
 | `polars.DataFrame` | Preferred; no conversion overhead beyond IPC |
-| `pandas.DataFrame` | Converted with `polars.from_pandas` (requires `pandas` installed) |
+| `pandas.DataFrame` | Converted with `polars.from_pandas`; install `lme-python[pandas]` for nullable/categorical columns |
 | `pyarrow.Table` | Converted with `polars.from_arrow` (requires `pyarrow` installed) |
 
 ```python
@@ -526,7 +529,9 @@ Structured result types: `PyConfintResult`, `PySimulateResult`, `PyFixedEffectsA
 Available `PyLmeFit` methods:
 
 - `summary()`
-- `predict(newdata)`
+  - `predict(newdata)`
+  - `design_matrix(newdata)` — fixed-effect rows in `fixed_names` order, using
+    training encodings; excludes offsets and random effects (formula LM/LMM/GLMM)
 - `predict_conditional(newdata, allow_new_levels=False)`
 - `predict_conditional_response(newdata, allow_new_levels=False)`
 - `predict_response(newdata)`
