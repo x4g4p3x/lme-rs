@@ -167,7 +167,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -197,12 +197,13 @@ jobs:
         run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }} --wheel-only
 
   python-bindings-os:
-    name: Python 3.11 (${{ matrix.os }})
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
+        python-version: ["3.11", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -220,11 +221,11 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-dependency-glob: "python/uv.lock"
       - name: Python bindings (isolated wheel OS compatibility)
-        run: python scripts/ci/lme_ci.py python --python-version 3.11 --wheel-only --examples
+        run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }} --wheel-only --examples
 
   publish-crate:
     name: Publish Rust crate after CI

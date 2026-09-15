@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Normalize categorical/Enum Python inputs before IPC to prevent Rust dictionary
+  decoding panics, and project formula columns before pandas/Arrow conversion so
+  unrelated application metadata cannot break a fit.
+- Correct the Python guide: prepared fits accept replacement response vectors.
+- Update the root and Python build locks to rustls 0.23.45 (and its webpki patch)
+  to address RUSTSEC-2026-0285 found by the required release preflight.
 - Recover Basin LMM searches that collapse onto a covariance boundary, including
   numerically near-zero faces and equivalent Cholesky-column orientations.
   Recovery respects the existing iteration budget and cost tolerance, reuses
@@ -16,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Expose Python `fit.design_matrix(newdata)` for contrasts and ordered prediction
+  grids using the fitted encodings; add a tested repeated-measures sum-coding and
+  new-animal null-bootstrap recipe and a `pandas` installation extra.
 - Add an optional `basin` Cargo feature using Basin 1.10.0 for projected
   Nelder-Mead searches, with paired comparisons against the default Argmin backend.
 - Add a reproducible, order-balanced optimizer comparison with per-fit numerical
@@ -23,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Build CPython 3.10–3.14 release wheels and include Python 3.14 in Linux,
+  Windows, and macOS binding validation. Previously wheels targeted only 3.10.
 - Reorganize the benchmark, coverage, and optimization guides around current
   evidence and reproducible workflows; preserve older experiments in labeled
   archives. Refresh the benchmark dashboard's typography, navigation, workload

@@ -34,6 +34,7 @@ PORTABLE_PYTHON_EXAMPLES = [
     PYTHON_DIR / "examples" / "glmer_cbpp.py",
     PYTHON_DIR / "examples" / "glmer_grouseticks.py",
     PYTHON_DIR / "examples" / "model_comparison.py",
+    PYTHON_DIR / "examples" / "repeated_measures.py",
     PYTHON_DIR / "examples" / "verification_project" / "run.py",
 ]
 MARKDOWN_INLINE_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
@@ -962,6 +963,46 @@ def consumer_smoke(*, python: str = "3.11", reuse_venv: bool = False) -> None:
     )
 
 
+def release_wheel_smoke(*, wheel_dir: str, python: str) -> None:
+    """Install an already-built release artifact; never rebuild the extension."""
+    wheels = list(Path(wheel_dir).resolve().glob("lme_python-*.whl"))
+    if len(wheels) != 1:
+        raise CiError(
+            f"expected exactly one release wheel in {wheel_dir}, got {len(wheels)}"
+        )
+    with tempfile.TemporaryDirectory(prefix="lme-release-smoke-") as tmp:
+        venv = Path(tmp) / "venv"
+        executable = _create_uv_venv(python=python, venv=venv)
+        run(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(executable),
+                "--only-binary=:all:",
+                f"{wheels[0]}[pandas]",
+                "pytest>=7",
+            ]
+        )
+        _assert_python_artifact(
+            executable, version=_python_package_version(), venv=venv
+        )
+        run(
+            [
+                str(executable),
+                "-m",
+                "pytest",
+                "tests/test_dataframe_inputs.py",
+                "tests/test_design_matrix.py",
+                "tests/test_repeated_measures.py",
+                "-q",
+            ],
+            cwd=PYTHON_DIR,
+        )
+        _run_portable_python_examples(executable)
+
+
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
     completion_check()
     cargo_build_test()
@@ -979,7 +1020,7 @@ def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool 
     legal_compliance()
     documentation_check()
     print(
-        "lme_ci.py ci: OK (core jobs; multi-OS matrix, Python 3.10/3.12/3.13, "
+        "lme_ci.py ci: OK (core jobs; multi-OS matrix, Python 3.10/3.12/3.13/3.14, "
         "production-load gates are CI-only)",
         flush=True,
     )
@@ -1147,6 +1188,16 @@ def main(argv: list[str] | None = None) -> int:
             wheel_only=a.wheel_only,
             run_examples=a.examples,
         )
+    )
+
+    p_release_wheel = sub.add_parser(
+        "release-wheel-smoke",
+        help="Install and test a built release wheel without rebuilding",
+    )
+    p_release_wheel.add_argument("--wheel-dir", required=True)
+    p_release_wheel.add_argument("--python-version", required=True)
+    p_release_wheel.set_defaults(
+        fn=lambda a: release_wheel_smoke(wheel_dir=a.wheel_dir, python=a.python_version)
     )
 
     p_consumer = sub.add_parser(
