@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_FILES = (
+    "PROVENANCE.md",
     "THIRD_PARTY_NOTICES.md",
     "RELINKING.md",
     "LICENSES/Apache-2.0.txt",
@@ -34,16 +35,19 @@ def load_json(path: Path) -> dict[str, object]:
         fail(f"cannot read {path.relative_to(ROOT)}: {exc}")
 
 
-def check_fixture_provenance() -> None:
+def fixture_records() -> list[dict[str, object]]:
     payload = load_json(ROOT / "legal/fixture-provenance.json")
     records = payload.get("fixtures")
     if not isinstance(records, list) or not records:
         fail("fixture provenance has no fixture records")
+    if not all(isinstance(record, dict) for record in records):
+        fail("fixture provenance contains a non-object record")
+    return records
 
+
+def check_fixture_provenance() -> None:
     documented: set[str] = set()
-    for record in records:
-        if not isinstance(record, dict):
-            fail("fixture provenance contains a non-object record")
+    for record in fixture_records():
         paths = record.get("paths")
         if not isinstance(paths, list) or not paths:
             fail("fixture provenance record has no paths")
@@ -55,10 +59,44 @@ def check_fixture_provenance() -> None:
                 fail(f"documented fixture is missing: {raw_path}")
             documented.add(raw_path)
 
-    actual = {str(path.relative_to(ROOT)).replace("\\", "/") for path in (ROOT / "tests/data").glob("*.csv")}
+    actual = {
+        str(path.relative_to(ROOT)).replace("\\", "/")
+        for path in (ROOT / "tests/data").glob("*.csv")
+    }
     missing = sorted(actual - documented)
     if missing:
         fail(f"CSV fixtures missing provenance: {', '.join(missing)}")
+
+
+def check_cargo_package_fixture_exclusion() -> None:
+    gpl_paths: set[str] = set()
+    for record in fixture_records():
+        license_expr = record.get("license")
+        paths = record.get("paths")
+        if not isinstance(license_expr, str) or not license_expr.startswith("GPL-"):
+            continue
+        if not isinstance(paths, list):
+            fail("GPL fixture provenance record has invalid paths")
+        for raw_path in paths:
+            if not isinstance(raw_path, str):
+                fail("GPL fixture provenance record has a non-string path")
+            gpl_paths.add(raw_path)
+
+    result = subprocess.run(
+        ["cargo", "package", "--list", "--allow-dirty"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    packaged = {
+        line.strip().replace("\\", "/")
+        for line in result.stdout.splitlines()
+        if line.strip()
+    }
+    leaked = sorted(gpl_paths & packaged)
+    if leaked:
+        fail("GPL test fixtures included in Cargo package: " + ", ".join(leaked))
 
 
 def check_cargo_licenses() -> None:
@@ -66,7 +104,9 @@ def check_cargo_licenses() -> None:
     allowed = {
         (entry["name"], entry["version"])
         for entry in exceptions
-        if isinstance(entry, dict) and isinstance(entry.get("name"), str) and isinstance(entry.get("version"), str)
+        if isinstance(entry, dict)
+        and isinstance(entry.get("name"), str)
+        and isinstance(entry.get("version"), str)
     }
     result = subprocess.run(
         ["cargo", "metadata", "--locked", "--format-version", "1"],
@@ -79,7 +119,9 @@ def check_cargo_licenses() -> None:
     missing = sorted(
         f"{package['name']} {package['version']}"
         for package in metadata["packages"]
-        if package.get("source") and not package.get("license") and (package["name"], package["version"]) not in allowed
+        if package.get("source")
+        and not package.get("license")
+        and (package["name"], package["version"]) not in allowed
     )
     if missing:
         fail("unreviewed Rust dependencies without SPDX metadata: " + ", ".join(missing))
@@ -90,6 +132,7 @@ def main() -> int:
     if missing:
         fail("missing required legal files: " + ", ".join(missing))
     check_fixture_provenance()
+    check_cargo_package_fixture_exclusion()
     check_cargo_licenses()
     print("legal compliance check: OK")
     return 0
