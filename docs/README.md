@@ -41,6 +41,8 @@ behind a performance claim. Rust and Python use the same fitting engine.
 - [Rust API reference](https://docs.rs/lme-rs/latest/lme_rs/): signatures, fields, modules.
 - [Basin optimizer](BASIN.md): optional backend, numerical controls, and comparisons.
 - [Python type reference](../python/lme_python.pyi): signatures and structured results.
+- [Model-based analysis](MODEL_BASED_ANALYSIS.md): ordered factors, classical OLS tests,
+  adjusted means, and unconditional null bootstrap.
 - [Runnable examples](EXAMPLES.md): commands, fixtures, dependencies.
 - [Python verification project](../python/examples/verification_project/README.md):
   assertions against reference fixtures.

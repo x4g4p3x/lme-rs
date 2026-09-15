@@ -177,8 +177,8 @@ pub fn contrast_for_term(
                 .iter()
                 .position(|t| t == term)
                 .unwrap_or(term_order.len());
-            let prior = &term_order[..pos];
-            type2_contrast(x, col_terms, term, prior)
+            let later = &term_order[(pos + 1).min(term_order.len())..];
+            type2_contrast(x, col_terms, term, later)
         }
         AnovaType::Type2 => {
             let contained = containment.get(term).map(|v| v.as_slice()).unwrap_or(&[]);

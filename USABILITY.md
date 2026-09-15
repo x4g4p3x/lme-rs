@@ -53,6 +53,10 @@ evidence before relying on the result.
 - Independent per-sensor fitting inside the pooled `nlmer` API.
 - A blanket speed guarantee or established production suitability for untested models.
 
+For ordered factor coding, OLS ANOVA/ANCOVA, configurable marginal means, and
+unconditional null bootstrap, see [model-based analysis](docs/MODEL_BASED_ANALYSIS.md).
+These development APIs take effect in the next release after 0.2.5.
+
 ## Understand the evidence
 
 | Evidence | What it establishes | What it does not establish |

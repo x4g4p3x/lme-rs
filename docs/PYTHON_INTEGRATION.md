@@ -39,7 +39,14 @@ those scientific conventions for the caller. Use safe column identifiers.
 
 ### Preserve sum coding explicitly
 
-The formula parser does not implement Patsy's `C(factor, Sum)` syntax. Use the
+Use `FactorSpec(levels, coding="sum")` with `lm`, `lmer`, or `prepare_lmer` to
+preserve declared factor order and automatic multi-column term grouping. See
+[model-based analysis](MODEL_BASED_ANALYSIS.md) for reference grids, classical
+OLS inference, and the unconditional null-bootstrap API. The pre-encoding recipe
+below remains useful when an application supplies its own design construction.
+
+
+For externally constructed designs, the formula parser does not implement Patsy's `C(factor, Sum)` syntax. Use the
 [portable example](../python/examples/repeated_measures.py) to encode declared levels
 into numeric sum columns before fitting. For `[Day 1, Day 2, Day 10]` the rows are
 `[1, 0]`, `[0, 1]`, and `[-1, -1]`. Reuse that mapping for prediction grids, even
@@ -62,6 +69,13 @@ For pre-encoded multi-column factors, group their contrast rows explicitly with
 `fit.test_contrast(L)`; automatic ANOVA sees each numeric column as a separate term.
 
 ### Preserve the null bootstrap
+
+`bootstrap_lrt(full, null, nsim, seed=..., n_jobs=...)` now provides this procedure
+for nested fixed-effect LMMs prepared on identical rows and random-effect
+structures. It uses ML, fresh group effects, and explicit failed-replicate records.
+Use the manual recipe below when retaining an application-specific simulation
+function or random-number stream.
+
 
 An unconditional null bootstrap simulates fresh subject random effects under the
 null model, then fits full and reduced models by ML on identical responses. `fit.boot()`

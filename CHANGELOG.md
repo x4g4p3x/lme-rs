@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Compute Type I ANOVA contrasts after preceding terms in formula order.
+- Use residual Student t intervals and expose standard errors for matrix OLS.
+
 - Normalize categorical/Enum Python inputs before IPC to prevent Rust dictionary
   decoding panics, and project formula columns before pandas/Arrow conversion so
   unrelated application metadata cannot break a fit.
@@ -21,6 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its successful probe, and leaves the default Argmin backend unchanged.
 
 ### Added
+
+- Add explicit ordered treatment/sum factor specifications for linear and mixed
+  models, preserved across prediction and post-fit inference.
+- Add classical OLS term tests with residual degrees of freedom, sums/mean squares,
+  residual summaries, and partial eta squared.
+- Add marginal-mean interaction grids, explicit numeric reference values, equal or
+  proportional nuisance weights, and separately adjusted within-group comparisons.
+- Add an unconditional null-model LRT bootstrap using prepared ML fits, fresh
+  random effects, reproducible parallel workers, and per-replicate failure records.
+- Validate the new workflows against black-box R outputs on synthetic unbalanced
+  and incomplete-subject data; document the APIs and statistical contracts.
 
 - Expose Python `fit.design_matrix(newdata)` for contrasts and ordered prediction
   grids using the fitted encodings; add a tested repeated-measures sum-coding and

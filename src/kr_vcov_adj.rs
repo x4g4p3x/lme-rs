@@ -29,7 +29,8 @@ pub fn kenward_roger_modcomp_data(
         feature: "sigma2 missing for Kenward-Roger vcovAdj.".to_string(),
     })?;
 
-    let ast = parse(formula_str)?;
+    let mut ast = parse(formula_str)?;
+    ast.factors = fit.factors.clone();
     let matrices = build_design_matrices(&ast, data)?;
     let lmm = crate::model::inference_lmm_data(fit, &matrices)?;
 

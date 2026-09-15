@@ -1,18 +1,22 @@
 //! Python model fitting and resampling entry points.
 use super::*;
 #[pyfunction]
-#[pyo3(signature = (formula, data, reml=true, *, control=None))]
+#[pyo3(signature = (formula, data, reml=true, *, control=None, factors=None))]
 pub fn lmer<'py>(
     py: Python<'py>,
     formula: &str,
     data: &Bound<'py, PyAny>,
     reml: bool,
     control: Option<&PyFitControl>,
+    factors: Option<std::collections::HashMap<String, PyFactorSpec>>,
 ) -> PyResult<PyLmeFit> {
+    let factors = modeling::factor_values(factors);
     let control = control_value(control);
     let df = input::read_dataframe(py, data, Some(formula), &[])?;
-    match py.detach(|| lme_rs::prepare_lmer(formula, &df).and_then(|p| p.fit(None, reml, &control)))
-    {
+    match py.detach(|| {
+        lme_rs::prepare_lmer_with_factors(formula, &df, None, &factors)
+            .and_then(|p| p.fit(None, reml, &control))
+    }) {
         Ok(fit) => Ok(PyLmeFit { inner: fit }),
         Err(e) => Err(controls::model_error(e)),
     }
@@ -20,16 +24,23 @@ pub fn lmer<'py>(
 
 /// Prepare an LMM for repeated fits on the same formula and data.
 #[pyfunction]
-#[pyo3(signature = (formula, data, *, weights=None))]
+#[pyo3(signature = (formula, data, *, weights=None, factors=None))]
 pub fn prepare_lmer<'py>(
     py: Python<'py>,
     formula: &str,
     data: &Bound<'py, PyAny>,
     weights: Option<Vec<f64>>,
+    factors: Option<std::collections::HashMap<String, PyFactorSpec>>,
 ) -> PyResult<PyLmerPrepared> {
+    let factors = modeling::factor_values(factors);
     let df = input::read_dataframe(py, data, Some(formula), &[])?;
     match py.detach(|| {
-        lme_rs::prepare_lmer_weighted(formula, &df, weights.map(ndarray::Array1::from_vec))
+        lme_rs::prepare_lmer_with_factors(
+            formula,
+            &df,
+            weights.map(ndarray::Array1::from_vec),
+            &factors,
+        )
     }) {
         Ok(prepared) => Ok(PyLmerPrepared { inner: prepared }),
         Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -299,18 +310,25 @@ fn extract_f64_matrix(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<f64>>> {
 ///
 /// ``lm_matrix(y, x)`` remains an explicit alias for the numeric path.
 #[pyfunction]
-#[pyo3(signature = (formula_or_y, data))]
+#[pyo3(signature = (formula_or_y, data, *, factors=None))]
 pub fn lm<'py>(
     py: Python<'py>,
     formula_or_y: &Bound<'py, PyAny>,
     data: &Bound<'py, PyAny>,
+    factors: Option<std::collections::HashMap<String, PyFactorSpec>>,
 ) -> PyResult<PyLmeFit> {
+    let factors = modeling::factor_values(factors);
     if let Ok(formula) = formula_or_y.extract::<&str>() {
         let df = input::read_dataframe(py, data, Some(formula), &[])?;
-        return match py.detach(|| lme_rs::lm_df(formula, &df)) {
+        return match py.detach(|| lme_rs::lm_df_with_factors(formula, &df, &factors)) {
             Ok(fit) => Ok(PyLmeFit { inner: fit }),
             Err(e) => Err(pyo3::exceptions::PyValueError::new_err(e.to_string())),
         };
+    }
+    if !factors.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "factors require formula-based lm",
+        ));
     }
     let y = extract_f64_vec(formula_or_y).map_err(|_| {
         pyo3::exceptions::PyTypeError::new_err(

@@ -72,6 +72,20 @@ pub struct ContrastRowSpec<'a> {
 }
 
 impl LmeFit {
+    /// Exact residual degrees of freedom for full-rank ordinary least squares.
+    /// Rejects mixed/generalized models, robust covariance, and saturated fits.
+    pub fn residual_df(&self) -> crate::Result<f64> {
+        if self.theta.is_some()
+            || self.family_name.is_some()
+            || self.robust.is_some()
+            || self.num_obs <= self.coefficients.len()
+            || self.sigma2.is_none()
+        {
+            return Err(LmeError::InvalidInput { message: "Residual-df inference requires an unsaturated OLS fit with classical covariance".into() });
+        }
+        Ok((self.num_obs - self.coefficients.len()) as f64)
+    }
+
     /// Wald F-test for **H₀: L β = 0** with Satterthwaite or Kenward–Roger denominator df.
     ///
     /// `l_mat` must have `ncols()` equal to the number of fixed-effect coefficients.
@@ -147,11 +161,81 @@ pub(crate) fn fixed_effect_contrast_test(
     }
     // A common rescaling preserves the hypothesis and the eigenvectors used
     // by Satterthwaite, while preventing underflow in variance derivatives.
-    let scaled = matches!(ddf, DdfMethod::Satterthwaite).then(|| l_mat / scale);
+    let scaled = match ddf {
+        DdfMethod::Satterthwaite => Some(l_mat / scale),
+        DdfMethod::Residual => {
+            let mut normalized = l_mat.clone();
+            for mut row in normalized.rows_mut() {
+                let max = row.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+                if max > 0.0 {
+                    row /= max;
+                }
+            }
+            Some(normalized)
+        }
+        DdfMethod::KenwardRoger => None,
+    };
     let l_mat = scaled.as_ref().unwrap_or(l_mat);
 
     let q = l_mat.nrows();
     let (f_value, den_df, p_value, num_df) = match ddf {
+        DdfMethod::Residual => {
+            use ndarray_linalg::{Eigh, UPLO};
+            use statrs::distribution::{ContinuousCDF, FisherSnedecor};
+            let df = fit.residual_df()?;
+            let v = fixed_effect_vcov(fit)?;
+            let mut covariance = l_mat.dot(&v).dot(&l_mat.t());
+            let mut delta = l_mat.dot(&match beta_h {
+                Some(h) => beta - h,
+                None => beta.clone(),
+            });
+            // Test rank in correlation units so equivalent hypotheses do not
+            // depend on coefficient units or arbitrary per-row scaling.
+            let scales = covariance.diag().mapv(f64::sqrt);
+            for i in 0..q {
+                if !scales[i].is_finite() {
+                    return Err(LmeError::InvalidInput {
+                        message: "Nonfinite contrast variance".into(),
+                    });
+                }
+                if scales[i] > 0.0 {
+                    delta[i] /= scales[i];
+                }
+                for j in 0..q {
+                    if scales[i] > 0.0 && scales[j] > 0.0 {
+                        covariance[[i, j]] = (covariance[[i, j]] / scales[i]) / scales[j];
+                    }
+                }
+            }
+            let (eigenvalues, eigenvectors) =
+                covariance
+                    .eigh(UPLO::Upper)
+                    .map_err(|e| LmeError::LinearAlgebra {
+                        message: e.to_string(),
+                    })?;
+            let max = eigenvalues.iter().copied().fold(0.0_f64, f64::max);
+            let tol = max * f64::EPSILON.sqrt();
+            let mut rank = 0;
+            let mut wald = 0.0;
+            for (i, &value) in eigenvalues.iter().enumerate() {
+                if value > tol {
+                    rank += 1;
+                    wald += eigenvectors.column(i).dot(&delta).powi(2) / value;
+                }
+            }
+            if rank == 0 || !wald.is_finite() {
+                return Err(LmeError::InvalidInput {
+                    message: "Contrast has no estimable variance".into(),
+                });
+            }
+            let f = wald / rank as f64;
+            (
+                f,
+                df,
+                FisherSnedecor::new(rank as f64, df).unwrap().sf(f),
+                rank as f64,
+            )
+        }
         DdfMethod::Satterthwaite => {
             let (dfs, pvals) = fit
                 .satterthwaite
@@ -308,6 +392,7 @@ pub(crate) fn single_unit_contrast_index(l_mat: &Array2<f64>) -> Option<usize> {
 impl fmt::Display for ContrastTestResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let method = match self.method {
+            DdfMethod::Residual => "OLS residual df",
             DdfMethod::Satterthwaite => "Satterthwaite",
             DdfMethod::KenwardRoger => "Kenward-Roger",
         };

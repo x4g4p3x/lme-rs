@@ -24,6 +24,27 @@ pub struct FormulaModel {
     pub formula: String,
     /// Optional offset expression. A plain column or a unary transform such as `log(w)`.
     pub offset: Option<NumericExpr>,
+    /// Explicit fixed-factor encodings, independent of dataframe category ordering.
+    pub factors: std::collections::HashMap<String, FactorSpec>,
+}
+
+/// Coding used for a fixed categorical factor.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum FactorCoding {
+    /// First declared level is the reference.
+    #[default]
+    Treatment,
+    /// Last declared level is minus the sum of the other levels.
+    Sum,
+}
+
+/// Ordered levels and coding for a fixed factor. Levels must be unique and observed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FactorSpec {
+    /// Declared order, used for fitting, prediction, and reference grids.
+    pub levels: Vec<String>,
+    /// Treatment or sum-to-zero contrasts.
+    pub coding: FactorCoding,
 }
 
 /// Roles and random-effect mappings for one dataframe or generated column.
@@ -389,6 +410,7 @@ pub fn parse(formula: &str) -> crate::Result<FormulaModel> {
         },
         formula: formula.to_string(),
         offset: None,
+        factors: Default::default(),
     };
     add_role(&mut model, response, ColumnRole::Response, true);
 

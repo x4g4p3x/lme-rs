@@ -16,10 +16,7 @@ use crate::family::Link;
 use crate::glmm_math::GlmmData;
 use crate::math::LmmData;
 use crate::optimizer::{self, OptimizeResult};
-use crate::{
-    prepare_glmer_weighted_with_link, prepare_lmer_weighted, ConfintResult, GlmerPrepared, LmeFit,
-    LmerPrepared,
-};
+use crate::{prepare_glmer_weighted_with_link, ConfintResult, GlmerPrepared, LmeFit, LmerPrepared};
 
 /// Method for [`LmeFit::confint_with`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -300,8 +297,9 @@ pub fn profile_confint(
     } else {
         // Profile fixed effects under ML even if the reference fit used REML:
         // REML criteria are not comparable across models with different `p`.
-        let prepared = prepare_lmer_weighted(formula, data, fit.weights.clone())
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        let prepared =
+            crate::prepare_lmer_with_factors(formula, data, fit.weights.clone(), &fit.factors)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
         if prepared.lmm.y.len() != fit.num_obs {
             return Err(anyhow::anyhow!(
                 "confint_profile: data has {} observations but fit has {}",
@@ -589,8 +587,9 @@ pub fn profile_confint_vc(
         }
         profile_confint_vc_glmm(fit, &prepared, level, delta)
     } else {
-        let prepared = prepare_lmer_weighted(formula, data, fit.weights.clone())
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        let prepared =
+            crate::prepare_lmer_with_factors(formula, data, fit.weights.clone(), &fit.factors)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
         if prepared.lmm.y.len() != fit.num_obs {
             return Err(anyhow::anyhow!(
                 "confint_profile_vc: data has {} observations but fit has {}",

@@ -35,6 +35,8 @@ impl fmt::Display for LmeFit {
                     )?;
                 }
                 writeln!(f, " Family: {} ( {} )", fam, link)?;
+            } else if self.theta.is_none() {
+                writeln!(f, "Linear model fit by ordinary least squares")?;
             } else if self.reml.is_some() {
                 writeln!(f, "Linear mixed model fit by REML ['lmerMod']")?;
             } else {

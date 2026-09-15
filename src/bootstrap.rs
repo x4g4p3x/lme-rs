@@ -17,8 +17,8 @@ use std::fmt;
 use crate::family::{Family, Link};
 use crate::simulate;
 use crate::{
-    fit_prepared_glmer_with_response, prepare_glmer_weighted_with_link, prepare_lmer_weighted,
-    ConfintScope, GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
+    fit_prepared_glmer_with_response, prepare_glmer_weighted_with_link, ConfintScope,
+    GlmerPrepared, LmeError, LmeFit, LmerPrepared, Result,
 };
 
 /// Bootstrap resampling strategy for [`boot_lmer`].
@@ -327,7 +327,8 @@ pub fn boot_lmer(
         });
     }
 
-    let prepared = prepare_lmer_weighted(formula_str, data, fit.weights.clone())?;
+    let prepared =
+        crate::prepare_lmer_with_factors(formula_str, data, fit.weights.clone(), &fit.factors)?;
     if prepared.lmm.y.len() != fit.num_obs {
         return Err(LmeError::NotImplemented {
             feature: format!(

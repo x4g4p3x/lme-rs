@@ -211,7 +211,32 @@ pub fn mcp_contrast_matrix(
     let mut l_mat = Array2::<f64>::zeros((pairs.len(), p));
     let mut comparisons = Vec::with_capacity(pairs.len());
     for (row, &(i, j)) in pairs.iter().enumerate() {
-        fill_pairwise_row(&mut l_mat, row, &names, term, &levels, i, j)?;
+        if fit
+            .factors
+            .get(term)
+            .is_some_and(|s| s.coding == crate::FactorCoding::Sum)
+            && names.first().is_some_and(|s| s == "(Intercept)")
+        {
+            for (level, weight) in [(i, -1.0), (j, 1.0)] {
+                for (k, label) in levels.iter().take(levels.len() - 1).enumerate() {
+                    let column = dummy_column(&names, term, label).ok_or_else(|| {
+                        LmeError::InvalidInput {
+                            message: format!("Missing sum contrast for '{term}'"),
+                        }
+                    })?;
+                    l_mat[[row, column]] += weight
+                        * if level == levels.len() - 1 {
+                            -1.0
+                        } else if level == k {
+                            1.0
+                        } else {
+                            0.0
+                        };
+                }
+            }
+        } else {
+            fill_pairwise_row(&mut l_mat, row, &names, term, &levels, i, j)?;
+        }
         comparisons.push(format!("{} - {}", levels[j], levels[i]));
     }
     Ok((l_mat, comparisons, levels.len()))

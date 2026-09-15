@@ -9,7 +9,7 @@
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use statrs::distribution::{ContinuousCDF, Normal};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 
 use crate::anova::DdfMethod;
@@ -20,6 +20,29 @@ use crate::mcp::{adjust_p_values, McpAdjust};
 use crate::{LmeError, LmeFit};
 
 const MAX_REFERENCE_GRID_ROWS: usize = 4096;
+
+/// Weights used to average over nuisance-factor combinations.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum GridWeights {
+    /// Equal weight for every nuisance-factor combination.
+    #[default]
+    Equal,
+    /// Pooled observed joint frequencies of nuisance factors, shared across cells.
+    Proportional,
+}
+
+/// Reference-grid contract for marginal means and simple comparisons.
+#[derive(Debug, Clone, Default)]
+pub struct ReferenceGrid {
+    /// Target factors; their Cartesian product defines the compared cells.
+    pub terms: Vec<String>,
+    /// Conditioning factors; comparisons and multiplicity families stay within each cell.
+    pub by: Vec<String>,
+    /// Explicit numeric covariate reference values; unspecified covariates use their means.
+    pub at: BTreeMap<String, f64>,
+    /// Nuisance-factor averaging policy.
+    pub weights: GridWeights,
+}
 
 /// Estimated marginal means for the levels of one categorical fixed effect.
 #[derive(Debug, Clone)]
@@ -44,6 +67,8 @@ pub struct EmmeansResult {
     pub upper: Array1<f64>,
     /// Reference-grid linear functions, one row per level (`L beta`).
     pub linfct: Array2<f64>,
+    /// Named target and conditioning factor levels for each row.
+    pub cells: Vec<BTreeMap<String, String>>,
 }
 
 /// Pairwise comparisons among estimated marginal means.
@@ -69,6 +94,8 @@ pub struct EmmeansPairsResult {
     pub p_value: Array1<f64>,
     /// Multiplicity-adjusted p-values.
     pub p_adjust: Array1<f64>,
+    /// Conditioning levels identifying each independently adjusted comparison family.
+    pub groups: Vec<BTreeMap<String, String>>,
 }
 
 impl LmeFit {
@@ -86,8 +113,28 @@ impl LmeFit {
         confidence_level: f64,
         ddf: Option<DdfMethod>,
     ) -> crate::Result<EmmeansResult> {
+        self.emmeans_with_grid(
+            data,
+            &ReferenceGrid {
+                terms: vec![term.into()],
+                ..Default::default()
+            },
+            confidence_level,
+            ddf,
+        )
+    }
+
+    /// Marginal means for target-factor combinations at an explicit reference grid.
+    pub fn emmeans_with_grid(
+        &self,
+        data: &DataFrame,
+        options: &ReferenceGrid,
+        confidence_level: f64,
+        ddf: Option<DdfMethod>,
+    ) -> crate::Result<EmmeansResult> {
+        let term = options.terms.join(":");
         validate_confidence_level(confidence_level)?;
-        let (linfct, levels) = reference_grid_linfct(self, term, data)?;
+        let (linfct, levels, cells) = reference_grid_linfct(self, options, data)?;
         let v_beta = fixed_effect_vcov_for_method(self, ddf)?;
         let mut estimate = Array1::<f64>::zeros(levels.len());
         let mut std_error = Array1::<f64>::zeros(levels.len());
@@ -128,6 +175,7 @@ impl LmeFit {
             lower,
             upper,
             linfct,
+            cells,
         })
     }
 
@@ -142,11 +190,43 @@ impl LmeFit {
         adjust: McpAdjust,
         ddf: Option<DdfMethod>,
     ) -> crate::Result<EmmeansPairsResult> {
-        let (means_l, levels) = reference_grid_linfct(self, term, data)?;
+        self.emmeans_pairs_with_grid(
+            data,
+            &ReferenceGrid {
+                terms: vec![term.into()],
+                ..Default::default()
+            },
+            adjust,
+            ddf,
+        )
+    }
+
+    /// Compare target cells within each `by` stratum, adjusting each family separately.
+    pub fn emmeans_pairs_with_grid(
+        &self,
+        data: &DataFrame,
+        options: &ReferenceGrid,
+        adjust: McpAdjust,
+        ddf: Option<DdfMethod>,
+    ) -> crate::Result<EmmeansPairsResult> {
+        let term = options.terms.join(":");
+        let (means_l, levels, cells) = reference_grid_linfct(self, options, data)?;
+        let cell_groups: Vec<BTreeMap<String, String>> = cells
+            .iter()
+            .map(|cell| {
+                options
+                    .by
+                    .iter()
+                    .map(|name| (name.clone(), cell[name].clone()))
+                    .collect()
+            })
+            .collect();
         let p = self.coefficients.len();
         let pairs: Vec<(usize, usize)> = (0..levels.len())
             .flat_map(|i| ((i + 1)..levels.len()).map(move |j| (i, j)))
+            .filter(|&(i, j)| cell_groups[i] == cell_groups[j])
             .collect();
+        let groups: Vec<_> = pairs.iter().map(|&(i, _)| cell_groups[i].clone()).collect();
         let mut l_mat = Array2::<f64>::zeros((pairs.len(), p));
         let mut comparisons = Vec::with_capacity(pairs.len());
         for (r, &(i, j)) in pairs.iter().enumerate() {
@@ -193,15 +273,24 @@ impl LmeFit {
             p_value[i] = raw_p;
         }
 
-        let p_adjust = adjust_p_values(
-            adjust,
-            p_value.as_slice().expect("contiguous p-values"),
-            levels.len(),
-            &statistic_values,
-            &den_df,
-        )?;
+        let mut p_adjust = vec![f64::NAN; pairs.len()];
+        let mut families: BTreeMap<BTreeMap<String, String>, Vec<usize>> = BTreeMap::new();
+        for (i, group) in groups.iter().enumerate() {
+            families.entry(group.clone()).or_default().push(i);
+        }
+        for (group, indices) in families {
+            let n_groups = cell_groups.iter().filter(|g| **g == group).count();
+            let raw: Vec<_> = indices.iter().map(|&i| p_value[i]).collect();
+            let stats = Array1::from_iter(indices.iter().map(|&i| statistic_values[i]));
+            let dfs = Array1::from_iter(indices.iter().map(|&i| den_df[i]));
+            let adjusted = adjust_p_values(adjust, &raw, n_groups, &stats, &dfs)?;
+            for (&i, value) in indices.iter().zip(adjusted) {
+                p_adjust[i] = value;
+            }
+        }
 
         Ok(EmmeansPairsResult {
+            groups,
             term: term.to_string(),
             adjust,
             statistic: if ddf.is_some() { "t" } else { "z" }.to_string(),
@@ -240,152 +329,177 @@ fn denominator_df(fit: &LmeFit, row: &Array1<f64>, ddf: Option<DdfMethod>) -> cr
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn reference_grid_linfct(
     fit: &LmeFit,
-    term: &str,
+    options: &ReferenceGrid,
     data: &DataFrame,
-) -> crate::Result<(Array2<f64>, Vec<String>)> {
-    if fit.family_name.is_some() {
-        return Err(LmeError::NotImplemented {
-            feature: "Estimated marginal means currently support linear models and LMMs only"
-                .to_string(),
-        });
+) -> crate::Result<(Array2<f64>, Vec<String>, Vec<BTreeMap<String, String>>)> {
+    let invalid = |message: String| LmeError::InvalidInput { message };
+    if fit.family_name.is_some() || data.height() == 0 {
+        return Err(invalid(
+            "Reference grids require a linear model and nonempty data".into(),
+        ));
     }
-    if data.height() == 0 {
-        return Err(LmeError::NotImplemented {
-            feature: "Estimated marginal means require at least one data row".to_string(),
-        });
-    }
-
-    let formula = fit
-        .formula
-        .as_deref()
-        .ok_or_else(|| LmeError::NotImplemented {
-            feature: "Fitted formula metadata is missing".to_string(),
-        })?;
-    let ast = crate::formula::parse(formula)?;
+    let ast = fit.model_spec().formula_model()?;
     if ast.offset.is_some() {
-        return Err(LmeError::NotImplemented {
-            feature: "Estimated marginal means with formula offsets are not implemented"
-                .to_string(),
-        });
+        return Err(invalid("Reference grids with offsets require an explicit prediction design; automatic averaging is unsupported".into()));
     }
-
     let categorical = fit
         .categorical_levels
         .as_ref()
-        .ok_or_else(|| LmeError::NotImplemented {
-            feature: "Fitted categorical-level metadata is missing".to_string(),
-        })?;
-    let target_levels = categorical
-        .get(term)
-        .filter(|levels| levels.len() >= 2)
+        .ok_or_else(|| invalid("Fitted factor metadata is missing".into()))?;
+    if options.terms.is_empty() {
+        return Err(invalid("At least one target factor is required".into()));
+    }
+    let mut retained = options.by.clone();
+    retained.extend(options.terms.clone());
+    if retained
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+        != retained.len()
+    {
+        return Err(invalid(
+            "Target and conditioning factors must be distinct".into(),
+        ));
+    }
+    for name in &retained {
+        if !categorical.contains_key(name) {
+            return Err(invalid(format!(
+                "Unknown categorical fixed factor '{name}'"
+            )));
+        }
+    }
+    let mut nuisance: Vec<_> = categorical
+        .keys()
+        .filter(|name| !retained.contains(name))
         .cloned()
-        .ok_or_else(|| LmeError::NotImplemented {
-            feature: format!(
-                "Estimated marginal means require a categorical fixed term; '{term}' was not found"
-            ),
-        })?;
-
-    let mut factors: Vec<(String, Vec<String>)> = categorical
-        .iter()
-        .filter(|(name, levels)| name.as_str() != term && levels.len() >= 2)
-        .map(|(name, levels)| (name.clone(), levels.clone()))
         .collect();
-    factors.sort_by(|a, b| a.0.cmp(&b.0));
-    factors.insert(0, (term.to_string(), target_levels.clone()));
-
-    let n_grid = factors
-        .iter()
-        .try_fold(1usize, |acc, (_, levels)| acc.checked_mul(levels.len()))
-        .ok_or_else(|| LmeError::NotImplemented {
-            feature: "Reference-grid row count overflowed".to_string(),
-        })?;
-    if n_grid > MAX_REFERENCE_GRID_ROWS {
-        return Err(LmeError::NotImplemented {
-            feature: format!(
-                "Reference grid has {n_grid} rows; maximum is {MAX_REFERENCE_GRID_ROWS}"
-            ),
-        });
-    }
-
-    let indices = IdxCa::from_vec("reference_row".into(), vec![0 as IdxSize; n_grid]);
-    let mut grid = data.take(&indices).map_err(|e| LmeError::NotImplemented {
-        feature: format!("Could not initialize reference grid: {e}"),
-    })?;
-
-    let factor_map: HashMap<&str, &Vec<String>> = factors
-        .iter()
-        .map(|(name, levels)| (name.as_str(), levels))
-        .collect();
-    for column in data.get_columns() {
-        let name = column.name();
-        if factor_map.contains_key(name.as_str()) {
-            continue;
-        }
-        if is_native_numeric_dtype(column.dtype()) {
-            let cast = column
-                .cast(&DataType::Float64)
-                .map_err(|e| LmeError::NotImplemented {
-                    feature: format!("Could not cast '{name}' while building reference grid: {e}"),
-                })?;
-            if let Some(mean) = cast.f64().ok().and_then(|values| values.mean()) {
-                grid.with_column(Column::new(name.clone(), vec![mean; n_grid]))
-                    .map_err(|e| LmeError::NotImplemented {
-                        feature: format!("Could not set mean for '{name}' in reference grid: {e}"),
-                    })?;
-            }
-        }
-    }
-
-    for (factor_idx, (name, levels)) in factors.iter().enumerate() {
-        let stride: usize = factors[(factor_idx + 1)..]
-            .iter()
-            .map(|(_, later_levels)| later_levels.len())
-            .product();
-        let values: Vec<String> = (0..n_grid)
-            .map(|row| levels[(row / stride) % levels.len()].clone())
-            .collect();
-        grid.with_column(Column::new(name.clone().into(), values))
-            .map_err(|e| LmeError::NotImplemented {
-                feature: format!("Could not set factor '{name}' in reference grid: {e}"),
+    nuisance.sort();
+    let names: Vec<_> = retained.iter().chain(nuisance.iter()).cloned().collect();
+    let mut n_grid = 1usize;
+    for name in &names {
+        n_grid = n_grid
+            .checked_mul(categorical[name].len())
+            .filter(|&n| n <= MAX_REFERENCE_GRID_ROWS)
+            .ok_or_else(|| {
+                invalid(format!(
+                    "Reference grid exceeds {MAX_REFERENCE_GRID_ROWS} rows"
+                ))
             })?;
     }
-
-    let response_name = ast
-        .columns
-        .iter()
-        .find(|(_, info)| info.has_role(crate::formula::ColumnRole::Response))
-        .map(|(name, _)| name.as_str())
-        .unwrap_or("");
-    let (x_grid, names, _, _, _) = crate::model_matrix::build_x_matrix(
-        &ast,
-        &grid,
-        response_name,
-        n_grid,
-        fit.categorical_levels.as_ref(),
-        fit.basis_encodings.as_ref(),
-    )?;
-    let fitted_names = fit.fixed_names.clone().unwrap_or_default();
-    if names != fitted_names {
-        return Err(LmeError::NotImplemented {
-            feature: format!(
-                "Reference-grid columns {names:?} do not match fitted columns {fitted_names:?}"
-            ),
-        });
-    }
-
-    let per_target = n_grid / target_levels.len();
-    let mut linfct = Array2::<f64>::zeros((target_levels.len(), x_grid.ncols()));
-    for level_idx in 0..target_levels.len() {
-        let start = level_idx * per_target;
-        for row in start..(start + per_target) {
-            linfct
-                .row_mut(level_idx)
-                .scaled_add(1.0 / per_target as f64, &x_grid.row(row));
+    let per_cell: usize = nuisance.iter().map(|n| categorical[n].len()).product();
+    let n_cells = n_grid / per_cell;
+    let indices = IdxCa::from_vec("reference_row".into(), vec![0 as IdxSize; n_grid]);
+    let mut grid = data.take(&indices).map_err(|e| invalid(e.to_string()))?;
+    for (name, value) in &options.at {
+        if !value.is_finite()
+            || categorical.contains_key(name)
+            || !ast
+                .columns
+                .get(name)
+                .is_some_and(|info| !info.has_role(crate::formula::ColumnRole::Response))
+            || !data
+                .column(name)
+                .is_ok_and(|c| is_native_numeric_dtype(c.dtype()))
+        {
+            return Err(invalid(format!(
+                "Reference value '{name}' must name a numeric model covariate and be finite"
+            )));
         }
     }
-    Ok((linfct, target_levels))
+    for column in data.get_columns() {
+        let name = column.name();
+        if categorical.contains_key(name.as_str()) || !is_native_numeric_dtype(column.dtype()) {
+            continue;
+        }
+        let mean = match options.at.get(name.as_str()) {
+            Some(&value) => value,
+            None => column
+                .cast(&DataType::Float64)
+                .map_err(|e| invalid(e.to_string()))?
+                .f64()
+                .map_err(|e| invalid(e.to_string()))?
+                .mean()
+                .ok_or_else(|| invalid(format!("No numeric reference value for '{name}'")))?,
+        };
+        grid.with_column(Column::new(name.clone(), vec![mean; n_grid]))
+            .map_err(|e| invalid(e.to_string()))?;
+    }
+    let mut cells = vec![BTreeMap::new(); n_cells];
+    for (factor_idx, name) in names.iter().enumerate() {
+        let levels = &categorical[name];
+        let stride: usize = names[factor_idx + 1..]
+            .iter()
+            .map(|n| categorical[n].len())
+            .product();
+        let values: Vec<_> = (0..n_grid)
+            .map(|row| levels[(row / stride) % levels.len()].clone())
+            .collect();
+        if factor_idx < retained.len() {
+            for (i, cell) in cells.iter_mut().enumerate() {
+                cell.insert(name.clone(), values[i * per_cell].clone());
+            }
+        }
+        grid.with_column(Column::new(name.clone().into(), values))
+            .map_err(|e| invalid(e.to_string()))?;
+    }
+    let mut weights = vec![1.0 / per_cell as f64; per_cell];
+    if options.weights == GridWeights::Proportional && !nuisance.is_empty() {
+        weights.fill(0.0);
+        let columns = nuisance
+            .iter()
+            .map(|name| {
+                data.column(name)
+                    .map_err(|e| invalid(e.to_string()))?
+                    .cast(&DataType::String)
+                    .map_err(|e| invalid(e.to_string()))
+            })
+            .collect::<crate::Result<Vec<_>>>()?;
+        for row in 0..data.height() {
+            let mut index = 0;
+            for (j, name) in nuisance.iter().enumerate() {
+                let value = columns[j]
+                    .str()
+                    .map_err(|e| invalid(e.to_string()))?
+                    .get(row)
+                    .ok_or_else(|| invalid(format!("Missing nuisance factor '{name}'")))?;
+                let level = categorical[name]
+                    .iter()
+                    .position(|v| v == value)
+                    .ok_or_else(|| invalid(format!("Unknown nuisance level '{value}'")))?;
+                index = index * categorical[name].len() + level;
+            }
+            weights[index] += 1.0 / data.height() as f64;
+        }
+    }
+    let (x, _) = fit.model_spec().prediction_matrix(&grid)?;
+    let mut linfct = Array2::zeros((n_cells, x.ncols()));
+    for cell in 0..n_cells {
+        for (j, &weight) in weights.iter().enumerate() {
+            linfct
+                .row_mut(cell)
+                .scaled_add(weight, &x.row(cell * per_cell + j));
+        }
+    }
+    let labels = cells
+        .iter()
+        .map(|cell| {
+            retained
+                .iter()
+                .map(|name| {
+                    if retained.len() == 1 {
+                        cell[name].clone()
+                    } else {
+                        format!("{name}={}", cell[name])
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .collect();
+    Ok((linfct, labels, cells))
 }
 
 fn is_native_numeric_dtype(dtype: &DataType) -> bool {

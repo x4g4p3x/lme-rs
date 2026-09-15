@@ -125,3 +125,6 @@ mod test_robust;
 mod test_satterthwaite;
 #[path = "test_statistical_identities.rs"]
 mod test_statistical_identities;
+
+#[path = "test_modeling_workflows.rs"]
+mod test_modeling_workflows;

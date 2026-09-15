@@ -35,6 +35,7 @@ PORTABLE_PYTHON_EXAMPLES = [
     PYTHON_DIR / "examples" / "glmer_grouseticks.py",
     PYTHON_DIR / "examples" / "model_comparison.py",
     PYTHON_DIR / "examples" / "repeated_measures.py",
+    PYTHON_DIR / "examples" / "model_based_analysis.py",
     PYTHON_DIR / "examples" / "verification_project" / "run.py",
 ]
 MARKDOWN_INLINE_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
@@ -996,6 +997,7 @@ def release_wheel_smoke(*, wheel_dir: str, python: str) -> None:
                 "tests/test_dataframe_inputs.py",
                 "tests/test_design_matrix.py",
                 "tests/test_repeated_measures.py",
+                "tests/test_modeling_workflows.py",
                 "-q",
             ],
             cwd=PYTHON_DIR,

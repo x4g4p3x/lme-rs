@@ -147,9 +147,11 @@ pub struct ModelSpec<'a> {
 impl ModelSpec<'_> {
     /// Parse the formula with its original offset and variable roles.
     pub fn formula_model(&self) -> Result<formula::FormulaModel> {
-        formula::parse(self.formula.ok_or_else(|| LmeError::InvalidInput {
+        let mut ast = formula::parse(self.formula.ok_or_else(|| LmeError::InvalidInput {
             message: "fit has no formula metadata".into(),
-        })?)
+        })?)?;
+        ast.factors = self.fit.factors.clone();
+        Ok(ast)
     }
 
     /// Validate resampling input against the fitted design specification.
@@ -161,6 +163,7 @@ impl ModelSpec<'_> {
         }
         let mut expected = self.formula_model()?;
         let mut actual = formula::parse(formula)?;
+        actual.factors = expected.factors.clone();
         expected.formula.clear();
         actual.formula.clear();
         if expected != actual {

@@ -10,6 +10,24 @@ if TYPE_CHECKING:
 
 DataFrameInput = Union[pl.DataFrame, "pd.DataFrame", "pa.Table"]
 
+class FactorSpec:
+    def __init__(self, levels: list[str], coding: str = "treatment") -> None: ...
+    @property
+    def levels(self) -> list[str]: ...
+    @property
+    def coding(self) -> str: ...
+
+class NullBootstrapResult:
+    observed: float
+    requested: int
+    valid: int
+    exceedances: int
+    p_value: float | None
+    mc_se: float | None
+    seed: int
+    statistics: list[float | None]
+    errors: list[str | None]
+
 class FitControl:
     def __init__(
         self,
@@ -47,6 +65,12 @@ class PyFixedEffectsAnova:
     f_value: list[float]
     p_value: list[float]
 
+    sum_sq: list[float] | None
+    mean_sq: list[float] | None
+    residual_sum_sq: float | None
+    residual_df: float | None
+    partial_eta_sq: list[float] | None
+
 class PyContrastTest:
     method: str
     num_df: float
@@ -78,6 +102,7 @@ class PyEmmeansResult:
     lower: list[float]
     upper: list[float]
     linfct: list[list[float]]
+    cells: list[dict[str, str]]
 
 class PyEmmeansPairsResult:
     term: str
@@ -90,6 +115,8 @@ class PyEmmeansPairsResult:
     den_df: list[float]
     p_value: list[float]
     p_adjust: list[float]
+    groups: list[dict[str, str]]
+
 
 class PyLikelihoodRatioAnova:
     n_params_0: int
@@ -227,6 +254,16 @@ class PyLmeFit:
         adjust: str = "tukey",
         ddf_method: str | None = None,
     ) -> PyEmmeansPairsResult: ...
+    def emmeans_grid(
+        self, terms: list[str], data: DataFrameInput, *, by: list[str] | None = None,
+        at: dict[str, float] | None = None, weights: str = "equal", level: float = 0.95,
+        ddf_method: str | None = None,
+    ) -> PyEmmeansResult: ...
+    def emmeans_grid_pairs(
+        self, terms: list[str], data: DataFrameInput, *, by: list[str] | None = None,
+        at: dict[str, float] | None = None, weights: str = "equal", adjust: str = "tukey",
+        ddf_method: str | None = None,
+    ) -> PyEmmeansPairsResult: ...
     def simulate(
         self,
         nsim: int,
@@ -300,15 +337,17 @@ class PyCvGroupedResult:
     group_col: str
 
 @overload
-def lm(formula: str, data: DataFrameInput) -> PyLmeFit: ...
+def lm(formula: str, data: DataFrameInput, *, factors: dict[str, FactorSpec] | None = None) -> PyLmeFit: ...
 @overload
 def lm(y: Sequence[float], x: Sequence[Sequence[float]]) -> PyLmeFit: ...
 def lm_matrix(y: list[float], x: list[list[float]]) -> PyLmeFit: ...
 def lmer(
-    formula: str, data: DataFrameInput, reml: bool = True, *, control: FitControl | None = None
+    formula: str, data: DataFrameInput, reml: bool = True, *, control: FitControl | None = None,
+    factors: dict[str, FactorSpec] | None = None,
 ) -> PyLmeFit: ...
 def prepare_lmer(
-    formula: str, data: DataFrameInput, *, weights: list[float] | None = None
+    formula: str, data: DataFrameInput, *, weights: list[float] | None = None,
+    factors: dict[str, FactorSpec] | None = None,
 ) -> PyLmerPrepared: ...
 def fit_prepared(
     prepared: PyLmerPrepared,
@@ -431,3 +470,9 @@ def contrast_matrix(p: int, rows: list[list[tuple[int, float]]]) -> list[list[fl
 def contrast_matrix_from_names(
     fixed_names: list[str], rows: list[list[tuple[str, float]]]
 ) -> list[list[float]]: ...
+
+
+def bootstrap_lrt(
+    full: PyLmerPrepared, null: PyLmerPrepared, nsim: int, *, seed: int,
+    n_jobs: int = 1, control: FitControl | None = None,
+) -> NullBootstrapResult: ...

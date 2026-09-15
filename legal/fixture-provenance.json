@@ -19,7 +19,9 @@
       "license_text": "LICENSES/GPL-2.0-or-later.txt"
     },
     {
-      "paths": ["tests/data/orange.csv"],
+      "paths": [
+        "tests/data/orange.csv"
+      ],
       "origin": "R datasets package: Orange",
       "upstream": "https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/Orange.html",
       "license": "GPL-2.0-or-later",
@@ -39,6 +41,14 @@
       ],
       "origin": "Project-generated synthetic data",
       "generator": "tests/generate_nlmm_fixtures.R",
+      "license": "MIT"
+    },
+    {
+      "paths": [
+        "tests/data/modeling_reference.json"
+      ],
+      "origin": "Project-generated synthetic observations with black-box numerical outputs from R stats, car, emmeans, and lmerTest",
+      "generator": "scripts/validation/generate_modeling_reference.R",
       "license": "MIT"
     }
   ]

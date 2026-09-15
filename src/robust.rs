@@ -38,7 +38,9 @@ pub fn compute_robust_se(
         ));
     }
 
-    let ast = crate::formula::parse(&fit.formula.clone().unwrap_or_default())
+    let ast = fit
+        .model_spec()
+        .formula_model()
         .map_err(|e| format!("Failed to parse formula: {}", e))?;
 
     let mut response_col = String::new();

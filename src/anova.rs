@@ -8,6 +8,8 @@ use std::fmt;
 /// Approximation methods for creating denominator degrees of freedom in an ANOVA table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DdfMethod {
+    /// Exact residual n - rank(X) degrees of freedom for ordinary least squares.
+    Residual,
     /// Satterthwaite's widely used moment-matching approximation.
     Satterthwaite,
     /// Kenward-Roger's small-sample adjusted approximation (LMMs only).
@@ -31,6 +33,16 @@ pub struct FixedEffectsAnovaResult {
     pub f_value: Array1<f64>,
     /// Significance probability value derived from an F distribution.
     pub p_value: Array1<f64>,
+    /// Hypothesis sums of squares for classical OLS (absent for mixed models).
+    pub sum_sq: Option<Array1<f64>>,
+    /// Hypothesis mean squares for classical OLS.
+    pub mean_sq: Option<Array1<f64>>,
+    /// Residual sum of squares for classical OLS.
+    pub residual_sum_sq: Option<f64>,
+    /// Residual degrees of freedom for classical OLS.
+    pub residual_df: Option<f64>,
+    /// Partial eta squared, SS_effect / (SS_effect + SS_error), for classical OLS.
+    pub partial_eta_sq: Option<Array1<f64>>,
 }
 
 impl LmeFit {
@@ -110,7 +122,23 @@ impl LmeFit {
             p_value[term_idx] = res.p_value;
         }
 
+        let classical = ddf == DdfMethod::Residual;
+        let sum_sq = classical.then(|| &f_value * &num_df * self.sigma2.unwrap_or(f64::NAN));
+        let mean_sq = sum_sq.as_ref().map(|ss| ss / &num_df);
+        let residual_sum_sq = classical.then(|| self.residuals.dot(&self.residuals));
+        let partial_eta_sq = sum_sq
+            .as_ref()
+            .map(|ss| ss.mapv(|v| v / (v + residual_sum_sq.unwrap())));
         Ok(FixedEffectsAnovaResult {
+            sum_sq,
+            mean_sq,
+            residual_sum_sq,
+            partial_eta_sq,
+            residual_df: if classical {
+                Some(self.residual_df()?)
+            } else {
+                None
+            },
             anova_type,
             method: ddf,
             terms,
@@ -236,6 +264,9 @@ impl fmt::Display for FixedEffectsAnovaResult {
             AnovaType::Type3 => "III",
         };
         let title = match self.method {
+            DdfMethod::Residual => {
+                format!("Type {type_str} Analysis of Variance (OLS residual df)")
+            }
             DdfMethod::Satterthwaite => format!(
                 "Type {} Analysis of Variance Table with Satterthwaite's method",
                 type_str

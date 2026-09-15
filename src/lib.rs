@@ -7,6 +7,8 @@ pub mod anova_contrasts;
 /// Orthogonal polynomials and natural cubic splines for formula terms.
 pub(crate) mod basis;
 pub mod bootstrap;
+pub mod null_bootstrap;
+pub use null_bootstrap::{bootstrap_lrt, NullBootstrapResult};
 pub mod contrast;
 pub mod cv;
 /// Multi-dimensional denominator degrees of freedom (lmerTest-style).
@@ -15,6 +17,8 @@ pub mod emmeans;
 pub mod execution;
 pub mod family;
 pub mod formula;
+pub use formula::{FactorCoding, FactorSpec};
+use std::collections::HashMap;
 pub mod glmm_math;
 /// Kenward-Roger denominator degrees of freedom approximation.
 pub mod kenward_roger;
@@ -55,7 +59,7 @@ pub use contrast::{
     contrast_matrix, contrast_matrix_from_names, ContrastRow, ContrastRowSpec, ContrastTestResult,
 };
 pub use cv::{cv_grouped, cv_grouped_glmer, refit_lmer, CvFoldMetric, CvGroupedResult};
-pub use emmeans::{EmmeansPairsResult, EmmeansResult};
+pub use emmeans::{EmmeansPairsResult, EmmeansResult, GridWeights, ReferenceGrid};
 pub use mcp::{mcp_contrast_matrix, GlhtResult, McpAdjust, McpType};
 use ndarray::{Array1, Array2};
 use ndarray_linalg::QRInto;
@@ -207,6 +211,8 @@ pub struct LmeFit {
     pub robust: Option<RobustResult>,
     /// Stored levels for categorical dummy encoding
     pub categorical_levels: Option<std::collections::HashMap<String, Vec<String>>>,
+    /// Explicit fixed-factor encodings retained for post-fit operations.
+    pub factors: HashMap<String, FactorSpec>,
     /// Training encodings for `poly()` / `ns()` terms used by [`LmeFit::predict`].
     pub basis_encodings: Option<std::collections::HashMap<String, crate::basis::BasisEncoding>>,
     /// Nonlinear mean evaluator for `nlmer` fits (built-in or custom).
@@ -257,7 +263,13 @@ impl LmeFit {
             .or_else(|| self.satterthwaite.as_ref().map(|st| st.dfs.clone()));
 
         for i in 0..p {
-            let df = dfs.as_ref().map_or(f64::INFINITY, |values| values[i]);
+            let default_df =
+                if self.theta.is_none() && self.family_name.is_none() && self.robust.is_none() {
+                    self.residual_df()?
+                } else {
+                    f64::INFINITY
+                };
+            let df = dfs.as_ref().map_or(default_df, |values| values[i]);
             let margin = contrast::wald_critical_value(level, df)? * se[i];
             lower[i] = self.coefficients[i] - margin;
             upper[i] = self.coefficients[i] + margin;
@@ -519,6 +531,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         None
     };
 
+    let beta_se = sigma2.map(|s| covariance.diag().mapv(|v| (s * v).sqrt()));
+    let beta_t = beta_se.as_ref().map(|se| &coefficients / se);
     Ok(LmeFit {
         diagnostics: None,
         coefficients,
@@ -535,8 +549,8 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         deviance: None,
         b: None,
         u: None,
-        beta_se: None,
-        beta_t: None,
+        beta_se,
+        beta_t,
         formula: None,
         fixed_names: None,
         fixed_term_assign: None,
@@ -553,6 +567,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
         v_beta_unscaled: Some(covariance),
         robust: None,
         categorical_levels: None,
+        factors: Default::default(),
         basis_encodings: None,
         nlmm_mean: None,
         nlmm_formula: None,
@@ -604,23 +619,37 @@ pub fn prepare_lmer_weighted(
     data: &DataFrame,
     weights: Option<Array1<f64>>,
 ) -> Result<LmerPrepared> {
+    prepare_lmer_with_factors(formula_str, data, weights, &HashMap::new())
+}
+
+/// Prepare a weighted LMM with explicit fixed-factor levels and contrasts.
+pub fn prepare_lmer_with_factors(
+    formula_str: &str,
+    data: &DataFrame,
+    weights: Option<Array1<f64>>,
+    factors: &HashMap<String, FactorSpec>,
+) -> Result<LmerPrepared> {
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
 
     let setup_started = perf_diag::enabled().then(Instant::now);
 
-    let mut matrices =
-        if let Some(fast) = model_matrix::try_build_fair_lmm_design(formula_str, data)? {
-            fast
-        } else {
-            let ast = perf_diag::scope(perf_diag::Phase::SetupFormula, || {
-                formula::parse(formula_str)
-            })?;
-            perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
-                model_matrix::build_design_matrices(&ast, data)
-            })?
-        };
+    let mut matrices = if let Some(fast) = if factors.is_empty() {
+        model_matrix::try_build_fair_lmm_design(formula_str, data)?
+    } else {
+        None
+    } {
+        fast
+    } else {
+        let mut ast = perf_diag::scope(perf_diag::Phase::SetupFormula, || {
+            formula::parse(formula_str)
+        })?;
+        ast.factors = factors.clone();
+        perf_diag::scope(perf_diag::Phase::SetupDesignMatrix, || {
+            model_matrix::build_design_matrices(&ast, data)
+        })?
+    };
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
 
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
@@ -807,6 +836,7 @@ fn assemble_lme_fit(
             v_beta_unscaled: Some(coefs.v_beta_unscaled),
             robust: None,
             categorical_levels: Some(matrices.categorical_levels.clone()),
+            factors: matrices.factors.clone(),
             basis_encodings: Some(matrices.basis_encodings.clone()),
             nlmm_mean: None,
             nlmm_formula: None,
@@ -854,13 +884,23 @@ pub fn lmer_weighted(
 /// }
 /// ```
 pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
+    lm_df_with_factors(formula_str, data, &HashMap::new())
+}
+
+/// Fit OLS with explicit fixed-factor levels and contrasts.
+pub fn lm_df_with_factors(
+    formula_str: &str,
+    data: &DataFrame,
+    factors: &HashMap<String, FactorSpec>,
+) -> anyhow::Result<LmeFit> {
     if formula_str.trim().is_empty() {
         return Err(anyhow::anyhow!("formula is empty"));
     }
 
     // 1. Parse formula and build design matrices
-    let ast =
+    let mut ast =
         formula::parse(formula_str).map_err(|e| anyhow::anyhow!("Formula parse error: {}", e))?;
+    ast.factors = factors.clone();
     let matrices = model_matrix::build_design_matrices(&ast, data)
         .map_err(|e| anyhow::anyhow!("Design matrix error: {}", e))?;
 
@@ -923,6 +963,7 @@ pub fn lm_df(formula_str: &str, data: &DataFrame) -> anyhow::Result<LmeFit> {
     fit.deviance = Some(deviance);
     fit.aic = Some(aic);
     fit.bic = Some(bic);
+    fit.factors = matrices.factors;
     fit.categorical_levels = Some(matrices.categorical_levels);
     fit.basis_encodings = Some(matrices.basis_encodings);
 
@@ -1249,6 +1290,7 @@ pub fn fit_prepared_glmer_with_control(
         v_beta_unscaled: Some(coefs.v_beta_unscaled),
         robust: None,
         categorical_levels: Some(prepared.matrices.categorical_levels.clone()),
+        factors: prepared.matrices.factors.clone(),
         basis_encodings: Some(prepared.matrices.basis_encodings.clone()),
         nlmm_mean: None,
         nlmm_formula: None,

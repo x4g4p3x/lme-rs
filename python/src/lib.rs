@@ -8,7 +8,10 @@ use ndarray::Array2;
 use polars::prelude::*;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
+use std::collections::BTreeMap;
 use std::io::Cursor;
+mod modeling;
+use modeling::PyFactorSpec;
 mod fitting;
 mod input;
 use fitting::*;
@@ -402,6 +405,16 @@ pub struct PyFixedEffectsAnova {
     pub f_value: Vec<f64>,
     #[pyo3(get)]
     pub p_value: Vec<f64>,
+    #[pyo3(get)]
+    pub sum_sq: Option<Vec<f64>>,
+    #[pyo3(get)]
+    pub mean_sq: Option<Vec<f64>>,
+    #[pyo3(get)]
+    pub residual_sum_sq: Option<f64>,
+    #[pyo3(get)]
+    pub residual_df: Option<f64>,
+    #[pyo3(get)]
+    pub partial_eta_sq: Option<Vec<f64>>,
 }
 
 #[pymethods]
@@ -506,6 +519,8 @@ pub struct PyEmmeansResult {
     pub upper: Vec<f64>,
     #[pyo3(get)]
     pub linfct: Vec<Vec<f64>>,
+    #[pyo3(get)]
+    pub cells: Vec<std::collections::BTreeMap<String, String>>,
 }
 
 #[pymethods]
@@ -544,6 +559,8 @@ pub struct PyEmmeansPairsResult {
     pub p_value: Vec<f64>,
     #[pyo3(get)]
     pub p_adjust: Vec<f64>,
+    #[pyo3(get)]
+    pub groups: Vec<std::collections::BTreeMap<String, String>>,
 }
 
 #[pymethods]
@@ -715,6 +732,11 @@ fn parse_boot_method(method: &str) -> PyResult<lme_rs::BootLmerMethod> {
 
 fn fixed_effects_anova_to_py(res: lme_rs::FixedEffectsAnovaResult) -> PyFixedEffectsAnova {
     PyFixedEffectsAnova {
+        sum_sq: res.sum_sq.map(|a| a.to_vec()),
+        mean_sq: res.mean_sq.map(|a| a.to_vec()),
+        residual_sum_sq: res.residual_sum_sq,
+        residual_df: res.residual_df,
+        partial_eta_sq: res.partial_eta_sq.map(|a| a.to_vec()),
         anova_type: format!("{:?}", res.anova_type),
         method: format!("{:?}", res.method),
         terms: res.terms,
@@ -868,6 +890,7 @@ impl NlmmMeanEval for PyNlmmMeanEval {
 
 fn parse_ddf_method(ddf_method: &str) -> PyResult<DdfMethod> {
     match ddf_method.to_lowercase().as_str() {
+        "residual" => Ok(DdfMethod::Residual),
         "satterthwaite" => Ok(DdfMethod::Satterthwaite),
         "kenward_roger" | "kenward-roger" | "kenwardroger" => Ok(DdfMethod::KenwardRoger),
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -938,6 +961,7 @@ fn glht_to_py(res: lme_rs::GlhtResult) -> PyGlhtResult {
 
 fn emmeans_to_py(res: lme_rs::EmmeansResult) -> PyEmmeansResult {
     PyEmmeansResult {
+        cells: res.cells,
         term: res.term,
         levels: res.levels,
         confidence_level: res.confidence_level,
@@ -964,6 +988,7 @@ fn emmeans_pairs_to_py(res: lme_rs::EmmeansPairsResult) -> PyEmmeansPairsResult 
         McpAdjust::Tukey => "tukey",
     };
     PyEmmeansPairsResult {
+        groups: res.groups,
         term: res.term,
         adjust: adjust.to_string(),
         statistic: res.statistic,
@@ -979,6 +1004,54 @@ fn emmeans_pairs_to_py(res: lme_rs::EmmeansPairsResult) -> PyEmmeansPairsResult 
 
 #[pymethods]
 impl PyLmeFit {
+    /// Marginal means for combinations of target factors, conditioned on `by` factors.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(terms, data, *, by=None, at=None, weights="equal", level=0.95, ddf_method=None))]
+    fn emmeans_grid(
+        &self,
+        py: Python<'_>,
+        terms: Vec<String>,
+        data: &Bound<'_, PyAny>,
+        by: Option<Vec<String>>,
+        at: Option<BTreeMap<String, f64>>,
+        weights: &str,
+        level: f64,
+        ddf_method: Option<&str>,
+    ) -> PyResult<PyEmmeansResult> {
+        let options = modeling::grid(terms, by, at, weights)?;
+        let ddf = parse_glht_ddf(ddf_method)?;
+        let df = input::read_dataframe(py, data, self.inner.formula.as_deref(), &[])?;
+        py.detach(|| self.inner.emmeans_with_grid(&df, &options, level, ddf))
+            .map(emmeans_to_py)
+            .map_err(model_error)
+    }
+
+    /// Pairwise target-cell comparisons; adjustments apply separately within each `by` cell.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature=(terms, data, *, by=None, at=None, weights="equal", adjust="tukey", ddf_method=None))]
+    fn emmeans_grid_pairs(
+        &self,
+        py: Python<'_>,
+        terms: Vec<String>,
+        data: &Bound<'_, PyAny>,
+        by: Option<Vec<String>>,
+        at: Option<BTreeMap<String, f64>>,
+        weights: &str,
+        adjust: &str,
+        ddf_method: Option<&str>,
+    ) -> PyResult<PyEmmeansPairsResult> {
+        let options = modeling::grid(terms, by, at, weights)?;
+        let ddf = parse_glht_ddf(ddf_method)?;
+        let adjust = parse_mcp_adjust(adjust)?;
+        let df = input::read_dataframe(py, data, self.inner.formula.as_deref(), &[])?;
+        py.detach(|| {
+            self.inner
+                .emmeans_pairs_with_grid(&df, &options, adjust, ddf)
+        })
+        .map(emmeans_pairs_to_py)
+        .map_err(model_error)
+    }
+
     #[getter]
     fn diagnostics(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         controls::diagnostic_dict(py, &self.inner)
@@ -1749,7 +1822,7 @@ impl PyLmeFit {
         ddf_method: Option<&str>,
     ) -> PyResult<PyEmmeansResult> {
         let ddf = parse_glht_ddf(ddf_method)?;
-        let df = input::read_dataframe(py, data, None, &[])?;
+        let df = input::read_dataframe(py, data, self.inner.formula.as_deref(), &[])?;
         py.detach(|| self.inner.emmeans(term, &df, level, ddf))
             .map(emmeans_to_py)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("emmeans failed: {e}")))
@@ -1767,7 +1840,7 @@ impl PyLmeFit {
     ) -> PyResult<PyEmmeansPairsResult> {
         let adjustment = parse_mcp_adjust(adjust)?;
         let ddf = parse_glht_ddf(ddf_method)?;
-        let df = input::read_dataframe(py, data, None, &[])?;
+        let df = input::read_dataframe(py, data, self.inner.formula.as_deref(), &[])?;
         py.detach(|| self.inner.emmeans_pairs(term, &df, adjustment, ddf))
             .map(emmeans_pairs_to_py)
             .map_err(|e| {
@@ -2010,6 +2083,9 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySimulateResult>()?;
     m.add_class::<PySimulateBatches>()?;
     m.add_class::<PyFixedEffectsAnova>()?;
+    m.add_class::<PyFactorSpec>()?;
+    m.add_class::<modeling::PyNullBootstrapResult>()?;
+    m.add_function(wrap_pyfunction!(modeling::bootstrap_lrt, m)?)?;
     m.add_class::<PyContrastTest>()?;
     m.add_class::<PyGlhtResult>()?;
     m.add_class::<PyEmmeansResult>()?;
@@ -2041,6 +2117,9 @@ fn lme_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
         [
             "PyLmeFit",
             "FitControl",
+            "FactorSpec",
+            "NullBootstrapResult",
+            "bootstrap_lrt",
             "PyLmerPrepared",
             "PyGlmerPrepared",
             "PyCvFoldMetric",

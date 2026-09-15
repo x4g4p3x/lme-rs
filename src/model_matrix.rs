@@ -7,7 +7,7 @@ use std::collections::HashMap;
 type GroupingIndices = (Vec<usize>, Vec<String>, HashMap<String, usize>);
 
 /// Captures structural layout and variable indices for a multi-dimensional Random Effect correlation block.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReBlock {
     /// The number of unique grouping clusters / levels.
     pub m: usize,
@@ -45,6 +45,8 @@ pub struct DesignMatrices {
     pub offset: Option<Array1<f64>>,
     /// Saved categorical dummy variable levels during training.
     pub categorical_levels: HashMap<String, Vec<String>>,
+    /// Explicit fixed-factor encodings.
+    pub factors: HashMap<String, crate::formula::FactorSpec>,
     /// Training encodings for `poly()` / `ns()` so prediction reuses the fit basis.
     pub basis_encodings: HashMap<String, crate::basis::BasisEncoding>,
     /// Optional precomputed \(Z^T Z\) from the fair design path (avoids rescanning \(Z^T\)).
@@ -208,6 +210,7 @@ pub fn build_design_matrices(
         fixed_term_assign,
         offset,
         categorical_levels,
+        factors: ast.factors.clone(),
         basis_encodings,
         precomputed_zt_z: None,
     })
@@ -558,6 +561,7 @@ fn encode_column(
     n_obs: usize,
     drop_first: bool,
     training_levels: Option<&HashMap<String, Vec<String>>>,
+    spec: Option<&crate::formula::FactorSpec>,
 ) -> crate::Result<EncodedTerm> {
     let s = data
         .column(col_name)
@@ -565,8 +569,10 @@ fn encode_column(
             column: col_name.into(),
         })?;
 
-    if is_categorical_series(s.dtype()) {
-        let unique_vals = if let Some(tr_levels) = training_levels {
+    if is_categorical_series(s.dtype()) || spec.is_some() {
+        let unique_vals = if let Some(spec) = spec {
+            spec.levels.clone()
+        } else if let Some(tr_levels) = training_levels {
             tr_levels.get(col_name).cloned().unwrap_or_default()
         } else {
             let unique_series = s.unique().map_err(|e| crate::LmeError::NotImplemented {
@@ -587,7 +593,19 @@ fn encode_column(
             vals
         };
 
-        let start_idx = if drop_first && unique_vals.len() > 1 {
+        if unique_vals.is_empty()
+            || unique_vals
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != unique_vals.len()
+        {
+            return Err(crate::LmeError::InvalidInput {
+                message: format!("Factor '{col_name}' requires nonempty unique levels"),
+            });
+        }
+        let sum = spec.is_some_and(|s| s.coding == crate::formula::FactorCoding::Sum) && drop_first;
+        let start_idx = if !sum && drop_first && unique_vals.len() > 1 {
             1
         } else {
             0
@@ -608,21 +626,50 @@ fn encode_column(
         for (li, val) in unique_vals.iter().enumerate() {
             level_index.insert(val.as_str(), li);
         }
-        let mut level_id = vec![usize::MAX; n_obs];
-        for (i, &obs) in str_data.iter().enumerate() {
-            if let Some(&li) = level_index.get(obs) {
-                level_id[i] = li;
-            }
+        if s.null_count() > 0 {
+            return Err(crate::LmeError::InvalidInput {
+                message: format!("Factor '{col_name}' contains nulls"),
+            });
         }
-
+        let mut level_id = Vec::with_capacity(n_obs);
+        for obs in str_data {
+            level_id.push(
+                *level_index
+                    .get(obs)
+                    .ok_or_else(|| crate::LmeError::InvalidInput {
+                        message: format!("Unknown level '{obs}' in factor '{col_name}'"),
+                    })?,
+            );
+        }
+        if spec.is_some()
+            && training_levels.is_none()
+            && level_id
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != unique_vals.len()
+        {
+            return Err(crate::LmeError::InvalidInput {
+                message: format!(
+                    "Every declared level of '{col_name}' must be observed in training data"
+                ),
+            });
+        }
         let mut cols = Vec::new();
         let mut suffixes = Vec::new();
-        for (dummy_j, val) in unique_vals.iter().skip(start_idx).enumerate() {
+        for (dummy_j, val) in unique_vals
+            .iter()
+            .skip(start_idx)
+            .take(unique_vals.len() - start_idx - usize::from(sum))
+            .enumerate()
+        {
             let lvl = start_idx + dummy_j;
             let mut col_data = ndarray::Array1::<f64>::zeros(n_obs);
             for i in 0..n_obs {
                 if level_id[i] == lvl {
                     col_data[i] = 1.0;
+                } else if sum && level_id[i] == unique_vals.len() - 1 {
+                    col_data[i] = -1.0;
                 }
             }
             cols.push(col_data);
@@ -653,13 +700,14 @@ fn encode_interaction_factor(
     has_intercept: bool,
     training_levels: Option<&HashMap<String, Vec<String>>>,
     extracted_levels: &mut HashMap<String, Vec<String>>,
+    spec: Option<&crate::formula::FactorSpec>,
 ) -> crate::Result<EncodedTerm> {
     let drop_first = if has_main {
         false
     } else {
         partner_has_main && has_intercept
     };
-    let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels)?;
+    let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels, spec)?;
     if let Some(levels) = encoded.levels.clone() {
         extracted_levels
             .entry(col_name.to_string())
@@ -802,6 +850,7 @@ fn push_basis_term(
                     term_col_arrays,
                     extracted_levels,
                     intercept_handled,
+                    ast.factors.get(name),
                 )?;
             }
         }
@@ -877,8 +926,9 @@ fn append_encoded_column(
     term_col_arrays: &mut HashMap<String, Vec<Array1<f64>>>,
     extracted_levels: &mut HashMap<String, Vec<String>>,
     intercept_handled: &mut bool,
+    spec: Option<&crate::formula::FactorSpec>,
 ) -> crate::Result<()> {
-    let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels)?;
+    let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels, spec)?;
     if let Some(levels) = encoded.levels.clone() {
         extracted_levels.insert(col_name.to_string(), levels);
         *intercept_handled = true;
@@ -950,7 +1000,18 @@ pub fn build_x_matrix(
     HashMap<String, Vec<String>>,
     HashMap<String, crate::basis::BasisEncoding>,
 )> {
-    if training_levels.is_none() && training_basis.is_none() {
+    for name in ast.factors.keys() {
+        if !ast
+            .columns
+            .get(name)
+            .is_some_and(|info| is_fixed_effect_column(info, name, response_name))
+        {
+            return Err(crate::LmeError::InvalidInput {
+                message: format!("Factor specification '{name}' must name a fixed-effect column"),
+            });
+        }
+    }
+    if ast.factors.is_empty() && training_levels.is_none() && training_basis.is_none() {
         if let Some(fast) = try_build_simple_x_matrix(ast, data, response_name, n_obs)? {
             return Ok(fast);
         }
@@ -1040,12 +1101,24 @@ pub fn build_x_matrix(
                 if !factor_dummy_cols[0].is_empty() {
                     let a_levels = extracted_levels.get(left).cloned().unwrap_or_default();
                     let b_levels = extracted_levels.get(right).cloned().unwrap_or_default();
-                    let a_start = if intercept_handled && a_levels.len() > 1 {
+                    let a_start = if intercept_handled
+                        && a_levels.len() > 1
+                        && !ast
+                            .factors
+                            .get(left)
+                            .is_some_and(|s| s.coding == crate::formula::FactorCoding::Sum)
+                    {
                         1
                     } else {
                         0
                     };
-                    let b_start = if intercept_handled && b_levels.len() > 1 {
+                    let b_start = if intercept_handled
+                        && b_levels.len() > 1
+                        && !ast
+                            .factors
+                            .get(right)
+                            .is_some_and(|s| s.coding == crate::formula::FactorCoding::Sum)
+                    {
                         1
                     } else {
                         0
@@ -1069,6 +1142,7 @@ pub fn build_x_matrix(
                     ast.metadata.has_intercept,
                     training_levels,
                     &mut extracted_levels,
+                    ast.factors.get(left),
                 )?;
                 let right_enc = encode_interaction_factor(
                     data,
@@ -1079,6 +1153,7 @@ pub fn build_x_matrix(
                     ast.metadata.has_intercept,
                     training_levels,
                     &mut extracted_levels,
+                    ast.factors.get(right),
                 )?;
                 let drop_reference = !left_main
                     && !right_main
@@ -1159,7 +1234,14 @@ pub fn build_x_matrix(
             continue;
         }
 
-        let encoded = encode_column(data, col_name, n_obs, intercept_handled, training_levels)?;
+        let encoded = encode_column(
+            data,
+            col_name,
+            n_obs,
+            intercept_handled,
+            training_levels,
+            ast.factors.get(col_name),
+        )?;
         if let Some(levels) = encoded.levels.clone() {
             extracted_levels.insert(col_name.clone(), levels);
             intercept_handled = true;
@@ -1614,6 +1696,7 @@ pub fn try_build_fair_lmm_design(
         fixed_term_assign,
         offset: None,
         categorical_levels: HashMap::new(),
+        factors: HashMap::new(),
         basis_encodings: HashMap::new(),
         precomputed_zt_z,
     }))
