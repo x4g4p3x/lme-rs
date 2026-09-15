@@ -3,13 +3,23 @@ name = "lme-rs"
 version = "0.2.6-dev.0"
 edition = "2021"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
-description = "Rust port of R's lme4: linear, generalized, and nonlinear mixed-effects models"
+description = "Mixed-effects models in Rust with lme4-style formulas and numerical validation"
 license = "MIT"
 repository = "https://github.com/x4g4p3x/lme-rs"
 homepage = "https://docs.rs/lme-rs/latest/lme_rs/"
 readme = "README.md"
 keywords = ["statistics", "lme4", "mixed-effects", "glmm", "regression"]
 categories = ["science", "mathematics"]
+exclude = [
+    "tests/data/cbpp_binary.csv",
+    "tests/data/cbpp_binary_weighted.csv",
+    "tests/data/dyestuff.csv",
+    "tests/data/grouseticks.csv",
+    "tests/data/pastes.csv",
+    "tests/data/penicillin.csv",
+    "tests/data/sleepstudy.csv",
+    "tests/data/orange.csv",
+]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--extend-css", "docs/rustdoc.css"]
