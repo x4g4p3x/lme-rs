@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "lme_python"
-description = "Rust port of R's lme4: linear mixed-effects models"
+description = "Mixed-effects models in Python backed by Rust, with lme4-style workflows"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
