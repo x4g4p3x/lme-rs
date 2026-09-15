@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Document source and fixture provenance, exclude GPL-licensed test fixtures from
+  Cargo packages, and enforce package-content checks in CI and Python release
+  validation. The project remains MIT-licensed.
 - Build CPython 3.10–3.14 release wheels and include Python 3.14 in Linux,
   Windows, and macOS binding validation. Previously wheels targeted only 3.10.
 - Reorganize the benchmark, coverage, and optimization guides around current
