@@ -24,7 +24,16 @@ Historical measurements are preserved in [the measurement archive](BENCHMARK_HIS
 Their dates and revisions matter: a July result does not describe September's
 optimizer or convergence behavior.
 
+The [15 September Python workflow comparison](benchmarks/model-workflows-2026-09-15/README.md)
+records numerical agreement, default-versus-tuned controls, and qualified timings
+against statsmodels, including failed boundary cases.
+
 ## Choose a benchmark
+
+For Python backend adoption, use the
+[correctness-gated mixed-model workflow comparison](docs/MODEL_WORKFLOW_BENCHMARK.md).
+It compares statsmodels and the Rust bindings on identical designs and responses,
+with an independent Gaussian likelihood reference and explicit inference checks.
 
 | Your question | Run | What the result means |
 |:---|:---|:---|

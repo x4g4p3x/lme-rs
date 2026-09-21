@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a correctness-gated Python workflow benchmark against statsmodels, covering
+  ML/REML fits, adjusted comparisons, shared null-response refits, and subject
+  deletion diagnostics with independent Gaussian-likelihood checks.
+
 - Add explicit ordered treatment/sum factor specifications for linear and mixed
   models, preserved across prediction and post-fit inference.
 - Add classical OLS term tests with residual degrees of freedom, sums/mean squares,
