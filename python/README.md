@@ -18,7 +18,7 @@ Install **`lme-python`**, import **`lme_python`**. Polars is a package dependenc
 A compatible binary wheel does not require a Rust toolchain or an R installation.
 
 Check the selected version's [PyPI files](https://pypi.org/project/lme-python/#files)
-for your Python interpreter, OS, and architecture. Starting with the next release,
+for your Python interpreter, OS, and architecture. Starting with 0.2.6,
 the workflow builds interpreter-specific CPython 3.10–3.14 wheels; source-build
 CI covers those versions, including 3.14 on Windows and macOS. Older releases
 (including 0.2.5) only provide CPython 3.10 wheels. If pip falls back

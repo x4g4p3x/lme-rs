@@ -13,7 +13,7 @@ boundary behavior as well as runtime.
 
 ## Enable Basin
 
-The development checkout provides a `basin` Cargo feature. Default builds use
+Starting with 0.2.6, the crate provides a `basin` Cargo feature. Default builds use
 Argmin. Enable the feature when building this checkout:
 
 ```sh
@@ -21,10 +21,10 @@ cargo test --locked --features basin
 cargo run --release --locked --features basin --example sleepstudy
 ```
 
-For a local path dependency:
+For a published dependency:
 
 ```toml
-lme-rs = { path = "../lme-rs", features = ["basin"] }
+lme-rs = { version = "0.2.6", features = ["basin"] }
 ```
 
 The feature selects Basin's projected Nelder–Mead implementation for the

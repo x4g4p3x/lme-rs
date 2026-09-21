@@ -1,8 +1,7 @@
 # Model-based analysis in Rust and Python
 
-These development APIs extend the linear and mixed-model engine. They do not
-reproduce an entire general-purpose statistical package. They become available
-in the next published release after 0.2.5.
+These APIs, introduced in 0.2.6, extend the linear and mixed-model engine.
+They do not reproduce an entire general-purpose statistical package.
 
 Run [the self-contained Python example](../python/examples/model_based_analysis.py)
 for an incomplete-subject mixed-model analysis.

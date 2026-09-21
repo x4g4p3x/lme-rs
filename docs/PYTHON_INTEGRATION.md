@@ -8,8 +8,9 @@ adding lme-python to an existing analysis application.
 A regular `cp314` wheel targets the CPython 3.14 ABI across patch releases;
 applications do not need the exact patch version used to build it.
 The release workflow now builds CPython 3.10–3.14 wheels for Windows x64,
-Linux x86_64/aarch64, and macOS x86_64/aarch64. These changes take effect in the
-next published release; 0.2.5 only has CPython 3.10 wheels.
+Linux x86_64/aarch64, and macOS x86_64/aarch64 starting with release 0.2.6;
+0.2.5 only has CPython 3.10 wheels. Check the selected release's PyPI files
+for the artifacts available for your platform.
 
 For a local source build, select the application's interpreter explicitly:
 

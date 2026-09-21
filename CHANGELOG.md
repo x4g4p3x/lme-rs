@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-09-21
+
 ### Fixed
 
 - Compute Type I ANOVA contrasts after preceding terms in formula order.
@@ -77,6 +79,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use compatible Ubuntu R benchmark dependencies and fail early if required
   packages cannot load; increase hosted benchmark defaults to two warmups and
   ten measured repetitions.
+
+### Known limitations
+
+- The recorded Python workflow comparison does not establish drop-in equivalence
+  with statsmodels: several default-control fits miss the stated numerical
+  tolerances, and a near-zero-variance refit can report convergence at a poorer
+  likelihood. A tighter tolerance improves the recorded ordinary cases but does
+  not resolve the boundary case. See the
+  [workflow comparison](benchmarks/model-workflows-2026-09-15/README.md) before
+  adopting the library for an existing analysis.
 
 ## [0.2.5] - 2026-09-11
 

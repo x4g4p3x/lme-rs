@@ -55,7 +55,7 @@ evidence before relying on the result.
 
 For ordered factor coding, OLS ANOVA/ANCOVA, configurable marginal means, and
 unconditional null bootstrap, see [model-based analysis](docs/MODEL_BASED_ANALYSIS.md).
-These development APIs take effect in the next release after 0.2.5.
+These APIs are available starting with 0.2.6.
 
 ## Understand the evidence
 
