@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve robust covariance and standard errors under representable response
+  and predictor unit changes by avoiding unstable raw-score outer products.
+
 - Make OLS rank detection independent of predictor units while retaining
   rejection of collinear fixed-effect designs, and reject unrepresentable
   coefficient covariance instead of returning invalid uncertainty.

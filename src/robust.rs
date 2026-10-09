@@ -73,7 +73,14 @@ pub fn compute_robust_se(
         None => fit.residuals.clone(),
     };
 
-    let mut meat = Array2::<f64>::zeros((p, p));
+    // Form coefficient influences before squaring scores. Computing the raw
+    // meat first can underflow or overflow after harmless changes of units,
+    // even when the final sandwich covariance is readily representable.
+    let mut influences = x_mat.dot(&v_beta_unscaled.t());
+    for (mut row, &residual) in influences.outer_iter_mut().zip(eps.iter()) {
+        row *= residual;
+    }
+    let mut v_robust = Array2::<f64>::zeros((p, p));
 
     match cluster_col {
         Some(col_name) => {
@@ -97,14 +104,14 @@ pub fn compute_robust_se(
                 let g = str_ca.get(i).unwrap_or("").to_string();
                 let score = cluster_scores.entry(g).or_insert_with(|| Array1::zeros(p));
                 for j in 0..p {
-                    score[j] += x_mat[[i, j]] * eps[i];
+                    score[j] += influences[[i, j]];
                 }
             }
 
             for score in cluster_scores.values() {
                 for i in 0..p {
                     for j in 0..p {
-                        meat[[i, j]] += score[i] * score[j];
+                        v_robust[[i, j]] += score[i] * score[j];
                     }
                 }
             }
@@ -113,16 +120,12 @@ pub fn compute_robust_se(
             for i in 0..n {
                 for i_dim in 0..p {
                     for j_dim in 0..p {
-                        meat[[i_dim, j_dim]] +=
-                            x_mat[[i, i_dim]] * x_mat[[i, j_dim]] * eps[i] * eps[i];
+                        v_robust[[i_dim, j_dim]] += influences[[i, i_dim]] * influences[[i, j_dim]];
                     }
                 }
             }
         }
     }
-
-    let b_matrix = v_beta_unscaled;
-    let v_robust = b_matrix.dot(&meat).dot(b_matrix); // B M B
 
     let mut robust_se = Array1::zeros(p);
     let mut robust_t = Array1::zeros(p);
