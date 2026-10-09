@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve the rank, F statistic, and denominator degrees of freedom of joint
+  Satterthwaite tests under contrast-row rescaling, equivalent row combinations,
+  and redundant restrictions.
+
 - Expand the default scalar LMM variance search beyond its initial bracket,
   include zero random-effect variance, and require search convergence before
   reporting a converged fit.

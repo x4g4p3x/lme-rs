@@ -159,10 +159,11 @@ pub(crate) fn fixed_effect_contrast_test(
             message: "Contrast matrix must have positive rank".to_string(),
         });
     }
-    // A common rescaling preserves the hypothesis and the eigenvectors used
-    // by Satterthwaite, while preventing underflow in variance derivatives.
+    // Independent orthonormal rows preserve the Satterthwaite hypothesis
+    // without letting individual row units or redundant restrictions change
+    // the covariance eigenvalues used for rank and denominator df.
     let scaled = match ddf {
-        DdfMethod::Satterthwaite => Some(l_mat / scale),
+        DdfMethod::Satterthwaite => Some(crate::kr_modcomp::contrast_basis(l_mat)?),
         DdfMethod::Residual => {
             let mut normalized = l_mat.clone();
             for mut row in normalized.rows_mut() {

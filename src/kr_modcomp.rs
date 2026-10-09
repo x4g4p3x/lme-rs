@@ -56,7 +56,7 @@ fn div_zero(num: f64, denom: f64, tol: f64) -> f64 {
 
 /// Represent the hypothesis by independent, well-scaled rows. Redundant
 /// restrictions add no information and must not make the covariance solve singular.
-fn contrast_basis(l: &Array2<f64>) -> crate::Result<Array2<f64>> {
+pub(crate) fn contrast_basis(l: &Array2<f64>) -> crate::Result<Array2<f64>> {
     if l.is_empty() || l.iter().any(|v| !v.is_finite()) {
         return Err(LmeError::InvalidInput {
             message: "Contrast matrix must be nonempty and finite".to_string(),

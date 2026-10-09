@@ -103,6 +103,64 @@ fn kr_joint_test_is_invariant_to_redundancy_and_row_units() {
 }
 
 #[test]
+fn satterthwaite_joint_test_preserves_independent_row_units() {
+    let fit = inference_fit();
+    let method = DdfMethod::Satterthwaite;
+    let reference = fit.test_contrast(&Array2::eye(2), method).unwrap();
+    assert_eq!(reference.num_df, 2.0);
+    for scales in [[1e-9, 1.0], [1e-100, -1e100]] {
+        // Multiplying a restriction by a nonzero constant leaves its null
+        // hypothesis unchanged; these two rows still test both coefficients.
+        let result = fit
+            .test_contrast_vs(
+                &array![[scales[0], 0.0], [0.0, scales[1]]],
+                &array![0.0, 0.0],
+                method,
+            )
+            .unwrap();
+        assert_eq!(result.num_df, 2.0, "scales {scales:?}: {result:?}");
+        assert!((result.f_value / reference.f_value - 1.0).abs() < 1e-10);
+        assert!((result.den_df - reference.den_df).abs() < 1e-6);
+        assert!((result.p_value / reference.p_value - 1.0).abs() < 1e-8);
+    }
+}
+
+#[test]
+fn satterthwaite_joint_test_ignores_redundant_rows() {
+    let fit = inference_fit();
+    let method = DdfMethod::Satterthwaite;
+    let reference = fit.test_contrast(&array![[0.3, 1.0]], method).unwrap();
+    let result = fit
+        .test_contrast(&array![[0.3, 1.0], [0.6, 2.0], [0.0, 0.0]], method)
+        .unwrap();
+    assert_eq!(result.num_df, 1.0);
+    assert!((result.f_value / reference.f_value - 1.0).abs() < 1e-10);
+    assert!((result.den_df - reference.den_df).abs() < 1e-6);
+}
+
+#[test]
+fn satterthwaite_joint_test_preserves_the_null_under_row_combinations() {
+    let fit = inference_fit();
+    let method = DdfMethod::Satterthwaite;
+    let null = array![250.0, 10.0];
+    let reference = fit
+        .test_contrast_vs(&Array2::eye(2), &null, method)
+        .unwrap();
+    // These independent combinations, plus a redundant row, still impose
+    // exactly beta = null. The nonzero null must transform with the rows.
+    let result = fit
+        .test_contrast_vs(&array![[2.0, 3.0], [-1.0, 4.0], [4.0, 6.0]], &null, method)
+        .unwrap();
+    assert_eq!(result.num_df, 2.0);
+    assert!((result.f_value / reference.f_value - 1.0).abs() < 1e-10);
+    assert!(
+        (result.den_df - reference.den_df).abs() < 1e-6,
+        "equivalent joint df differ: {result:?} vs {reference:?}"
+    );
+    assert!((result.p_value / reference.p_value - 1.0).abs() < 1e-8);
+}
+
+#[test]
 fn saturated_ols_cannot_simulate_unestimated_noise() {
     let df = df!("y" => [2.0, 5.0], "x" => [0.0, 1.0]).unwrap();
     let fit = lm_df("y ~ x", &df).unwrap();
