@@ -9,7 +9,7 @@
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use statrs::distribution::{ContinuousCDF, Normal};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
 use crate::anova::DdfMethod;
@@ -468,19 +468,36 @@ fn reference_grid_linfct(
                     .map_err(|e| invalid(e.to_string()))
             })
             .collect::<crate::Result<Vec<_>>>()?;
+        let strings = columns
+            .iter()
+            .map(|column| column.str().map_err(|e| invalid(e.to_string())))
+            .collect::<crate::Result<Vec<_>>>()?;
+        // Resolve levels once per call rather than searching the stored list
+        // and retrieving typed columns for every observation. Keep row-first
+        // validation and joint-combination indexing in the original order.
+        let level_indices: Vec<_> = nuisance
+            .iter()
+            .map(|name| {
+                let levels = &categorical[name];
+                let index: HashMap<_, _> = levels
+                    .iter()
+                    .enumerate()
+                    .map(|(i, level)| (level.as_str(), i))
+                    .collect();
+                (levels.len(), index)
+            })
+            .collect();
         for row in 0..data.height() {
             let mut index = 0;
             for (j, name) in nuisance.iter().enumerate() {
-                let value = columns[j]
-                    .str()
-                    .map_err(|e| invalid(e.to_string()))?
+                let value = strings[j]
                     .get(row)
                     .ok_or_else(|| invalid(format!("Missing nuisance factor '{name}'")))?;
-                let level = categorical[name]
-                    .iter()
-                    .position(|v| v == value)
+                let (n_levels, levels) = &level_indices[j];
+                let level = levels
+                    .get(value)
                     .ok_or_else(|| invalid(format!("Unknown nuisance level '{value}'")))?;
-                index = index * categorical[name].len() + level;
+                index = index * n_levels + level;
             }
             weights[index] += 1.0 / data.height() as f64;
         }

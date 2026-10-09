@@ -870,6 +870,55 @@ fn bench_prediction_structure_sweeps(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_proportional_means(c: &mut Criterion) {
+    use lme_rs::{GridWeights, ReferenceGrid};
+    let mut group = c.benchmark_group("proportional_means");
+    group.sample_size(10);
+    for (rows, levels) in [(2_000, 2), (50_000, 2), (2_000, 32), (50_000, 32)] {
+        let a: Vec<_> = (0..rows)
+            .map(|i| if i % 2 == 0 { "A" } else { "B" })
+            .collect();
+        let b: Vec<_> = (0..rows)
+            .map(|i| format!("level_{:02}", (i / 2) % levels))
+            .collect();
+        let x: Vec<_> = (0..rows).map(|i| (i % 17) as f64 / 17.0).collect();
+        let y: Vec<_> = (0..rows)
+            .map(|i| {
+                2.0 + (i % 2) as f64
+                    + (i / 2 % levels) as f64 / 10.0
+                    + x[i] * 0.3
+                    + (i % 7) as f64 / 50.0
+            })
+            .collect();
+        let data = df!("y" => y, "a" => a, "b" => b, "x" => x).unwrap();
+        let fit = lme_rs::lm_df("y ~ a + b + x", &data).unwrap();
+        for (policy, label) in [
+            (GridWeights::Equal, "equal"),
+            (GridWeights::Proportional, "proportional"),
+        ] {
+            let grid = ReferenceGrid {
+                terms: vec!["a".into()],
+                weights: policy,
+                ..Default::default()
+            };
+            // All measured calls must produce valid complete results.
+            assert!(fit
+                .emmeans_with_grid(&data, &grid, 0.95, None)
+                .unwrap()
+                .estimate
+                .iter()
+                .all(|v| v.is_finite()));
+            group.bench_function(format!("{label}_{rows}_rows_{levels}_levels"), |b| {
+                b.iter(|| {
+                    black_box(fit.emmeans_with_grid(black_box(&data), black_box(&grid), 0.95, None))
+                        .unwrap()
+                })
+            });
+        }
+    }
+    group.finish();
+}
+
 fn bench_inference(c: &mut Criterion) {
     let df = load_csv("tests/data/sleepstudy.csv");
     let base_fit = lme_rs::lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
@@ -1022,6 +1071,7 @@ criterion_group!(
     bench_large_structure_fits,
     bench_size_sweeps,
     bench_prediction_structure_sweeps,
-    bench_inference
+    bench_inference,
+    bench_proportional_means
 );
 criterion_main!(benches);

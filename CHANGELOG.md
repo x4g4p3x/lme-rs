@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Index nuisance-factor levels once per call for proportional marginal-mean grids,
+  avoiding repeated linear searches through stored levels.
+
 - Reduce marginal-mean and pairwise-comparison reference-grid copying by selecting
   fixed-effect source columns before replicating rows, especially on wide tables
   with unused measurements or metadata.
