@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bug Hunt"
+  short_description: "Find and fix bugs with independent regression evidence"
+  default_prompt: "Use $bug-hunt to find and fix correctness bugs in this repository, reproduce each finding, and run the required checks."
