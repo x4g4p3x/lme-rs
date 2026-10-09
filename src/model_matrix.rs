@@ -47,7 +47,7 @@ pub struct DesignMatrices {
     pub categorical_levels: HashMap<String, Vec<String>>,
     /// Explicit fixed-factor encodings.
     pub factors: HashMap<String, crate::formula::FactorSpec>,
-    /// Training encodings for `poly()` / `ns()` so prediction reuses the fit basis.
+    /// Training encodings for `poly()`, `ns()`, and `.` so prediction reuses the fit basis.
     pub basis_encodings: HashMap<String, crate::basis::BasisEncoding>,
     /// Optional precomputed \(Z^T Z\) from the fair design path (avoids rescanning \(Z^T\)).
     pub precomputed_zt_z: Option<sprs::CsMat<f64>>,
@@ -833,11 +833,24 @@ fn push_basis_term(
         BasisSpec::Dot => {
             let existing: std::collections::HashSet<&str> =
                 ast.columns.keys().map(String::as_str).collect();
-            for column in data.get_columns() {
-                let name = column.name().as_str();
-                if name == response_name || name == "." || existing.contains(name) {
-                    continue;
+            let columns = match training_basis.and_then(|enc| enc.get(col_name)) {
+                Some(crate::basis::BasisEncoding::Dot { columns }) => columns.clone(),
+                Some(_) => {
+                    return Err(crate::LmeError::InvalidInput {
+                        message: "dot training encoding does not match the formula term".into(),
+                    })
                 }
+                None => data
+                    .get_columns()
+                    .iter()
+                    .map(|column| column.name().as_str())
+                    .filter(|name| {
+                        *name != response_name && *name != "." && !existing.contains(name)
+                    })
+                    .map(str::to_owned)
+                    .collect(),
+            };
+            for name in &columns {
                 append_encoded_column(
                     data,
                     name,
@@ -853,6 +866,10 @@ fn push_basis_term(
                     ast.factors.get(name),
                 )?;
             }
+            basis_encodings.insert(
+                col_name.to_owned(),
+                crate::basis::BasisEncoding::Dot { columns },
+            );
         }
         BasisSpec::Poly {
             source,

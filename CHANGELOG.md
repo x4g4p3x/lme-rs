@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Clarify that grouped cross-validation may use a split column separate from the
+  model's grouping columns.
+
 - Index nuisance-factor levels once per call for proportional marginal-mean grids,
   avoiding repeated linear searches through stored levels.
 
@@ -17,6 +20,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with unused measurements or metadata.
 
 ### Fixed
+
+- Accumulate repeated sparse contrast weights instead of overwriting earlier
+  contributions to the same coefficient.
+- Retain dot-formula training source columns and their order for prediction and
+  marginal means, ignoring unrelated columns supplied after fitting. Training
+  metadata now includes the `BasisEncoding::Dot` variant.
+- Reject non-finite prediction results, including overflow after applying a link
+  inverse or adding random effects.
+- Validate simulation means against their distribution domains and preserve
+  exact binomial probability endpoints and zero Poisson intensity.
+- Reject binomial trial counts outside the `u64` range instead of silently
+  saturating integer conversions, while retaining fractional precision weights.
+- Reject non-finite bootstrap estimates and converged draws, and invalid residual
+  variances, instead of producing invalid percentile confidence intervals.
+- Continue natural-spline predictions along boundary tangents outside the
+  training range instead of replacing every spline column with zero.
+- Reject changed or reordered fixed designs in robust inference rather than
+  combining them with residuals and covariance from the original fit.
+- Preserve the representable log-link range and its exponential derivative
+  instead of clipping linear predictors to `[-30, 30]`.
+- Use stable complementary log-log transformations for small probabilities,
+  avoiding cancellation in `1 - p` and `1 - exp(-exp(eta))`.
 
 - Reject post-fit inference from models explicitly marked nonconverged, including
   covariance adjustments, contrasts, marginal means, multiple comparisons,

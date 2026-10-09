@@ -14,6 +14,11 @@ use crate::LmeError;
 /// Stored training parameters so a basis can be evaluated on new data.
 #[derive(Clone, Debug)]
 pub enum BasisEncoding {
+    /// Ordered source columns selected by `.` on the training data.
+    Dot {
+        /// Raw source names, before categorical encoding.
+        columns: Vec<String>,
+    },
     /// Raw or orthogonal polynomial of a numeric column.
     Poly {
         /// Polynomial degree (number of columns).
@@ -329,8 +334,17 @@ fn bspline_design(x: &Array1<f64>, knots: &[f64]) -> crate::Result<Array2<f64>> 
     }
     let mut basis = Array2::zeros((x.len(), n_basis));
     for (row, &xi) in x.iter().enumerate() {
+        let boundary = xi.clamp(knots[0], knots[knots.len() - 1]);
         for j in 0..n_basis {
-            basis[[row, j]] = bspline_value(j, BSPLINE_DEGREE, xi, knots);
+            let value = bspline_value(j, BSPLINE_DEGREE, boundary, knots);
+            // A natural spline continues along its boundary tangent. Extend
+            // the B-spline rows before applying the natural constraint so
+            // stored training encodings also cover out-of-range predictors.
+            basis[[row, j]] = if xi == boundary {
+                value
+            } else {
+                value + (xi - boundary) * bspline_deriv(j, BSPLINE_DEGREE, boundary, knots, 1)
+            };
         }
     }
     Ok(basis)

@@ -39,28 +39,37 @@ pub fn compute_robust_se(
         ));
     }
 
-    let ast = fit
+    let (x_mat, _) = fit
         .model_spec()
-        .formula_model()
-        .map_err(|e| format!("Failed to parse formula: {}", e))?;
-
-    let mut response_col = String::new();
-    for (name, info) in &ast.columns {
-        if info.has_role(crate::formula::ColumnRole::Response) {
-            response_col = name.clone();
-            break;
-        }
+        .prediction_matrix(data)
+        .map_err(|e| format!("Failed building X matrix: {e}"))?;
+    let training_x = fit
+        .fixed_design_x
+        .as_ref()
+        .ok_or("Training design missing for robust inference")?;
+    if x_mat.dim() != training_x.dim()
+        || x_mat
+            .columns()
+            .into_iter()
+            .zip(training_x.columns())
+            .any(|(actual, expected)| {
+                // Reapplying a stored QR/spline basis can round differently at zero.
+                // Compare in each column's units, allowing only floating-point noise.
+                let scale = actual
+                    .iter()
+                    .chain(expected.iter())
+                    .map(|v| v.abs())
+                    .fold(0.0_f64, f64::max);
+                actual
+                    .iter()
+                    .zip(expected)
+                    .any(|(&a, &b)| (a - b).abs() > 64.0 * f64::EPSILON * scale)
+            })
+    {
+        return Err(
+            "Robust inference requires the original fixed design in training row order".into(),
+        );
     }
-
-    let (x_mat, _, _, _, _) = crate::model_matrix::build_x_matrix(
-        &ast,
-        data,
-        &response_col,
-        n,
-        fit.categorical_levels.as_ref(),
-        fit.basis_encodings.as_ref(),
-    )
-    .map_err(|e| format!("Failed building X matrix: {}", e))?;
 
     let v_beta_unscaled = fit
         .v_beta_unscaled

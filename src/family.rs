@@ -98,17 +98,16 @@ pub struct LogLink;
 
 impl GlmLink for LogLink {
     fn link_fun(&self, mu: &Array1<f64>) -> Array1<f64> {
-        mu.mapv(|m| m.max(f64::EPSILON).ln())
+        mu.mapv(f64::ln)
     }
 
     fn link_inv(&self, eta: &Array1<f64>) -> Array1<f64> {
-        // Clamp eta to avoid overflow in exp
-        eta.mapv(|e| e.clamp(-30.0, 30.0).exp())
+        eta.mapv(f64::exp)
     }
 
     fn mu_eta(&self, eta: &Array1<f64>) -> Array1<f64> {
         // dμ/dη = exp(η) (same as link_inv for log link)
-        eta.mapv(|e| e.clamp(-30.0, 30.0).exp().max(f64::EPSILON))
+        eta.mapv(f64::exp)
     }
 
     fn name(&self) -> &str {
@@ -182,22 +181,25 @@ impl GlmLink for CloglogLink {
     fn link_fun(&self, mu: &Array1<f64>) -> Array1<f64> {
         mu.mapv(|m| {
             let m = m.clamp(f64::EPSILON, 1.0 - f64::EPSILON);
-            (-((1.0 - m).ln())).ln()
+            (-(-m).ln_1p()).ln()
         })
     }
 
     fn link_inv(&self, eta: &Array1<f64>) -> Array1<f64> {
         eta.mapv(|e| {
-            let p = 1.0 - (-e.clamp(-30.0, 30.0).exp()).exp();
+            let p = -(-e.exp()).exp_m1();
             p.clamp(f64::EPSILON, 1.0 - f64::EPSILON)
         })
     }
 
     fn mu_eta(&self, eta: &Array1<f64>) -> Array1<f64> {
         eta.mapv(|e| {
-            let e_clamped = e.clamp(-30.0, 30.0);
-            let exp_e = e_clamped.exp();
-            let d = exp_e * (-exp_e).exp();
+            let exp_e = e.exp();
+            let d = if exp_e.is_infinite() {
+                0.0
+            } else {
+                exp_e * (-exp_e).exp()
+            };
             d.max(f64::EPSILON)
         })
     }

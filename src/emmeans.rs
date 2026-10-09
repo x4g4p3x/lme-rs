@@ -392,7 +392,7 @@ fn reference_grid_linfct(
     let per_cell: usize = nuisance.iter().map(|n| categorical[n].len()).product();
     let n_cells = n_grid / per_cell;
     let indices = IdxCa::from_vec("reference_row".into(), vec![0 as IdxSize; n_grid]);
-    let fixed_covariates = fixed_covariate_names(&ast, data);
+    let fixed_covariates = fixed_covariate_names(&ast, fit);
     // Project before replicating rows so responses, grouping columns, and unused
     // metadata do not add allocation and copying cost to the reference grid.
     // Retain source order for dot expansion, including categorical covariates.
@@ -532,7 +532,7 @@ fn reference_grid_linfct(
 
 // Follow the fixed design's source columns, including expressions and bases.
 // Response, random-only, and unrelated columns do not define reference means.
-fn fixed_covariate_names(ast: &crate::formula::FormulaModel, data: &DataFrame) -> HashSet<String> {
+fn fixed_covariate_names(ast: &crate::formula::FormulaModel, fit: &LmeFit) -> HashSet<String> {
     use crate::formula::{BasisSpec, ColumnRole};
     let mut names = HashSet::new();
     for (name, info) in &ast.columns {
@@ -545,10 +545,11 @@ fn fixed_covariate_names(ast: &crate::formula::FormulaModel, data: &DataFrame) -
             } else if let Some(basis) = &info.basis {
                 basis.for_each_column(&mut add);
                 if matches!(basis, BasisSpec::Dot) {
-                    for column in data.get_columns() {
-                        let name = column.name().as_str();
-                        if !ast.columns.contains_key(name) {
-                            add(name);
+                    if let Some(crate::basis::BasisEncoding::Dot { columns }) =
+                        fit.basis_encodings.as_ref().and_then(|enc| enc.get(name))
+                    {
+                        for column in columns {
+                            add(column);
                         }
                     }
                 }

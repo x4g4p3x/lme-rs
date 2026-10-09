@@ -47,6 +47,21 @@ pub fn simulate_range(
         .checked_add(count - 1)
         .ok_or_else(|| anyhow::anyhow!("simulation index range overflows usize"))?;
     simulation_dispersion(fit)?;
+    crate::validate_observation_weights(fit.weights.as_ref(), fit.fitted.len())?;
+    for (i, &mu) in fit.fitted.iter().enumerate() {
+        let valid = mu.is_finite()
+            && match fit.family {
+                Some(crate::family::Family::Binomial) => (0.0..=1.0).contains(&mu),
+                Some(crate::family::Family::Poisson) => mu >= 0.0,
+                Some(crate::family::Family::Gamma) => mu > 0.0,
+                _ => true,
+            };
+        if !valid {
+            return Err(anyhow::anyhow!(
+                "Invalid simulation mean at observation {i}: {mu}"
+            ));
+        }
+    }
 
     let workers = resolve_n_jobs(n_jobs, count);
     if workers == 1 {
@@ -95,7 +110,7 @@ fn simulate_sequential(
     seed: Option<u64>,
 ) -> anyhow::Result<Vec<Array1<f64>>> {
     let sigma2 = simulation_dispersion(fit)?;
-    let trials = binomial_trial_sizes(fit.weights.as_ref());
+    let trials = simulation_trials(fit)?;
     let mut out = Vec::with_capacity(count);
 
     if let Some(base) = seed {
@@ -137,7 +152,7 @@ fn simulate_parallel(
     let fitted = fit.fitted.clone();
     let family = fit.family;
     let sigma2 = simulation_dispersion(fit)?;
-    let trials = binomial_trial_sizes(fit.weights.as_ref());
+    let trials = simulation_trials(fit)?;
 
     crate::execution::run(workers, || {
         (0..count)
@@ -210,7 +225,7 @@ fn draw_one<R: Rng + ?Sized>(
                     ));
                 }
                 for i in 0..n {
-                    let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
+                    let p = y_sim[i];
                     let ni = n_trials[i];
                     if ni == 1 {
                         let bern = Bernoulli::new(p)
@@ -225,7 +240,7 @@ fn draw_one<R: Rng + ?Sized>(
                 }
             } else {
                 for i in 0..n {
-                    let p = y_sim[i].clamp(f64::EPSILON, 1.0 - f64::EPSILON);
+                    let p = y_sim[i];
                     let bern = Bernoulli::new(p)
                         .map_err(|e| anyhow::anyhow!("Invalid binomial probability: {e}"))?;
                     y_sim[i] = if rng.sample(bern) { 1.0 } else { 0.0 };
@@ -234,7 +249,10 @@ fn draw_one<R: Rng + ?Sized>(
         }
         Some(crate::family::Family::Poisson) => {
             for i in 0..n {
-                let lambda = y_sim[i].max(f64::EPSILON);
+                let lambda = y_sim[i];
+                if lambda == 0.0 {
+                    continue;
+                }
                 let pois = Poisson::new(lambda)
                     .map_err(|e| anyhow::anyhow!("Invalid Poisson mean: {e}"))?;
                 y_sim[i] = rng.sample(pois);
@@ -245,7 +263,7 @@ fn draw_one<R: Rng + ?Sized>(
                 // Prior precision scales Gamma shape, so Var(Y_i) = phi * mu_i^2 / w_i.
                 let dispersion = sigma2 / weights.map_or(1.0, |w| w[i]);
                 let shape = 1.0 / dispersion;
-                let mu = y_sim[i].max(f64::EPSILON);
+                let mu = y_sim[i];
                 let scale = mu * dispersion;
                 let gamma = Gamma::new(shape, scale)
                     .map_err(|e| anyhow::anyhow!("Invalid Gamma parameters: {e}"))?;
@@ -254,7 +272,20 @@ fn draw_one<R: Rng + ?Sized>(
         }
     }
 
+    if y_sim.iter().any(|value| !value.is_finite()) {
+        return Err(anyhow::anyhow!(
+            "Simulated responses are not representable as finite values"
+        ));
+    }
     Ok(y_sim)
+}
+
+fn simulation_trials(fit: &LmeFit) -> anyhow::Result<Option<Vec<u64>>> {
+    if fit.family == Some(crate::family::Family::Binomial) {
+        Ok(binomial_trial_sizes(fit.weights.as_ref())?)
+    } else {
+        Ok(None)
+    }
 }
 
 fn resolve_n_jobs(n_jobs: Option<usize>, n_tasks: usize) -> usize {

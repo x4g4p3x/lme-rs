@@ -18,7 +18,9 @@ impl LmeFit {
         newdata: &polars::prelude::DataFrame,
     ) -> anyhow::Result<ndarray::Array1<f64>> {
         if self.is_nlmm() {
-            return crate::nlmm::predict::predict_population(self, newdata);
+            let values = crate::nlmm::predict::predict_population(self, newdata)?;
+            ensure_finite_predictions(&values)?;
+            return Ok(values);
         }
 
         let (x, offset) = self.model_spec().prediction_matrix(newdata)?;
@@ -26,6 +28,7 @@ impl LmeFit {
         if let Some(offset) = offset {
             y_pred += &offset;
         }
+        ensure_finite_predictions(&y_pred)?;
         Ok(y_pred)
     }
 
@@ -72,7 +75,9 @@ impl LmeFit {
                     .build_with_link(link)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
                 let link_fn = fam_impl.link();
-                Ok(link_fn.link_inv(&eta))
+                let mu = link_fn.link_inv(&eta);
+                ensure_finite_predictions(&mu)?;
+                Ok(mu)
             }
             None => Ok(eta), // LMM: identity, return as-is
         }
@@ -95,7 +100,10 @@ impl LmeFit {
         allow_new_levels: bool,
     ) -> anyhow::Result<ndarray::Array1<f64>> {
         if self.is_nlmm() {
-            return crate::nlmm::predict::predict_conditional(self, newdata, allow_new_levels);
+            let values =
+                crate::nlmm::predict::predict_conditional(self, newdata, allow_new_levels)?;
+            ensure_finite_predictions(&values)?;
+            return Ok(values);
         }
 
         let y_pop = self.predict(newdata)?;
@@ -179,6 +187,18 @@ impl LmeFit {
             b_offset += block.m * block.k;
         }
 
-        Ok(y_pop + z_b)
+        let y_pred = y_pop + z_b;
+        ensure_finite_predictions(&y_pred)?;
+        Ok(y_pred)
     }
+}
+
+fn ensure_finite_predictions(values: &ndarray::Array1<f64>) -> anyhow::Result<()> {
+    if values.iter().any(|v| !v.is_finite()) {
+        return Err(crate::LmeError::InvalidInput {
+            message: "predicted means are not representable as finite values".into(),
+        }
+        .into());
+    }
+    Ok(())
 }

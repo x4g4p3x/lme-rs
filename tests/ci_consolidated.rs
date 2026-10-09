@@ -21,6 +21,8 @@ mod test_anova_types;
 mod test_bootstrap;
 #[path = "test_bug_hunt.rs"]
 mod test_bug_hunt;
+#[path = "test_bug_hunt_batch.rs"]
+mod test_bug_hunt_batch;
 #[path = "test_bug_hunt_diagnostics.rs"]
 mod test_bug_hunt_diagnostics;
 #[path = "test_bug_hunt_edges.rs"]

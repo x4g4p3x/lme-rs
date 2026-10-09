@@ -169,7 +169,7 @@ impl BootLmerResult {
 
     fn percentile_vc(&self, level: f64) -> Result<BootConfintResult> {
         let t0_row =
-            vc_row(self.t0_theta.as_ref(), self.t0_sigma2).ok_or(LmeError::NotImplemented {
+            vc_row(self.t0_theta.as_ref(), self.t0_sigma2)?.ok_or(LmeError::NotImplemented {
                 feature: "Bootstrap VC confint requires theta on the reference fit".to_string(),
             })?;
         let names: Vec<String> = t0_row.iter().map(|(n, _)| n.clone()).collect();
@@ -179,7 +179,7 @@ impl BootLmerResult {
             if !r.converged {
                 continue;
             }
-            if let Some(row) = vc_row(r.theta.as_ref(), r.sigma2) {
+            if let Some(row) = vc_row(r.theta.as_ref(), r.sigma2)? {
                 if row.len() == names.len() {
                     rows.push(row.into_iter().map(|(_, v)| v).collect());
                 }
@@ -212,14 +212,24 @@ fn concat_boot_confint(first: BootConfintResult, second: BootConfintResult) -> B
     }
 }
 
-fn vc_row(theta: Option<&Array1<f64>>, sigma2: Option<f64>) -> Option<Vec<(String, f64)>> {
-    let theta = theta?;
+fn vc_row(theta: Option<&Array1<f64>>, sigma2: Option<f64>) -> Result<Option<Vec<(String, f64)>>> {
+    let Some(theta) = theta else {
+        return Ok(None);
+    };
     if theta.is_empty() {
-        return None;
+        return Ok(None);
+    }
+    if theta.iter().any(|v| !v.is_finite()) || sigma2.is_some_and(|s2| !s2.is_finite() || s2 < 0.0)
+    {
+        return Err(LmeError::InvalidInput {
+            message:
+                "Bootstrap variance parameters must be finite with nonnegative residual variance"
+                    .into(),
+        });
     }
     let mut out = Vec::new();
     match sigma2 {
-        Some(s2) if s2.is_finite() && s2 > 0.0 => {
+        Some(s2) => {
             let sigma = s2.sqrt();
             if theta.len() == 1 {
                 out.push((".sig01".to_string(), theta[0] * sigma));
@@ -230,13 +240,13 @@ fn vc_row(theta: Option<&Array1<f64>>, sigma2: Option<f64>) -> Option<Vec<(Strin
             }
             out.push((".sigma".to_string(), sigma));
         }
-        _ => {
+        None => {
             for (i, &t) in theta.iter().enumerate() {
                 out.push((format!(".sig{:02}", i + 1), t));
             }
         }
     }
-    Some(out)
+    Ok(Some(out))
 }
 
 fn percentile_from_columns(
@@ -249,6 +259,16 @@ fn percentile_from_columns(
     if rows.iter().any(|r| r.len() != p) || estimate.len() != p {
         return Err(LmeError::NotImplemented {
             feature: "Bootstrap confint column length mismatch".to_string(),
+        });
+    }
+    if estimate
+        .iter()
+        .chain(rows.iter().flatten())
+        .any(|v| !v.is_finite())
+    {
+        return Err(LmeError::InvalidInput {
+            message: "Bootstrap confidence intervals require finite estimates and converged draws"
+                .into(),
         });
     }
     let alpha = 1.0 - level;

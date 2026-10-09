@@ -104,7 +104,7 @@ struct FoldWorkResult {
 /// # Arguments
 /// * `formula_str` - Wilkinson formula (LMM only).
 /// * `data` - Full dataset.
-/// * `group_col` - Column whose levels define CV folds (must appear in the formula).
+/// * `group_col` - Column whose levels define CV folds (may differ from model groups).
 /// * `n_splits` - Number of folds (must not exceed the number of unique groups).
 /// * `reml` - Use REML (`true`) or ML (`false`) when fitting each training fold.
 /// * `seed` - Optional RNG seed for reproducible group shuffling.

@@ -28,13 +28,14 @@ pub struct ContrastTestResult {
 pub type ContrastRow = Vec<(usize, f64)>;
 
 /// Build a **q × p** contrast matrix from sparse row specifications.
+/// Repeated column indices contribute additively to the same coefficient.
 pub fn contrast_matrix(p: usize, rows: &[ContrastRow]) -> Array2<f64> {
     let q = rows.len();
     let mut l = Array2::<f64>::zeros((q, p));
     for (i, row) in rows.iter().enumerate() {
         for &(j, w) in row {
             if j < p {
-                l[[i, j]] = w;
+                l[[i, j]] += w;
             }
         }
     }

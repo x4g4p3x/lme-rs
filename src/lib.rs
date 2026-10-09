@@ -213,7 +213,7 @@ pub struct LmeFit {
     pub categorical_levels: Option<std::collections::HashMap<String, Vec<String>>>,
     /// Explicit fixed-factor encodings retained for post-fit operations.
     pub factors: HashMap<String, FactorSpec>,
-    /// Training encodings for `poly()` / `ns()` terms used by [`LmeFit::predict`].
+    /// Training encodings for `poly()`, `ns()`, and `.` terms used by [`LmeFit::predict`].
     pub basis_encodings: Option<std::collections::HashMap<String, crate::basis::BasisEncoding>>,
     /// Nonlinear mean evaluator for `nlmer` fits (built-in or custom).
     pub nlmm_mean: Option<std::sync::Arc<dyn nlmm::NlmmMeanEval>>,
@@ -1449,7 +1449,7 @@ pub(crate) fn validate_binomial_trial_counts(
     if family_enum != family::Family::Binomial {
         return Ok(());
     }
-    let Some(n_trials) = binomial_trial_sizes(weights) else {
+    let Some(n_trials) = binomial_trial_sizes(weights)? else {
         return Ok(());
     };
     for i in 0..y.len() {
@@ -1466,20 +1466,28 @@ pub(crate) fn validate_binomial_trial_counts(
 }
 
 /// Interpret prior weights as binomial trial sizes when every entry is an integer `≥ 1`.
-pub(crate) fn binomial_trial_sizes(weights: Option<&Array1<f64>>) -> Option<Vec<u64>> {
-    let w = weights?;
+pub(crate) fn binomial_trial_sizes(weights: Option<&Array1<f64>>) -> Result<Option<Vec<u64>>> {
+    let Some(w) = weights else {
+        return Ok(None);
+    };
+    // Fractional prior weights are precision weights, not integer trial counts.
+    if w.iter().any(|&wi| {
+        !wi.is_finite() || wi < 1.0 - 1e-9 || (wi - wi.round()).abs() > 1e-6 || wi.round() < 1.0
+    }) {
+        return Ok(None);
+    }
     let mut out = Vec::with_capacity(w.len());
     for &wi in w.iter() {
-        if !wi.is_finite() || wi < 1.0 - 1e-9 {
-            return None;
-        }
         let ni = wi.round();
-        if (wi - ni).abs() > 1e-6 || ni < 1.0 {
-            return None;
+        // u64::MAX rounds to 2^64 in f64, which is outside the integer domain.
+        if ni >= u64::MAX as f64 {
+            return Err(LmeError::InvalidInput {
+                message: "binomial trial counts must be smaller than 2^64".into(),
+            });
         }
         out.push(ni as u64);
     }
-    Some(out)
+    Ok(Some(out))
 }
 
 /// Gap 2: Builds a ranef DataFrame from the b vector organized per group/effect.
