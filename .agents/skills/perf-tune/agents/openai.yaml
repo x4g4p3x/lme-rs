@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Tuning"
+  short_description: "Optimize measured bottlenecks without losing correctness"
+  default_prompt: "Use $perf-tune to identify a measured bottleneck in this repository, implement a correctness-preserving optimization, and validate the before-and-after results."
