@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Use stored sandwich standard errors and normal critical values for robust Wald
+  confidence intervals, including when model-based df adjustments are also stored.
+
 - Apply exponentiation before unary negation inside `I()` arithmetic, and retain
   parentheses in nested-power term names so distinct predictors are not merged.
 

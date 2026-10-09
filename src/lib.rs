@@ -226,7 +226,11 @@ pub struct LmeFit {
 impl LmeFit {
     /// Compute Wald confidence intervals for fixed-effect coefficients.
     ///
-    /// Uses t critical values with Kenward–Roger or Satterthwaite denominator df when
+    /// Uses sandwich standard errors and normal critical values when robust
+    /// covariance is stored (via [`with_robust_se`](Self::with_robust_se)).
+    /// Robust intervals take precedence over stored model-based df adjustments.
+    /// Without robust covariance, unsaturated OLS uses residual t critical values.
+    /// Mixed models use t critical values with Kenward–Roger or Satterthwaite df when
     /// those approximations are stored on the fit (via [`with_kenward_roger`](Self::with_kenward_roger)
     /// or [`with_satterthwaite`](Self::with_satterthwaite)); otherwise the normal approximation.
     ///
@@ -241,26 +245,37 @@ impl LmeFit {
             ));
         }
 
-        let se = self.beta_se.as_ref().ok_or_else(|| {
+        let classical_se = self.beta_se.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "Standard errors are unavailable; residual variance may not be estimable"
             )
         })?;
-        let kr_se = self
-            .kenward_roger
+        let kr_se = if self.robust.is_none() {
+            self.kenward_roger
+                .as_ref()
+                .map(|kr| kr.modcomp.phi_a.diag().mapv(f64::sqrt))
+        } else {
+            None
+        };
+        let se = self
+            .robust
             .as_ref()
-            .map(|kr| kr.modcomp.phi_a.diag().mapv(f64::sqrt));
-        let se = kr_se.as_ref().unwrap_or(se);
+            .map(|robust| &robust.robust_se)
+            .or(kr_se.as_ref())
+            .unwrap_or(classical_se);
 
         let p = self.coefficients.len();
         let mut lower = ndarray::Array1::<f64>::zeros(p);
         let mut upper = ndarray::Array1::<f64>::zeros(p);
 
-        let dfs = self
-            .kenward_roger
-            .as_ref()
-            .map(|kr| kr.dfs.clone())
-            .or_else(|| self.satterthwaite.as_ref().map(|st| st.dfs.clone()));
+        let dfs = if self.robust.is_none() {
+            self.kenward_roger
+                .as_ref()
+                .map(|kr| kr.dfs.clone())
+                .or_else(|| self.satterthwaite.as_ref().map(|st| st.dfs.clone()))
+        } else {
+            None
+        };
 
         for i in 0..p {
             let default_df =
