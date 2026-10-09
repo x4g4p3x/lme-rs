@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Build multiple-comparison contrasts from each factor's stored term assignments
+  and encoding, preserving valid no-intercept comparisons and distinguishing
+  factor columns with identical generated names.
+
 - Preserve robust covariance and standard errors under representable response
   and predictor unit changes by avoiding unstable raw-score outer products.
 

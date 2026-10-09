@@ -187,6 +187,53 @@ pub fn mcp_contrast_matrix(
             feature: "Fixed-effect names missing or mismatched".to_string(),
         });
     }
+    let assignments = fit
+        .fixed_term_assign
+        .as_ref()
+        .filter(|terms| terms.len() == p)
+        .ok_or_else(|| LmeError::NotImplemented {
+            feature: "Fixed-effect term assignments missing or mismatched".to_string(),
+        })?;
+    // Column labels can coincide across terms (e.g. a[bc] and ab[c]).
+    let columns: Vec<Option<usize>> = levels
+        .iter()
+        .map(|level| {
+            let name = format!("{term}{level}");
+            names
+                .iter()
+                .zip(assignments)
+                .position(|(label, assigned)| label == &name && assigned == term)
+        })
+        .collect();
+    // Without an intercept the first factor has full indicators, while later
+    // factors still have reduced contrasts. Infer this per term, not per model.
+    let full = columns.iter().all(Option::is_some);
+    let sum = !full
+        && fit
+            .factors
+            .get(term)
+            .is_some_and(|spec| spec.coding == crate::FactorCoding::Sum);
+    let omitted = if full {
+        None
+    } else if sum {
+        Some(levels.len() - 1)
+    } else {
+        Some(0)
+    };
+    if assignments
+        .iter()
+        .filter(|assigned| *assigned == term)
+        .count()
+        != levels.len() - usize::from(!full)
+        || columns
+            .iter()
+            .enumerate()
+            .any(|(level, column)| column.is_none() != (Some(level) == omitted))
+    {
+        return Err(LmeError::NotImplemented {
+            feature: format!("Missing or unsupported main-effect coding for '{term}'"),
+        });
+    }
 
     let pairs: Vec<(usize, usize)> = match mcp {
         McpType::Tukey => (0..levels.len())
@@ -211,94 +258,23 @@ pub fn mcp_contrast_matrix(
     let mut l_mat = Array2::<f64>::zeros((pairs.len(), p));
     let mut comparisons = Vec::with_capacity(pairs.len());
     for (row, &(i, j)) in pairs.iter().enumerate() {
-        if fit
-            .factors
-            .get(term)
-            .is_some_and(|s| s.coding == crate::FactorCoding::Sum)
-            && names.first().is_some_and(|s| s == "(Intercept)")
-        {
-            for (level, weight) in [(i, -1.0), (j, 1.0)] {
-                for (k, label) in levels.iter().take(levels.len() - 1).enumerate() {
-                    let column = dummy_column(&names, term, label).ok_or_else(|| {
-                        LmeError::InvalidInput {
-                            message: format!("Missing sum contrast for '{term}'"),
-                        }
-                    })?;
-                    l_mat[[row, column]] += weight
-                        * if level == levels.len() - 1 {
-                            -1.0
-                        } else if level == k {
-                            1.0
-                        } else {
-                            0.0
-                        };
+        for (level, weight) in [(i, -1.0), (j, 1.0)] {
+            for (k, column) in columns.iter().enumerate() {
+                if let Some(column) = column {
+                    let value = if sum && Some(level) == omitted {
+                        -1.0
+                    } else if level == k {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    l_mat[[row, *column]] += weight * value;
                 }
             }
-        } else {
-            fill_pairwise_row(&mut l_mat, row, &names, term, &levels, i, j)?;
         }
         comparisons.push(format!("{} - {}", levels[j], levels[i]));
     }
     Ok((l_mat, comparisons, levels.len()))
-}
-
-fn dummy_column(names: &[String], factor: &str, level: &str) -> Option<usize> {
-    let want = format!("{factor}{level}");
-    names.iter().position(|n| n == &want)
-}
-
-fn fill_pairwise_row(
-    l_mat: &mut Array2<f64>,
-    row: usize,
-    names: &[String],
-    factor: &str,
-    levels: &[String],
-    from: usize,
-    to: usize,
-) -> crate::Result<()> {
-    let has_intercept = names.first().is_some_and(|n| n == "(Intercept)");
-    let ref_dummy = dummy_column(names, factor, &levels[0]);
-    if has_intercept && ref_dummy.is_some() {
-        return Err(LmeError::NotImplemented {
-            feature: format!(
-                "Over-parameterized dummy coding for '{factor}'; cannot build MCP contrasts"
-            ),
-        });
-    }
-
-    apply_level_weight(l_mat, row, names, factor, &levels[to], has_intercept, 1.0)?;
-    apply_level_weight(
-        l_mat,
-        row,
-        names,
-        factor,
-        &levels[from],
-        has_intercept,
-        -1.0,
-    )?;
-    Ok(())
-}
-
-fn apply_level_weight(
-    l_mat: &mut Array2<f64>,
-    row: usize,
-    names: &[String],
-    factor: &str,
-    level: &str,
-    has_intercept: bool,
-    weight: f64,
-) -> crate::Result<()> {
-    if let Some(j) = dummy_column(names, factor, level) {
-        l_mat[[row, j]] += weight;
-        return Ok(());
-    }
-    if has_intercept && names.first().is_some_and(|n| n == "(Intercept)") {
-        // Treatment reference: absorbed in the intercept; pairwise diffs cancel it.
-        return Ok(());
-    }
-    Err(LmeError::NotImplemented {
-        feature: format!("No dummy column for {factor} level '{level}'"),
-    })
 }
 
 pub(crate) fn adjust_p_values(

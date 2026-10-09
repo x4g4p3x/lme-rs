@@ -180,3 +180,129 @@ fn test_glht_unknown_term() {
         .unwrap_err();
     assert!(err.to_string().contains("batch"));
 }
+
+fn additive_data() -> DataFrame {
+    df!(
+        "y" => [1.1, 0.9, 4.2, 3.8, 3.1, 2.9, 6.2, 5.8, 5.1, 4.9, 8.2, 7.8],
+        "a" => ["A", "A", "A", "A", "B", "B", "B", "B", "C", "C", "C", "C"],
+        "b" => ["low", "low", "high", "high", "low", "low", "high", "high", "low", "low", "high", "high"]
+    ).unwrap()
+}
+
+#[test]
+fn mcp_preserves_additive_comparisons_without_intercept() {
+    use lme_rs::{lm_df_with_factors, FactorCoding, FactorSpec};
+    let data = additive_data();
+    for coding in [FactorCoding::Treatment, FactorCoding::Sum] {
+        let factors = std::collections::HashMap::from([
+            (
+                "a".into(),
+                FactorSpec {
+                    levels: vec!["C".into(), "A".into(), "B".into()],
+                    coding: coding.clone(),
+                },
+            ),
+            (
+                "b".into(),
+                FactorSpec {
+                    levels: vec!["high".into(), "low".into()],
+                    coding,
+                },
+            ),
+        ]);
+        let reference = lm_df_with_factors("y ~ a + b", &data, &factors).unwrap();
+        for formula in ["y ~ 0 + a + b", "y ~ 0 + b + a"] {
+            let fit = lm_df_with_factors(formula, &data, &factors).unwrap();
+            for term in ["a", "b"] {
+                for mcp in [McpType::Tukey, McpType::Dunnett { control: None }] {
+                    let expected = reference
+                        .glht(
+                            term,
+                            mcp.clone(),
+                            McpAdjust::Holm,
+                            Some(DdfMethod::Residual),
+                        )
+                        .unwrap();
+                    let got = fit
+                        .glht(term, mcp, McpAdjust::Holm, Some(DdfMethod::Residual))
+                        .unwrap();
+                    assert_eq!(got.comparisons, expected.comparisons);
+                    assert_vec_close(
+                        "estimate",
+                        got.estimate.as_slice().unwrap(),
+                        expected.estimate.as_slice().unwrap(),
+                        1e-12,
+                    );
+                    assert_vec_close(
+                        "se",
+                        got.std_error.as_slice().unwrap(),
+                        expected.std_error.as_slice().unwrap(),
+                        1e-12,
+                    );
+                    assert_vec_close(
+                        "adjusted p",
+                        got.p_adjust.as_slice().unwrap(),
+                        expected.p_adjust.as_slice().unwrap(),
+                        1e-12,
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn mcp_disambiguates_factor_columns_with_identical_names() {
+    let mut data = additive_data();
+    data.with_column(Column::new(
+        "a".into(),
+        [
+            "a", "a", "a", "a", "bc", "bc", "bc", "bc", "d", "d", "d", "d",
+        ],
+    ))
+    .unwrap();
+    data.rename("b", "ab".into()).unwrap();
+    data.with_column(Column::new(
+        "ab".into(),
+        ["a", "a", "c", "c", "a", "a", "c", "c", "a", "a", "c", "c"],
+    ))
+    .unwrap();
+    let fit = lme_rs::lm_df("y ~ a + ab", &data).unwrap();
+    // Both a[bc] and ab[c] are named "abc". Prediction uses their distinct columns.
+    let grid = df!("a" => ["a", "bc", "a"], "ab" => ["a", "a", "c"]).unwrap();
+    let predictions = fit.predict(&grid).unwrap();
+    for (term, index) in [("a", 1), ("ab", 2)] {
+        let got = fit
+            .glht(
+                term,
+                McpType::Dunnett { control: None },
+                McpAdjust::None,
+                Some(DdfMethod::Residual),
+            )
+            .unwrap();
+        assert_close(
+            term,
+            got.estimate[0],
+            predictions[index] - predictions[0],
+            1e-12,
+        );
+        let marginal = fit
+            .emmeans_pairs(term, &data, McpAdjust::None, Some(DdfMethod::Residual))
+            .unwrap();
+        assert_close("se", got.std_error[0], marginal.std_error[0], 1e-12);
+        assert_close("p", got.p_value[0], marginal.p_value[0], 1e-12);
+    }
+}
+
+#[test]
+fn mcp_rejects_interaction_only_factor_without_main_effect() {
+    let mut data = additive_data();
+    data.with_column(Column::new(
+        "x".into(),
+        [1., 2., 3., 4., 1., 2., 3., 4., 1., 2., 3., 4.],
+    ))
+    .unwrap();
+    let fit = lme_rs::lm_df("y ~ a:x", &data).unwrap();
+    let err = lme_rs::mcp::mcp_contrast_matrix(&fit, "a", &McpType::Tukey).unwrap_err();
+    assert!(err.to_string().contains("main-effect coding"));
+}
