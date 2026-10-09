@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Apply exponentiation before unary negation inside `I()` arithmetic, and retain
+  parentheses in nested-power term names so distinct predictors are not merged.
+
 - Build multiple-comparison contrasts from each factor's stored term assignments
   and encoding, preserving valid no-intercept comparisons and distinguishing
   factor columns with identical generated names.

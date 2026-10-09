@@ -286,7 +286,7 @@ impl NumericExpr {
                 let prec = binary_prec(*op);
                 let text = format!(
                     "{}{}{}",
-                    left.fmt_prec(prec),
+                    left.fmt_prec(if *op == BinaryOp::Pow { prec + 1 } else { prec }),
                     binary_symbol(*op),
                     right.fmt_prec(if *op == BinaryOp::Pow { prec } else { prec + 1 })
                 );
@@ -1001,14 +1001,14 @@ fn parse_sum(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, 
 }
 
 fn parse_product(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
-    let (mut expr, mut i) = parse_power(tokens, start)?;
+    let (mut expr, mut i) = parse_unary(tokens, start)?;
     while i < tokens.len() {
         let op = match tokens[i] {
             Token::Star => BinaryOp::Mul,
             Token::Slash => BinaryOp::Div,
             _ => break,
         };
-        let (right, next) = parse_power(tokens, i + 1)?;
+        let (right, next) = parse_unary(tokens, i + 1)?;
         expr = NumericExpr::Binary {
             op,
             left: Box::new(expr),
@@ -1020,9 +1020,11 @@ fn parse_product(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericEx
 }
 
 fn parse_power(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
-    let (left, i) = parse_unary(tokens, start)?;
+    let (left, i) = parse_primary(tokens, start)?;
     if i < tokens.len() && matches!(tokens[i], Token::Caret) {
-        let (right, next) = parse_power(tokens, i + 1)?;
+        // Powers bind more tightly than negation and associate to the right;
+        // parsing a unary exponent also permits expressions such as x^-2.
+        let (right, next) = parse_unary(tokens, i + 1)?;
         return Ok((
             NumericExpr::Binary {
                 op: BinaryOp::Pow,
@@ -1049,7 +1051,7 @@ fn parse_unary(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr
             next,
         ));
     }
-    parse_primary(tokens, start)
+    parse_power(tokens, start)
 }
 
 fn parse_primary(tokens: &[Token<'_>], start: usize) -> crate::Result<(NumericExpr, usize)> {
