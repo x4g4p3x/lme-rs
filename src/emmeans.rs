@@ -9,7 +9,7 @@
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use statrs::distribution::{ContinuousCDF, Normal};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 
 use crate::anova::DdfMethod;
@@ -393,13 +393,11 @@ fn reference_grid_linfct(
     let n_cells = n_grid / per_cell;
     let indices = IdxCa::from_vec("reference_row".into(), vec![0 as IdxSize; n_grid]);
     let mut grid = data.take(&indices).map_err(|e| invalid(e.to_string()))?;
+    let fixed_covariates = fixed_covariate_names(&ast, data);
     for (name, value) in &options.at {
         if !value.is_finite()
             || categorical.contains_key(name)
-            || !ast
-                .columns
-                .get(name)
-                .is_some_and(|info| !info.has_role(crate::formula::ColumnRole::Response))
+            || !fixed_covariates.contains(name)
             || !data
                 .column(name)
                 .is_ok_and(|c| is_native_numeric_dtype(c.dtype()))
@@ -411,7 +409,10 @@ fn reference_grid_linfct(
     }
     for column in data.get_columns() {
         let name = column.name();
-        if categorical.contains_key(name.as_str()) || !is_native_numeric_dtype(column.dtype()) {
+        if !fixed_covariates.contains(name.as_str())
+            || categorical.contains_key(name.as_str())
+            || !is_native_numeric_dtype(column.dtype())
+        {
             continue;
         }
         let mean = match options.at.get(name.as_str()) {
@@ -500,6 +501,40 @@ fn reference_grid_linfct(
         })
         .collect();
     Ok((linfct, labels, cells))
+}
+
+// Follow the fixed design's source columns, including expressions and bases.
+// Response, random-only, and unrelated columns do not define reference means.
+fn fixed_covariate_names(ast: &crate::formula::FormulaModel, data: &DataFrame) -> HashSet<String> {
+    use crate::formula::{BasisSpec, ColumnRole};
+    let mut names = HashSet::new();
+    for (name, info) in &ast.columns {
+        if info.has_role(ColumnRole::FixedEffect) && !info.has_role(ColumnRole::Response) {
+            let mut add = |column: &str| {
+                names.insert(column.to_string());
+            };
+            if let Some(expr) = &info.expr {
+                expr.for_each_column(&mut add);
+            } else if let Some(basis) = &info.basis {
+                basis.for_each_column(&mut add);
+                if matches!(basis, BasisSpec::Dot) {
+                    for column in data.get_columns() {
+                        let name = column.name().as_str();
+                        if !ast.columns.contains_key(name) {
+                            add(name);
+                        }
+                    }
+                }
+            } else {
+                add(name);
+            }
+        } else if info.has_role(ColumnRole::Interaction) && name.contains(':') {
+            // Star interactions already have fixed main-effect source entries;
+            // colon-only interactions store their source names in the label.
+            names.extend(name.split(':').map(str::to_string));
+        }
+    }
+    names
 }
 
 fn is_native_numeric_dtype(dtype: &DataType) -> bool {

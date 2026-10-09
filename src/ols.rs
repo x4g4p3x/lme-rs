@@ -4,9 +4,13 @@ use ndarray::{Array1, Array2};
 
 pub(crate) fn solve_qr(r: &Array2<f64>, qty: &Array1<f64>) -> Result<(Array1<f64>, Array2<f64>)> {
     let p = r.ncols();
-    let scale = r.iter().map(|v| v.abs()).fold(0.0, f64::max);
-    let tolerance = f64::EPSILON * (r.nrows().max(p) as f64) * scale;
-    if (0..p).any(|i| !r[[i, i]].is_finite() || r[[i, i]].abs() <= tolerance) {
+    // Compare each pivot with its own column's scale. A global threshold
+    // incorrectly treats changes in a predictor's units as loss of rank.
+    if (0..p).any(|i| {
+        let scale = r.column(i).iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let tolerance = f64::EPSILON * (r.nrows().max(p) as f64) * scale;
+        !r[[i, i]].is_finite() || r[[i, i]].abs() <= tolerance
+    }) {
         return Err(LmeError::LinearAlgebra {
             message: "rank-deficient fixed-effects design".into(),
         });
@@ -29,5 +33,17 @@ pub(crate) fn solve_qr(r: &Array2<f64>, qty: &Array1<f64>) -> Result<(Array1<f64
         unit[j] = 1.0;
         inverse_factor.column_mut(j).assign(&backsolve(&unit));
     }
-    Ok((coefficients, inverse_factor.dot(&inverse_factor.t())))
+    let covariance = inverse_factor.dot(&inverse_factor.t());
+    if !coefficients
+        .iter()
+        .chain(covariance.iter())
+        .all(|v| v.is_finite())
+        || covariance.diag().iter().any(|&v| v <= 0.0)
+    {
+        return Err(LmeError::LinearAlgebra {
+            message: "OLS coefficients or covariance are not representable in finite precision"
+                .into(),
+        });
+    }
+    Ok((coefficients, covariance))
 }
