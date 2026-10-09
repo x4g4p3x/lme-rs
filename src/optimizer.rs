@@ -1,13 +1,13 @@
 use crate::math::LmmData;
 use crate::model_matrix::ReBlock;
 use crate::quadrature::{resolve_gh_order_joint, resolve_gh_order_product};
-use argmin::core::{CostFunction, Error};
-#[cfg(not(feature = "basin"))]
-use argmin::core::{Executor, State};
+use argmin::core::{CostFunction, Error, Executor, State};
+use argmin::solver::brent::BrentOpt;
 #[cfg(not(feature = "basin"))]
 use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
 use sprs::CsMat;
+use std::cell::RefCell;
 use std::sync::Arc;
 
 #[cfg(feature = "basin")]
@@ -222,12 +222,7 @@ fn optimize_theta_lmm_inner(
 
     if lmm.intercept_only_re() {
         return match init_theta.len() {
-            1 => Ok(optimize_theta_intercept_profile(
-                lmm,
-                init_theta,
-                reml,
-                &lower_bounds,
-            )),
+            1 => optimize_theta_intercept_profile(lmm, init_theta, reml, &lower_bounds),
             2 => optimize_theta_intercept_2d(lmm, init_theta, reml, &lower_bounds),
             _ => {
                 let cost = LmmObjective {
@@ -249,52 +244,109 @@ fn optimize_theta_lmm_inner(
     cost.optimize(init_theta, &lower_bounds, 1000, 1e-6)
 }
 
-/// Golden-section profile search for intercept-only models with |θ| = 1.
+struct ScalarObjective<'a> {
+    eval: RefCell<&'a mut dyn FnMut(f64) -> f64>,
+}
+
+impl CostFunction for ScalarObjective<'_> {
+    type Param = f64;
+    type Output = f64;
+
+    fn cost(&self, value: &f64) -> Result<f64, Error> {
+        Ok((self.eval.borrow_mut())(*value))
+    }
+}
+
+/// Bracketed Brent profile search for intercept-only models with |θ| = 1.
 fn optimize_theta_intercept_profile(
     lmm: Arc<LmmData>,
     init_theta: Array1<f64>,
     reml: bool,
     lower_bounds: &[f64],
-) -> OptimizeResult {
+) -> Result<OptimizeResult, anyhow::Error> {
+    const BRACKET_MAX_ITERS: u64 = 64;
+    const SEARCH_MAX_ITERS: u64 = 96;
+    const COORD_TOL: f64 = 1e-6;
+
     let mut theta = init_theta;
     clamp_theta(&mut theta, lower_bounds);
-    let mut trial = theta.as_slice().unwrap().to_vec();
-    let mut total_iters = 0u64;
-
-    let mut best_cost = {
-        trial.copy_from_slice(theta.as_slice().unwrap());
-        clamp_theta_slice(&mut trial, lower_bounds);
-        let val = lmm.log_reml_deviance(&trial, reml);
-        if val.is_finite() {
-            val
+    let mut evaluations = 0u64;
+    let mut eval = |value: f64| {
+        evaluations += 1;
+        let cost = lmm.log_reml_deviance(&[value], reml);
+        if cost.is_finite() {
+            cost
         } else {
             f64::MAX
         }
     };
-
-    match theta.len() {
-        1 => optimize_one_dim(
-            &lmm,
-            reml,
-            lower_bounds,
-            0,
-            &mut theta,
-            &mut trial,
-            &mut best_cost,
-            &mut total_iters,
-        ),
-        _ => unreachable!("intercept profile optimizer only handles |θ| = 1"),
+    let lower = lower_bounds[0];
+    let mut best_cost = eval(theta[0]);
+    let boundary_cost = eval(lower);
+    if boundary_cost <= best_cost {
+        theta[0] = lower;
+        best_cost = boundary_cost;
     }
 
-    clamp_theta(&mut theta, lower_bounds);
-    best_cost = lmm.log_reml_deviance(theta.as_slice().unwrap(), reml);
+    // A finite initial search interval is only a starting bracket, not an
+    // upper variance constraint. Expand while the objective is still falling.
+    let center = theta[0].max(lower + 1.0);
+    let mut previous_cost = eval(center);
+    let mut upper = center * 8.0;
+    let mut bracketed = false;
+    for _ in 0..BRACKET_MAX_ITERS {
+        if !upper.is_finite() {
+            break;
+        }
+        let cost = eval(upper);
+        if cost < best_cost {
+            theta[0] = upper;
+            best_cost = cost;
+        }
+        if cost >= previous_cost {
+            bracketed = true;
+            break;
+        }
+        previous_cost = cost;
+        upper *= 2.0;
+    }
+    let mut search_converged = false;
+    if bracketed {
+        let objective = ScalarObjective {
+            eval: RefCell::new(&mut eval),
+        };
+        let solver = BrentOpt::new(lower, upper).set_tolerance(f64::EPSILON.sqrt(), COORD_TOL);
+        let result = Executor::new(objective, solver)
+            .configure(|state| state.max_iters(SEARCH_MAX_ITERS))
+            .run()?;
+        let state = result.state();
+        search_converged = matches!(
+            state.get_termination_reason(),
+            Some(argmin::core::TerminationReason::SolverConverged)
+        );
+        let cost = state.get_best_cost();
+        if cost < best_cost {
+            theta[0] = *state
+                .get_best_param()
+                .ok_or_else(|| anyhow::anyhow!("scalar LMM search returned no parameter"))?;
+            best_cost = cost;
+        }
+    }
+    // Brent's coordinate accuracy is three times its absolute-plus-relative
+    // tolerance. A minimum this close to the admissible boundary is numerically
+    // zero; avoid reporting a spurious positive variance due to deviance roundoff.
+    let boundary_resolution = 3.0 * (f64::EPSILON.sqrt() * theta[0].abs() + COORD_TOL);
+    if boundary_cost < f64::MAX && theta[0] - lower <= boundary_resolution {
+        theta[0] = lower;
+        best_cost = boundary_cost;
+    }
 
-    OptimizeResult {
+    Ok(OptimizeResult {
         theta,
-        converged: best_cost.is_finite() && best_cost < f64::MAX,
-        iterations: total_iters,
+        converged: search_converged && best_cost.is_finite() && best_cost < f64::MAX,
+        iterations: evaluations,
         final_cost: best_cost,
-    }
+    })
 }
 
 /// Low-evaluation 2D search for intercept-only crossed models.
@@ -430,49 +482,6 @@ fn clamp_theta_slice(theta: &mut [f64], lower_bounds: &[f64]) {
         if *value < bound {
             *value = bound;
         }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn optimize_one_dim(
-    lmm: &LmmData,
-    reml: bool,
-    lower_bounds: &[f64],
-    dim: usize,
-    theta: &mut Array1<f64>,
-    trial: &mut [f64],
-    best_cost: &mut f64,
-    total_iters: &mut u64,
-) {
-    const COORD_TOL: f64 = 1e-6;
-    const HI_CAP: f64 = 12.0;
-    const GS_MAX_ITERS: u64 = 16;
-
-    let lo = lower_bounds[dim].max(1e-6);
-    let center = theta[dim].max(lo + 1e-6);
-    let lo = lo.max(center / 8.0);
-    let hi = (center * 8.0).min(HI_CAP).max(lo + 1e-6);
-    let (value, cost, iters) = golden_section_min_coord(
-        |trial_val| {
-            trial.copy_from_slice(theta.as_slice().unwrap());
-            trial[dim] = trial_val;
-            clamp_theta_slice(trial, lower_bounds);
-            let val = lmm.log_reml_deviance(trial, reml);
-            if val.is_finite() {
-                val
-            } else {
-                f64::MAX
-            }
-        },
-        lo,
-        hi,
-        COORD_TOL,
-        GS_MAX_ITERS,
-    );
-    *total_iters += iters;
-    theta[dim] = value;
-    if cost < *best_cost {
-        *best_cost = cost;
     }
 }
 

@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Expand the default scalar LMM variance search beyond its initial bracket,
+  include zero random-effect variance, and require search convergence before
+  reporting a converged fit.
+- Reject LMM likelihood solves with non-positive or non-finite residual variance
+  instead of returning negative variance and non-finite standard errors.
+
 - Correct the lower-bound bracket updates for fixed-effect profile confidence
   intervals and scale search tolerances with coefficient uncertainty.
 - Return an input error for LMM preparation without random effects, including

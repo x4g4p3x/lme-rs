@@ -798,6 +798,11 @@ fn assemble_lme_fit(
             message: "profile solve failed for ill-conditioned or rank-deficient fixed effects"
                 .into(),
         })?;
+    if !coefs.sigma2.is_finite() || coefs.sigma2 <= 0.0 || !coefs.reml_crit.is_finite() {
+        return Err(LmeError::NonConvergence {
+            message: "LMM likelihood solve did not yield a positive finite residual variance and finite objective".into(),
+        });
+    }
 
     Ok(perf_diag::scope(perf_diag::Phase::LmerPostFit, || {
         let reml_eval = coefs.reml_crit;

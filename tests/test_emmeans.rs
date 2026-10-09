@@ -202,9 +202,7 @@ fn pastes_cask_emmeans_matches_r_asymptotic_fixture() -> Result<(), Box<dyn std:
     Ok(())
 }
 
-#[test]
-fn emmeans_reference_grid_equal_weights_nuisance_factor() -> Result<(), Box<dyn std::error::Error>>
-{
+fn nuisance_factor_data(noise: f64) -> PolarsResult<(DataFrame, Vec<f64>)> {
     let mut y = Vec::new();
     let mut a = Vec::new();
     let mut b = Vec::new();
@@ -219,7 +217,8 @@ fn emmeans_reference_grid_equal_weights_nuisance_factor() -> Result<(), Box<dyn 
                         + 4.0 * bi as f64
                         + 3.0 * (ai * bi) as f64
                         + 0.5 * xv
-                        + 0.2 * g as f64,
+                        + 0.2 * g as f64
+                        + noise * if (g + ai + bi) % 2 == 0 { 1.0 } else { -1.0 },
                 );
                 a.push(*av);
                 b.push(*bv);
@@ -235,6 +234,33 @@ fn emmeans_reference_grid_equal_weights_nuisance_factor() -> Result<(), Box<dyn 
         Column::new("x".into(), x.clone()),
         Column::new("g".into(), group),
     ])?;
+    Ok((df, x))
+}
+
+#[test]
+fn exact_fit_does_not_return_negative_residual_variance() {
+    let (df, _) = nuisance_factor_data(0.0).unwrap();
+    // This response lies in the fixed-effect span. Roundoff may make a
+    // likelihood solve unavailable, but a returned variance cannot be negative.
+    match lmer("y ~ a * b + x + (1 | g)", &df, false) {
+        Ok(fit) => {
+            let variance = fit.sigma2.unwrap();
+            assert!(
+                variance.is_finite() && variance >= 0.0,
+                "variance {variance}"
+            );
+            assert!(fit.beta_se.unwrap().iter().all(|se| se.is_finite()));
+        }
+        Err(error) => assert!(matches!(error, lme_rs::LmeError::NonConvergence { .. })),
+    }
+}
+
+#[test]
+fn emmeans_reference_grid_equal_weights_nuisance_factor() -> Result<(), Box<dyn std::error::Error>>
+{
+    // Balanced within-group noise keeps uncertainty estimable without moving
+    // the factor-cell means or changing the prediction identity under test.
+    let (df, x) = nuisance_factor_data(0.01)?;
     let fit = lmer("y ~ a * b + x + (1 | g)", &df, false)?;
     let means = fit.emmeans("a", &df, 0.95, None)?;
 

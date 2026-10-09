@@ -14,6 +14,74 @@ fn sleepstudy() -> DataFrame {
         .unwrap()
 }
 
+fn check_balanced_intercept_variances(group_scale: f64) {
+    let mut x = Vec::new();
+    let mut y = Vec::new();
+    let mut group = Vec::new();
+    for (i, shift) in [-5., -2., 2., 5.].into_iter().enumerate() {
+        for value in [-1.5_f64, -0.5, 0.5, 1.5] {
+            x.push(value);
+            y.push(3.0 + group_scale * shift + 2.0 * value + 0.2 * (value * value - 1.25));
+            group.push(format!("g{i}"));
+        }
+    }
+    let df = df!("x" => x, "y" => y, "group" => group).unwrap();
+    for reml in [false, true] {
+        let fit = lmer("y ~ x + (1 | group)", &df, reml).unwrap();
+        // The centered slope and group means are orthogonal. The within-group
+        // SSE is 0.64; the group-mean contrast SSE is 4 * 58 * scale^2.
+        // ML uses 12 within / 4 between dimensions; REML removes one fixed
+        // effect from each, leaving 11 / 3. At tau^2 = 0 the variances pool.
+        let within_df = if reml { 11.0 } else { 12.0 };
+        let between_df = if reml { 3.0 } else { 4.0 };
+        let within_variance = 0.64 / within_df;
+        let between_variance = 232.0 * group_scale.powi(2) / between_df;
+        let (sigma2, tau2) = if between_variance > within_variance {
+            (within_variance, (between_variance - within_variance) / 4.0)
+        } else {
+            (
+                (0.64 + 232.0 * group_scale.powi(2)) / (within_df + between_df),
+                0.0,
+            )
+        };
+        let expected_theta = (tau2 / sigma2).sqrt();
+        let actual_theta = fit.theta.as_ref().unwrap()[0];
+        assert_eq!(fit.converged, Some(true));
+        assert!(
+            (actual_theta - expected_theta).abs() < 2e-4 * expected_theta.max(1.0),
+            "scale {group_scale}, REML {reml}: theta {actual_theta} versus {expected_theta}"
+        );
+        assert!((fit.sigma2.unwrap() / sigma2 - 1.0).abs() < 1e-4);
+        assert!((fit.coefficients[0] - 3.0).abs() < 1e-8);
+        assert!((fit.coefficients[1] - 2.0).abs() < 1e-8);
+        assert!((fit.beta_se.as_ref().unwrap()[1] / (sigma2 / 20.0).sqrt() - 1.0).abs() < 1e-4);
+        let expected_deviance = (within_df + between_df) * (std::f64::consts::TAU.ln() + 1.0)
+            + within_df * sigma2.ln()
+            + between_df * (sigma2 + 4.0 * tau2).ln()
+            + if reml { 320.0_f64.ln() } else { 0.0 };
+        assert!((fit.deviance.unwrap() - expected_deviance).abs() < 1e-5);
+        assert!((fit.diagnostics.as_ref().unwrap().objective - expected_deviance).abs() < 1e-5);
+        if tau2 == 0.0 {
+            assert_eq!(actual_theta, 0.0, "zero variance is an admissible boundary");
+        }
+    }
+}
+
+#[test]
+fn scalar_lmm_search_recovers_large_variance_ratios() {
+    check_balanced_intercept_variances(1.0);
+}
+
+#[test]
+fn scalar_lmm_search_recovers_small_positive_variance_ratios() {
+    check_balanced_intercept_variances(0.031);
+}
+
+#[test]
+fn scalar_lmm_search_recovers_zero_variance() {
+    check_balanced_intercept_variances(0.0);
+}
+
 #[test]
 fn robust_covariance_is_invariant_to_uniform_precision_scaling() {
     let df = sleepstudy();

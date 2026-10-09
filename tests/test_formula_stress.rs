@@ -601,8 +601,10 @@ fn numeric_by_factor_colon_uses_all_levels() {
 
 #[test]
 fn lmer_fits_log_and_colon_formulas() {
+    // Keep residual variance estimable for the factor-cell + group model.
+    // Opposing within-group errors preserve the factor-cell means.
     let df = DataFrame::new(vec![
-        Series::new("y".into(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),
+        Series::new("y".into(), [1.1, 1.9, 3.1, 3.9, 4.9, 6.1, 6.9, 8.1]).into(),
         Series::new("x".into(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),
         Series::new("a".into(), ["A", "A", "B", "B", "A", "A", "B", "B"]).into(),
         Series::new("b".into(), ["X", "Y", "X", "Y", "X", "Y", "X", "Y"]).into(),
