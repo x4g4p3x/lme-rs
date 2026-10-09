@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Correct the lower-bound bracket updates for fixed-effect profile confidence
+  intervals and scale search tolerances with coefficient uncertainty.
+- Return an input error for LMM preparation without random effects, including
+  unsupported OLS profile intervals, instead of panicking in sparse setup.
+
 - Use stored sandwich standard errors and normal critical values for robust Wald
   confidence intervals, including when model-based df adjustments are also stored.
 

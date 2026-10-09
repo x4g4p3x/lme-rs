@@ -15,6 +15,53 @@ fn load_cbpp() -> DataFrame {
     CsvReader::new(file).finish().expect("read cbpp")
 }
 
+fn check_analytic_gaussian_profile(scale: f64) {
+    let mut x = Vec::new();
+    let mut y = Vec::new();
+    let mut group = Vec::new();
+    for (i, shift) in [-0.5, -0.2, 0.2, 0.5].into_iter().enumerate() {
+        for value in [-1.5_f64, -0.5, 0.5, 1.5] {
+            x.push(value * scale);
+            y.push(3.0 + shift + 2.0 * value + 0.2 * (value * value - 1.25));
+            group.push(format!("g{i}"));
+        }
+    }
+    let df = df!("x" => x, "y" => y, "group" => group).unwrap();
+    let fit = lmer("y ~ x + (1 | group)", &df, false).unwrap();
+    // The centered predictor is orthogonal to the group means. Profiling the
+    // two interior variance components separates the 12 within-group contrasts
+    // from the four group means. The within-group SSE is 16 * 0.2^2 = 0.64
+    // and Sxx = 4 * (2.25 + 0.25 + 0.25 + 2.25) = 20. The deviance increase
+    // is 12 * ln(1 + (b - 2)^2 * 20 / 0.64).
+    // Independently tabulated chi-square(1) quantiles give exact LR endpoints.
+    for (level, chi2) in [(0.50, 0.454_936_423_119_572), (0.95, 3.841_458_820_694_124)] {
+        let ci = fit.confint_profile_parms(level, &df, &[1]).unwrap();
+        let margin = (0.64 * (chi2 / 12.0_f64).exp_m1() / 20.0).sqrt();
+        for (actual, expected) in [
+            (ci.lower[0] * scale, 2.0 - margin),
+            (ci.upper[0] * scale, 2.0 + margin),
+        ] {
+            // The search promises 1e-5 of one SE; compare in original units.
+            assert!(
+                (actual - expected).abs() < 1e-5,
+                "scale {scale}, level {level}: {actual} versus {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn profile_fixed_limits_match_analytic_gaussian_likelihood() {
+    check_analytic_gaussian_profile(1.0);
+}
+
+#[test]
+fn profile_fixed_limits_preserve_predictor_units() {
+    for scale in [1e-8, 1e8] {
+        check_analytic_gaussian_profile(scale);
+    }
+}
+
 #[test]
 fn test_confint_profile_sleepstudy_contains_estimate() {
     let df = load_sleepstudy();

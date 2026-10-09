@@ -461,11 +461,7 @@ fn find_profile_interval<F>(
 where
     F: FnMut(f64) -> anyhow::Result<f64>,
 {
-    let step0 = if se.is_finite() && se > 0.0 {
-        se.max(1e-8)
-    } else {
-        1.0
-    };
+    let step0 = if se.is_finite() && se > 0.0 { se } else { 1.0 };
     let lower = find_one_bound(beta_hat, -1.0, step0, target, &mut eval)?;
     let upper = find_one_bound(beta_hat, 1.0, step0, target, &mut eval)?;
     if !lower.is_finite() || !upper.is_finite() || lower >= upper {
@@ -493,21 +489,18 @@ where
         ));
     }
     let mut inner = beta_hat;
-    let mut d_inner = d_hat;
     let mut step = step0;
     let mut outer = beta_hat;
-    let mut d_outer = d_hat;
     let mut found = false;
     for _ in 0..40 {
         outer = beta_hat + direction * step;
-        d_outer = eval(outer)?;
+        let d_outer = eval(outer)?;
         if d_outer.is_finite() && d_outer >= target {
             found = true;
             break;
         }
         if d_outer.is_finite() && d_outer < target {
             inner = outer;
-            d_inner = d_outer;
         }
         step *= 1.6;
     }
@@ -516,34 +509,31 @@ where
             "profile CI: could not find deviance crossing (direction={direction})"
         ));
     }
-    let mut a = inner;
-    let mut b = outer;
-    let mut da = d_inner;
-    let mut db = d_outer;
-    if a > b {
-        std::mem::swap(&mut a, &mut b);
-        std::mem::swap(&mut da, &mut db);
-    }
+    // Keep the bracket oriented by deviance, not parameter order: `inner`
+    // is inside the interval and `outer` is beyond the likelihood crossing.
+    // On the lower side, outer < inner, so sorting reverses these roles.
     for _ in 0..50 {
-        let mid = 0.5 * (a + b);
+        let mid = inner + 0.5 * (outer - inner);
+        if mid == inner || mid == outer {
+            break;
+        }
         let dm = eval(mid)?;
         if !dm.is_finite() {
-            b = mid;
+            outer = mid;
             continue;
         }
         if dm < target {
-            a = mid;
-            da = dm;
+            inner = mid;
         } else {
-            b = mid;
-            db = dm;
+            outer = mid;
         }
-        if (b - a).abs() < 1e-5 * step0.max(1e-3) {
+        // Measure accuracy in coefficient SE units, so changing predictor units
+        // changes the interval's units without changing its statistical accuracy.
+        if (outer - inner).abs() < 1e-5 * step0 {
             break;
         }
-        let _ = (da, db);
     }
-    Ok(0.5 * (a + b))
+    Ok(inner + 0.5 * (outer - inner))
 }
 
 /// Profile-likelihood CIs for variance components.

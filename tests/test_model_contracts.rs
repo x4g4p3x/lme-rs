@@ -253,6 +253,25 @@ fn iteration_limits_are_visible_and_can_be_required() {
 }
 
 #[test]
+fn lmm_preparation_rejects_formulas_without_random_effects() {
+    let df = df!("x" => [0., 1., 2., 3.], "y" => [0., 1., 0., 1.]).unwrap();
+    for weighted in [false, true] {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            prepare_lmer_weighted("y ~ x", &df, weighted.then(|| Array1::ones(df.height())))
+        }))
+        .expect("a formula without random effects must return an error, not panic");
+        assert!(matches!(result, Err(lme_rs::LmeError::InvalidInput { .. })));
+    }
+    // The same fixed-only formula remains valid through the OLS API.
+    let fit = lm_df("y ~ x", &df).unwrap();
+    let profile = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        fit.confint_profile(0.95, &df)
+    }))
+    .expect("unsupported OLS profiling must return an error, not panic");
+    assert!(profile.is_err());
+}
+
+#[test]
 fn singular_random_slopes_recover_zero_variance_components() {
     // Identical groups have no between-group variation, while curvature leaves
     // positive residual variance after fitting the common linear trend.

@@ -629,6 +629,8 @@ pub fn prepare_lmer(formula_str: &str, data: &DataFrame) -> Result<LmerPrepared>
 }
 
 /// Prepare a weighted LMM fit (design matrices + [`math::LmmData`]) without optimizing θ.
+///
+/// Requires at least one random-effect term; use [`lm_df`] for fixed-only models.
 pub fn prepare_lmer_weighted(
     formula_str: &str,
     data: &DataFrame,
@@ -666,6 +668,11 @@ pub fn prepare_lmer_with_factors(
         })?
     };
     validate_observation_weights(weights.as_ref(), matrices.y.len())?;
+    if matrices.re_blocks.is_empty() {
+        return Err(LmeError::InvalidInput {
+            message: "LMM preparation requires at least one random-effect term; use lm_df for fixed-only models".into(),
+        });
+    }
 
     let total_theta_len: usize = matrices.re_blocks.iter().map(|b| b.theta_len).sum();
     let init_theta = Array1::from_vec(vec![1.0; total_theta_len]);
