@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Make OLS rank detection independent of predictor units while retaining
+  rejection of collinear fixed-effect designs, and reject unrepresentable
+  coefficient covariance instead of returning invalid uncertainty.
+- Preserve sequential ANOVA hypotheses for predictors in very small units.
+- Limit marginal-mean numeric references to fixed-effect source covariates,
+  ignoring unused and response columns and rejecting random-only references.
+
 - Update the Python development lock to urllib3 2.8.0 for Python 3.10 and newer
   to address PYSEC-2026-4175, PYSEC-2026-4176, and PYSEC-2026-4177 found by
   the security audit.

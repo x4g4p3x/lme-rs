@@ -104,11 +104,9 @@ fn doolittle_lower(xtx: &Array2<f64>) -> Array2<f64> {
             if i == j {
                 l[[i, j]] = s.max(0.0).sqrt();
             } else {
-                l[[i, j]] = if l[[j, j]].abs() > 1e-15 {
-                    s / l[[j, j]]
-                } else {
-                    0.0
-                };
+                // Nonzero pivots remain valid when predictors use tiny units.
+                // A fixed absolute cutoff changes the sequential hypothesis.
+                l[[i, j]] = if l[[j, j]] > 0.0 { s / l[[j, j]] } else { 0.0 };
             }
         }
     }
