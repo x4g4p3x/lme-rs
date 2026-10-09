@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Update the Python development lock to urllib3 2.8.0 for Python 3.10 and newer
+  to address PYSEC-2026-4175, PYSEC-2026-4176, and PYSEC-2026-4177 found by
+  the security audit.
+
 ## [0.2.6] - 2026-09-21
 
 ### Fixed
