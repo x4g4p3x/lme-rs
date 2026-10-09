@@ -392,8 +392,18 @@ fn reference_grid_linfct(
     let per_cell: usize = nuisance.iter().map(|n| categorical[n].len()).product();
     let n_cells = n_grid / per_cell;
     let indices = IdxCa::from_vec("reference_row".into(), vec![0 as IdxSize; n_grid]);
-    let mut grid = data.take(&indices).map_err(|e| invalid(e.to_string()))?;
     let fixed_covariates = fixed_covariate_names(&ast, data);
+    // Project before replicating rows so responses, grouping columns, and unused
+    // metadata do not add allocation and copying cost to the reference grid.
+    // Retain source order for dot expansion, including categorical covariates.
+    let grid_columns = data.get_columns().iter().filter_map(|column| {
+        let name = column.name().as_str();
+        (fixed_covariates.contains(name) || categorical.contains_key(name)).then_some(name)
+    });
+    let mut grid = data
+        .select(grid_columns)
+        .and_then(|sources| sources.take(&indices))
+        .map_err(|e| invalid(e.to_string()))?;
     for (name, value) in &options.at {
         if !value.is_finite()
             || categorical.contains_key(name)

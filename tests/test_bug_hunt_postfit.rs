@@ -99,6 +99,96 @@ fn marginal_mean_references_follow_transformed_interaction_and_dot_sources() {
 }
 
 #[test]
+fn marginal_grids_preserve_transforms_and_nuisance_weights_with_unused_metadata() {
+    use lme_rs::GridWeights;
+    let mut narrow = data();
+    narrow
+        .with_column(Column::new(
+            "b".into(),
+            ["u", "u", "v", "v", "u", "u", "u", "v"],
+        ))
+        .unwrap();
+    let mut wide = narrow.clone();
+    for i in 0..32 {
+        wide.with_column(Column::new(
+            format!("unused_text_{i}").into(),
+            vec![Some("metadata".repeat(64)); narrow.height()],
+        ))
+        .unwrap();
+        wide.with_column(Column::new(
+            format!("unused_null_{i}").into(),
+            vec![None::<f64>; narrow.height()],
+        ))
+        .unwrap();
+    }
+    for formula in [
+        "y ~ a*b + log(x)",
+        "y ~ a:b + I(x^2)",
+        "y ~ a + b + poly(x, 2)",
+    ] {
+        let fit = lm_df(formula, &narrow).unwrap();
+        for weights in [GridWeights::Equal, GridWeights::Proportional] {
+            for by in [vec![], vec!["b".into()]] {
+                let grid = ReferenceGrid {
+                    terms: vec!["a".into()],
+                    by,
+                    at: [("x".into(), 2.)].into(),
+                    weights,
+                };
+                let expected = fit
+                    .emmeans_with_grid(&narrow, &grid, 0.95, Some(DdfMethod::Residual))
+                    .unwrap();
+                let got = fit
+                    .emmeans_with_grid(&wide, &grid, 0.95, Some(DdfMethod::Residual))
+                    .unwrap();
+                assert_eq!(got.cells, expected.cells, "{formula}");
+                assert_eq!(got.estimate, expected.estimate, "{formula}");
+                assert_eq!(got.std_error, expected.std_error, "{formula}");
+                assert_eq!(got.lower, expected.lower, "{formula}");
+                assert_eq!(got.upper, expected.upper, "{formula}");
+                let expected = fit
+                    .emmeans_pairs_with_grid(
+                        &narrow,
+                        &grid,
+                        McpAdjust::Holm,
+                        Some(DdfMethod::Residual),
+                    )
+                    .unwrap();
+                let got = fit
+                    .emmeans_pairs_with_grid(
+                        &wide,
+                        &grid,
+                        McpAdjust::Holm,
+                        Some(DdfMethod::Residual),
+                    )
+                    .unwrap();
+                assert_eq!(got.groups, expected.groups, "{formula}");
+                assert_eq!(got.estimate, expected.estimate, "{formula}");
+                assert_eq!(got.std_error, expected.std_error, "{formula}");
+                assert_eq!(got.p_adjust, expected.p_adjust, "{formula}");
+            }
+        }
+    }
+}
+
+#[test]
+fn marginal_grids_can_reconstruct_categorical_only_sources_from_fitted_levels() {
+    let data = data();
+    let fit = lm_df("y ~ a", &data).unwrap();
+    let expected = fit
+        .emmeans("a", &data, 0.95, Some(DdfMethod::Residual))
+        .unwrap();
+    // Equal-weight factor grids need only the fitted levels, even when the
+    // nonempty reference frame contains no model columns.
+    let reference = df!("unused" => [None::<f64>, None]).unwrap();
+    let got = fit
+        .emmeans("a", &reference, 0.95, Some(DdfMethod::Residual))
+        .unwrap();
+    assert_eq!(got.estimate, expected.estimate);
+    assert_eq!(got.std_error, expected.std_error);
+}
+
+#[test]
 fn ols_is_invariant_to_predictor_units() {
     let y = array![1.2, 2.1, 4.8, 4.2, 6.3, 5.7, 7.4, 8.1];
     let x = array![

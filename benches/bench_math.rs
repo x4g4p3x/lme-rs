@@ -875,6 +875,28 @@ fn bench_inference(c: &mut Criterion) {
     let base_fit = lme_rs::lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
     let pastes = load_csv("tests/data/pastes.csv");
     let pastes_fit = lme_rs::lmer("strength ~ cask + (1 | batch)", &pastes, true).unwrap();
+    // Reference data often contains measurements and metadata unused by the formula.
+    let mut wide_pastes = pastes.clone();
+    for i in 0..64 {
+        wide_pastes
+            .with_column(Column::new(
+                format!("unused_numeric_{i}").into(),
+                vec![i as f64; pastes.height()],
+            ))
+            .unwrap();
+        wide_pastes
+            .with_column(Column::new(
+                format!("unused_text_{i}").into(),
+                vec!["metadata".repeat(64); pastes.height()],
+            ))
+            .unwrap();
+    }
+    let narrow_means = pastes_fit.emmeans("cask", &pastes, 0.95, None).unwrap();
+    let wide_means = pastes_fit
+        .emmeans("cask", &wide_pastes, 0.95, None)
+        .unwrap();
+    assert_eq!(narrow_means.estimate, wide_means.estimate);
+    assert_eq!(narrow_means.std_error, wide_means.std_error);
 
     let mut fit_for_type3 = base_fit.clone();
     fit_for_type3.with_satterthwaite(&df).unwrap();
@@ -956,6 +978,25 @@ fn bench_inference(c: &mut Criterion) {
             black_box(pastes_fit.emmeans_pairs(
                 black_box("cask"),
                 black_box(&pastes),
+                black_box(lme_rs::McpAdjust::Tukey),
+                None,
+            ))
+            .unwrap()
+        })
+    });
+
+    group.bench_function("emmeans_reference_grid_wide", |b| {
+        b.iter(|| {
+            black_box(pastes_fit.emmeans(black_box("cask"), black_box(&wide_pastes), 0.95, None))
+                .unwrap()
+        })
+    });
+
+    group.bench_function("emmeans_pairs_tukey_wide", |b| {
+        b.iter(|| {
+            black_box(pastes_fit.emmeans_pairs(
+                black_box("cask"),
+                black_box(&wide_pastes),
                 black_box(lme_rs::McpAdjust::Tukey),
                 None,
             ))

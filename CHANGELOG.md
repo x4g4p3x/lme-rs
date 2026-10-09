@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reduce marginal-mean and pairwise-comparison reference-grid copying by selecting
+  fixed-effect source columns before replicating rows, especially on wide tables
+  with unused measurements or metadata.
+
 ### Fixed
 
 - Build multiple-comparison contrasts from each factor's stored term assignments
