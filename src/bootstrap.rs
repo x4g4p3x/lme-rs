@@ -293,6 +293,7 @@ pub fn boot_lmer(
     seed: Option<u64>,
     n_jobs: Option<usize>,
 ) -> Result<BootLmerResult> {
+    fit.ensure_converged()?;
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }
@@ -378,6 +379,7 @@ pub fn boot_glmer(
     seed: Option<u64>,
     n_jobs: Option<usize>,
 ) -> Result<BootLmerResult> {
+    fit.ensure_converged()?;
     if formula_str.trim().is_empty() {
         return Err(LmeError::EmptyFormula);
     }

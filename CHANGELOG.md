@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject post-fit inference from models explicitly marked nonconverged, including
+  covariance adjustments, contrasts, marginal means, multiple comparisons,
+  likelihood-ratio comparisons, profile intervals, and bootstrap uncertainty.
+  Prediction remains available for inspecting diagnostic fits.
+
 - Preserve the rank, F statistic, and denominator degrees of freedom of joint
   Satterthwaite tests under contrast-row rescaling, equivalent row combinations,
   and redundant restrictions.

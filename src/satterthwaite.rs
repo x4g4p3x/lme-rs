@@ -17,6 +17,7 @@ pub(crate) struct SatterthwaiteMultiDofData {
 /// Computes the Satterthwaite approximation for degrees of freedom and p-values
 /// for the fixed effects of a fitted Linear Mixed-Effects Model.
 pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<SatterthwaiteResult> {
+    fit.ensure_converged()?;
     if fit.family.is_some() {
         return Err(LmeError::NotImplemented {
             feature: "Satterthwaite approximation is only available for linear mixed models (LMMs), not GLMMs.".to_string(),

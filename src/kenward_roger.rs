@@ -34,6 +34,7 @@ pub(crate) fn invert_kr_matrix(matrix: &Array2<f64>, context: &str) -> crate::Re
 /// Derives conservative fixed effects F-tests by accounting for the small-sample
 /// bias introduced through the estimation of variance components in Linear Mixed Models.
 pub fn compute_kenward_roger(fit: &LmeFit, data: &DataFrame) -> crate::Result<KenwardRogerResult> {
+    fit.ensure_converged()?;
     if fit.family.is_some() {
         return Err(LmeError::NotImplemented {
             feature: "Kenward-Roger approximation is only available for linear mixed models (LMMs), not GLMMs.".to_string(),

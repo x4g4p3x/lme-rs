@@ -421,6 +421,7 @@ impl LmeFit {
         data: &polars::prelude::DataFrame,
         cluster_col: Option<&str>,
     ) -> anyhow::Result<&mut Self> {
+        self.ensure_converged()?;
         let result = crate::robust::compute_robust_se(self, data, cluster_col)
             .map_err(|e| anyhow::anyhow!("Failed calculating robust SEs: {}", e))?;
         self.robust = Some(result);
@@ -1681,6 +1682,8 @@ impl fmt::Display for AnovaResult {
 /// }
 /// ```
 pub fn anova(fit_a: &LmeFit, fit_b: &LmeFit) -> anyhow::Result<AnovaResult> {
+    fit_a.ensure_converged()?;
+    fit_b.ensure_converged()?;
     // Validate both models have deviance
     let dev_a = fit_a.deviance.ok_or_else(|| {
         anyhow::anyhow!("Model A has no deviance — was it fit as a mixed-effects model?")

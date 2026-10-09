@@ -252,6 +252,303 @@ fn iteration_limits_are_visible_and_can_be_required() {
     ));
 }
 
+fn limited_inference_fit() -> (DataFrame, lme_rs::LmeFit) {
+    let mut df = data();
+    df.with_column(Series::new(
+        "phase".into(),
+        (0..df.height())
+            .map(|i| if i % 10 < 5 { "early" } else { "late" })
+            .collect::<Vec<_>>(),
+    ))
+    .unwrap();
+    let prepared = lme_rs::prepare_lmer("Reaction ~ Days + phase + (Days | Subject)", &df).unwrap();
+    let fit = prepared
+        .fit(
+            None,
+            true,
+            &lme_rs::FitControl {
+                max_iterations: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(fit.converged, Some(false));
+    (df, fit)
+}
+
+fn assert_inference_nonconvergence<T>(result: lme_rs::Result<T>, context: &str) {
+    match result {
+        Err(lme_rs::LmeError::NonConvergence { .. }) => {}
+        Err(error) => panic!("{context}: expected NonConvergence, got {error:?}"),
+        Ok(_) => panic!("{context}: returned uncertainty for a nonconverged fit"),
+    }
+}
+
+fn assert_anyhow_nonconvergence<T>(result: anyhow::Result<T>, context: &str) {
+    let error = result
+        .err()
+        .unwrap_or_else(|| panic!("{context}: returned uncertainty for a nonconverged fit"));
+    assert!(
+        matches!(
+            error.downcast_ref::<lme_rs::LmeError>(),
+            Some(lme_rs::LmeError::NonConvergence { .. })
+        ),
+        "{context}: expected NonConvergence, got {error:?}"
+    );
+}
+
+#[test]
+fn nonconverged_fits_reject_asymptotic_factor_inference() {
+    let (df, fit) = limited_inference_fit();
+    // A diagnostic fit remains usable for prediction, while its uncertainty
+    // must obey the same convergence contract as confint().
+    assert!(fit.predict(&df).unwrap().iter().all(|x| x.is_finite()));
+    let results = [
+        (
+            "marginal means",
+            fit.emmeans("phase", &df, 0.95, None).map(|_| ()),
+        ),
+        (
+            "marginal-mean pairs",
+            fit.emmeans_pairs("phase", &df, lme_rs::McpAdjust::Holm, None)
+                .map(|_| ()),
+        ),
+        (
+            "multiple comparisons",
+            fit.glht(
+                "phase",
+                lme_rs::McpType::Tukey,
+                lme_rs::McpAdjust::Holm,
+                None,
+            )
+            .map(|_| ()),
+        ),
+    ];
+    for (context, result) in results {
+        assert_inference_nonconvergence(result, context);
+    }
+}
+
+#[test]
+fn nonconverged_fits_reject_satterthwaite_calculation() {
+    let (df, mut fit) = limited_inference_fit();
+    let direct = lme_rs::satterthwaite::compute_satterthwaite(&fit, &df);
+    let wrapped = fit.with_satterthwaite(&df).map(|_| ());
+    assert_inference_nonconvergence(direct, "Satterthwaite calculation");
+    assert_anyhow_nonconvergence(wrapped, "with_satterthwaite");
+    assert!(fit.satterthwaite.is_none());
+}
+
+#[test]
+fn nonconverged_fits_reject_kenward_roger_calculation() {
+    let (df, mut fit) = limited_inference_fit();
+    let direct = lme_rs::kenward_roger::compute_kenward_roger(&fit, &df);
+    let wrapped = fit.with_kenward_roger(&df).map(|_| ());
+    assert_inference_nonconvergence(direct, "Kenward-Roger calculation");
+    assert_anyhow_nonconvergence(wrapped, "with_kenward_roger");
+    assert!(fit.kenward_roger.is_none());
+}
+
+#[test]
+fn nonconverged_fits_reject_robust_calculation() {
+    let (df, mut fit) = limited_inference_fit();
+    let direct = lme_rs::robust::compute_robust_se(&fit, &df, Some("Subject"));
+    let wrapped = fit.with_robust_se(&df, Some("Subject")).map(|_| ());
+    assert!(
+        direct.err().is_some_and(|e| e.contains("did not converge")),
+        "direct robust calculation must reject nonconvergence"
+    );
+    assert_anyhow_nonconvergence(wrapped, "with_robust_se");
+    assert!(fit.robust.is_none());
+}
+
+#[test]
+fn nonconverged_fits_cannot_use_cached_df_adjustments() {
+    let (df, _) = limited_inference_fit();
+    let mut fit = lmer("Reaction ~ Days + phase + (Days | Subject)", &df, true).unwrap();
+    assert_eq!(fit.converged, Some(true));
+    fit.with_satterthwaite(&df).unwrap();
+    fit.with_kenward_roger(&df).unwrap();
+    // Cached results must never bypass the authoritative convergence state.
+    fit.converged = Some(false);
+    let mut one = ndarray::Array2::zeros((1, fit.coefficients.len()));
+    one[[0, 1]] = 1.0;
+    for method in [
+        lme_rs::DdfMethod::Satterthwaite,
+        lme_rs::DdfMethod::KenwardRoger,
+    ] {
+        let results = [
+            (
+                "single contrast",
+                fit.test_contrast(&one, method).map(|_| ()),
+            ),
+            (
+                "joint contrast",
+                fit.test_contrast(&ndarray::Array2::eye(fit.coefficients.len()), method)
+                    .map(|_| ()),
+            ),
+            ("ANOVA", fit.anova(method).map(|_| ())),
+            (
+                "linear hypothesis",
+                fit.linear_hypothesis("phase", method).map(|_| ()),
+            ),
+            (
+                "marginal means",
+                fit.emmeans("phase", &df, 0.95, Some(method)).map(|_| ()),
+            ),
+            (
+                "multiple comparisons",
+                fit.glht(
+                    "phase",
+                    lme_rs::McpType::Tukey,
+                    lme_rs::McpAdjust::Holm,
+                    Some(method),
+                )
+                .map(|_| ()),
+            ),
+        ];
+        for (context, result) in results {
+            assert_inference_nonconvergence(result, context);
+        }
+    }
+}
+
+#[test]
+fn nonconverged_fits_reject_likelihood_ratio_comparisons() {
+    let df = data();
+    let small = lmer("Reaction ~ Days + (1 | Subject)", &df, false).unwrap();
+    let large = lmer("Reaction ~ Days + (Days | Subject)", &df, false).unwrap();
+    assert!(lme_rs::anova(&small, &large).unwrap().p_value.is_finite());
+    for (formula, other) in [
+        ("Reaction ~ Days + (1 | Subject)", &large),
+        ("Reaction ~ Days + (Days | Subject)", &small),
+    ] {
+        let limited = lme_rs::prepare_lmer(formula, &df)
+            .unwrap()
+            .fit(
+                None,
+                false,
+                &lme_rs::FitControl {
+                    max_iterations: 1,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(limited.converged, Some(false));
+        let forward = lme_rs::anova(&limited, other);
+        let reverse = lme_rs::anova(other, &limited);
+        assert_anyhow_nonconvergence(forward, "LRT model A");
+        assert_anyhow_nonconvergence(reverse, "LRT model B");
+    }
+}
+
+#[test]
+fn nonconverged_fits_reject_profile_and_bootstrap_uncertainty() {
+    let control = lme_rs::FitControl {
+        max_iterations: 1,
+        ..Default::default()
+    };
+    let df = data();
+    let formula = "Reaction ~ Days + (1 | Subject)";
+    let fit = lme_rs::prepare_lmer(formula, &df)
+        .unwrap()
+        .fit(None, false, &control)
+        .unwrap();
+    assert_eq!(fit.converged, Some(false));
+    let fixed = fit.confint_profile_parms(0.5, &df, &[1]);
+    let variance = fit.confint_profile_vc(0.5, &df);
+    let bootstrap = boot_lmer(
+        formula,
+        &df,
+        &fit,
+        1,
+        BootLmerMethod::Parametric,
+        false,
+        Some(17),
+        Some(1),
+    );
+    assert_inference_nonconvergence(bootstrap, "LMM bootstrap");
+    assert_anyhow_nonconvergence(fixed, "LMM fixed profile");
+    assert_anyhow_nonconvergence(variance, "LMM variance profile");
+}
+
+#[test]
+fn nonconverged_glmm_rejects_profile_and_bootstrap_uncertainty() {
+    let df = CsvReadOptions::default()
+        .with_has_header(true)
+        .try_into_reader_with_file_path(Some("tests/data/cbpp_binary.csv".into()))
+        .unwrap()
+        .finish()
+        .unwrap();
+    let formula = "y ~ period2 + period3 + period4 + (1 | herd)";
+    let fit = lme_rs::prepare_glmer(formula, &df, lme_rs::family::Family::Binomial, 1)
+        .unwrap()
+        .fit(
+            None,
+            &lme_rs::FitControl {
+                max_iterations: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(fit.converged, Some(false));
+    let fixed = fit.confint_profile_parms(0.5, &df, &[1]);
+    let variance = fit.confint_profile_vc(0.5, &df);
+    let bootstrap = lme_rs::boot_glmer(
+        formula,
+        &df,
+        &fit,
+        1,
+        BootLmerMethod::Parametric,
+        Some(17),
+        Some(1),
+    );
+    assert_inference_nonconvergence(bootstrap, "GLMM bootstrap");
+    assert_anyhow_nonconvergence(fixed, "GLMM fixed profile");
+    assert_anyhow_nonconvergence(variance, "GLMM variance profile");
+}
+
+#[test]
+fn converged_and_ols_fits_keep_factor_inference_available() {
+    let (df, _) = limited_inference_fit();
+    let mixed = lmer("Reaction ~ Days + phase + (Days | Subject)", &df, true).unwrap();
+    assert_eq!(mixed.converged, Some(true));
+    let ols = lm_df("Reaction ~ Days + phase", &df).unwrap();
+    assert_eq!(ols.converged, None);
+    for mut fit in [mixed, ols] {
+        fit.with_robust_se(&df, Some("Subject")).unwrap();
+        assert!(fit
+            .confint(0.95)
+            .unwrap()
+            .lower
+            .iter()
+            .all(|x| x.is_finite()));
+        assert!(fit
+            .emmeans("phase", &df, 0.95, None)
+            .unwrap()
+            .std_error
+            .iter()
+            .all(|x| x.is_finite()));
+        assert!(fit
+            .emmeans_pairs("phase", &df, lme_rs::McpAdjust::Holm, None)
+            .unwrap()
+            .p_value
+            .iter()
+            .all(|x| x.is_finite()));
+        assert!(fit
+            .glht(
+                "phase",
+                lme_rs::McpType::Tukey,
+                lme_rs::McpAdjust::Holm,
+                None
+            )
+            .unwrap()
+            .p_value
+            .iter()
+            .all(|x| x.is_finite()));
+    }
+}
+
 #[test]
 fn lmm_preparation_rejects_formulas_without_random_effects() {
     let df = df!("x" => [0., 1., 2., 3.], "y" => [0., 1., 0., 1.]).unwrap();

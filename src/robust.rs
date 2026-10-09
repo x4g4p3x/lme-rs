@@ -29,6 +29,7 @@ pub fn compute_robust_se(
     data: &polars::prelude::DataFrame,
     cluster_col: Option<&str>,
 ) -> Result<RobustResult, String> {
+    fit.ensure_converged().map_err(|e| e.to_string())?;
     let p = fit.coefficients.len();
     let n = fit.residuals.len();
     if data.height() != n {

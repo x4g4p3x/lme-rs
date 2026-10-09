@@ -207,6 +207,7 @@ pub fn profile_confint(
     data: &DataFrame,
     parms: Option<&[usize]>,
 ) -> anyhow::Result<ConfintResult> {
+    fit.ensure_converged()?;
     if !level.is_finite() || level <= 0.0 || level >= 1.0 {
         return Err(anyhow::anyhow!(
             "Confidence level must be in (0, 1), got {}",
@@ -542,6 +543,7 @@ pub fn profile_confint_vc(
     level: f64,
     data: &DataFrame,
 ) -> anyhow::Result<ConfintResult> {
+    fit.ensure_converged()?;
     if !level.is_finite() || level <= 0.0 || level >= 1.0 {
         return Err(anyhow::anyhow!(
             "Confidence level must be in (0, 1), got {}",

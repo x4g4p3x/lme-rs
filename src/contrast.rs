@@ -117,6 +117,7 @@ pub(crate) fn fixed_effect_contrast_test(
     ddf: DdfMethod,
     beta_h: Option<&Array1<f64>>,
 ) -> crate::Result<ContrastTestResult> {
+    fit.ensure_converged()?;
     let beta = &fit.coefficients;
     let p = beta.len();
     if l_mat.ncols() != p {
@@ -308,6 +309,7 @@ pub(crate) fn fixed_effect_vcov_for_method(
     fit: &LmeFit,
     ddf: Option<DdfMethod>,
 ) -> crate::Result<Array2<f64>> {
+    fit.ensure_converged()?;
     if matches!(ddf, Some(DdfMethod::KenwardRoger)) {
         return fit
             .kenward_roger
