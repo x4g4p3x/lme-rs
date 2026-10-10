@@ -34,7 +34,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: stable
+          toolchain: "1.99.0"
 
       - name: Install OpenBLAS
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
@@ -83,17 +83,26 @@ jobs:
     env:
       BENCH_WARMUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.warmups || '2' }}
       BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '10' }}
+      JULIA_PROJECT: ${{ github.workspace }}/comparisons/julia
+      JULIA_DEPOT_PATH: ${{ github.workspace }}/benchmark-results/julia-depot
       R_LIBS_USER: ${{ github.workspace }}/.r-lib
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: stable
+          toolchain: "1.99.0"
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.24"
+          enable-cache: true
+          cache-dependency-glob: "benchmarks/python/uv.lock"
 
       - name: Install system dependencies
         run: |
@@ -116,13 +125,15 @@ jobs:
           restore-keys: ${{ runner.os }}-crosslang-cargo-
 
       - name: Install Python benchmark dependencies
-        run: python -m pip install maturin polars pandas statsmodels
+        run: |
+          uv sync --locked --project benchmarks/python
+          echo "${GITHUB_WORKSPACE}/benchmarks/python/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Build Python wheel
         run: maturin build --release --manifest-path python/Cargo.toml
 
       - name: Install Python bindings
-        run: python -m pip install --force-reinstall python/target/wheels/*.whl
+        run: uv pip install --python benchmarks/python/.venv/bin/python --no-deps python/target/wheels/*.whl
 
       - name: Install R benchmark dependencies
         run: |
@@ -134,8 +145,18 @@ jobs:
       - name: Test benchmark evidence rules
         run: python3 scripts/ci/lme_ci.py benchmark-tests
 
-      - name: Install Julia benchmark dependencies
-        run: julia -e 'using Pkg; Pkg.add(["CSV", "DataFrames", "JSON", "MixedModels", "GLM", "JuliaFormatter"])'
+      - name: Cache Julia packages and precompilation
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: benchmark-results/julia-depot
+          key: ${{ runner.os }}-julia-${{ env.JULIA_VERSION }}-${{ hashFiles('comparisons/julia/Project.toml', 'comparisons/julia/Manifest.toml') }}
+          restore-keys: ${{ runner.os }}-julia-${{ env.JULIA_VERSION }}-
+
+      - name: Restore Julia benchmark dependencies
+        run: julia --project=comparisons/julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+
+      - name: Audit Python benchmark dependencies
+        run: python -m pip_audit
 
       - name: Check comparison script formatting
         run: python3 scripts/ci/lme_ci.py comparison-format-check --required

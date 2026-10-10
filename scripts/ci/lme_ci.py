@@ -158,9 +158,7 @@ def cargo_consolidated_test(*, no_run: bool = False) -> None:
     """Run all test bodies with one integration binary, plus docs/examples."""
     harness = ROOT / "tests" / "ci_consolidated.rs"
     expected = sorted(
-        path.name
-        for path in (ROOT / "tests").glob("*.rs")
-        if path.name != harness.name
+        path.name for path in (ROOT / "tests").glob("*.rs") if path.name != harness.name
     )
     declared = sorted(
         line.split('"', 2)[1]
@@ -269,16 +267,17 @@ def markdown_links_check() -> None:
         check=True,
     )
     markdown_files = [
-        ROOT / path
-        for path in result.stdout.split("\0")
-        if path and (ROOT / path).exists()
+        ROOT / path for path in result.stdout.split("\0") if path and (ROOT / path).exists()
     ]
     checked = 0
     failures: list[str] = []
 
     for document in markdown_files:
         text = document.read_text(encoding="utf-8")
-        matches = [*MARKDOWN_INLINE_LINK.finditer(text), *MARKDOWN_REFERENCE_LINK.finditer(text)]
+        matches = [
+            *MARKDOWN_INLINE_LINK.finditer(text),
+            *MARKDOWN_REFERENCE_LINK.finditer(text),
+        ]
         for match in matches:
             target = _markdown_target(match.group(1))
             if not target or target.startswith(("#", "http://", "https://", "mailto:", "data:")):
@@ -387,9 +386,7 @@ BENCHMARK_SITE_SCRIPT = ROOT / "scripts" / "build_benchmark_site.py"
 BENCHMARK_SITE_DATA = ROOT / "docs" / "benchmarks" / "data" / "latest.json"
 
 
-def _build_benchmark_site_json(
-    output_dir: Path, extra_args: Sequence[str] | None = None
-) -> None:
+def _build_benchmark_site_json(output_dir: Path, extra_args: Sequence[str] | None = None) -> None:
     cmd = [
         sys.executable,
         str(BENCHMARK_SITE_SCRIPT.relative_to(ROOT)),
@@ -401,9 +398,7 @@ def _build_benchmark_site_json(
     run(cmd)
 
 
-def assemble_benchmark_site(
-    site_dir: Path, extra_args: Sequence[str] | None = None
-) -> None:
+def assemble_benchmark_site(site_dir: Path, extra_args: Sequence[str] | None = None) -> None:
     if site_dir.exists():
         shutil.rmtree(site_dir)
     shutil.copytree(ROOT / "docs", site_dir)
@@ -474,7 +469,10 @@ def benchmarks_r_smoke() -> None:
         text=True,
     )
     if probe.returncode != 0:
-        print("skip: R package lme4 not installed (full R benchmarks are CI-only)", flush=True)
+        print(
+            "skip: R package lme4 not installed (full R benchmarks are CI-only)",
+            flush=True,
+        )
         return
     run(["Rscript", "comparisons/sleepstudy.R"])
 
@@ -580,6 +578,7 @@ def print_benchmark_failures(path: str) -> None:
 def preflight() -> None:
     """Pre-push gate: static checks + compile graph + security audit."""
     lint()
+    toolchain_check()
     cargo_check()
     cargo_audit()
     legal_compliance()
@@ -597,9 +596,37 @@ def rust_lint() -> None:
     cargo_clippy()
 
 
+def toolchain_check() -> None:
+    """Keep installed tool versions aligned with the local validation environment."""
+    mise = (ROOT / "mise.toml").read_text(encoding="utf-8")
+    versions = {}
+    for name in ("rust", "uv"):
+        match = re.search(rf'^{name} = "(\d+\.\d+\.\d+)"$', mise, re.MULTILINE)
+        if match is None:
+            raise CiError(f"mise.toml requires an exact {name} version")
+        versions[name] = match.group(1)
+    rust, uv = versions["rust"], versions["uv"]
+    toolchain = (ROOT / "rust-toolchain.toml").read_text(encoding="utf-8")
+    if f'channel = "{rust}"' not in toolchain:
+        raise CiError("mise and rust-toolchain.toml Rust versions differ")
+    for path in (ROOT / ".github" / "workflows").glob("*.yml"):
+        text = path.read_text(encoding="utf-8")
+        # The separate newest-compiler job deliberately overrides the repository pin.
+        pinned = text.split("  rust-latest:", 1)[0]
+        for version in re.findall(r"toolchain: [\"']?([^\s\"']+)", pinned):
+            if version not in (rust, "nightly"):
+                raise CiError(f"{path.name}: Rust version {version} differs from {rust}")
+        for block in re.findall(
+            r"uses: astral-sh/setup-uv@[^\n]+\n(.*?)(?=\n      -|\Z)", text, re.DOTALL
+        ):
+            if f'version: "{uv}"' not in block:
+                raise CiError(f"{path.name}: uv version differs from {uv}")
+    print("toolchain version alignment: OK", flush=True)
+
+
 def _ruff_invocation() -> tuple[list[str], str]:
     _require_tool("uv")
-    return ["uv", "tool", "run", "ruff"], str(PYTHON_DIR / "pyproject.toml")
+    return ["uv", "tool", "run", "ruff==0.17.0"], str(PYTHON_DIR / "pyproject.toml")
 
 
 # Linted on `task lint` / pre-push (excludes .venv via pyproject exclude).
@@ -685,7 +712,12 @@ def _julia_formatter_ready(*, required: bool) -> bool:
         print(message, flush=True)
         return False
     probe = subprocess.run(
-        ["julia", "-e", "using JuliaFormatter"],
+        [
+            "julia",
+            f"--project={ROOT / 'comparisons' / 'julia'}",
+            "-e",
+            "using JuliaFormatter",
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -693,7 +725,7 @@ def _julia_formatter_ready(*, required: bool) -> bool:
     if probe.returncode != 0:
         message = (
             "skip: Julia package JuliaFormatter not installed "
-            "(Pkg.add(\"JuliaFormatter\") for comparison Julia formatting)"
+            "(run `task benchmarks:julia:setup` for the locked comparison environment)"
         )
         if required:
             raise CiError("Julia package JuliaFormatter is not installed")
@@ -721,7 +753,11 @@ def _format_julia_files(files: list[str], *, check: bool, required: bool = False
     if not _julia_formatter_ready(required=required):
         return
     flag = "--check" if check else ""
-    cmd = ["julia", str(JULIA_FORMAT_SCRIPT.relative_to(ROOT))]
+    cmd = [
+        "julia",
+        f"--project={ROOT / 'comparisons' / 'julia'}",
+        str(JULIA_FORMAT_SCRIPT.relative_to(ROOT)),
+    ]
     if flag:
         cmd.append(flag)
     cmd.extend(files)
@@ -757,7 +793,11 @@ def julia_format_staged(*, fix: bool) -> None:
 def _venv_python_version(venv: Path) -> tuple[int, int]:
     py = venv_python(venv)
     result = subprocess.run(
-        [str(py), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+        [
+            str(py),
+            "-c",
+            "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -778,9 +818,7 @@ def _uv_python_env(venv: Path = PYTHON_VENV) -> dict[str, str]:
     }
 
 
-def _uv_sync(
-    *, python: str = "3.11", reuse: bool = True, venv: Path = PYTHON_VENV
-) -> None:
+def _uv_sync(*, python: str = "3.11", reuse: bool = True, venv: Path = PYTHON_VENV) -> None:
     """Install locked dev dependencies into an explicitly selected environment."""
     _require_tool("uv")
     want = _parse_python_version(python)
@@ -910,9 +948,7 @@ def python_bindings(
         )
         wheels = sorted(dist.glob("lme_python-*.whl"))
         if len(wheels) != 1:
-            raise CiError(
-                f"expected exactly one wheel under {dist}, found {len(wheels)}"
-            )
+            raise CiError(f"expected exactly one wheel under {dist}, found {len(wheels)}")
 
         _uv_sync(python=python, reuse=False, venv=wheel_venv)
         wheel_python = venv_python(wheel_venv)
@@ -968,9 +1004,7 @@ def release_wheel_smoke(*, wheel_dir: str, python: str) -> None:
     """Install an already-built release artifact; never rebuild the extension."""
     wheels = list(Path(wheel_dir).resolve().glob("lme_python-*.whl"))
     if len(wheels) != 1:
-        raise CiError(
-            f"expected exactly one release wheel in {wheel_dir}, got {len(wheels)}"
-        )
+        raise CiError(f"expected exactly one release wheel in {wheel_dir}, got {len(wheels)}")
     with tempfile.TemporaryDirectory(prefix="lme-release-smoke-") as tmp:
         venv = Path(tmp) / "venv"
         executable = _create_uv_venv(python=python, venv=venv)
@@ -986,9 +1020,7 @@ def release_wheel_smoke(*, wheel_dir: str, python: str) -> None:
                 "pytest>=7",
             ]
         )
-        _assert_python_artifact(
-            executable, version=_python_package_version(), venv=venv
-        )
+        _assert_python_artifact(executable, version=_python_package_version(), venv=venv)
         run(
             [
                 str(executable),
@@ -1007,6 +1039,7 @@ def release_wheel_smoke(*, wheel_dir: str, python: str) -> None:
 
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
     completion_check()
+    toolchain_check()
     cargo_build_test()
     basin_check()
     run(["cargo", "run", "--locked", "--example", "sleepstudy"])
@@ -1076,9 +1109,24 @@ def main(argv: list[str] | None = None) -> int:
     ).set_defaults(fn=lambda _: basin_check())
     sub.add_parser("doctest", help="cargo test --doc").set_defaults(fn=lambda _: cargo_doctest())
     sub.add_parser("doc", help="cargo doc").set_defaults(fn=lambda _: cargo_doc())
-    sub.add_parser("benchmark-tests", help="Test benchmark evidence and reporting rules").set_defaults(
-        fn=lambda _: benchmark_tests()
+    sub.add_parser("toolchain-check", help="Verify local and hosted tool versions").set_defaults(
+        fn=lambda _: toolchain_check()
     )
+    sub.add_parser(
+        "julia-setup", help="Restore the locked Julia benchmark environment"
+    ).set_defaults(
+        fn=lambda _: run(
+            [
+                _resolve_julia_bin() or "julia",
+                "--project=comparisons/julia",
+                "-e",
+                "using Pkg; Pkg.instantiate(); Pkg.precompile()",
+            ]
+        )
+    )
+    sub.add_parser(
+        "benchmark-tests", help="Test benchmark evidence and reporting rules"
+    ).set_defaults(fn=lambda _: benchmark_tests())
     sub.add_parser(
         "docs-links",
         help="Validate local link targets in tracked Markdown documents",
@@ -1120,7 +1168,10 @@ def main(argv: list[str] | None = None) -> int:
     ).set_defaults(fn=lambda _: benchmarks_preflight())
     sub.add_parser(
         "benchmarks-fair-rust-julia",
-        help="Fair fit-only Rust vs Julia timing when Julia + MixedModels are installed (LMM smoke; GLM only for GLMM cases)",
+        help=(
+            "Fair fit-only Rust vs Julia timing when Julia + MixedModels are installed "
+            "(LMM smoke; GLM only for GLMM cases)"
+        ),
     ).set_defaults(fn=lambda _: benchmarks_fair_rust_julia())
     sub.add_parser(
         "perf-breakdown",
@@ -1144,9 +1195,7 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="Copy docs/ into this directory and write dashboard JSON there",
     )
-    p_site.set_defaults(
-        fn=lambda a: benchmark_site(check=a.check, site_dir=a.site_dir or None)
-    )
+    p_site.set_defaults(fn=lambda a: benchmark_site(check=a.check, site_dir=a.site_dir or None))
     p_ext = sub.add_parser(
         "external-timings",
         help="Time nlmer, post-fit inference, and Python FFI (R when available)",
@@ -1160,7 +1209,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_bench_fail.add_argument("path")
     p_bench_fail.set_defaults(fn=lambda a: print_benchmark_failures(a.path))
-    sub.add_parser("rust-all", help="Rust slice without Python").set_defaults(fn=lambda _: rust_all())
+    sub.add_parser("rust-all", help="Rust slice without Python").set_defaults(
+        fn=lambda _: rust_all()
+    )
 
     p_py = sub.add_parser("python", help="Python bindings CI flow")
     p_py.add_argument("--python-version", default="3.11")
@@ -1242,9 +1293,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Fail when Rscript/styler or julia/JuliaFormatter are unavailable",
     )
-    p_comparison_format.set_defaults(
-        fn=lambda a: comparison_format_check(required=a.required)
-    )
+    p_comparison_format.set_defaults(fn=lambda a: comparison_format_check(required=a.required))
 
     p_ci = sub.add_parser("ci", help="Full core CI mirror")
     p_ci.add_argument("--reuse-venv", action="store_true")

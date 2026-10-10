@@ -15,7 +15,10 @@ mise install
 task setup
 ```
 
-[mise.toml](mise.toml) configures Rust stable, Python 3.11, uv, Task, and Lefthook.
+[mise.toml](mise.toml) pins Rust, Python 3.11, uv, Task, and Lefthook.
+The compiler pin also lives in [rust-toolchain.toml](rust-toolchain.toml).
+`task toolchain:check` detects drift between local and hosted validation versions;
+CI separately checks compatibility with the newest stable Rust compiler.
 If tools are installed already, `task hooks:install` installs the Git hooks.
 The pre-push audit also requires `cargo-audit`; install it with
 `cargo install cargo-audit`.
@@ -92,7 +95,7 @@ For an interactive development environment:
 
 ```bash
 cd python
-uv sync --extra dev --no-install-project
+uv sync --locked --extra dev --no-install-project
 uv run --no-sync maturin develop --release
 uv run --no-sync pytest tests/
 uv run --no-sync python examples/lmer_sleepstudy.py
@@ -108,6 +111,32 @@ from `python/` and validate the package.
 
 The complete bindings flow checks the extension's version and import path,
 runs the editable package tests, then builds and tests an isolated wheel.
+
+## Benchmark environments and compiler caching
+
+Python comparisons use the separate locked environment in
+[benchmarks/python/pyproject.toml](benchmarks/python/pyproject.toml).
+Run `uv sync --locked --project benchmarks/python`, build the extension wheel
+with its Maturin, and install that wheel with `uv pip install --no-deps --python
+benchmarks/python/.venv/Scripts/python.exe <wheel>` on Windows (use `.venv/bin/python`
+on Unix). Use that interpreter for the benchmark drivers; avoid synchronizing
+after installing the wheel. Audit this environment with `python -m pip_audit`.
+
+Julia comparisons use [the checked-in project](comparisons/julia/Project.toml)
+and [manifest](comparisons/julia/Manifest.toml), generated with Julia 1.10.11.
+Run `task benchmarks:julia:setup` with Julia on PATH or `JULIA_BIN` set. The benchmark
+drivers select this project by default and respect an explicit `JULIA_PROJECT`.
+For standalone scripts, use `julia --project=comparisons/julia comparisons/sleepstudy.jl`.
+Update the project and regenerate the manifest together when changing dependencies.
+
+Hosted Rust validation uses sccache 0.16.0 alongside the existing Cargo artifact
+cache and reports cache statistics. Local incremental compilation remains enabled;
+do not globally disable it just to use sccache. The cache cannot reuse final linking.
+
+The library and Python extension require eager Polars frames. Lazy expressions
+remain available in development tests/examples or through the `polars-lazy` Cargo
+feature. See [the toolchain evidence](benchmarks/toolchain-2026-10-10.md) for the
+dependency footprint and bounded compiler-cache measurements.
 `task consumer:smoke` additionally installs the wheel in a dependency-only
 environment and runs the portable examples. CI tests source builds on Python
 3.10–3.14; the full identity/consumer flow is centered on 3.11. Windows and macOS

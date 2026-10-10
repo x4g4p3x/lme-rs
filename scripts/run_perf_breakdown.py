@@ -282,6 +282,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    os.environ.setdefault("JULIA_PROJECT", str(REPO_ROOT / "comparisons" / "julia"))
     args = parse_args()
     if args.warmups < 0:
         raise SystemExit("--warmups must be nonnegative")

@@ -25,6 +25,8 @@ exclude = [
 rustdoc-args = ["--extend-css", "docs/rustdoc.css"]
 
 [features]
+# Optional Polars expression engine. The model APIs only require eager frames.
+polars-lazy = ["polars/lazy"]
 # Selects Basin's projected Nelder-Mead for the shared vector searches.
 basin = ["dep:basin"]
 # Enables `bench_load_production` (large synthetic workloads; not run by default `cargo bench`).
@@ -33,7 +35,7 @@ slow-production-benches = []
 ci-consolidated-tests = []
 
 [dependencies]
-polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
+polars = { version = "0.46.0", features = ["csv"] }
 ndarray = "0.16"
 
 statrs = { version = "0.18", default-features = false }
@@ -54,6 +56,8 @@ rayon = "1.11"
 smallvec = "1.15"
 
 [dev-dependencies]
+# Comparison examples and fixtures use lazy expressions; consumers do not need them.
+polars = { version = "0.46.0", features = ["lazy", "csv"] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
 env_logger = "0.11.9"
 rayon = "1.11"

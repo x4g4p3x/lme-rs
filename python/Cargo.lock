@@ -1842,7 +1842,6 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "regex",
- "serde_json",
  "strum_macros",
  "thiserror 2.0.18",
  "version_check",

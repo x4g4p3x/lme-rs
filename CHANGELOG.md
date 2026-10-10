@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Keep the Polars lazy expression engine in development dependencies and expose
+  it through the `polars-lazy` feature, reducing the library and Python extension
+  dependency footprint without changing model calculations.
+- Pin development and validation tools, lock the Python and Julia benchmark
+  environments, and enable compiler caching for ordinary hosted Rust validation.
+
 - Scan wider contiguous training designs in row order during robust inference,
   preserving per-column tolerances and the small/strided-design fallback.
   See the [10 October measurements](benchmarks/perf-tune-robust-covariance-2026-10-10.md)

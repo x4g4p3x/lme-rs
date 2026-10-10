@@ -16,6 +16,7 @@ site/
 # Python bindings
 python/target/
 python/.venv/
+benchmarks/python/.venv/
 __pycache__/
 *.whl
 .pytest_cache/

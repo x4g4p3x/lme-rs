@@ -30,6 +30,16 @@ tasks:
     cmds:
       - '{{.RUN}} preflight'
 
+  toolchain:check:
+    desc: Verify local and hosted tool version alignment
+    cmds:
+      - '{{.RUN}} toolchain-check'
+
+  benchmarks:julia:setup:
+    desc: Restore and precompile the locked Julia comparison environment
+    cmds:
+      - '{{.RUN}} julia-setup'
+
   audit:
     desc: cargo audit (root + python/) and pip-audit
     cmds:

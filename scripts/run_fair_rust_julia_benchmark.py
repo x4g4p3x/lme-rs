@@ -585,6 +585,7 @@ def compare_case(
 
 
 def main() -> int:
+    os.environ.setdefault("JULIA_PROJECT", str(REPO_ROOT / "comparisons" / "julia"))
     args = parse_args()
     cases = split_csv(args.cases)
     implementations = set(split_csv(args.implementations))
