@@ -2,19 +2,23 @@
 //!
 //! μ = `A + (B - A) / (1 + exp((xmid - x) / scal))`
 
+use super::sslogis::logistic_parts;
+
 /// Evaluate μ and partials w.r.t. `A`, `B`, `xmid`, `scal`.
 #[inline]
 pub fn ssfpl_eval(a: f64, b: f64, xmid: f64, scal: f64, x: f64) -> (f64, Vec<f64>) {
     let z = (xmid - x) / scal;
-    let e = z.exp();
-    let denom = 1.0 + e;
-    let frac = 1.0 / denom;
+    let (frac, complement, slope) = logistic_parts(z);
     let mu = a + (b - a) * frac;
-    let d_frac_dz = -e / (denom * denom);
-    let d_a = 1.0 - frac;
+    let d_a = complement;
     let d_b = frac;
-    let d_xmid = (b - a) * d_frac_dz / scal;
-    let d_scal = (b - a) * d_frac_dz * (-(xmid - x) / (scal * scal));
+    let scaled_slope = (b - a) * slope / scal;
+    let d_xmid = -scaled_slope;
+    let d_scal = if z.is_infinite() && slope == 0.0 {
+        0.0
+    } else {
+        scaled_slope * z
+    };
     (mu, vec![d_a, d_b, d_xmid, d_scal])
 }
 

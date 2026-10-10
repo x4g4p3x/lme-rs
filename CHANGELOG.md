@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stabilize `SSlogis` and `SSfpl` nonlinear mean gradients in the logistic tails
+  and across predictor units. Avoid spurious zero, infinite, or NaN derivatives
+  caused by overflowing exponentials or squaring the scale parameter, and retain
+  small `SSfpl` asymptote derivatives without subtractive cancellation.
+
 - Count estimated dispersion in Gamma and Gaussian GLMM information criteria
   and model-comparison parameter totals. Correct Gamma/non-identity Gaussian
   AIC values by `+2` and BIC values by `+ln(n)`; binomial and Poisson penalties
