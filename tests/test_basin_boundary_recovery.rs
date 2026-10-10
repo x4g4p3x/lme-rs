@@ -4,7 +4,7 @@
 use lme_rs::{prepare_lmer, prepare_lmer_weighted, FitControl};
 use ndarray::Array1;
 use polars::prelude::*;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use rand_distr::{Distribution, Normal};
 
 fn boundary_data() -> DataFrame {

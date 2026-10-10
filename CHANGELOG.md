@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Migrate simulation, bootstrap, cross-validation, and benchmark generators to
+  the matching rand 0.10 / rand_distr 0.6 APIs, retaining seeded parallel behavior.
+
 - Update the optional Basin optimizer to its supported run-control API while
   preserving sample-cost tolerance, projected bounds, and shared restart budgets.
 

@@ -5,7 +5,7 @@
 
 use crate::{FitControl, LmeError, LmeFit, LmerPrepared, Result};
 use ndarray::Array1;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use rand_distr::StandardNormal;
 use rayon::prelude::*;
 

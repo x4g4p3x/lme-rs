@@ -10,7 +10,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use lme_rs::lmer;
 use polars::prelude::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_distr::{Distribution, Normal};
 use std::fs::File;
 use std::hint::black_box;

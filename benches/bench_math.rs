@@ -4,7 +4,7 @@ use lme_rs::math::LmmData;
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_distr::{Distribution, Normal};
 use serde::Deserialize;
 use sprs::{CsMat, TriMat};
