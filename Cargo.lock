@@ -1536,7 +1536,7 @@ dependencies = [
  "ndarray-linalg",
  "polars",
  "rand 0.9.3",
- "rand_distr 0.5.1",
+ "rand_distr 0.6.0",
  "rayon",
  "serde",
  "serde_json",
@@ -2621,6 +2621,7 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
+ "getrandom 0.4.2",
  "rand_core 0.10.1",
 ]
 
@@ -2686,16 +2687,6 @@ checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
  "rand 0.8.6",
-]
-
-[[package]]
-name = "rand_distr"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8615d50dcf34fa31f7ab52692afec947c4dd0ab803cc87cb3b0b4570ff7463"
-dependencies = [
- "num-traits",
- "rand 0.9.3",
 ]
 
 [[package]]
