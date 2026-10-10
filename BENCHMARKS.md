@@ -28,6 +28,10 @@ The [15 September Python workflow comparison](benchmarks/model-workflows-2026-09
 records numerical agreement, default-versus-tuned controls, and qualified timings
 against statsmodels, including failed boundary cases.
 
+The [10 October robust-covariance measurements](benchmarks/perf-tune-robust-covariance-2026-10-10.md)
+compare complete robust-inference calls before and after improving design validation,
+including smaller-model controls and rejected experiments.
+
 ## Choose a benchmark
 
 For Python backend adoption, use the

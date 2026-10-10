@@ -919,6 +919,64 @@ fn bench_proportional_means(c: &mut Criterion) {
     group.finish();
 }
 
+fn robust_benchmark_fit(rows: usize, coefficients: usize) -> (DataFrame, lme_rs::LmeFit) {
+    let mut rng = StdRng::seed_from_u64(261010);
+    let mut y = vec![1.0; rows];
+    let mut columns = Vec::with_capacity(coefficients + 2);
+    let mut terms = Vec::with_capacity(coefficients - 1);
+    for j in 1..coefficients {
+        let x: Vec<_> = (0..rows).map(|_| rng.random_range(-1.0..1.0)).collect();
+        for (yi, xi) in y.iter_mut().zip(&x) {
+            *yi += xi / j as f64;
+        }
+        let name = format!("x{j}");
+        columns.push(Column::new(name.clone().into(), x));
+        terms.push(name);
+    }
+    for yi in &mut y {
+        *yi += rng.random_range(-0.5..0.5);
+    }
+    columns.push(Column::new("y".into(), y));
+    columns.push(Column::new(
+        "cluster".into(),
+        (0..rows)
+            .map(|i| format!("g{}", i % 100))
+            .collect::<Vec<_>>(),
+    ));
+    let data = DataFrame::new(columns).unwrap();
+    let fit = lme_rs::lm_df(&format!("y ~ {}", terms.join(" + ")), &data).unwrap();
+    (data, fit)
+}
+
+fn bench_robust_covariance(c: &mut Criterion) {
+    let mut group = c.benchmark_group("robust_covariance");
+    group.sample_size(10);
+    for (rows, coefficients) in [(180, 2), (10_000, 16), (10_000, 48)] {
+        let (data, fit) = robust_benchmark_fit(rows, coefficients);
+        for (label, cluster) in [("hc0", None), ("clustered", Some("cluster"))] {
+            let result = lme_rs::robust::compute_robust_se(&fit, &data, cluster).unwrap();
+            assert!(result
+                .robust_se
+                .iter()
+                .all(|se| se.is_finite() && *se > 0.0));
+            group.bench_function(
+                format!("{label}_{rows}_rows_{coefficients}_coefficients"),
+                |b| {
+                    b.iter(|| {
+                        black_box(lme_rs::robust::compute_robust_se(
+                            black_box(&fit),
+                            black_box(&data),
+                            black_box(cluster),
+                        ))
+                        .unwrap()
+                    })
+                },
+            );
+        }
+    }
+    group.finish();
+}
+
 fn bench_inference(c: &mut Criterion) {
     let df = load_csv("tests/data/sleepstudy.csv");
     let base_fit = lme_rs::lmer("Reaction ~ Days + (Days | Subject)", &df, true).unwrap();
@@ -1072,6 +1130,7 @@ criterion_group!(
     bench_size_sweeps,
     bench_prediction_structure_sweeps,
     bench_inference,
-    bench_proportional_means
+    bench_proportional_means,
+    bench_robust_covariance
 );
 criterion_main!(benches);

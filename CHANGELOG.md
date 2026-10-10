@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Scan wider contiguous training designs in row order during robust inference,
+  preserving per-column tolerances and the small/strided-design fallback.
+  See the [10 October measurements](benchmarks/perf-tune-robust-covariance-2026-10-10.md)
+  for complete-call timings and workload limits.
+
 - Clarify that grouped cross-validation may use a split column separate from the
   model's grouping columns.
 

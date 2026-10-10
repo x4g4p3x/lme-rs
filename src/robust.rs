@@ -7,6 +7,24 @@
 use crate::LmeFit;
 use ndarray::{Array1, Array2};
 
+// Keep row-scan buffers out of the small-design validation path.
+#[inline(never)]
+fn matches_contiguous_design(actual: &[f64], expected: &[f64], p: usize) -> bool {
+    let mut scales = vec![0.0_f64; p];
+    let mut differences = vec![0.0_f64; p];
+    for (a, b) in actual.chunks_exact(p).zip(expected.chunks_exact(p)) {
+        for (((scale, difference), &a), &b) in scales.iter_mut().zip(&mut differences).zip(a).zip(b)
+        {
+            *scale = scale.max(a.abs()).max(b.abs());
+            *difference = difference.max((a - b).abs());
+        }
+    }
+    scales
+        .iter()
+        .zip(differences)
+        .all(|(&scale, difference)| difference <= 64.0 * f64::EPSILON * scale)
+}
+
 /// Result of computing Robust Standard Errors (Sandwich Estimators)
 #[derive(Debug, Clone)]
 pub struct RobustResult {
@@ -47,25 +65,37 @@ pub fn compute_robust_se(
         .fixed_design_x
         .as_ref()
         .ok_or("Training design missing for robust inference")?;
-    if x_mat.dim() != training_x.dim()
-        || x_mat
-            .columns()
-            .into_iter()
-            .zip(training_x.columns())
-            .any(|(actual, expected)| {
-                // Reapplying a stored QR/spline basis can round differently at zero.
-                // Compare in each column's units, allowing only floating-point noise.
-                let scale = actual
-                    .iter()
-                    .chain(expected.iter())
-                    .map(|v| v.abs())
-                    .fold(0.0_f64, f64::max);
-                actual
-                    .iter()
-                    .zip(expected)
-                    .any(|(&a, &b)| (a - b).abs() > 64.0 * f64::EPSILON * scale)
-            })
-    {
+    let mismatch = x_mat.dim() != training_x.dim()
+        || if x_mat.ncols() >= 8 && x_mat.is_standard_layout() && training_x.is_standard_layout() {
+            // Scan wider contiguous designs once by row, retaining a distinct
+            // scale and maximum difference for each column.
+            !matches_contiguous_design(
+                x_mat.as_slice().expect("standard-layout prediction design"),
+                training_x
+                    .as_slice()
+                    .expect("standard-layout training design"),
+                x_mat.ncols(),
+            )
+        } else {
+            x_mat
+                .columns()
+                .into_iter()
+                .zip(training_x.columns())
+                .any(|(actual, expected)| {
+                    // Reapplying a stored QR/spline basis can round differently at zero.
+                    // Compare in each column's units, allowing only floating-point noise.
+                    let scale = actual
+                        .iter()
+                        .chain(expected.iter())
+                        .map(|v| v.abs())
+                        .fold(0.0_f64, f64::max);
+                    actual
+                        .iter()
+                        .zip(expected)
+                        .any(|(&a, &b)| (a - b).abs() > 64.0 * f64::EPSILON * scale)
+                })
+        };
+    if mismatch {
         return Err(
             "Robust inference requires the original fixed design in training row order".into(),
         );
