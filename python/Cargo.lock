@@ -113,7 +113,7 @@ checksum = "ba6958a87117ff5e1d0d7716856a4303752518012ec4a67a68446b6631a1a54d"
 dependencies = [
  "anyhow",
  "cfg-if",
- "ndarray",
+ "ndarray 0.16.1",
  "num-complex 0.4.6",
  "num-integer",
  "num-traits",
@@ -1290,7 +1290,7 @@ dependencies = [
  "argmin",
  "argmin-math",
  "log",
- "ndarray",
+ "ndarray 0.16.1",
  "ndarray-linalg",
  "polars",
  "rand 0.10.3",
@@ -1310,7 +1310,7 @@ name = "lme_python"
 version = "0.2.7-dev.0"
 dependencies = [
  "lme-rs",
- "ndarray",
+ "ndarray 0.17.2",
  "polars",
  "pyo3",
 ]
@@ -1431,6 +1431,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndarray"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520080814a7a6b4a6e9070823bb24b4531daac8c4627e08ba5de8c5ef2f2752d"
+dependencies = [
+ "matrixmultiply",
+ "num-complex 0.4.6",
+ "num-integer",
+ "num-traits",
+ "portable-atomic",
+ "portable-atomic-util",
+ "rawpointer",
+]
+
+[[package]]
 name = "ndarray-linalg"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1439,7 +1454,7 @@ dependencies = [
  "cauchy",
  "katexit",
  "lax",
- "ndarray",
+ "ndarray 0.16.1",
  "num-complex 0.4.6",
  "num-traits",
  "rand 0.8.8",
@@ -2843,7 +2858,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70d5a5663aa9f18d287877b8a889ee6cc2314e3a3778193ccc580d048d7d4abc"
 dependencies = [
  "alga",
- "ndarray",
+ "ndarray 0.17.2",
  "num-complex 0.4.6",
  "num-traits",
  "num_cpus",
