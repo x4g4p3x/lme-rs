@@ -18,7 +18,7 @@
 use lme_rs::lmer;
 use polars::prelude::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_distr::{Distribution, Normal};
 use std::hint::black_box;
 use std::time::Instant;

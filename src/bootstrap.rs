@@ -9,7 +9,7 @@ use std::sync::Arc;
 use ndarray::Array1;
 use polars::prelude::*;
 use rand::rngs::StdRng;
-use rand::Rng;
+use rand::RngExt;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::fmt;
@@ -566,7 +566,7 @@ fn bootstrap_response(
                     message: "residual bootstrap requires observations".into(),
                 });
             }
-            let mut rng = seed.map_or_else(StdRng::from_os_rng, |base| {
+            let mut rng = seed.map_or_else(rand::make_rng::<StdRng>, |base| {
                 StdRng::seed_from_u64(base.wrapping_add(index as u64))
             });
             Ok(draw_residual_bootstrap_y(fit, &mut rng))
@@ -574,7 +574,7 @@ fn bootstrap_response(
     }
 }
 
-fn draw_residual_bootstrap_y<R: Rng + ?Sized>(fit: &LmeFit, rng: &mut R) -> Array1<f64> {
+fn draw_residual_bootstrap_y<R: RngExt + ?Sized>(fit: &LmeFit, rng: &mut R) -> Array1<f64> {
     let n = fit.residuals.len();
     let mut y = fit.fitted.clone();
     for i in 0..n {

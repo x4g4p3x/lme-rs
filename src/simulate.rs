@@ -6,7 +6,7 @@
 
 use ndarray::Array1;
 use rand::rngs::StdRng;
-use rand::Rng;
+use rand::RngExt;
 use rand::SeedableRng;
 use rand_distr::{Bernoulli, Binomial, Gamma, Poisson, StandardNormal};
 use rayon::prelude::*;
@@ -161,7 +161,7 @@ fn simulate_parallel(
                 let global = start_index + i;
                 let mut rng = match seed {
                     Some(base) => StdRng::seed_from_u64(base.wrapping_add(global as u64)),
-                    None => StdRng::from_os_rng(),
+                    None => rand::make_rng::<StdRng>(),
                 };
                 draw_one(
                     &fitted,
@@ -195,7 +195,7 @@ fn simulation_dispersion(fit: &LmeFit) -> anyhow::Result<f64> {
     Ok(dispersion)
 }
 
-fn draw_one<R: Rng + ?Sized>(
+fn draw_one<R: RngExt + ?Sized>(
     fitted: &Array1<f64>,
     family: Option<crate::family::Family>,
     sigma2: f64,
