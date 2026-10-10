@@ -37,6 +37,10 @@ as a dirty migration snapshot based on PR #35's original head; the retained
 the measured Rust source and Cargo changes. Raw reports retain source, lockfile, harness,
 input, and binary hashes. Later documentation and merge-parent changes do not
 change the measured Rust source. Check those hashes when reusing this evidence.
+Windows Git checkouts can convert lockfile line endings. The retained patch
+reconstructs the measured Rust source hash; comparing lockfiles after newline
+normalization confirms the same dependency graph. Normalize the candidate root lockfile
+to LF when checking its recorded measurement hash.
 
 Windows x86_64, Ryzen 5 8600G, Rust 1.99.0, Python 3.11.15, release profile,
 Intel MKL; BLAS/Polars/Rayon limits set to one thread before process startup.
@@ -97,3 +101,19 @@ Raw evidence: [Argmin baseline](dependency-migrations-2026-10-10/baseline-argmin
 
 Commit and push hooks remain enabled. The exact final PR head must pass hosted
 security audits and the supported OS/Python matrix before merge.
+
+## Delivery
+
+All 19 hosted validation checks passed on each reviewed head, including the
+supported OS/Python matrix, minimum Rust, and Cargo/Python security audits.
+The two publication jobs skipped as expected for PR validation.
+
+| PR | Reviewed head | Merge commit |
+|:---|:---|:---|
+| [#34](https://github.com/x4g4p3x/lme-rs/pull/34) | `2769a0b3130cc1669233069454e9ac92ffdc21d7` | `f4e0905431e0b04223f8cf5f29eb1e8439525261` |
+| [#37](https://github.com/x4g4p3x/lme-rs/pull/37) | `0ccf7517e0c137e398cdf512ba83b134f072aa2a` | `5cc64dd1c2673ec9c9ccc2f1ee23184e6a6f6072` |
+| [#35](https://github.com/x4g4p3x/lme-rs/pull/35) | `300f3344b50e75862d516b20767da8a3aa7724a5` | `6ac62da8f4453cb9423cfcc97f72080ad0f8d2b1` |
+
+PRs [#36](https://github.com/x4g4p3x/lme-rs/pull/36) and
+[#39](https://github.com/x4g4p3x/lme-rs/pull/39) closed as absorbed duplicates;
+their requested array upgrades are included in #35.
