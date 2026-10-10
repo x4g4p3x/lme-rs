@@ -12,10 +12,10 @@ import statistics
 import subprocess
 import sys
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BENCHMARK_CASES = {
@@ -290,6 +290,9 @@ def benchmark_command(
 
 def main() -> int:
     os.environ.setdefault("JULIA_PROJECT", str(REPO_ROOT / "comparisons" / "julia"))
+    r_project = REPO_ROOT / "comparisons" / "r"
+    os.environ.setdefault("RENV_PROJECT", str(r_project))
+    os.environ.setdefault("R_PROFILE_USER", str(r_project / ".Rprofile"))
     args = parse_args()
     cases = split_csv(args.cases)
     implementations = split_csv(args.implementations)

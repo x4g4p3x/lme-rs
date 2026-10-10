@@ -42,8 +42,12 @@ jobs:
         run: cargo audit --deny warnings --ignore RUSTSEC-2024-0436
 
   pip-audit:
-    name: pip-audit (uv.lock)
+    name: pip-audit (${{ matrix.project }}/uv.lock)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [python, benchmarks/python]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -53,11 +57,15 @@ jobs:
           version: "0.11.24"
           python-version: "3.11"
           enable-cache: true
-          cache-dependency-glob: "python/uv.lock"
+          cache-dependency-glob: "${{ matrix.project }}/uv.lock"
 
       - name: pip-audit
-        working-directory: python
+        working-directory: ${{ matrix.project }}
         run: |
           set -euo pipefail
-          uv sync --locked --extra dev --no-install-project
+          if [ "${{ matrix.project }}" = python ]; then
+            uv sync --locked --extra dev --no-install-project
+          else
+            uv sync --locked
+          fi
           uv run --no-sync pip-audit

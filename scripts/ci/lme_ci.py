@@ -14,8 +14,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -106,12 +106,14 @@ def staged_files(pattern: str) -> list[str]:
     if pattern == "rust":
         return [p for p in paths if p.endswith(".rs") and not p.startswith("target/")]
     if pattern == "python":
-        return [p for p in paths if p.startswith("python/") and p.endswith(".py")]
+        return [p for p in paths if p.startswith(("python/", "scripts/")) and p.endswith(".py")]
     if pattern == "comparison-r":
         return [
             p
             for p in paths
-            if p.endswith(".R") and (p.startswith("comparisons/") or p.startswith("tests/"))
+            if p.endswith(".R")
+            and "/renv/" not in p
+            and (p.startswith(("comparisons/", "tests/")) or p == "scripts/ci/restore_r.R")
         ]
     if pattern == "comparison-jl":
         return [p for p in paths if p.endswith(".jl") and p.startswith("comparisons/")]
@@ -343,6 +345,9 @@ def pip_audit() -> None:
     _require_tool("uv")
     _uv_sync(python="3.11")
     run(["uv", "run", "--no-sync", "pip-audit"], cwd=PYTHON_DIR)
+    project = ROOT / "benchmarks" / "python"
+    run(["uv", "sync", "--locked", "--project", str(project)])
+    run(["uv", "run", "--no-sync", "pip-audit"], cwd=project)
 
 
 def audit() -> None:
@@ -579,6 +584,8 @@ def preflight() -> None:
     """Pre-push gate: static checks + compile graph + security audit."""
     lint()
     toolchain_check()
+    minimum_versions_check()
+    workflow_lint()
     cargo_check()
     cargo_audit()
     legal_compliance()
@@ -624,6 +631,41 @@ def toolchain_check() -> None:
     print("toolchain version alignment: OK", flush=True)
 
 
+def minimum_versions_check() -> None:
+    """Reject advertised minimums that drift from the tested compatibility jobs."""
+    for manifest in (ROOT / "Cargo.toml", PYTHON_DIR / "Cargo.toml"):
+        if 'rust-version = "1.88"' not in manifest.read_text(encoding="utf-8"):
+            raise CiError(f"{manifest}: minimum Rust version must match the 1.88 CI job")
+    if 'requires-python = ">=3.10"' not in (PYTHON_DIR / "pyproject.toml").read_text(
+        encoding="utf-8"
+    ):
+        raise CiError("Python minimum must match the 3.10 compatibility matrix")
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    if "  rust-msrv:" not in workflow:
+        raise CiError("CI must have a dedicated minimum Rust compatibility job")
+    msrv = workflow.split("  rust-msrv:", 1)[1]
+    if 'toolchain: "1.88.0"' not in msrv or "cargo +1.88.0 check" not in msrv:
+        raise CiError("CI must check the minimum Rust compiler explicitly")
+    if "--manifest-path python/Cargo.toml --features abi3" not in msrv:
+        raise CiError("CI must check the shared ABI bindings with the minimum Rust compiler")
+    if not re.search(r"python-version: \[[\"']3\.10[\"'],", workflow):
+        raise CiError("CI must test Python 3.10 explicitly")
+    print("minimum supported versions: Rust 1.88 / Python 3.10", flush=True)
+
+
+def workflow_lint() -> None:
+    actionlint = _require_tool("actionlint")
+    # ShellCheck is not part of this pinned cross-platform check.
+    run([actionlint, "-shellcheck=", "-pyflakes="])
+
+
+def ruff_scripts() -> None:
+    cmd, _ = _ruff_invocation()
+    config = str(ROOT / "scripts" / "ruff.toml")
+    run([*cmd, "check", "--config", config, "scripts"])
+    run([*cmd, "format", "--check", "--config", config, "scripts"])
+
+
 def _ruff_invocation() -> tuple[list[str], str]:
     _require_tool("uv")
     return ["uv", "tool", "run", "ruff==0.17.0"], str(PYTHON_DIR / "pyproject.toml")
@@ -644,6 +686,7 @@ def lint() -> None:
     """Static checks for Rust and Python (no tests, no builds)."""
     rust_lint()
     ruff_lint()
+    ruff_scripts()
 
 
 def rust_all() -> None:
@@ -658,19 +701,25 @@ def ruff_staged(*, fix: bool) -> None:
     files = staged_files("python")
     if not files:
         return
-    cmd, config = _ruff_invocation()
+    cmd, python_config = _ruff_invocation()
+    for prefix, config in (
+        ("python/", python_config),
+        ("scripts/", str(ROOT / "scripts" / "ruff.toml")),
+    ):
+        selected = [path for path in files if path.startswith(prefix)]
+        if not selected:
+            continue
+        run([*cmd, "check", *(["--fix"] if fix else []), "--config", config, *selected])
+        run([*cmd, "format", *([] if fix else ["--check"]), "--config", config, *selected])
     if fix:
-        run([*cmd, "check", "--fix", "--config", config, *files])
-        run([*cmd, "format", "--config", config, *files])
         restage(files)
-    else:
-        run([*cmd, "check", "--config", config, *files])
-        run([*cmd, "format", "--check", "--config", config, *files])
 
 
 def comparison_r_files() -> list[str]:
-    paths = sorted((ROOT / "comparisons").rglob("*.R"))
+    # renv's generated bootstrap is maintained upstream.
+    paths = sorted(p for p in (ROOT / "comparisons").rglob("*.R") if "renv" not in p.parts)
     paths.extend(sorted((ROOT / "tests").glob("*.R")))
+    paths.append(ROOT / "scripts" / "ci" / "restore_r.R")
     return [str(p.relative_to(ROOT)).replace("\\", "/") for p in paths]
 
 
@@ -695,10 +744,10 @@ def _r_styler_ready(*, required: bool) -> bool:
     if probe.returncode != 0:
         message = (
             "skip: R package styler not installed "
-            "(install.packages('styler') for comparison R formatting)"
+            "(run task benchmarks:r:setup with R 4.6.1 for comparison formatting)"
         )
         if required:
-            raise CiError("R package styler is not installed")
+            raise CiError("R formatting environment unavailable; run task benchmarks:r:setup")
         print(message, flush=True)
         return False
     return True
@@ -907,9 +956,12 @@ def python_bindings(
     skip_wheel: bool = False,
     wheel_only: bool = False,
     run_examples: bool = False,
+    abi3: bool = False,
 ) -> None:
     if skip_wheel and wheel_only:
         raise CiError("--skip-isolated-wheel and --wheel-only are mutually exclusive")
+    if abi3 and not wheel_only:
+        raise CiError("--abi3 requires --wheel-only; editable builds use the native interpreter")
 
     _uv_sync(python=python, reuse=reuse_venv)
     env = _uv_python_env()
@@ -940,6 +992,7 @@ def python_bindings(
                 "maturin",
                 "build",
                 "--release",
+                *(["--features", "abi3"] if abi3 else []),
                 "-o",
                 str(dist),
             ],
@@ -949,6 +1002,8 @@ def python_bindings(
         wheels = sorted(dist.glob("lme_python-*.whl"))
         if len(wheels) != 1:
             raise CiError(f"expected exactly one wheel under {dist}, found {len(wheels)}")
+        if abi3 and "-cp310-abi3-" not in wheels[0].name:
+            raise CiError(f"expected a Python 3.10 stable-ABI wheel, got {wheels[0].name}")
 
         _uv_sync(python=python, reuse=False, venv=wheel_venv)
         wheel_python = venv_python(wheel_venv)
@@ -987,6 +1042,30 @@ def python_bindings(
                 venv=consumer_venv,
             )
             _run_portable_python_examples(consumer_python)
+    if abi3:
+        # Restore the editable native extension removed by the locked wheel setup.
+        run(["uv", "run", "--no-sync", "maturin", "develop", "--release"], cwd=PYTHON_DIR, env=env)
+        _assert_python_artifact(editable_python, version=expected_version, venv=PYTHON_VENV)
+
+
+def comparison_tests() -> None:
+    """Run statistical harness regressions with all optional dependencies installed."""
+    project = ROOT / "benchmarks" / "python"
+    run(["uv", "sync", "--locked", "--project", str(project)])
+    executable = venv_python(project / ".venv")
+    with tempfile.TemporaryDirectory(prefix="lme-comparison-wheel-") as tmp:
+        run(
+            [str(executable), "-m", "maturin", "build", "--release", "--locked", "-o", tmp],
+            cwd=PYTHON_DIR,
+            env={"PYO3_PYTHON": str(executable)},
+        )
+        wheels = list(Path(tmp).glob("*.whl"))
+        if len(wheels) != 1:
+            raise CiError("comparison tests require exactly one freshly built wheel")
+        run(["uv", "pip", "install", "--python", str(executable), "--no-deps", str(wheels[0])])
+    # Fail before pytest's importorskip can silently hide missing comparison packages.
+    run([str(executable), "-c", "import lme_python, statsmodels, threadpoolctl, pingouin"])
+    run([str(executable), "-m", "pytest", "tests/test_workflow_benchmark.py", "-v"], cwd=PYTHON_DIR)
 
 
 def consumer_smoke(*, python: str = "3.11", reuse_venv: bool = False) -> None:
@@ -1040,6 +1119,9 @@ def release_wheel_smoke(*, wheel_dir: str, python: str) -> None:
 def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool = False) -> None:
     completion_check()
     toolchain_check()
+    minimum_versions_check()
+    workflow_lint()
+    benchmark_tests()
     cargo_build_test()
     basin_check()
     run(["cargo", "run", "--locked", "--example", "sleepstudy"])
@@ -1050,6 +1132,9 @@ def ci(*, reuse_venv: bool = False, skip_wheel: bool = False, skip_python: bool 
             skip_wheel=skip_wheel,
             run_examples=not skip_wheel,
         )
+        comparison_tests()
+        if not skip_wheel:
+            python_bindings(wheel_only=True, abi3=True, run_examples=True)
     lint()
     cargo_check()
     legal_compliance()
@@ -1072,6 +1157,23 @@ def hooks_uninstall() -> None:
     if hook.is_symlink() or hook.exists():
         hook.unlink(missing_ok=True)
     print("Removed lefthook pre-commit hook if present.", flush=True)
+
+
+def configure_windows_lld() -> None:
+    """Use the current pinned compiler's LLD only when explicitly requested."""
+    if sys.platform != "win32":
+        raise CiError("--windows-lld is supported only on Windows")
+    sysroot = Path(subprocess.check_output(["rustc", "--print", "sysroot"], text=True).strip())
+    linker = sysroot / "lib" / "rustlib" / "x86_64-pc-windows-msvc" / "bin" / "rust-lld.exe"
+    if not linker.is_file():
+        raise CiError(f"the selected compiler does not include LLD: {linker}")
+    os.environ["CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"] = str(linker)
+    print(f"opt-in Windows linker: {linker}", flush=True)
+
+
+def windows_lld_ci() -> None:
+    configure_windows_lld()
+    ci()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1112,6 +1214,26 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("toolchain-check", help="Verify local and hosted tool versions").set_defaults(
         fn=lambda _: toolchain_check()
     )
+    sub.add_parser("minimum-versions-check", help="Check tested minimum versions").set_defaults(
+        fn=lambda _: minimum_versions_check()
+    )
+    sub.add_parser("r-setup", help="Restore the locked R comparison environment").set_defaults(
+        fn=lambda _: run(
+            ["Rscript", "--vanilla", "scripts/ci/restore_r.R", str(ROOT / "comparisons" / "r")]
+        )
+    )
+    sub.add_parser("workflow-lint", help="Validate GitHub Actions with actionlint").set_defaults(
+        fn=lambda _: workflow_lint()
+    )
+    sub.add_parser("ruff-scripts", help="Lint and format-check repository scripts").set_defaults(
+        fn=lambda _: ruff_scripts()
+    )
+    sub.add_parser("comparison-tests", help="Run optional statistical harness tests").set_defaults(
+        fn=lambda _: comparison_tests()
+    )
+    sub.add_parser(
+        "windows-lld-ci", help="Validate all core jobs with the opt-in Windows linker"
+    ).set_defaults(fn=lambda _: windows_lld_ci())
     sub.add_parser(
         "julia-setup", help="Restore the locked Julia benchmark environment"
     ).set_defaults(
@@ -1216,6 +1338,7 @@ def main(argv: list[str] | None = None) -> int:
     p_py = sub.add_parser("python", help="Python bindings CI flow")
     p_py.add_argument("--python-version", default="3.11")
     p_py.add_argument("--reuse-venv", action="store_true")
+    p_py.add_argument("--abi3", action="store_true", help="Build the shared release wheel")
     p_py.add_argument(
         "--examples",
         action="store_true",
@@ -1239,6 +1362,7 @@ def main(argv: list[str] | None = None) -> int:
             reuse_venv=a.reuse_venv,
             skip_wheel=a.skip_wheel_reinstall,
             wheel_only=a.wheel_only,
+            abi3=a.abi3,
             run_examples=a.examples,
         )
     )
@@ -1322,6 +1446,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     os.chdir(ROOT)
     os.environ.setdefault("CARGO_TERM_COLOR", "always")
+    r_project = ROOT / "comparisons" / "r"
+    os.environ.setdefault("RENV_PROJECT", str(r_project))
+    os.environ.setdefault("R_PROFILE_USER", str(r_project / ".Rprofile"))
+    os.environ.setdefault("RENV_PATHS_CACHE", str(ROOT / "benchmark-results" / "renv-cache"))
     try:
         args.fn(args)
     except CiError as exc:

@@ -2,6 +2,7 @@
 name = "lme-rs"
 version = "0.2.7-dev.0"
 edition = "2021"
+rust-version = "1.88"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Mixed-effects models in Rust with lme4-style formulas and numerical validation"
 license = "MIT"

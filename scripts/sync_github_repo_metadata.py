@@ -8,11 +8,11 @@ import json
 import os
 import re
 import sys
-import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 CARGO_TOML = ROOT / "Cargo.toml"
@@ -28,7 +28,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--repository",
         default=os.environ.get("GITHUB_REPOSITORY") or default_repository(),
-        help="GitHub repository in owner/name form. Defaults to GITHUB_REPOSITORY or Cargo.toml repository.",
+        help=(
+            "GitHub repository in owner/name form. "
+            "Defaults to GITHUB_REPOSITORY or Cargo.toml repository."
+        ),
     )
     parser.add_argument(
         "--token",
@@ -141,9 +144,7 @@ def github_request(
                 "Administration: Read and write on this repository. "
                 f"API response: {details}"
             ) from exc
-        raise RuntimeError(
-            f"GitHub API {method} {url} failed with {exc.code}: {details}"
-        ) from exc
+        raise RuntimeError(f"GitHub API {method} {url} failed with {exc.code}: {details}") from exc
 
 
 def verify_token(token: str, repository: str) -> None:

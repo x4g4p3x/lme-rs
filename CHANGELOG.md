@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Declare Rust 1.88 and Python 3.10 as the supported minimums, with explicit
+  compiler/interpreter compatibility gates.
+- Build shared CPython 3.10+ release wheels using the stable ABI while retaining
+  interpreter-specific source builds and the multi-version installation matrix.
+- Lock and cache the R 4.6.1 comparison environment, extend dependency update
+  automation, and validate tooling scripts, workflows, and statistical harness
+  regressions in normal CI.
+- Add opt-in Windows LLD validation; keep the platform linker and Cargo test
+  runner as defaults. See the [toolchain follow-up evidence](benchmarks/toolchain-followup-2026-10-10.md).
+
 - Keep the Polars lazy expression engine in development dependencies and expose
   it through the `polars-lazy` feature, reducing the library and Python extension
   dependency footprint without changing model calculations.
@@ -31,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with unused measurements or metadata.
 
 ### Fixed
+
+- Preserve fitted reference-grid category coding with statsmodels 0.15's
+  formula metadata while retaining compatibility with the earlier Patsy layout.
 
 - Preserve finite `SSmicmen` nonlinear means and gradients across predictor
   units and large amplitudes by avoiding overflowing numerators, squared

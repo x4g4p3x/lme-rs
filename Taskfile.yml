@@ -20,8 +20,13 @@ tasks:
     cmds:
       - '{{.RUN}} ci --reuse-venv --skip-isolated-wheel'
 
+  ci:windows:lld:
+    desc: Full local CI with the pinned Rust compiler's opt-in Windows LLD linker
+    cmds:
+      - '{{.RUN}} windows-lld-ci'
+
   lint:
-    desc: Rust fmt/clippy + Ruff on python/tests and examples
+    desc: Rust fmt/clippy + Ruff on bindings tests/examples and repository scripts
     cmds:
       - '{{.RUN}} lint'
 
@@ -40,8 +45,33 @@ tasks:
     cmds:
       - '{{.RUN}} julia-setup'
 
+  benchmarks:r:setup:
+    desc: Restore the locked R 4.6.1 reference and formatting environment
+    cmds:
+      - '{{.RUN}} r-setup'
+
+  lint:scripts:
+    desc: Ruff check and format validation for repository tooling
+    cmds:
+      - '{{.RUN}} ruff-scripts'
+
+  lint:workflows:
+    desc: Validate GitHub Actions with pinned actionlint
+    cmds:
+      - '{{.RUN}} workflow-lint'
+
+  test:comparisons:
+    desc: Run statistical harness tests in the locked benchmark environment
+    cmds:
+      - '{{.RUN}} comparison-tests'
+
+  compatibility:check:
+    desc: Verify minimum supported Rust and Python declarations
+    cmds:
+      - '{{.RUN}} minimum-versions-check'
+
   audit:
-    desc: cargo audit (root + python/) and pip-audit
+    desc: Cargo audits and pip-audit for both locked Python environments
     cmds:
       - '{{.RUN}} audit'
 
@@ -196,6 +226,11 @@ tasks:
     desc: Python bindings flow (maturin develop + pytest + wheel reinstall)
     cmds:
       - '{{.RUN}} python'
+
+  python:abi3:
+    desc: Build and test an isolated stable-ABI release wheel and consumer examples
+    cmds:
+      - '{{.RUN}} python --wheel-only --abi3 --examples'
 
   lint:python:staged:
     desc: Ruff check/format staged python/**/*.py (pre-commit)

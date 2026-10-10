@@ -34,6 +34,19 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.24"
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
+        with:
+          tool: actionlint@1.7.12
+      - name: Validate workflows and Python tooling
+        run: |
+          python3 scripts/ci/lme_ci.py workflow-lint
+          python3 scripts/ci/lme_ci.py ruff-scripts
+          python3 scripts/ci/lme_ci.py ruff-lint
+          python3 scripts/ci/lme_ci.py benchmark-tests
+          python3 scripts/ci/lme_ci.py minimum-versions-check
       - name: Validate legal notices and provenance
         run: python3 scripts/ci/lme_ci.py legal
       - name: Validate Markdown links
@@ -214,6 +227,14 @@ jobs:
         if: matrix.python-version == '3.11'
         run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }} --examples
 
+      - name: Statistical comparison harness regressions
+        if: matrix.python-version == '3.11'
+        run: python scripts/ci/lme_ci.py comparison-tests
+
+      - name: Shared release wheel and clean consumer examples
+        if: matrix.python-version == '3.11'
+        run: python scripts/ci/lme_ci.py python --wheel-only --abi3 --examples
+
       - name: Python bindings (isolated wheel compatibility)
         if: matrix.python-version != '3.11'
         run: python scripts/ci/lme_ci.py python --python-version ${{ matrix.python-version }} --wheel-only
@@ -262,6 +283,7 @@ jobs:
       - security-audit
       - rust-ubuntu
       - rust-latest
+      - rust-msrv
       - test
       - production-load
       - python-bindings-versions
@@ -281,6 +303,7 @@ jobs:
       - security-audit
       - rust-ubuntu
       - rust-latest
+      - rust-msrv
       - test
       - production-load
       - python-bindings-versions
@@ -318,3 +341,28 @@ jobs:
           shared-key: latest-stable-compatibility
       - name: Check newest compiler compatibility
         run: cargo +stable check --locked --all-targets --features polars-lazy
+
+  rust-msrv:
+    name: Minimum Rust 1.88 compatibility
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "1.88.0"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+        with:
+          shared-key: rust-msrv-1.88
+          workspaces: |
+            . -> target
+            python -> target
+      - name: Check library, optional optimizer, examples and bindings
+        run: |
+          cargo +1.88.0 check --locked --all-targets --features basin,polars-lazy
+          cargo +1.88.0 check --locked --manifest-path python/Cargo.toml
+          cargo +1.88.0 check --locked --manifest-path python/Cargo.toml --features abi3

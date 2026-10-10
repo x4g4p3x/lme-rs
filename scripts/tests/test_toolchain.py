@@ -65,6 +65,63 @@ class ToolchainTests(unittest.TestCase):
                 with self.assertRaisesRegex(ci.CiError, "exact rust version"):
                     ci.toolchain_check()
 
+    def minimum_environment(self, directory):
+        root = self.environment(
+            directory,
+            'python-version: ["3.10", "3.11"]\n'
+            '  rust-msrv:\n    toolchain: "1.88.0"\n    run: |\n'
+            "      cargo +1.88.0 check --locked\n"
+            "      cargo +1.88.0 check --locked "
+            "--manifest-path python/Cargo.toml --features abi3\n",
+        )
+        (root / "python").mkdir()
+        for manifest in (root / "Cargo.toml", root / "python" / "Cargo.toml"):
+            manifest.write_text('rust-version = "1.88"\n')
+        (root / "python" / "pyproject.toml").write_text('requires-python = ">=3.10"\n')
+        return root
+
+    def test_advertised_minimums_require_real_compatibility_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.minimum_environment(directory)
+            with patch.object(ci, "ROOT", root), patch.object(ci, "PYTHON_DIR", root / "python"):
+                ci.minimum_versions_check()
+                workflow = root / ".github" / "workflows" / "ci.yml"
+                workflow.write_text(workflow.read_text().replace('"3.10"', '"3.11"'))
+                with self.assertRaisesRegex(ci.CiError, "test Python 3.10"):
+                    ci.minimum_versions_check()
+
+    def test_binding_minimum_cannot_drift_from_core(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.minimum_environment(directory)
+            (root / "python" / "Cargo.toml").write_text('rust-version = "1.99"\n')
+            with patch.object(ci, "ROOT", root), patch.object(ci, "PYTHON_DIR", root / "python"):
+                with self.assertRaisesRegex(ci.CiError, "minimum Rust"):
+                    ci.minimum_versions_check()
+
+    def test_minimum_job_must_cover_shared_abi_bindings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.minimum_environment(directory)
+            workflow = root / ".github" / "workflows" / "ci.yml"
+            source = workflow.read_text()
+            with patch.object(ci, "ROOT", root), patch.object(ci, "PYTHON_DIR", root / "python"):
+                workflow.write_text(source.replace("--features abi3", ""))
+                with self.assertRaisesRegex(ci.CiError, "shared ABI"):
+                    ci.minimum_versions_check()
+                workflow.write_text(source.replace("  rust-msrv:", "  unrelated-job:"))
+                with self.assertRaisesRegex(ci.CiError, "dedicated minimum"):
+                    ci.minimum_versions_check()
+
+    def test_r_bootstrap_is_excluded_from_comparison_formatting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "comparisons" / "r" / "renv").mkdir(parents=True)
+            (root / "comparisons" / "r" / "renv" / "activate.R").write_text("upstream")
+            (root / "comparisons" / "sleepstudy.R").write_text("reference")
+            with patch.object(ci, "ROOT", root):
+                self.assertEqual(
+                    ci.comparison_r_files(), ["comparisons/sleepstudy.R", "scripts/ci/restore_r.R"]
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

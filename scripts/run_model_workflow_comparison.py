@@ -334,9 +334,7 @@ def native_inference(backend, fit, data, columns):
         )
         native = [means.estimate, pairs.estimate, pairs.std_error, pairs.p_adjust]
     else:
-        design = patsy.build_design_matrices([fit.model.data.design_info], grid_for(data, columns))[
-            0
-        ]
+        design = statsmodels_design(fit, grid_for(data, columns))
         rows = []
         size = len(data.a.cat.categories)
         for start in range(0, len(design), size):
@@ -353,6 +351,17 @@ def native_inference(backend, fit, data, columns):
             adjusted,
         ]
     return native
+
+
+def statsmodels_design(fit, data):
+    """Preserve the fitted Patsy encoding across statsmodels 0.14 and 0.15."""
+    metadata = fit.model.data
+    info = getattr(metadata, "design_info", None)
+    if info is None:
+        info = getattr(metadata, "model_spec", None)
+    if not isinstance(info, patsy.DesignInfo):
+        raise ValueError("The comparison requires the fitted Patsy design specification")
+    return np.asarray(patsy.build_design_matrices([info], data)[0])
 
 
 def compare_native_inference(backend, fit, data, columns, values):

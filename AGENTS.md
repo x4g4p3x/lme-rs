@@ -93,10 +93,19 @@ and a `gap` for every incomplete criterion.
 
 ## Setup and recovery
 
-- [mise.toml](mise.toml) configures Rust stable, Python 3.11, uv, Task, and Lefthook.
+- [mise.toml](mise.toml) pins Rust, Python 3.11, uv, Task, Lefthook, and actionlint.
   Use `task setup` for tools and hooks; run `mise install` first if Task is missing.
   With tools already installed, use `task hooks:install`. Pre-push audits also
   require `cargo-audit` (`cargo install cargo-audit`).
+- Tooling changes also use `task lint:scripts` and `task lint:workflows` (included
+  in CI/preflight). `task test:comparisons` runs the optional statistical harness
+  regressions in the locked benchmark environment; full CI includes it.
+- Supported minimums are Rust 1.88 and Python 3.10. `task compatibility:check`
+  validates the declarations against hosted compatibility jobs. R comparisons
+  use R 4.6.1 and `task benchmarks:r:setup`; Julia uses the locked project.
+- Shared release wheels use `task python:abi3`, retaining a native editable
+  extension afterward. `task ci:windows:lld` opts into the compiler's LLD linker
+  for full local validation; normal tasks retain the platform linker.
 - For missing PATH entries, use `mise exec -- task <name>`. Locate installed tools
   before reinstalling. Verify subprocess discovery in the actual environment with
   `python -c "import shutil; print(shutil.which('uv'))"` when necessary.

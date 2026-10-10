@@ -69,6 +69,17 @@ fixture provenance, [license texts](LICENSES/), and
 [relinking instructions](RELINKING.md) in source and binary distributions.
 The wheel workflow injects notices into `*.dist-info/licenses/`.
 
+### Stable-ABI Python wheels
+
+The wheel jobs build the `abi3` Cargo feature with CPython 3.10, producing one
+wheel per platform/architecture instead of rebuilding for each interpreter.
+The wheel installation matrix still covers CPython 3.10 through 3.14 on Linux
+x86_64, Windows x64, and macOS Apple Silicon. It downloads the shared artifact
+and runs the existing release smoke tests and consumer examples before PyPI
+publication. Linux aarch64 and macOS x86_64 wheels are built but do not have
+native install-test runners in this matrix. Source builds remain interpreter
+specific. Run `task python:abi3` when changing this packaging path.
+
 ### Audit policy
 
 The shared runner denies Cargo audit warnings except its narrowly configured

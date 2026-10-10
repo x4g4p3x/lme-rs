@@ -15,10 +15,13 @@ mise install
 task setup
 ```
 
-[mise.toml](mise.toml) pins Rust, Python 3.11, uv, Task, and Lefthook.
+[mise.toml](mise.toml) pins Rust, Python 3.11, uv, Task, Lefthook, and actionlint.
 The compiler pin also lives in [rust-toolchain.toml](rust-toolchain.toml).
 `task toolchain:check` detects drift between local and hosted validation versions;
 CI separately checks compatibility with the newest stable Rust compiler.
+The declared minimums are Rust 1.88 and Python 3.10. Hosted validation checks
+the minimum compiler, optional optimizer, and bindings, as well as Python
+3.10 through 3.14. `task compatibility:check` prevents declaration drift.
 If tools are installed already, `task hooks:install` installs the Git hooks.
 The pre-push audit also requires `cargo-audit`; install it with
 `cargo install cargo-audit`.
@@ -48,15 +51,24 @@ were skipped, or require a hosted platform.
 
 - **Commit hook:** checks matching staged files. It does not run the full test suite.
 - **Push hook:** runs `task preflight`: lint, all-target compilation, Cargo audits,
-  legal/provenance checks, and metadata validation.
+  workflow validation, legal/provenance checks, and metadata validation.
 - **`task ci`:** the local core CI flow, including Rust tests, bindings, portable
   consumer examples, documentation, and completion checks.
+  It also runs tooling unit tests, statistical comparison regressions,
+  and an isolated stable-ABI wheel pass.
 - **Hosted CI:** adds the OS/Python matrix, production-load gates, and
   `pip-audit`. Local success does not establish macOS Apple Silicon behavior.
 
 Use `--no-verify` only when explicitly necessary and report the bypass.
 `task ci:fast` reuses the editable Python environment and skips the isolated
 wheel pass; it is not equivalent to full `task ci`.
+
+`task lint:scripts` checks all repository Python tooling. `task lint:workflows`
+uses actionlint 1.7.12, with optional ShellCheck/Pyflakes disabled for portable
+results. Both checks run in normal CI; script lint also runs in preflight.
+Dependabot proposes grouped minor/patch updates for both Cargo manifests and
+both uv environments. Major updates remain separate reviewable PRs.
+`task audit` checks both Cargo graphs and both locked Python environments.
 
 ## Rust development
 
@@ -69,6 +81,12 @@ cargo run --release --locked --example sleepstudy
 `task test` runs the full Rust suite. `task rust` runs the full Rust validation
 slice without Python. Use release mode for numerical examples; the first build
 can take longer because of native numerical dependencies.
+
+On Windows, `task ci:windows:lld` runs full local CI with the pinned compiler's
+LLD linker. This is an explicit opt-in; it changes Cargo's build configuration
+and initially rebuilds dependencies. The standard task keeps the platform
+linker. The [follow-up investigation](benchmarks/toolchain-followup-2026-10-10.md)
+records the measured linking boundary and test-runner comparison.
 
 ### Numerical changes
 
@@ -111,6 +129,11 @@ from `python/` and validate the package.
 
 The complete bindings flow checks the extension's version and import path,
 runs the editable package tests, then builds and tests an isolated wheel.
+Release wheels use the optional `abi3` feature and target CPython 3.10 or newer.
+`task python:abi3` checks the shared wheel and restores the native editable
+extension afterward. Source builds retain interpreter-specific optimizations.
+The release workflow builds one wheel per platform/architecture and installs
+the actual artifact on every supported CPython version before publication.
 
 ## Benchmark environments and compiler caching
 
@@ -129,6 +152,19 @@ drivers select this project by default and respect an explicit `JULIA_PROJECT`.
 For standalone scripts, use `julia --project=comparisons/julia comparisons/sleepstudy.jl`.
 Update the project and regenerate the manifest together when changing dependencies.
 
+R comparisons use R 4.6.1 and [the renv lockfile](comparisons/r/renv.lock).
+With that runtime on PATH, run `task benchmarks:r:setup`. The runner and benchmark
+drivers select the project through `RENV_PROJECT` and `R_PROFILE_USER`; explicit
+caller settings take precedence. Package restoration verifies the lock and
+required imports. The hosted benchmark job caches packages by runtime and lock
+hash. Change the environment and regenerate the lock together, then rerun the
+reference examples and `task lint:comparisons:required`.
+
+`task test:comparisons` builds a fresh extension wheel in the locked Python
+benchmark environment and runs the statistical harness tests with statsmodels,
+Pingouin, and threadpoolctl installed. Missing imports fail before pytest can
+skip the module. This runs in full local CI and the canonical hosted Python job.
+
 Hosted Rust validation uses sccache 0.16.0 alongside the existing Cargo artifact
 cache and reports cache statistics. Local incremental compilation remains enabled;
 do not globally disable it just to use sccache. The cache cannot reuse final linking.
@@ -140,7 +176,7 @@ dependency footprint and bounded compiler-cache measurements.
 `task consumer:smoke` additionally installs the wheel in a dependency-only
 environment and runs the portable examples. CI tests source builds on Python
 3.10–3.14; the full identity/consumer flow is centered on 3.11. Windows and macOS
-also test 3.14. The release workflow builds a wheel per interpreter version and
+also test 3.14. The release workflow builds shared stable-ABI wheels and
 tests the native Linux x86_64, Windows x64, and macOS aarch64 artifacts before
 publishing. Run `python scripts/ci/lme_ci.py release-wheel-smoke --wheel-dir PATH
 --python-version 3.14` to exercise an already-built wheel locally.

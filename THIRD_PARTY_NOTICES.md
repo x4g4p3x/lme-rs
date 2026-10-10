@@ -10,6 +10,14 @@ The following test-only CSV fixtures are exports or format-preserving derivative
 
 The GPL-licensed CSV fixtures above are retained for repository validation but are excluded from the published Rust crate by the `exclude` list in [`Cargo.toml`](Cargo.toml). [`scripts/ci/check_legal_compliance.py`](scripts/ci/check_legal_compliance.py) verifies the effective `cargo package --list` output and fails if one of those GPL fixtures would enter a crates.io package.
 
+## R environment bootstrap
+
+[comparisons/r/renv/activate.R](comparisons/r/renv/activate.R) is the generated
+bootstrap from renv 1.3.1, copyright 2026 Posit Software, PBC, under the MIT
+License. Its notice is retained in [comparisons/r/renv/LICENSE](comparisons/r/renv/LICENSE).
+The R environment is used for repository reference checks; installed packages
+retain their own licenses and are not copied into Rust or Python binaries.
+
 ## Native components in distributed binaries
 
 - **sprs-ldl 0.10.0** is licensed under LGPL-2.1. Its license text is included at [`LICENSES/LGPL-2.1-only.txt`](LICENSES/LGPL-2.1-only.txt). See [`RELINKING.md`](RELINKING.md) for source and rebuild information.

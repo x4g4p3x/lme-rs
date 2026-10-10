@@ -31,11 +31,12 @@ class BenchmarkRuntimeTests(unittest.TestCase):
                 rust_features="",
                 output=str(output),
             )
-            with patch.object(perf, "parse_args", return_value=args), patch.object(
-                perf, "resolve_julia", return_value=None
-            ), patch.object(
-                perf, "ensure_data", return_value=Path(directory) / "data.csv"
-            ), patch.object(perf, "rust_breakdown", return_value={"optimizer_backend": "basin"}):
+            with (
+                patch.object(perf, "parse_args", return_value=args),
+                patch.object(perf, "resolve_julia", return_value=None),
+                patch.object(perf, "ensure_data", return_value=Path(directory) / "data.csv"),
+                patch.object(perf, "rust_breakdown", return_value={"optimizer_backend": "basin"}),
+            ):
                 self.assertEqual(perf.main(), 1)
             report = json.loads(output.read_text(encoding="utf-8"))[0]
             self.assertIsNone(report["rust"])

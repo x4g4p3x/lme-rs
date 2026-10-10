@@ -54,7 +54,9 @@ def main() -> int:
             or not evidence
             or any(not isinstance(path, str) or not (ROOT / path).exists() for path in evidence)
         ):
-            raise ValueError("every area needs a unique id, existing evidence paths, and a criteria list")
+            raise ValueError(
+                "every area needs a unique id, existing evidence paths, and a criteria list"
+            )
         _require_str(area.get("name"), f"area {area_id} name", min_len=8)
         seen_area_ids.add(area_id)
         criterion_ids: set[str] = set()
@@ -117,7 +119,9 @@ def main() -> int:
     for area_id, score in expected_area_scores.items():
         pattern = rf"\| {area_id} \|.*?\| \*\*{score}%\*\* \|"
         if not re.search(pattern, report):
-            raise ValueError(f"completion report score for area {area_id} is stale; expected {score}%")
+            raise ValueError(
+                f"completion report score for area {area_id} is stale; expected {score}%"
+            )
 
     print(
         f"completion score: {overall_percent}% ({total_earned}/{total_possible} scope units; "

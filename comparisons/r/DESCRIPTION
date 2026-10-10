@@ -1,0 +1,7 @@
+Package: lmeComparisonEnvironment
+Version: 0.0.0
+Title: Locked R Reference and Formatting Environment
+Description: Dependencies for mixed-model comparisons and reference fixtures.
+License: MIT
+Imports: lme4, lmerTest, car, rlang, styler, jsonlite, emmeans, multcomp,
+    clubSandwich, pbkrtest

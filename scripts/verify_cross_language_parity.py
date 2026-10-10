@@ -268,6 +268,9 @@ def max_pairwise_diff(
 
 
 def main() -> int:
+    r_project = REPO_ROOT / "comparisons" / "r"
+    os.environ.setdefault("RENV_PROJECT", str(r_project))
+    os.environ.setdefault("R_PROFILE_USER", str(r_project / ".Rprofile"))
     args = parse_args()
     cases = load_parity_cases(split_csv(args.cases))
     implementations = split_csv(args.implementations)
@@ -283,9 +286,7 @@ def main() -> int:
                 elif impl == "julia":
                     results[impl] = run_julia(case.case_id, args.timeout)
                 elif impl == "rust":
-                    results[impl] = run_rust(
-                        case.case_id, args.timeout, args.skip_rust_build
-                    )
+                    results[impl] = run_rust(case.case_id, args.timeout, args.skip_rust_build)
                 elif impl == "python":
                     results[impl] = run_python(case.case_id)
                 else:

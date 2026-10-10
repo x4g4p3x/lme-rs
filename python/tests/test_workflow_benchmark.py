@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,24 @@ SPEC = importlib.util.spec_from_file_location(
 bench = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bench)
 bench.dependencies()
+
+
+@pytest.mark.parametrize("attribute", ["design_info", "model_spec"])
+def test_fitted_formula_metadata_retains_categories_and_column_order(attribute):
+    data = pd.DataFrame({"factor": pd.Categorical(["B", "A", "C"], categories=["C", "B", "A"])})
+    design = bench.patsy.dmatrix("1 + C(factor, Sum)", data)
+    metadata = SimpleNamespace(**{attribute: design.design_info})
+    fitted = SimpleNamespace(model=SimpleNamespace(data=metadata))
+    # Preserve training encodings even when prediction rows contain fewer levels.
+    grid = pd.DataFrame({"factor": ["A", "C"]})
+    np.testing.assert_array_equal(bench.statsmodels_design(fitted, grid), [[1, -1, -1], [1, 1, 0]])
+
+
+def test_reference_rejects_missing_or_unknown_formula_metadata():
+    for metadata in (SimpleNamespace(), SimpleNamespace(model_spec="y ~ x")):
+        fitted = SimpleNamespace(model=SimpleNamespace(data=metadata))
+        with pytest.raises(ValueError, match="fitted Patsy"):
+            bench.statsmodels_design(fitted, pd.DataFrame({"x": [1]}))
 
 
 @pytest.mark.parametrize("reml", [False, True])
@@ -186,9 +205,7 @@ def test_marginal_factor_comparisons_preserve_averaging_and_correction_families(
     reference = bench.fit_model("statsmodels", data, columns, True)
     candidate = bench.fit_model("lme", data, columns, True)
     grid = bench.grid_for(data, columns)
-    design = np.asarray(
-        bench.patsy.build_design_matrices([reference.model.data.design_info], grid)[0]
-    )
+    design = bench.statsmodels_design(reference, grid)
     for factor in ("a", "b"):
         levels = data[factor].cat.categories
         vectors = []

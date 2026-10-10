@@ -8,7 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_FILES = (
     "PROVENANCE.md",
@@ -90,9 +89,7 @@ def check_cargo_package_fixture_exclusion() -> None:
         text=True,
     )
     packaged = {
-        line.strip().replace("\\", "/")
-        for line in result.stdout.splitlines()
-        if line.strip()
+        line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()
     }
     leaked = sorted(gpl_paths & packaged)
     if leaked:

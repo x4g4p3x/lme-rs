@@ -85,7 +85,9 @@ jobs:
       BENCH_REPEATS: ${{ github.event_name == 'workflow_dispatch' && inputs.repeats || '10' }}
       JULIA_PROJECT: ${{ github.workspace }}/comparisons/julia
       JULIA_DEPOT_PATH: ${{ github.workspace }}/benchmark-results/julia-depot
-      R_LIBS_USER: ${{ github.workspace }}/.r-lib
+      RENV_PROJECT: ${{ github.workspace }}/comparisons/r
+      R_PROFILE_USER: ${{ github.workspace }}/comparisons/r/.Rprofile
+      RENV_PATHS_CACHE: ${{ github.workspace }}/benchmark-results/renv-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -104,10 +106,16 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "benchmarks/python/uv.lock"
 
+      - name: Set up pinned R
+        uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          r-version: "4.6.1"
+          use-public-rspm: true
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenblas-dev libcurl4-openssl-dev libssl-dev libxml2-dev r-base r-cran-lme4 r-cran-lmertest r-cran-car r-cran-rlang
+          sudo apt-get install -y libopenblas-dev libcurl4-openssl-dev libssl-dev libxml2-dev gfortran
           curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-${JULIA_VERSION}-linux-x86_64.tar.gz" -o /tmp/julia.tar.gz
           sudo tar -xzf /tmp/julia.tar.gz -C /opt
           sudo ln -sf "/opt/julia-${JULIA_VERSION}/bin/julia" /usr/local/bin/julia
@@ -135,12 +143,15 @@ jobs:
       - name: Install Python bindings
         run: uv pip install --python benchmarks/python/.venv/bin/python --no-deps python/target/wheels/*.whl
 
-      - name: Install R benchmark dependencies
-        run: |
-          mkdir -p "$R_LIBS_USER"
-          # Ubuntu supplies a compatible statistical dependency set, including
-          # car's transitive dependencies. R source installs can warn yet exit 0.
-          Rscript -e 'install.packages("styler", repos="https://cloud.r-project.org", lib=Sys.getenv("R_LIBS_USER")); for (pkg in c("lme4", "lmerTest", "car", "rlang", "styler")) { stopifnot(requireNamespace(pkg, quietly=TRUE)); cat(pkg, as.character(packageVersion(pkg)), "\n") }'
+      - name: Cache R packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: benchmark-results/renv-cache
+          key: ${{ runner.os }}-renv-4.6.1-${{ hashFiles('comparisons/r/renv.lock') }}
+          restore-keys: ${{ runner.os }}-renv-4.6.1-
+
+      - name: Restore locked R benchmark dependencies
+        run: python3 scripts/ci/lme_ci.py r-setup
 
       - name: Test benchmark evidence rules
         run: python3 scripts/ci/lme_ci.py benchmark-tests

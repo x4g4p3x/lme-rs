@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import shutil
 import statistics
@@ -160,6 +161,9 @@ def python_lmer_report(warmups: int, repeats: int) -> dict[str, Any] | None:
 
 
 def main() -> int:
+    r_project = ROOT / "comparisons" / "r"
+    os.environ.setdefault("RENV_PROJECT", str(r_project))
+    os.environ.setdefault("R_PROFILE_USER", str(r_project / ".Rprofile"))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=5)

@@ -12,7 +12,6 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 NOTICE_FILES = (
     ROOT / "THIRD_PARTY_NOTICES.md",
@@ -53,7 +52,9 @@ def _license_file_entry(filename: str, metadata_version: tuple[int, int]) -> str
     return f"licenses/{filename}"
 
 
-def _license_file_wheel_path(metadata_prefix: str, header: str, metadata_version: tuple[int, int]) -> str:
+def _license_file_wheel_path(
+    metadata_prefix: str, header: str, metadata_version: tuple[int, int]
+) -> str:
     if metadata_version >= (2, 4):
         if header.startswith("licenses/"):
             header = header.removeprefix("licenses/")
@@ -78,7 +79,9 @@ def verify_wheel_licenses(wheel: Path) -> None:
         for header in _license_file_headers(metadata_text):
             expected = _license_file_wheel_path(metadata_prefix, header, metadata_version)
             if expected not in names:
-                matches = sorted(name for name in names if name.endswith("/" + header.split("/")[-1]))
+                matches = sorted(
+                    name for name in names if name.endswith("/" + header.split("/")[-1])
+                )
                 raise SystemExit(
                     f"{wheel.name}: License-File {header!r} missing at {expected!r}"
                     + (f" (found {matches})" if matches else "")
@@ -113,7 +116,8 @@ def package_wheel(wheel: Path) -> None:
         metadata_text = metadata.read_text(encoding="utf-8").rstrip()
         metadata_version = _metadata_version(metadata_text)
         license_headers = [
-            f"License-File: {_license_file_entry(path.name, metadata_version)}" for path in NOTICE_FILES
+            f"License-File: {_license_file_entry(path.name, metadata_version)}"
+            for path in NOTICE_FILES
         ]
         metadata.write_text(
             metadata_text + "\n" + "\n".join(license_headers) + "\n",

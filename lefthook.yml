@@ -20,12 +20,16 @@ pre-commit:
       run: bash scripts/ci/run.sh clippy
 
     ruff:
-      glob: "python/**/*.py"
+      glob: "{python/**/*.py,scripts/**/*.py}"
       run: bash scripts/ci/run.sh ruff-staged --fix
       stage_fixed: true
 
+    workflows:
+      glob: ".github/workflows/*.yml"
+      run: bash scripts/ci/run.sh workflow-lint
+
     r-format:
-      glob: "{comparisons/**/*.R,tests/*.R}"
+      glob: "{comparisons/**/*.R,tests/*.R,scripts/ci/restore_r.R}"
       run: bash scripts/ci/run.sh r-format-staged --fix
       stage_fixed: true
 
