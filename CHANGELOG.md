@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Count estimated dispersion in Gamma and Gaussian GLMM information criteria
+  and model-comparison parameter totals. Correct Gamma/non-identity Gaussian
+  AIC values by `+2` and BIC values by `+ln(n)`; binomial and Poisson penalties
+  and same-family likelihood-ratio degrees of freedom are unchanged.
+
 - Accumulate repeated sparse contrast weights instead of overwriting earlier
   contributions to the same coefficient.
 - Retain dot-formula training source columns and their order for prediction and

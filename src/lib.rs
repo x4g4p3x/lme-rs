@@ -1279,7 +1279,7 @@ pub fn fit_prepared_glmer_with_control(
     let log_lik = -deviance_val / 2.0;
     let p = prepared.matrices.x.ncols();
     let total_theta_len = prepared.init_theta.len();
-    let n_params = (total_theta_len + p) as f64;
+    let n_params = (total_theta_len + p + usize::from(uses_disp)) as f64;
     let n = prepared.matrices.y.len() as f64;
     let aic = deviance_val + 2.0 * n_params;
     let bic = deviance_val + n_params * n.ln();
@@ -1792,11 +1792,12 @@ pub fn anova(fit_a: &LmeFit, fit_b: &LmeFit) -> anyhow::Result<AnovaResult> {
 /// Count the total number of estimated parameters in a fitted model.
 ///
 /// For LMMs: fixed effects (beta) + variance components (theta) + residual variance (sigma).
-/// For GLMMs: fixed effects (beta) + variance components (theta) (no sigma for binom/poisson).
+/// For GLMMs: fixed effects (beta) + variance components (theta), plus an
+/// estimated dispersion for Gamma/Gaussian (none for binomial/Poisson).
 fn count_params(fit: &LmeFit) -> usize {
     let n_fixed = fit.coefficients.len();
     let n_theta = fit.theta.as_ref().map_or(0, |t| t.len());
-    let has_sigma = fit.sigma2.is_some() && fit.family_name.is_none(); // LMM has sigma
+    let has_sigma = fit.sigma2.is_some();
     n_fixed + n_theta + if has_sigma { 1 } else { 0 }
 }
 

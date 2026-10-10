@@ -69,6 +69,81 @@ fn lrt_allows_same_design_reml_random_effect_comparisons() {
 }
 
 #[test]
+fn dispersion_glmm_information_criteria_count_estimated_scale() {
+    use lme_rs::family::{Family, Link};
+    let data = CsvReadOptions::default()
+        .try_into_reader_with_file_path(Some("tests/data/dyestuff.csv".into()))
+        .unwrap()
+        .finish()
+        .unwrap();
+    for family in [Family::Gamma, Family::Gaussian] {
+        let fit = lme_rs::glmer_with_link("Yield ~ 1 + (1 | Batch)", &data, family, Link::Log, 1)
+            .unwrap();
+        assert!(
+            fit.sigma2.is_some(),
+            "{family:?} estimates a dispersion parameter"
+        );
+        // One intercept, one random-effect SD, and one estimated dispersion.
+        let k = 3.;
+        let deviance = -2. * fit.log_likelihood.unwrap();
+        assert!(
+            (fit.aic.unwrap() - (deviance + 2. * k)).abs() < 1e-10,
+            "{family:?}: AIC must include estimated dispersion"
+        );
+        assert!(
+            (fit.bic.unwrap() - (deviance + k * (fit.num_obs as f64).ln())).abs() < 1e-10,
+            "{family:?}: BIC must include estimated dispersion"
+        );
+    }
+}
+
+#[test]
+fn gaussian_glmm_lrt_counts_match_equivalent_ml_lmm() {
+    use lme_rs::family::Family;
+    let data = sleepstudy();
+    let formulas = [
+        "Reaction ~ Days + (1 | Subject)",
+        "Reaction ~ Days + (Days | Subject)",
+    ];
+    let lmm: Vec<_> = formulas
+        .iter()
+        .map(|formula| lmer(formula, &data, false).unwrap())
+        .collect();
+    let glmm: Vec<_> = formulas
+        .iter()
+        .map(|formula| lme_rs::glmer(formula, &data, Family::Gaussian, 1).unwrap())
+        .collect();
+    let expected = anova(&lmm[0], &lmm[1]).unwrap();
+    let actual = anova(&glmm[0], &glmm[1]).unwrap();
+    assert_eq!(expected.n_params_0, 4);
+    assert_eq!(expected.n_params_1, 6);
+    assert_eq!(actual.n_params_0, expected.n_params_0);
+    assert_eq!(actual.n_params_1, expected.n_params_1);
+    assert_eq!(actual.df, expected.df);
+    assert_eq!(actual.chi_sq, expected.chi_sq);
+    assert_eq!(actual.p_value, expected.p_value);
+}
+
+#[test]
+fn fixed_dispersion_glmm_penalties_do_not_count_an_extra_scale() {
+    use lme_rs::family::Family;
+    let mut data = factor_data();
+    for family in [Family::Poisson, Family::Binomial] {
+        if family == Family::Binomial {
+            data.with_column(Column::new("y".into(), [0., 1., 0., 1., 1., 0.]))
+                .unwrap();
+        }
+        let fit = lme_rs::glmer("y ~ 1 + (1 | group)", &data, family, 1).unwrap();
+        assert!(fit.sigma2.is_none());
+        // The model estimates an intercept and random-effect SD; the family
+        // dispersion is fixed, so there are exactly two free parameters.
+        let deviance = -2. * fit.log_likelihood.unwrap();
+        assert!((fit.aic.unwrap() - (deviance + 4.)).abs() < 1e-10);
+        assert!((fit.bic.unwrap() - (deviance + 2. * (fit.num_obs as f64).ln())).abs() < 1e-10);
+    }
+}
+
+#[test]
 fn lrt_rejects_nonfinite_deviance() {
     let df = sleepstudy();
     let mut a = lmer("Reaction ~ 1 + (1 | Subject)", &df, false).unwrap();
