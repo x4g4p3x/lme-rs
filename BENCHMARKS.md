@@ -32,6 +32,10 @@ The [10 October robust-covariance measurements](benchmarks/perf-tune-robust-cova
 compare complete robust-inference calls before and after improving design validation,
 including smaller-model controls and rejected experiments.
 
+The [10 October dependency migration](benchmarks/dependency-migrations-2026-10-10.md)
+retains fitted results and iteration counts across matching Argmin and Basin
+cases while updating the array, random-number, and optimizer dependencies.
+
 ## Choose a benchmark
 
 For Python backend adoption, use the

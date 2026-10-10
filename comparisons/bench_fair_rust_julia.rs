@@ -11,7 +11,7 @@ use std::time::Instant;
 use lme_rs::family::Family;
 use polars::prelude::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_distr::{Distribution, Normal};
 use serde::Serialize;
 

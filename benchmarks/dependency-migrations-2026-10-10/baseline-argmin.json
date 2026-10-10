@@ -1,0 +1,819 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-10-10T19:11:10.398562+00:00",
+  "git_sha": "732ef366dcd0e682808f032f66e63f7587fb2723",
+  "provenance": {
+    "working_tree_dirty": false,
+    "working_tree_status": "",
+    "rust_binary_sha256": "c13f6c2582fd799b6bf8630b7ebd83c79aa86c3803fd1b0727acc873327f3145",
+    "rust_build_verified_this_run": true,
+    "source_content_sha256": "0043dbfad072c1841ffa5ced2bbbe95d4260fa941669d2489cb6c8fb2948580d",
+    "cargo_lock_sha256": "1cf725abc488310f0edb086a4ae5bbc8b01923518275c782f0e9cf1cb281fdc1",
+    "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+    "evidence_code_sha256": "89ea48325c85a27f096d6b800b196d1bc1ded31a0408cc440a279fe2d75dca82",
+    "rustflags": null,
+    "cargo_encoded_rustflags": null,
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "RAYON_NUM_THREADS": "1",
+      "POLARS_MAX_THREADS": "1",
+      "JULIA_NUM_THREADS": "1"
+    }
+  },
+  "fixtures": {
+    "sleepstudy_reml": {
+      "path": "C:\\Users\\x4g4p\\.codex\\worktrees\\remaining-pr-migrations\\lme-rs\\tests\\data\\sleepstudy.csv",
+      "sha256": "ca44cdff66d50743895a2315243626aa8f8cc04d1dc92e98e2f2a6b61dc6bda5"
+    },
+    "sleepstudy_weighted_reml": {
+      "path": "C:\\Users\\x4g4p\\.codex\\worktrees\\remaining-pr-migrations\\lme-rs\\tests\\data\\sleepstudy.csv",
+      "sha256": "ca44cdff66d50743895a2315243626aa8f8cc04d1dc92e98e2f2a6b61dc6bda5"
+    },
+    "cbpp_binomial_ml": {
+      "path": "C:\\Users\\x4g4p\\.codex\\worktrees\\remaining-pr-migrations\\lme-rs\\tests\\data\\cbpp_binary.csv",
+      "sha256": "882d1d704d5584b8abefa969c31d4e6842ccb6b679dac6b603989c1f48a0ac25"
+    }
+  },
+  "methodology": {
+    "description": "Shared CSV fixtures; data loaded once; model fit timed per metric; Julia JIT warmed up.",
+    "coverage_doc": "BENCHMARK_COVERAGE.md",
+    "data_generation": "comparisons/bench_fair_rust_julia.rs generate (matches benches/bench_math.rs RNG recipes)",
+    "rust_engine": "lme-rs lmer/glmer/lmer_weighted; optional prepare_lmer + fit_prepared",
+    "julia_engine": "MixedModels.jl fit / GeneralizedLinearMixedModel (GLM.jl)",
+    "target_ratio_cold_fit": 1.0,
+    "note": "Speed claims require converged LMM fits with matching objectives/coefficients. GLMM equivalence remains unverified.",
+    "timing_boundary": "Fresh model construction and fit on loaded data; warmed runtime; excludes destruction and fit-check extraction. Not process-cold latency.",
+    "execution_order": "rust-first per case; separate processes; no between-session uncertainty estimate."
+  },
+  "machine_info": {
+    "platform": "Windows-10-10.0.26300-SP0",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "python_version": "3.11.15",
+    "cpu_count": 12,
+    "cpu_model": "AMD Ryzen 5 8600G w/ Radeon 760M Graphics"
+  },
+  "runtime_versions": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "julia": "julia version 1.12.6"
+  },
+  "config": {
+    "cases": [
+      "sleepstudy_reml",
+      "sleepstudy_weighted_reml",
+      "cbpp_binomial_ml"
+    ],
+    "implementations": [
+      "rust"
+    ],
+    "rust_features": [],
+    "warmups": 2,
+    "repeats": 10,
+    "threads": 1,
+    "order": "rust-first",
+    "timeout_seconds": 3600,
+    "with_phases": true,
+    "target_ratio": 1.0,
+    "data_dir": "C:\\Users\\x4g4p\\.codex\\worktrees\\remaining-pr-migrations\\lme-rs\\benchmark-results\\fair-rust-julia-data"
+  },
+  "results": [
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "sleepstudy_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "model": "lmm",
+      "reml": true,
+      "n_obs": 180,
+      "warmups": 2,
+      "repeats": 10,
+      "fit_checks": [
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        },
+        {
+          "objective": 1743.628272786221,
+          "coefficients": [
+            251.4051048484841,
+            10.467285959595815
+          ],
+          "converged": true,
+          "iterations": 68
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 68,
+      "objective": 1743.6282727862238,
+      "evaluated_objective": 1743.628272786221,
+      "theta": [
+        0.9665850632103228,
+        0.015190060309490404,
+        0.23093612208988026
+      ],
+      "coefficients": [
+        251.4051048484841,
+        10.467285959595815
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0006375,
+          0.0006363,
+          0.0006439,
+          0.0006193,
+          0.000622,
+          0.0006274,
+          0.0006185,
+          0.0006277,
+          0.00064,
+          0.0006229
+        ],
+        "summary": {
+          "min_seconds": 0.0006185,
+          "max_seconds": 0.0006439,
+          "mean_seconds": 0.0006295500000000001,
+          "median_seconds": 0.0006275499999999999,
+          "stdev_seconds": 9.191330456226428e-06
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          2.37e-05,
+          2.39e-05,
+          1.95e-05,
+          1.93e-05,
+          1.92e-05,
+          1.94e-05,
+          1.91e-05,
+          1.94e-05,
+          2e-05,
+          1.95e-05
+        ],
+        "summary": {
+          "min_seconds": 1.91e-05,
+          "max_seconds": 2.39e-05,
+          "mean_seconds": 2.03e-05,
+          "median_seconds": 1.945e-05,
+          "stdev_seconds": 1.8607047649270487e-06
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.0006338,
+          0.0006137,
+          0.0006286,
+          0.000598,
+          0.0006035,
+          0.0005944,
+          0.0006009,
+          0.0006001,
+          0.000594,
+          0.0005927
+        ],
+        "summary": {
+          "min_seconds": 0.0005927,
+          "max_seconds": 0.0006338,
+          "mean_seconds": 0.0006059700000000002,
+          "median_seconds": 0.0006005,
+          "stdev_seconds": 1.4641649117803932e-05
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "sleepstudy_weighted_reml",
+      "formula": "Reaction ~ Days + (Days | Subject)",
+      "model": "lmm_weighted",
+      "reml": true,
+      "n_obs": 180,
+      "warmups": 2,
+      "repeats": 10,
+      "fit_checks": [
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        }
+      ],
+      "prepared_fit_checks": [
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        },
+        {
+          "objective": 1675.75515055677,
+          "coefficients": [
+            250.17703311749486,
+            10.670950360191142
+          ],
+          "converged": true,
+          "iterations": 56
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 56,
+      "objective": 1675.7551505567628,
+      "evaluated_objective": 1675.75515055677,
+      "theta": [
+        1.2270643054982706,
+        -0.002398390090546093,
+        0.2880575997283134
+      ],
+      "coefficients": [
+        250.17703311749486,
+        10.670950360191142
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0005859,
+          0.0005548,
+          0.0005754,
+          0.0005811,
+          0.0005803,
+          0.0005801,
+          0.000587,
+          0.0005876,
+          0.0005746,
+          0.0006144
+        ],
+        "summary": {
+          "min_seconds": 0.0005548,
+          "max_seconds": 0.0006144,
+          "mean_seconds": 0.00058212,
+          "median_seconds": 0.0005807,
+          "stdev_seconds": 1.4782331796213102e-05
+        }
+      },
+      "prepare_lmer": {
+        "samples_seconds": [
+          6.11e-05,
+          3.03e-05,
+          2.73e-05,
+          2.56e-05,
+          2.57e-05,
+          2.48e-05,
+          2.59e-05,
+          2.5e-05,
+          2.81e-05,
+          2.49e-05
+        ],
+        "summary": {
+          "min_seconds": 2.48e-05,
+          "max_seconds": 6.11e-05,
+          "mean_seconds": 2.9870000000000004e-05,
+          "median_seconds": 2.58e-05,
+          "stdev_seconds": 1.110926040142487e-05
+        }
+      },
+      "fit_prepared": {
+        "samples_seconds": [
+          0.000616,
+          0.0005039,
+          0.0005027,
+          0.0005138,
+          0.0005089,
+          0.0005042,
+          0.0005039,
+          0.000506,
+          0.0005036,
+          0.0005045
+        ],
+        "summary": {
+          "min_seconds": 0.0005027,
+          "max_seconds": 0.000616,
+          "mean_seconds": 0.0005167500000000001,
+          "median_seconds": 0.00050435,
+          "stdev_seconds": 3.503107350783174e-05
+        }
+      }
+    },
+    {
+      "implementation": "rust",
+      "optimizer_backend": "argmin",
+      "case": "cbpp_binomial_ml",
+      "formula": "y ~ period2 + period3 + period4 + (1 | herd)",
+      "model": "glmm_binomial",
+      "reml": false,
+      "n_obs": 842,
+      "warmups": 2,
+      "repeats": 10,
+      "fit_checks": [
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        },
+        {
+          "objective": 555.0599103136977,
+          "coefficients": [
+            -1.3604727354905992,
+            -0.9761764260625783,
+            -1.1110758793203548,
+            -1.559679323490428
+          ],
+          "converged": true,
+          "iterations": 64
+        }
+      ],
+      "converged": true,
+      "optimizer_iterations": 64,
+      "objective": 555.0599103136977,
+      "evaluated_objective": 555.0599103136977,
+      "theta": [
+        0.6418208648170779
+      ],
+      "coefficients": [
+        -1.3604727354905992,
+        -0.9761764260625783,
+        -1.1110758793203548,
+        -1.559679323490428
+      ],
+      "cold_fit": {
+        "samples_seconds": [
+          0.0146572,
+          0.0150642,
+          0.0144547,
+          0.0144501,
+          0.0150028,
+          0.0149027,
+          0.0144009,
+          0.0146225,
+          0.0145405,
+          0.0144198
+        ],
+        "summary": {
+          "min_seconds": 0.0144009,
+          "max_seconds": 0.0150642,
+          "mean_seconds": 0.01465154,
+          "median_seconds": 0.0145815,
+          "stdev_seconds": 0.0002507336665778164
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "sleepstudy_reml",
+      "model": "lmm",
+      "reference": "MixedModels.jl; random slopes (real fixture)",
+      "metrics": [
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 1.945e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    },
+    {
+      "case": "sleepstudy_weighted_reml",
+      "model": "lmm_weighted",
+      "reference": "MixedModels.jl wts=\u2026",
+      "metrics": [
+        {
+          "metric": "prepare_lmer_rust_only",
+          "rust_median_seconds": 2.58e-05,
+          "julia_median_seconds": null,
+          "rust_over_julia_median": null,
+          "julia_over_rust_median": null,
+          "faster_implementation": "n/a",
+          "meets_target": null
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

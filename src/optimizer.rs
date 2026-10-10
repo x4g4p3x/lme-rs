@@ -77,6 +77,32 @@ where
 #[cfg(feature = "basin")]
 pub(crate) use basin_backend::optimize as nelder_mead_optimize_tolerance;
 
+// Argmin's ndarray backend currently targets 0.16. Use its version-independent
+// Vec backend for simplex arithmetic and reuse an ndarray parameter buffer for
+// our objectives, avoiding an allocation on every objective evaluation.
+#[cfg(not(feature = "basin"))]
+struct VectorObjective<C> {
+    cost: C,
+    theta: RefCell<Array1<f64>>,
+}
+
+#[cfg(not(feature = "basin"))]
+impl<C> CostFunction for VectorObjective<C>
+where
+    C: CostFunction<Param = Array1<f64>, Output = f64>,
+{
+    type Param = Vec<f64>;
+    type Output = f64;
+
+    fn cost(&self, param: &Self::Param) -> Result<f64, Error> {
+        let mut theta = self.theta.borrow_mut();
+        for (dst, src) in theta.iter_mut().zip(param) {
+            *dst = *src;
+        }
+        self.cost.cost(&theta)
+    }
+}
+
 #[cfg(not(feature = "basin"))]
 pub(crate) fn nelder_mead_optimize_tolerance<C>(
     init_theta: Array1<f64>,
@@ -89,23 +115,30 @@ where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
 {
     let n = init_theta.len();
-    let mut initial_simplex = vec![init_theta.clone()];
+    let mut initial_simplex = vec![init_theta.to_vec()];
 
     for i in 0..n {
         let mut param = init_theta.clone();
         param[i] += 0.2;
         clamp_theta(&mut param, lower_bounds);
-        initial_simplex.push(param);
+        initial_simplex.push(param.to_vec());
     }
 
     let solver = NelderMead::new(initial_simplex).with_sd_tolerance(tolerance)?;
 
-    let res = Executor::new(cost, solver)
+    let objective = VectorObjective {
+        cost,
+        theta: RefCell::new(Array1::zeros(n)),
+    };
+    let res = Executor::new(objective, solver)
         .configure(|state| state.max_iters(max_iters))
         .run()?;
 
     let state = res.state();
-    let mut best_theta = state.get_best_param().cloned().unwrap_or(init_theta);
+    let mut best_theta = state
+        .get_best_param()
+        .map(|theta| Array1::from_vec(theta.clone()))
+        .unwrap_or(init_theta);
     clamp_theta(&mut best_theta, lower_bounds);
     let best_cost = state.get_best_cost();
     let iterations = state.get_iter();
@@ -823,6 +856,30 @@ mod tests {
         let objective = |x: &Array1<f64>| Ok((x[0] - 2.0).powi(2) + (x[1] + 1.0).powi(2));
         let result = nelder_mead_optimize_tolerance(
             array![1.0, 0.0],
+            &[0.0, f64::NEG_INFINITY],
+            1000,
+            1e-12,
+            TestObjective(objective),
+        )
+        .unwrap();
+        assert!(result.converged, "{result:?}");
+        assert!((result.theta[0] - 2.0).abs() < 1e-5);
+        assert!((result.theta[1] + 1.0).abs() < 1e-5);
+        assert_eq!(result.final_cost, objective(&result.theta).unwrap());
+    }
+
+    #[test]
+    fn nelder_mead_preserves_strided_parameter_order() {
+        // The middle storage element is deliberately outside the logical
+        // parameter vector. The analytic minimum uses both coordinates.
+        let start = array![1.0, 123.0, 0.0].slice_move(ndarray::s![..;2]);
+        assert!(!start.is_standard_layout());
+        let objective = |x: &Array1<f64>| {
+            assert_eq!(x.len(), 2);
+            Ok((x[0] - 2.0).powi(2) + (x[1] + 1.0).powi(2))
+        };
+        let result = nelder_mead_optimize_tolerance(
+            start,
             &[0.0, f64::NEG_INFINITY],
             1000,
             1e-12,

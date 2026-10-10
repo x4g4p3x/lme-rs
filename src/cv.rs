@@ -151,7 +151,7 @@ pub fn cv_grouped(
 
     let mut rng = match seed {
         Some(s) => StdRng::seed_from_u64(s),
-        None => StdRng::from_os_rng(),
+        None => rand::make_rng::<StdRng>(),
     };
     groups.shuffle(&mut rng);
 
@@ -295,7 +295,7 @@ pub fn cv_grouped_glmer(
 
     let mut rng = match seed {
         Some(s) => StdRng::seed_from_u64(s),
-        None => StdRng::from_os_rng(),
+        None => rand::make_rng::<StdRng>(),
     };
     groups.shuffle(&mut rng);
 
