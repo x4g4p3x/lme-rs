@@ -59,7 +59,7 @@ smallvec = "1.15"
 [dev-dependencies]
 # Comparison examples and fixtures use lazy expressions; consumers do not need them.
 polars = { version = "0.46.0", features = ["lazy", "csv"] }
-criterion = { version = "0.5.1", features = ["html_reports"] }
+criterion = { version = "0.8.2", features = ["html_reports"] }
 env_logger = "0.11.9"
 rayon = "1.11"
 sprs = "0.11.4"
