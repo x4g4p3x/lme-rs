@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Migrate Rust and Python array types together to ndarray 0.17.2 and
+  ndarray-linalg 0.18.1 on every BLAS target. Use Argmin's vector backend with
+  a reused parameter buffer; the optional Basin backend uses ndarray 0.17.
+
 - Migrate simulation, bootstrap, cross-validation, and benchmark generators to
   the matching rand 0.10 / rand_distr 0.6 APIs, retaining seeded parallel behavior.
 

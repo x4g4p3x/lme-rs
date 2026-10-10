@@ -34,6 +34,12 @@ of the shared helper. The specialized scalar and grid searches retain their
 existing dispatch rules. There is no runtime optimizer selector, and enabling
 the feature in any dependency enables it for the unified Cargo build.
 
+The [October dependency migration](../benchmarks/dependency-migrations-2026-10-10.md)
+aligns the library and bindings on ndarray 0.17.2. Basin uses its matching array
+backend; Argmin uses its vector backend and a reused array buffer for objective
+calls because its math adapter still targets ndarray 0.16. The public array types
+remain consistent across the two optimizer builds and the Python crate.
+
 ## Bounds and numerical controls
 
 | Control | Meaning with either backend |
