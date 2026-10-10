@@ -1550,7 +1550,7 @@ dependencies = [
  "criterion",
  "env_logger",
  "log",
- "ndarray 0.16.1",
+ "ndarray 0.17.2",
  "ndarray-linalg",
  "polars",
  "rand 0.10.3",
