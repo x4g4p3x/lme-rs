@@ -39,10 +39,12 @@ jobs:
           version: "0.11.24"
       - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2
         with:
-          tool: actionlint@1.7.12
+          tool: mise@2026.10.3
+          fallback: none
       - name: Validate workflows and Python tooling
         run: |
-          python3 scripts/ci/lme_ci.py workflow-lint
+          mise trust mise.toml
+          mise exec actionlint@1.7.12 -- python3 scripts/ci/lme_ci.py workflow-lint
           python3 scripts/ci/lme_ci.py ruff-scripts
           python3 scripts/ci/lme_ci.py ruff-lint
           python3 scripts/ci/lme_ci.py benchmark-tests
