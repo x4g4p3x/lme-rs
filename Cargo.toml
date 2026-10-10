@@ -149,7 +149,7 @@ path = "examples/dump_cascade_fixtures.rs"
 
 # x86_64 (Linux, Windows, macOS x86_64 wheels via cross-compile): static Intel MKL.
 [target.'cfg(target_arch = "x86_64")'.dependencies]
-ndarray-linalg = { version = "0.17", features = ["intel-mkl-static"] }
+ndarray-linalg = { version = "0.18", features = ["intel-mkl-static"] }
 
 # macOS Apple Silicon: static OpenBLAS (MKL does not link on aarch64-apple-darwin;
 # Homebrew OpenBLAS pulls libgcc dylibs maturin cannot repair).
