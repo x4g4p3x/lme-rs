@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve finite `SSmicmen` nonlinear means and gradients across predictor
+  units and large amplitudes by avoiding overflowing numerators, squared
+  denominators, and overflowing sums of finite inputs.
+
 - Stabilize `SSlogis` and `SSfpl` nonlinear mean gradients in the logistic tails
   and across predictor units. Avoid spurious zero, infinite, or NaN derivatives
   caused by overflowing exponentials or squaring the scale parameter, and retain
