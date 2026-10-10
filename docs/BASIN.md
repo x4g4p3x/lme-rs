@@ -51,7 +51,7 @@ existing `0.2` coordinate steps around a feasible starting point.
 
 `FitControl::tolerance` keeps its existing meaning: the sample standard deviation
 of the simplex objective values must be strictly below the tolerance. A private
-termination criterion implements this rule for Basin; it does not use Basin's
+run-control stopping hook implements this rule for Basin; it does not use Basin's
 position-and-cost simplex tolerance. The default is `1e-6`.
 
 `max_iterations` remains an iteration budget per search stage, rather than an

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Update the optional Basin optimizer to its supported run-control API while
+  preserving sample-cost tolerance, projected bounds, and shared restart budgets.
+
 - Declare Rust 1.88 and Python 3.10 as the supported minimums, with explicit
   compiler/interpreter compatibility gates.
 - Build shared CPython 3.10+ release wheels using the stable ABI while retaining
@@ -41,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with unused measurements or metadata.
 
 ### Fixed
+
+- Install the pinned workflow validator through mise in hosted CI and remove an
+  accidental perfect fit from the rank-deficiency panic regression fixture;
+  require a finite fit or a documented numerical error across BLAS implementations.
 
 - Preserve fitted reference-grid category coding with statsmodels 0.15's
   formula metadata while retaining compatibility with the earlier Patsy layout.

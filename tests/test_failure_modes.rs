@@ -134,8 +134,10 @@ fn lm_df_rank_deficient_fixed_effects_returns_error() {
 #[test]
 fn lmer_rank_deficient_fixed_effects_does_not_panic() {
     let outcome = std::panic::catch_unwind(|| {
+        // Duplicate predictors exercise rank deficiency without a perfect fit,
+        // whose zero residual variance can depend on BLAS rounding.
         let df = df!(
-            "y" => &[1.0_f64, 2.0, 3.0],
+            "y" => &[1.0_f64, 3.0, 2.0],
             "x" => &[1.0_f64, 2.0, 3.0],
             "z" => &[1.0_f64, 2.0, 3.0],
             "g" => &["s1", "s2", "s3"],
@@ -145,14 +147,19 @@ fn lmer_rank_deficient_fixed_effects_does_not_panic() {
     });
     match outcome {
         Err(panic) => panic!("rank-deficient fixed effects must not panic: {panic:?}"),
-        Ok(Ok(_)) => {}
-        Ok(Err(err)) => {
-            let msg = err.to_string();
-            assert!(
-                msg.contains("linear algebra") || msg.contains("profile"),
-                "unexpected rank-deficient error: {msg}"
-            );
+        Ok(Ok(fit)) => {
+            assert!(fit.coefficients.iter().all(|value| value.is_finite()));
+            assert!(fit.fitted.iter().all(|value| value.is_finite()));
+            assert!(fit.residuals.iter().all(|value| value.is_finite()));
+            assert!(fit
+                .sigma2
+                .is_some_and(|value| value.is_finite() && value > 0.0));
+            assert!(fit.log_likelihood.is_some_and(f64::is_finite));
         }
+        // BLAS may reject the singular factorization or reach the likelihood
+        // validity guard. Both documented numerical errors must return safely.
+        Ok(Err(LmeError::LinearAlgebra { .. } | LmeError::NonConvergence { .. })) => {}
+        Ok(Err(err)) => panic!("unexpected rank-deficient error: {err}"),
     }
 }
 
