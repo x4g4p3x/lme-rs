@@ -1,6 +1,8 @@
 use super::{clamp_theta, CostFunction, OptimizeResult};
-use basin::{run_loop, BasicSimplexState, BoxConstraints, NelderMead, Problem, SimplexState};
-use basin::{TerminationCriterion, TerminationReason};
+use basin::{
+    run_loop_with_control, BasicSimplexState, BoxConstraints, NelderMead, Problem, RunControl,
+    SimplexState, TerminationReason,
+};
 use ndarray::Array1;
 use std::cell::RefCell;
 use std::ops::Range;
@@ -66,13 +68,6 @@ impl CostStandardDeviation {
         let mean = costs.iter().sum::<f64>() / n;
         let sd = (costs.iter().map(|c| (c - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
         sd < self.0
-    }
-}
-
-impl TerminationCriterion<BasicSimplexState<Array1<f64>>> for CostStandardDeviation {
-    fn check(&mut self, state: &BasicSimplexState<Array1<f64>>) -> Option<TerminationReason> {
-        self.converged(state.costs())
-            .then_some(TerminationReason::SolverConverged)
     }
 }
 
@@ -266,12 +261,18 @@ where
     });
     let mut iterations = 0;
     loop {
-        let result = run_loop(
+        let mut control = RunControl::new()
+            .max_iter(max_iters - iterations)
+            .stop_when(move |state: &BasicSimplexState<Array1<f64>>| {
+                CostStandardDeviation(tolerance)
+                    .converged(state.costs())
+                    .then_some(TerminationReason::SolverConverged)
+            });
+        let result = run_loop_with_control(
             &mut problem,
             BasicSimplexState::from_simplex(simplex),
             &mut NelderMead::new().projected(),
-            &mut [Box::new(CostStandardDeviation(tolerance))],
-            max_iters - iterations,
+            &mut control,
         )?;
         iterations += result.iter();
         let final_cost = result.best_cost();

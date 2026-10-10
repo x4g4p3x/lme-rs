@@ -47,7 +47,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
 argmin = "0.11.0"
 argmin-math = { version = "0.5.1", features = ["ndarray_v0_16-nolinalg"] }
-basin = { version = "1.10.0", optional = true, default-features = false, features = ["ndarray_v0_16"] }
+basin = { version = "1.15.1", optional = true, default-features = false, features = ["ndarray_v0_16"] }
 sprs = "0.11.4"
 sprs-ldl = "0.10.0"
 log = "0.4"

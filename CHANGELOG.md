@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Update the optional Basin optimizer to its supported run-control API while
+  preserving sample-cost tolerance, projected bounds, and shared restart budgets.
+
 - Declare Rust 1.88 and Python 3.10 as the supported minimums, with explicit
   compiler/interpreter compatibility gates.
 - Build shared CPython 3.10+ release wheels using the stable ABI while retaining
