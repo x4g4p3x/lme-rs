@@ -134,8 +134,10 @@ fn lm_df_rank_deficient_fixed_effects_returns_error() {
 #[test]
 fn lmer_rank_deficient_fixed_effects_does_not_panic() {
     let outcome = std::panic::catch_unwind(|| {
+        // Duplicate predictors exercise rank deficiency without a perfect fit,
+        // whose zero residual variance can depend on BLAS rounding.
         let df = df!(
-            "y" => &[1.0_f64, 2.0, 3.0],
+            "y" => &[1.0_f64, 3.0, 2.0],
             "x" => &[1.0_f64, 2.0, 3.0],
             "z" => &[1.0_f64, 2.0, 3.0],
             "g" => &["s1", "s2", "s3"],
