@@ -43,7 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Install the pinned workflow validator through mise in hosted CI and remove an
-  accidental perfect fit from the rank-deficiency panic regression fixture.
+  accidental perfect fit from the rank-deficiency panic regression fixture;
+  require a finite fit or a documented numerical error across BLAS implementations.
 
 - Preserve fitted reference-grid category coding with statsmodels 0.15's
   formula metadata while retaining compatibility with the earlier Patsy layout.
