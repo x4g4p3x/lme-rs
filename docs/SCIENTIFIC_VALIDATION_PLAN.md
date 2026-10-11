@@ -4,6 +4,12 @@ Draft concept, assessed 11 October 2026 against `b347bf9d69f2713cf75ae271c98c831
 (`0.2.7-dev.0`). This is a proposed research programme, not completed validation
 or a certification.
 
+The initial deterministic contracts and reproduction runner are now described
+in the [frozen baseline](../scientific/README.md). The
+[calibration protocol](LMM_CALIBRATION_PROTOCOL.md) remains a review-ready draft.
+The inventory below records the starting assessment; completed evidence is
+reported separately by version and scope.
+
 ## Objective and sequence
 
 Establish which mathematical computations and statistical procedures are reliable,

@@ -17,6 +17,7 @@ site/
 python/target/
 python/.venv/
 benchmarks/python/.venv/
+scientific/.venv/
 __pycache__/
 *.whl
 .pytest_cache/

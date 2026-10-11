@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "baseline_version": "0.2.7",
+  "status": "initial verification contracts; external scientific review pending",
+  "sources": {
+    "Longley.dat": {
+      "url": "https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Longley.dat",
+      "sha256": "fc4b0c824f8f0b834eb8e7d1c4c7e0b3cebdd7987bcb085e8f5e1007582480ea"
+    },
+    "Wampler1.dat": {
+      "url": "https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Wampler1.dat",
+      "sha256": "8bcd6f00dbe8c307ebc5c971e12b950eb3cdb75afbC2b38573082b5fcb0d7fbc"
+    },
+    "bates-2015.R": {
+      "url": "https://www.jstatsoft.org/article/download/v067i01/3163",
+      "sha256": "af5c641c093e59f08f54a94df0ef06059976c1d0c9c4e964069dbb3420d5782f"
+    },
+    "kuznetsova-2017.R": {
+      "url": "https://www.jstatsoft.org/article/download/v082i13/3598",
+      "sha256": "ce69b5f19841cc744a5d3a1d22e16e930a2d3d48f1d6b9742ca23013d6c6fbc8"
+    },
+    "halekoh-2014.R": {
+      "url": "https://www.jstatsoft.org/article/download/v059i09/2831",
+      "sha256": "cf7973912204494398a3b4833b7e7baef8e6f9a12c4a2288e48251741fe08e43"
+    }
+  },
+  "reference_packages": {
+    "lme4": "2.0.1",
+    "lmerTest": "3.2.1",
+    "pbkrtest": "0.5.5",
+    "jsonlite": "2.0.0"
+  },
+  "cases": [
+    {
+      "id": "ols-rational-v1",
+      "oracle": "exact rational normal equations",
+      "rtol": 1E-10,
+      "atol": 1E-10
+    },
+    {
+      "id": "nist-longley-v1",
+      "oracle": "NIST certified coefficients, standard errors and RSS",
+      "rtol": 1E-08,
+      "atol": 1E-10
+    },
+    {
+      "id": "nist-wampler1-v1",
+      "oracle": "NIST exact degree-five polynomial",
+      "rtol": 1E-08,
+      "atol": 1E-08
+    },
+    {
+      "id": "balanced-lmm-ml-v1",
+      "oracle": "closed-form balanced variance estimates and exact dense GLS",
+      "rtol": 2E-06,
+      "atol": 2E-06
+    },
+    {
+      "id": "balanced-lmm-reml-v1",
+      "oracle": "closed-form balanced variance estimates and exact dense GLS",
+      "satterthwaite_df_atol": 0.05,
+      "rtol": 2E-06,
+      "atol": 2E-06
+    },
+    {
+      "id": "bates-sleepstudy-v1",
+      "doi": "10.18637/jss.v067.i01",
+      "section": "1.2 and fixed-effect covariance",
+      "control": {
+        "tolerance": 1E-06,
+        "max_iterations": 1000
+      },
+      "rtol": 0.001,
+      "atol": 0.0003
+    },
+    {
+      "id": "kuznetsova-tvbo-v1",
+      "doi": "10.18637/jss.v082.i13",
+      "section": "8.2; Type III Satterthwaite and Type II KR",
+      "control": {
+        "tolerance": 1E-12,
+        "max_iterations": 5000
+      },
+      "rtol": 0.001,
+      "atol": 0.0003
+    },
+    {
+      "id": "halekoh-beets-v1",
+      "doi": "10.18637/jss.v059.i09",
+      "section": "beets harvest KR comparison",
+      "control": {
+        "tolerance": 1E-06,
+        "max_iterations": 1000
+      },
+      "rtol": 0.001,
+      "atol": 0.0003
+    }
+  ],
+  "tolerance_rationale": {
+    "ols": "Well-conditioned rational arithmetic has tight floating-point gates; Longley is ill-conditioned and NIST provides roughly 15 certified significant digits, so require eight-digit relative agreement.",
+    "perfect_fit": "Exact zero RSS needs an absolute gate, not relative error; require sigma2 <= 1e-14 and coefficient absolute error <= 1e-8.",
+    "balanced_lmm": "Variance estimates are optimized numerically; allow two parts per million while checking independently derived ML/REML optima and likelihood criteria. Finite-difference Satterthwaite degrees of freedom have a separately declared absolute gate of 0.05 against the exact balanced-model identity.",
+    "paper_examples": "Initial gates target three significant digits for optimizer-dependent quantities; this is selected example agreement, not bitwise or historical-binary reproduction. Zero/small parameters also have a 3e-4 absolute gate. Inference probabilities use an absolute 1e-5 gate. Numerical review may replace contracts through a new registry revision, never silently after a failed run."
+  },
+  "reference_namespaces": {
+    "MASS": "7.3.65",
+    "Matrix": "1.7.5",
+    "R6": "2.6.1",
+    "RColorBrewer": "1.1.3",
+    "Rcpp": "1.1.1.1.1",
+    "Rdpack": "2.6.6",
+    "S7": "0.2.2",
+    "backports": "1.5.1",
+    "base": "4.6.1",
+    "boot": "1.3.32",
+    "broom": "1.0.13",
+    "cli": "3.6.6",
+    "compiler": "4.6.1",
+    "datasets": "4.6.1",
+    "dplyr": "1.2.1",
+    "farver": "2.1.2",
+    "generics": "0.1.4",
+    "ggplot2": "4.0.3",
+    "glue": "1.8.1",
+    "grDevices": "4.6.1",
+    "graphics": "4.6.1",
+    "grid": "4.6.1",
+    "gtable": "0.3.6",
+    "lattice": "0.22.9",
+    "lifecycle": "1.0.5",
+    "lme4": "2.0.1",
+    "lmerTest": "3.2.1",
+    "magrittr": "2.0.5",
+    "methods": "4.6.1",
+    "minqa": "1.2.8",
+    "nlme": "3.1.169",
+    "nloptr": "2.2.1",
+    "numDeriv": "2016.8.1.1",
+    "parallel": "4.6.1",
+    "pbkrtest": "0.5.5",
+    "pillar": "1.11.1",
+    "pkgconfig": "2.0.3",
+    "purrr": "1.2.2",
+    "rbibutils": "2.4.1",
+    "reformulas": "0.4.4",
+    "rlang": "1.2.0",
+    "scales": "1.4.0",
+    "splines": "4.6.1",
+    "stats": "4.6.1",
+    "tibble": "3.3.1",
+    "tidyr": "1.3.2",
+    "tidyselect": "1.2.1",
+    "tools": "4.6.1",
+    "utils": "4.6.1",
+    "vctrs": "0.7.3"
+  }
+}

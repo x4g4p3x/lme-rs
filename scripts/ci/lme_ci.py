@@ -598,6 +598,99 @@ def preflight() -> None:
     )
 
 
+def scientific_baseline(*, output_dir: str = "", rscript: str = "") -> None:
+    """Verify the frozen published engine in an isolated locked environment."""
+    import hashlib
+    from datetime import datetime, timezone
+    from urllib.request import Request, urlopen
+    from uuid import uuid4
+
+    scientific = ROOT / "scientific"
+    registry_path = scientific / "cases.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    version = registry["baseline_version"]
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
+    destination = (
+        Path(output_dir).resolve()
+        if output_dir
+        else (ROOT / "benchmark-results" / "scientific" / version / run_id)
+    )
+    destination.mkdir(parents=True, exist_ok=False)
+    print(f"scientific run directory: {destination}", flush=True)
+    for name, source in registry["sources"].items():
+        if Path(name).name != name or not re.fullmatch(r"[0-9a-fA-F]{64}", source["sha256"]):
+            raise CiError(f"invalid scientific source declaration: {name}")
+        request = Request(source["url"], headers={"User-Agent": "lme-rs-scientific-validation/1"})
+        with urlopen(request, timeout=60) as response:
+            content = response.read()
+        if hashlib.sha256(content).hexdigest() != source["sha256"].lower():
+            raise CiError(f"scientific source hash mismatch: {name}")
+        (destination / name).write_bytes(content)
+
+    reference_runner = rscript or shutil.which("Rscript")
+    if not reference_runner and os.name == "nt":
+        candidate = Path(os.environ.get("ProgramFiles", "C:/Program Files")) / (
+            "R/R-4.6.1/bin/Rscript.exe"
+        )
+        if candidate.is_file():
+            reference_runner = str(candidate)
+    if not reference_runner:
+        raise CiError("Rscript required for all three paper cases; use --rscript PATH")
+    run(
+        [
+            reference_runner,
+            "--vanilla",
+            str(ROOT / "comparisons/scientific/paper_references.R"),
+            str(destination),
+        ]
+    )
+    environment = destination / "environment"
+    run(
+        [
+            _require_tool("uv"),
+            "sync",
+            "--project",
+            str(scientific),
+            "--frozen",
+            "--python",
+            "3.11",
+            "--no-install-project",
+        ],
+        env={"UV_PROJECT_ENVIRONMENT": str(environment)},
+    )
+    report = destination / "results.json"
+    result = run(
+        [
+            str(venv_python(environment)),
+            str(ROOT / "scripts/scientific_validation.py"),
+            "--registry",
+            str(registry_path),
+            "--run-dir",
+            str(destination),
+            "--output",
+            str(report),
+            "--engine-version",
+            version,
+        ],
+        check=False,
+    )
+    if report.exists():
+        evidence = json.loads(report.read_text(encoding="utf-8"))
+        evidence["environment_lock_sha256"] = hashlib.sha256(
+            (scientific / "uv.lock").read_bytes()
+        ).hexdigest()
+        evidence["reference_adapter_sha256"] = hashlib.sha256(
+            (ROOT / "comparisons/scientific/paper_references.R").read_bytes()
+        ).hexdigest()
+        evidence["release_git_sha"] = subprocess.check_output(
+            ["git", "rev-list", "-n", "1", f"v{version}"], cwd=ROOT, text=True
+        ).strip()
+        report.write_text(json.dumps(evidence, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    if result.returncode:
+        raise CiError(f"scientific baseline failed; retained evidence: {report}")
+    print(f"scientific baseline: all declared cases passed; evidence: {report}", flush=True)
+
+
 def rust_lint() -> None:
     cargo_fmt(apply=False)
     cargo_clippy()
@@ -1418,6 +1511,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Fail when Rscript/styler or julia/JuliaFormatter are unavailable",
     )
     p_comparison_format.set_defaults(fn=lambda a: comparison_format_check(required=a.required))
+
+    sub.add_parser(
+        "scientific-oracle", help="Check the independent rational/Decimal oracle"
+    ).set_defaults(
+        fn=lambda _: run([sys.executable, "scripts/scientific_validation.py", "--self-test"])
+    )
+    p_scientific = sub.add_parser(
+        "scientific-baseline", help="Verify the frozen published engine and three paper examples"
+    )
+    p_scientific.add_argument("--output-dir", default="")
+    p_scientific.add_argument("--rscript", default="")
+    p_scientific.set_defaults(
+        fn=lambda a: scientific_baseline(output_dir=a.output_dir, rscript=a.rscript)
+    )
 
     p_ci = sub.add_parser("ci", help="Full core CI mirror")
     p_ci.add_argument("--reuse-venv", action="store_true")

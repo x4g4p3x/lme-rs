@@ -21,6 +21,8 @@ Prefer Task for day-to-day work.
 | `task ci` | `ci` | Full local core validation |
 | `task benchmarks:site` | `benchmark-site` | Regenerate checked-in dashboard data |
 | `task explorations` | `explorations` | Parser, parameter-grid, and comparison probes |
+| `task scientific:oracle` | `scientific-oracle` | Independent exact-arithmetic oracle controls |
+| `task scientific:baseline` | `scientific-baseline` | Frozen published 0.2.7, NIST and three selected paper examples |
 
 For example:
 

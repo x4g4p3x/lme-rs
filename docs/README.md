@@ -17,6 +17,9 @@ behind a performance claim. Rust and Python use the same fitting engine.
 
 For the proposed mathematical verification, statistical calibration and published
 analysis reproduction programme, see the [scientific validation plan](SCIENTIFIC_VALIDATION_PLAN.md).
+The [frozen numerical baseline](../scientific/README.md) describes its selected
+contracts and reproduction commands. The [LMM calibration protocol](LMM_CALIBRATION_PROTOCOL.md)
+is a review-ready draft; its confirmatory study has not run.
 
 ## Start here
 

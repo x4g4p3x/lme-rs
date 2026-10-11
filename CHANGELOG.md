@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A frozen 0.2.7 scientific baseline with independent rational/Decimal OLS and
+  balanced LMM contracts, NIST certified regressions, and selected worked
+  examples from three mixed-model papers. The isolated runner records source,
+  environment, adapter, and result provenance. Analytic contracts also run in
+  Python native and wheel tests.
+- A review-ready Gaussian LMM calibration protocol with prespecified scenarios,
+  Monte Carlo uncertainty, and failure reporting; independent review and the
+  confirmatory study remain pending.
+
 ## [0.2.7] - 2026-10-11
 
 ### Changed

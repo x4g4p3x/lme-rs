@@ -35,6 +35,16 @@ tasks:
     cmds:
       - '{{.RUN}} preflight'
 
+  scientific:oracle:
+    desc: Verify the independent exact arithmetic oracle
+    cmds:
+      - '{{.RUN}} scientific-oracle'
+
+  scientific:baseline:
+    desc: Verify published 0.2.7 against analytic, NIST, and selected paper contracts
+    cmds:
+      - '{{.RUN}} scientific-baseline {{.CLI_ARGS}}'
+
   toolchain:check:
     desc: Verify local and hosted tool version alignment
     cmds:
