@@ -5,6 +5,52 @@ use lme_rs::lmer;
 use polars::prelude::*;
 use std::fs::File;
 
+#[test]
+fn type3_factor_main_effect_averages_over_interaction_levels() {
+    let df = df!(
+        "y" => [0.0, 2.0, 2.0, 4.0, 4.0, 6.0, 10.0, 12.0],
+        "a" => ["A", "A", "A", "A", "B", "B", "B", "B"],
+        "b" => ["C", "C", "D", "D", "C", "C", "D", "D"]
+    )
+    .unwrap();
+    // Cell means are 1, 3, 5, 11, with SSE=8 and MSE=2. Uniform marginal
+    // differences are 6 and 4, each with variance 1. The interaction has F=4.
+    for coding in [lme_rs::FactorCoding::Treatment, lme_rs::FactorCoding::Sum] {
+        for reverse in [false, true] {
+            let levels = |a: &str, b: &str| {
+                if reverse {
+                    vec![b.into(), a.into()]
+                } else {
+                    vec![a.into(), b.into()]
+                }
+            };
+            let factors = std::collections::HashMap::from([
+                (
+                    "a".into(),
+                    lme_rs::FactorSpec {
+                        levels: levels("A", "B"),
+                        coding: coding.clone(),
+                    },
+                ),
+                (
+                    "b".into(),
+                    lme_rs::FactorSpec {
+                        levels: levels("C", "D"),
+                        coding: coding.clone(),
+                    },
+                ),
+            ]);
+            let fit = lme_rs::lm_df_with_factors("y ~ a * b", &df, &factors).unwrap();
+            let table = fit
+                .anova_typed(AnovaType::Type3, DdfMethod::Residual)
+                .unwrap();
+            assert!((table.f_value[0] - 36.0).abs() < 1e-8, "{table:?}");
+            assert!((table.f_value[1] - 16.0).abs() < 1e-8, "{table:?}");
+            assert!((table.f_value[2] - 4.0).abs() < 1e-8, "{table:?}");
+        }
+    }
+}
+
 fn toy_interaction_df() -> DataFrame {
     DataFrame::new(vec![
         Series::new("y".into(), vec![1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),

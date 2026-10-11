@@ -13,6 +13,41 @@ const R_CASK_P: f64 = 0.2548;
 const R_CASK_NUM_DF: f64 = 2.0;
 const R_CASK_DEN_DF: f64 = 48.0;
 
+#[test]
+fn balanced_block_by_harvest_kr_matches_paired_block_test() {
+    let mut y = Vec::new();
+    let mut block = Vec::new();
+    let mut sow = Vec::new();
+    let mut harvest = Vec::new();
+    for b in 0..3 {
+        for s in 0..5 {
+            for h in 0..2 {
+                let bd = b as f64 - 1.0;
+                let noise = [0.0, 1.0, -1.0, 1.0, -1.0][s];
+                y.push(
+                    2.0 + 0.3 * b as f64 + 0.2 * s as f64 - 0.1 * h as f64
+                        + 0.05 * bd * (2.0 * h as f64 - 1.0)
+                        + 0.02 * bd * noise,
+                );
+                block.push(format!("B{b}"));
+                sow.push(format!("S{s}"));
+                harvest.push(format!("H{h}"));
+            }
+        }
+    }
+    let df = df!("y" => y, "block" => block, "sow" => sow, "harvest" => harvest).unwrap();
+    let mut fit = lmer("y ~ block + sow + harvest + (1 | block:harvest)", &df, true).unwrap();
+    fit.with_kenward_roger(&df).unwrap();
+    let result = fit
+        .linear_hypothesis("harvest", DdfMethod::KenwardRoger)
+        .unwrap();
+    // Blockwise harvest differences are -0.2, -0.1 and 0. Their mean is -0.1
+    // and sample variance is 0.01, so the balanced paired-block t^2 is 3,
+    // with G-1 = 2 degrees of freedom. This does not use another fit as oracle.
+    assert_close("DenDF", result.den_df, 2.0, 1e-6);
+    assert_close("F", result.f_value, 3.0, 1e-4);
+}
+
 fn assert_close(name: &str, got: f64, expected: f64, tol: f64) {
     let diff = (got - expected).abs();
     assert!(

@@ -204,7 +204,13 @@ fn kr_modcomp_full_rank(
         df2 = f64::NAN;
     }
 
-    let f_scaling = if (df2 - 2.0).abs() < 1e-2 {
+    // For a rank-one hypothesis A1=A2 and the moment equations simplify to
+    // df=2/A2, F scaling=1. Evaluate that continuous expression directly:
+    // the general formula has removable 0/0 singularities when df is two.
+    let f_scaling = if qi == 1 && a2.is_finite() && a2 > 0.0 {
+        df2 = 2.0 / a2;
+        1.0
+    } else if (df2 - 2.0).abs() < 1e-2 {
         1.0
     } else if df2.is_nan() {
         f64::NAN
@@ -302,6 +308,19 @@ mod tests {
     fn contrast_rank_single_row() {
         let l = array![[0.0, 1.0, 0.0]];
         assert_eq!(contrast_basis(&l).unwrap().nrows(), 1);
+    }
+
+    #[test]
+    fn kr_scalar_two_denominator_df_uses_continuous_limit() {
+        let data = KenwardRogerModcompData {
+            phi: array![[2.0]],
+            phi_a: array![[3.0]],
+            p_list: vec![array![[0.5]]],
+            w: array![[1.0]],
+        };
+        let result = kr_modcomp_test(&data, &array![[1.0]], &array![3.0], None).unwrap();
+        assert!((result.den_df - 2.0).abs() < 1e-12);
+        assert!((result.f_stat - 3.0).abs() < 1e-12);
     }
 
     #[test]

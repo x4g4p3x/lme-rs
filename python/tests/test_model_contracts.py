@@ -1,5 +1,6 @@
 """Cross-feature regression contracts for Python model workflows."""
 
+from math import sin
 from pathlib import Path
 
 import lme_python as lme
@@ -7,6 +8,30 @@ import polars as pl
 import pytest
 
 DATA = Path(__file__).resolve().parents[2] / "tests" / "data"
+
+
+def test_three_random_intercept_terms_with_unequal_group_counts():
+    rows = [
+        {
+            "y": 4 + a + 0.7 * t + 0.3 * p + sin(13 * a + 7 * t + 3 * p + repeat),
+            "assessor": f"A{a}",
+            "product": f"T{t}",
+            "picture": f"P{p}",
+        }
+        for a in range(4)
+        for t in range(2)
+        for p in range(3)
+        for repeat in range(2)
+    ]
+    df = pl.DataFrame(rows)
+    formula = (
+        "y ~ product * picture + (1 | assessor) + (1 | assessor:product) + (1 | assessor:picture)"
+    )
+    fit = lme.lmer(formula, df)
+    assert fit.converged
+    reversed_fit = lme.lmer(formula, df.reverse())
+    assert fit.coefficients == pytest.approx(reversed_fit.coefficients, abs=1e-7)
+    assert fit.sigma2 == pytest.approx(reversed_fit.sigma2, rel=1e-5)
 
 
 def data():

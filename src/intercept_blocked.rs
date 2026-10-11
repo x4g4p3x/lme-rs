@@ -302,46 +302,9 @@ impl CrossBlock {
         }
     }
 
-    /// `cross[:,col] /= diag_chol[row]` when each column has one structural row.
+    /// Right triangular solve against a diagonal factor: scale each column.
     fn trisolve_single_row_cols(&mut self, diag_chol: &[f64]) -> Result<(), ()> {
-        match self {
-            CrossBlock::Dense(d) => {
-                for col in 0..d.ncols() {
-                    for row in 0..d.nrows() {
-                        let v = d[[row, col]];
-                        if v != 0.0 {
-                            let div = diag_chol[row];
-                            if div == 0.0 {
-                                return Err(());
-                            }
-                            d[[row, col]] = v / div;
-                        }
-                    }
-                }
-                Ok(())
-            }
-            CrossBlock::Sparse {
-                col_ptr,
-                row_idx,
-                vals,
-                ncols,
-                ..
-            } => {
-                for col in 0..*ncols {
-                    let start = col_ptr[col];
-                    let end = col_ptr[col + 1];
-                    for idx in start..end {
-                        let r = row_idx[idx];
-                        let div = diag_chol[r];
-                        if div == 0.0 {
-                            return Err(());
-                        }
-                        vals[idx] /= div;
-                    }
-                }
-                Ok(())
-            }
-        }
+        self.trisolve_diag0(diag_chol)
     }
 
     fn rank_sub_lower(&self, target: &mut ReLower, gram: &mut Array2<f64>) {
@@ -466,31 +429,27 @@ impl CrossBlock {
     }
 
     fn trisolve_full_lower(&mut self, lower: &ReLower, rhs_buf: &mut [f64]) -> Result<(), ()> {
-        let nrows = self.nrows();
-        debug_assert!(rhs_buf.len() >= nrows);
-        debug_assert_eq!(nrows, lower.n);
+        let ncols = self.ncols();
+        debug_assert!(rhs_buf.len() >= ncols);
+        debug_assert_eq!(ncols, lower.n);
         match self {
             CrossBlock::Dense(d) => {
-                lower.solve_multi_rhs(d);
-            }
-            CrossBlock::Sparse {
-                col_ptr,
-                row_idx,
-                vals,
-                ncols,
-                ..
-            } => {
-                for col in 0..*ncols {
-                    rhs_buf[..nrows].fill(0.0);
-                    for idx in col_ptr[col]..col_ptr[col + 1] {
-                        rhs_buf[row_idx[idx]] = vals[idx];
+                // L_ij L_jj^T = A_ij: solve L_jj against each transposed row,
+                // since the diagonal factor belongs to the column block j.
+                for row in 0..d.nrows() {
+                    for col in 0..ncols {
+                        rhs_buf[col] = d[[row, col]];
                     }
-                    lower.solve_col(&mut rhs_buf[..nrows]);
-                    for idx in col_ptr[col]..col_ptr[col + 1] {
-                        vals[idx] = rhs_buf[row_idx[idx]];
+                    lower.solve_col(&mut rhs_buf[..ncols]);
+                    for col in 0..ncols {
+                        d[[row, col]] = rhs_buf[col];
                     }
                 }
             }
+            // A full factor can add structural nonzeros. The multi-block gate
+            // therefore requires dense crosses; use the sparse LDL fallback
+            // for layouts that would exceed the dense allocation limit.
+            CrossBlock::Sparse { .. } => return Err(()),
         }
         Ok(())
     }
@@ -854,6 +813,11 @@ pub(crate) fn blocked_gate_failure(lmm: &super::LmmData) -> Option<&'static str>
     }
     for j in 1..order.len() {
         for jj in 0..j {
+            if order.len() > 2
+                && re_blocks[order[j]].m.saturating_mul(re_blocks[order[jj]].m) > 100_000
+            {
+                return Some("blocked_unavailable_multiblock_fill");
+            }
             if !cross_submatrix_fits_blocked_gate(&lmm.zt_z, ranges[j], ranges[jj]) {
                 return Some("blocked_unavailable_cross_gate");
             }
@@ -961,7 +925,13 @@ impl InterceptBlockedChol {
         for j in 1..k_re {
             let diag: Vec<f64> = a_diag[j].iter().map(|_| 0.0).collect();
             let cross0 = &a_cross[j - 1][0];
-            l_re_factor.push(ReFactor::from_diag_and_cross(&diag, cross0));
+            // With more than two blocks, later Schur updates may introduce
+            // fill even when the first cross alone preserves a diagonal.
+            l_re_factor.push(if k_re > 2 {
+                ReFactor::Full(ReLower::diagonal_init(diag.len(), &diag))
+            } else {
+                ReFactor::from_diag_and_cross(&diag, cross0)
+            });
         }
 
         let pq = p + 1;
@@ -1080,13 +1050,13 @@ impl InterceptBlockedChol {
         lj: &Array2<f64>,
         product: &Array2<f64>,
     ) {
-        debug_assert_eq!(li.dim(), lj.dim());
+        debug_assert_eq!(li.ncols(), lj.ncols());
+        debug_assert_eq!(target.nrows(), li.nrows());
+        debug_assert_eq!(target.ncols(), lj.nrows());
         match target {
             CrossBlock::Dense(d) => {
-                let nrows = d.nrows();
-                let subcols = d.ncols().min(product.ncols());
-                ndarray::Zip::from(d.slice_mut(ndarray::s![..nrows, 0..subcols]))
-                    .and(product.slice(ndarray::s![..nrows, 0..subcols]))
+                ndarray::Zip::from(d)
+                    .and(product)
                     .for_each(|dst, &src| *dst -= src);
             }
             CrossBlock::Sparse { .. } => {
@@ -1094,8 +1064,7 @@ impl InterceptBlockedChol {
                     for row in 0..target.nrows() {
                         let mut s = target.entry(row, col);
                         for k in 0..li.ncols() {
-                            let ljv = if col < lj.nrows() { lj[[col, k]] } else { 0.0 };
-                            s -= li[[row, k]] * ljv;
+                            s -= li[[row, k]] * lj[[col, k]];
                         }
                         Self::set_cross_entry(target, row, col, s);
                     }
@@ -1265,7 +1234,8 @@ impl InterceptBlockedChol {
         else {
             panic!("schur_sub_sparse_at_structure expects sparse target");
         };
-        let inner = li.ncols().min(lj.nrows());
+        debug_assert_eq!(li.ncols(), lj.ncols());
+        let inner = li.ncols();
         for col in 0..*ncols {
             for idx in col_ptr[col]..col_ptr[col + 1] {
                 let row = row_idx[idx];
@@ -1696,6 +1666,67 @@ mod tests {
             },
         ];
         (LmmData::new(x, zt, y, re_blocks), theta)
+    }
+
+    #[test]
+    fn three_intercept_blocks_with_unequal_sizes_match_fresh_profile() {
+        use crate::model_matrix::build_design_matrices;
+        use polars::prelude::*;
+
+        // Independently generated assessor-by-product-by-picture layout. The
+        // sorted random-effect blocks have 12, 8 and 4 columns, respectively.
+        let mut y = Vec::new();
+        let mut assessor = Vec::new();
+        let mut product = Vec::new();
+        let mut picture = Vec::new();
+        for a in 0..4 {
+            for t in 0..2 {
+                for p in 0..3 {
+                    for repeat in 0..2 {
+                        y.push(
+                            4.0 + a as f64
+                                + t as f64 * 0.7
+                                + p as f64 * 0.3
+                                + ((a * 13 + t * 7 + p * 3 + repeat) as f64).sin(),
+                        );
+                        assessor.push(format!("A{a}"));
+                        product.push(format!("T{t}"));
+                        picture.push(format!("P{p}"));
+                    }
+                }
+            }
+        }
+        let df = df!("y" => y, "assessor" => assessor,
+                     "product" => product, "picture" => picture)
+        .unwrap();
+        let formula = "y ~ product * picture + (1 | assessor) \
+                       + (1 | assessor:product) + (1 | assessor:picture)";
+        let ast = crate::formula::parse(formula).unwrap();
+        let matrices = build_design_matrices(&ast, &df).unwrap();
+        let mut lmm = LmmData::new(matrices.x, matrices.zt, matrices.y, matrices.re_blocks);
+        lmm.eye_q = super::super::identity_sparse(lmm.zt.rows());
+        let mut blocked = InterceptBlockedChol::try_new(&lmm).expect("three-block kernel");
+        assert_eq!(blocked.n_re, vec![12, 8, 4]);
+        for reml in [false, true] {
+            for theta in [
+                [1.0, 0.5, 0.8],
+                [0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.5],
+                [1.0, 0.5, 0.8],
+            ] {
+                let reference = lmm.solve_profile_diagonal_fresh(&theta, reml).unwrap();
+                let actual = blocked.profile_deviance(&lmm, &theta, reml);
+                assert!(
+                    (actual - reference.reml_crit).abs() < 1e-8,
+                    "theta={theta:?} reml={reml}: {actual} != {}",
+                    reference.reml_crit
+                );
+            }
+        }
+        assert_eq!(
+            crate::lmer(formula, &df, true).unwrap().converged,
+            Some(true)
+        );
     }
 
     #[test]

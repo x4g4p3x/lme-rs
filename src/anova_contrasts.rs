@@ -91,6 +91,75 @@ pub fn marginal_contrast(p: usize, col_indices: &[usize]) -> Array2<f64> {
     l
 }
 
+/// Type III term test, averaging categorical nuisance levels uniformly.
+/// Numeric nuisance effects are evaluated at zero in coefficient space.
+pub(crate) fn type3_contrast(
+    col_terms: &[String],
+    term: &str,
+    col_indices: &[usize],
+    containment: &HashMap<String, Vec<String>>,
+    levels: Option<&HashMap<String, Vec<String>>>,
+    factors: &HashMap<String, crate::formula::FactorSpec>,
+) -> crate::Result<Array2<f64>> {
+    let mut contrast = marginal_contrast(col_terms.len(), col_indices);
+    let Some(levels) = levels else {
+        return Ok(contrast);
+    };
+    let target = term_factors(term);
+    let width = |factor: &str| {
+        let count = col_terms.iter().filter(|t| t.as_str() == factor).count();
+        if count > 0 {
+            count
+        } else {
+            levels.get(factor).map_or(1, |v| v.len().saturating_sub(1))
+        }
+    };
+    for higher in containment.get(term).into_iter().flatten() {
+        let parts = term_factors(higher);
+        let nuisance: Vec<_> = parts.iter().filter(|f| !target.contains(f)).collect();
+        if nuisance.iter().any(|f| !levels.contains_key(f.as_str())) {
+            continue;
+        }
+        let dimensions: Vec<_> = parts.iter().map(|f| width(f)).collect();
+        let columns: Vec<_> = col_terms
+            .iter()
+            .enumerate()
+            .filter_map(|(i, t)| (t == higher).then_some(i))
+            .collect();
+        if dimensions.iter().product::<usize>() != columns.len()
+            || target.iter().map(|f| width(f)).product::<usize>() != col_indices.len()
+        {
+            return Err(crate::LmeError::NotImplemented {
+                feature: format!("Type III marginal contrast requires identifiable component encodings for '{term}' contained in '{higher}'"),
+            });
+        }
+        let mut mean_weight = 1.0;
+        for factor in nuisance {
+            let nlevels = levels[factor].len();
+            let sum_coded = factors
+                .get(factor)
+                .is_some_and(|spec| spec.coding == crate::formula::FactorCoding::Sum)
+                && width(factor) < nlevels;
+            mean_weight *= if sum_coded { 0.0 } else { 1.0 / nlevels as f64 };
+        }
+        for (position, &column) in columns.iter().enumerate() {
+            let mut remainder = position;
+            let mut indices = vec![0; parts.len()];
+            for i in (0..parts.len()).rev() {
+                indices[i] = remainder % dimensions[i];
+                remainder /= dimensions[i];
+            }
+            let mut row = 0;
+            for factor in &target {
+                let i = parts.iter().position(|f| f == factor).unwrap();
+                row = row * width(factor) + indices[i];
+            }
+            contrast[[row, column]] += mean_weight;
+        }
+    }
+    Ok(contrast)
+}
+
 /// Doolittle / Cholesky factor L with `XtX = L L'` (lower triangular), matching `lmerTest::doolittle`.
 fn doolittle_lower(xtx: &Array2<f64>) -> Array2<f64> {
     let p = xtx.nrows();
@@ -171,7 +240,11 @@ pub fn type2_contrast(
     l_term
 }
 
-/// Contrast matrix for a term under the chosen ANOVA type.
+/// Design-only contrast matrix for a term under the chosen ANOVA type.
+///
+/// `Type3` returns a coefficient-selector contrast. Model-aware Type III
+/// averaging additionally requires categorical encodings and is performed by
+/// [`crate::LmeFit::anova_typed`].
 pub fn contrast_for_term(
     anova_type: AnovaType,
     x: &Array2<f64>,

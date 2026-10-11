@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-10-11
+
 ### Changed
 
 - Migrate Rust and Python array types together to ndarray 0.17.2 and
@@ -51,6 +53,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with unused measurements or metadata.
 
 ### Fixed
+
+- Fix blocked Cholesky updates for three or more random-intercept terms with
+  unequal group counts. Right triangular solves now respect rectangular cross
+  blocks; layouts requiring unbounded fill use the sparse solver fallback.
+  This prevents a panic when fitting the published TVbo example.
+- Test categorical main effects in Type III ANOVA after equal averaging over
+  categorical interaction levels, preserving hypotheses across treatment/sum
+  coding and reference-level changes.
+- Evaluate scalar Kenward-Roger degrees of freedom through their analytic
+  expression, avoiding a removable 0/0 singularity at two denominator degrees
+  of freedom that could collapse a valid F statistic to zero.
 
 - Scale ANOVA design columns before forming sequential and Type II cross-products,
   retaining finite tests when a valid OLS design has an overflowing raw `X'X`.

@@ -15,6 +15,9 @@ behind a performance claim. Rust and Python use the same fitting engine.
 | [Python installation](../python/README.md#install) | [Repeated fits](../GUIDE.md#repeated-fits-and-cross-validation) | [Performance results](../BENCHMARKS.md) |
 | [Runnable examples](EXAMPLES.md) | [Troubleshooting](TROUBLESHOOTING.md) | [Optimizer choice](BASIN.md) |
 
+For the proposed mathematical verification, statistical calibration and published
+analysis reproduction programme, see the [scientific validation plan](SCIENTIFIC_VALIDATION_PLAN.md).
+
 ## Start here
 
 1. Install the [Rust dependencies](../GUIDE.md#getting-started) or

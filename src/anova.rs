@@ -105,15 +105,26 @@ impl LmeFit {
 
         for (term_idx, term) in anova_terms.iter().enumerate() {
             terms.push(term.name.clone());
-            let l_mat = contrast_for_term(
-                anova_type,
-                x,
-                &col_terms,
-                &term.name,
-                &term.col_indices,
-                &containment,
-                &term_names,
-            );
+            let l_mat = if anova_type == AnovaType::Type3 {
+                anova_contrasts::type3_contrast(
+                    &col_terms,
+                    &term.name,
+                    &term.col_indices,
+                    &containment,
+                    self.categorical_levels.as_ref(),
+                    &self.factors,
+                )?
+            } else {
+                contrast_for_term(
+                    anova_type,
+                    x,
+                    &col_terms,
+                    &term.name,
+                    &term.col_indices,
+                    &containment,
+                    &term_names,
+                )
+            };
 
             let res = fixed_effect_contrast_test(self, &l_mat, ddf, None)?;
             num_df[term_idx] = res.num_df;
