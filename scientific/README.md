@@ -5,8 +5,23 @@ It provides deterministic numerical verification and selected worked-example
 agreement. Statistical calibration, independent scientific review, GLMM and NLMM
 validation remain separate, unfinished work. See the
 [programme](../docs/SCIENTIFIC_VALIDATION_PLAN.md) and
-[review-ready calibration protocol](../docs/LMM_CALIBRATION_PROTOCOL.md).
+[AI-reviewed pilot protocol](../docs/LMM_CALIBRATION_PROTOCOL.md).
 The [initial results](RESULTS_0.2.7.md) report the actual published-wheel run.
+
+The [completed 0.2.7 exploratory pilot](CALIBRATION_PILOT_0.2.7.md) reports
+8,000 paired datasets. The calibration runner is available:
+`task scientific:calibration` runs 100 replicates for each of 80 fixed Gaussian
+random-intercept scenarios. `--replicates 1` runs a smoke/cost assessment; the
+runner refuses values above 100 and never runs confirmation. Each new run
+retains exact designs/responses, published native binary identity, reference
+versions, frozen source copies, every attempted fit, paired scalar tests and
+intervals, failure envelopes and uncertainty under
+`benchmark-results/scientific/calibration/0.2.7/`. See the
+[AI critique](../docs/LMM_CALIBRATION_AI_REVIEW.md) for resolved objections and
+remaining confirmation requirements. AI review does not constitute human peer review.
+For an already archived original pilot, `python scripts/lmm_calibration.py
+reanalyse RUN_DIRECTORY` performs only the documented diagnostic correction,
+checks the original evidence hashes, and writes a new report without refitting.
 
 ## Contracts and independent evidence
 

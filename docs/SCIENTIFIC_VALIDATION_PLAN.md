@@ -6,7 +6,11 @@ or a certification.
 
 The initial deterministic contracts and reproduction runner are now described
 in the [frozen baseline](../scientific/README.md). The
-[calibration protocol](LMM_CALIBRATION_PROTOCOL.md) remains a review-ready draft.
+[calibration protocol](LMM_CALIBRATION_PROTOCOL.md) now has an internal
+[AI methodological review](LMM_CALIBRATION_AI_REVIEW.md) for the exploratory pilot.
+Human peer review and the confirmatory campaign remain separate, unfinished work.
+The [0.2.7 pilot results](../scientific/CALIBRATION_PILOT_0.2.7.md) now record
+8,000 paired simulated datasets and an exact binomial budget calculation.
 The inventory below records the starting assessment; completed evidence is
 reported separately by version and scope.
 
@@ -249,8 +253,9 @@ paper does not imply access to its raw data or permission to publish its content
    three-paper reproduction set.
 3. Review and freeze the LMM calibration protocol; run the pilot, then the
    precision-planned confirmatory study on a held-out seed/case set.
-4. Extend to supported GLMM/NLMM shapes and difficult inference, then obtain an
-   independent statistician/numerical analyst review and a clean-environment rerun.
+4. Extend to supported GLMM/NLMM shapes and difficult inference, then obtain
+   another scoped methodological review and a clean-environment rerun. Independent
+   human statistical/numerical review remains useful additional scrutiny.
 5. Archive versioned protocol, source identifiers, permitted data, generators,
    raw results, failures and report. Publish per-method evidence and limitations.
 

@@ -1,7 +1,9 @@
-# LMM calibration protocol v1
+# LMM calibration protocol v2
 
-Status: review-ready draft. No confirmatory study has run, and independent
-scientific review has not yet occurred. Freeze this document, the generator,
+Status: AI-reviewed internal pilot protocol, 11 October 2026. No confirmatory
+study or independent human peer review has occurred. The user chose an AI
+methodological critique in place of recruiting a statistician for this milestone.
+See the [review and responses](LMM_CALIBRATION_AI_REVIEW.md). Freeze this document, the generator,
 case registry, candidate binaries and analysis script together before execution.
 The [scientific validation plan](SCIENTIFIC_VALIDATION_PLAN.md) defines the
 larger programme. This initial protocol applies only to Gaussian random-intercept
@@ -67,12 +69,27 @@ Do not infer independence from agreement between Rust, Python and MCP/SCP.
 For scalar tests, save beta, the method's covariance/SE, denominator df, t or F,
 and p-value. Use the same method's adjusted variance and df for its interval.
 For KR, check that the scalar F test and its interval use the same adjusted
-covariance. LRT/ML and parametric bootstrap require distinct protocols and
+covariance, rank one and scalar scaling one. The Python API does not expose
+adjusted covariance: obtain its scalar variance through a unit-displacement
+contrast against beta_hat minus one (variance = 1/F), avoiding beta_hat squared
+divided by a near-zero observed F. Verify the observed F against beta_hat
+squared/variance and the reference against pbkrtest's exposed vcovAdj.
+Distribution probabilities and t quantiles come independently from R.
+LRT/ML and parametric bootstrap require distinct protocols and
 budgets; they are not included in the primary REML comparison.
+
+Include a known-true-variance Gaussian GLS z control, with variance blocks
+constructed from generating rho. For balanced designs its slope variance is
+sigma2/(G*m) within groups and (tau2+sigma2/m)/G between groups. Diagnostic
+interior REML df are G*(m-1)-1 and G-2 respectively; these are not imposed on
+boundary estimates. Neither control is a replacement for candidate results.
 
 ## Randomness, sample size and uncertainty
 
-Use a documented counter/seed derivation keyed by protocol ID, case ID and
+Use SHA-256 counter uniforms with 52-bit open-interval values and Box-Muller
+normal pairs, keyed by `lmm-calibration-v2|pilot|case ID|replicate ID|counter`.
+Archive exact generated response arrays: cross-platform math-library rounding
+is not claimed bitwise identical. Use a documented derivation keyed by protocol ID, case ID and
 replicate ID. Save the generated response or a deterministic generator version
 and its content hash. Worker count and case execution order must not affect
 the data. Pilot and confirmatory seed namespaces must be disjoint.
@@ -85,8 +102,12 @@ silently added to the confirmatory sample.
 
 Report Wilson 95% Monte Carlo intervals for rejection/coverage rates and MCSE
 for every performance measure. For bias, use sd(beta_hat - beta1)/sqrt(R).
-Estimate uncertainty of RMSE and SE calibration using a declared paired
-replicate bootstrap with a separate analysis seed. Compare methods with
+Use sqrt(mean(SE squared))/empirical SD as the SE calibration ratio; mean SE
+is descriptive. Report mean interval width and both noncoverage tails.
+Estimate uncertainty of RMSE, empirical SD, SE calibration and means using
+1,000 paired dataset bootstrap resamples. The separate seed is SHA-256 of
+`lmm-calibration-v2|analysis|pilot|case ID`, interpreted as a big-endian integer
+for Python's Random (archive Python version and analysis source). Compare methods with
 paired differences from the common simulated datasets. Account for Monte
 Carlo uncertainty rather than demanding identical percentages between runs.
 
@@ -101,17 +122,29 @@ calibration evidence. Power is descriptive, not required to match a fixed
 target. These bands are engineering acceptance criteria, not a universal
 scientific standard or a guarantee of exactness for approximate methods.
 
-Report all casewise estimates and simultaneous uncertainty for the family
-of primary null-case claims (a prespecified Bonferroni interval alongside
-pointwise intervals). Do not replace casewise failures with an average.
-Require all primary cases to support a claim before calling that method
+There are 24 balanced interior null cases and two candidate adjusted methods:
+the joint family contains 48 distinct rejection claims. Null coverage is its
+complement when test and interval agree; verify that identity rather than
+counting it twice. R and normal-Wald methods are descriptive comparators.
+Use Bonferroni Clopper-Pearson intervals at per-claim alpha 0.05/48 for the
+global decision; show pointwise Wilson intervals for description. Simultaneous
+bounds on comparators are descriptive, outside this declared candidate family.
+Require the conservative failure envelope described below, not only the
+conditional evaluable interval, to fall inside the acceptance band. Do not
+replace casewise failures with an average. Require all primary cases to support a claim before calling that method
 validated for this declared primary scope. Record inconclusive cases as gaps.
+The retained 10,000/case confirmatory budget can readily yield an inconclusive
+global result even for well-calibrated methods after multiplicity correction.
+No confirmation is enabled by the pilot runner. Final sample-size planning and
+a separately frozen confirmatory implementation remain required; bands must
+not be relaxed in response to pilot results.
 
 ## Failures and exclusions
 
 Every attempted response stays in the denominator for fitting/inference
 failure rates. Record nonconvergence, exceptions, nonfinite outputs, singular
-fits and invalid df separately. A finite singular fit is not automatically a
+fits and invalid df separately. Nonconvergence is unevaluable even when outputs
+are finite. Singularity uses theta < 1e-4 in both engines; a finite singular fit is not automatically a
 failure; preserve it and assess whether the requested inference is evaluable.
 No automatic retries or deletions in the primary run. A separate diagnostic
 retry can be reported with its own counts and settings.
@@ -122,24 +155,21 @@ each failed replicate as either a success or a failure of the binary outcome.
 Also compare observable design/response summaries between evaluable and
 failed replicates. Do not count an unevaluable fit as a non-rejection or a
 covered interval. No per-dataset result is replaced with the reference result.
+For r observed binary successes, f failures and n attempts, identification
+bounds are [r/n, (r+f)/n]. The conservative uncertainty envelope uses the lower
+Clopper-Pearson bound for r and upper bound for r+f, with the declared pointwise
+or simultaneous alpha. Retain response mean and spread for selection diagnostics.
 
 ## Review and archival gate
 
-An independent reviewer still needs to be recruited. Seek a statistician with
-experience in mixed models, small-sample inference and simulation-study design,
-who did not implement the candidate or select its tolerances. Provide this
-protocol, the numerical baseline's scoped results, model/API contracts and a
-short list of open questions: scalar KR test/interval consistency, the primary
-case family, simultaneous decision rules, boundary treatment and the proposed
-failure bounds. Ask for written objections and resolutions, rather than a
-general endorsement of the library. Agree scope, compensation if applicable,
-and consent for any attribution before commissioning the review.
-
-Before confirmation, obtain an independent statistician's review of the
-estimand, design, interval/test pairing, practical bands, simultaneous
-uncertainty, failure policy, reference implementation and seed separation.
-Record the reviewer, date, objections and resolutions with their consent.
-Then freeze a reviewed protocol revision and its hash. A pilot may identify
+The AI critique was performed by a separately tasked agent which did not edit
+the candidate or harness. Its objections and the implementing agent's responses
+are recorded. Both agents belong to the same AI system: this is internal
+methodological review, not independent human peer review or endorsement.
+Human review remains a useful additional source of scrutiny, but is not a
+prerequisite for the user-authorized pilot. Before confirmation, resolve the
+remaining sample-size and environment-restoration questions and freeze a
+reviewed confirmatory protocol, generator, analysis and hashes. A pilot may identify
 harness bugs; changes to scientific choices require a new version and a
 visible explanation before a new held-out confirmatory seed set is used.
 

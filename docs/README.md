@@ -19,7 +19,8 @@ For the proposed mathematical verification, statistical calibration and publishe
 analysis reproduction programme, see the [scientific validation plan](SCIENTIFIC_VALIDATION_PLAN.md).
 The [frozen numerical baseline](../scientific/README.md) describes its selected
 contracts and reproduction commands. The [LMM calibration protocol](LMM_CALIBRATION_PROTOCOL.md)
-is a review-ready draft; its confirmatory study has not run.
+has an internal AI review and a completed
+[8,000-dataset pilot](../scientific/CALIBRATION_PILOT_0.2.7.md); confirmation has not run.
 
 ## Start here
 

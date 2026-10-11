@@ -45,6 +45,11 @@ tasks:
     cmds:
       - '{{.RUN}} scientific-baseline {{.CLI_ARGS}}'
 
+  scientific:calibration:
+    desc: Run the exploratory 80-case LMM calibration pilot on published 0.2.7
+    cmds:
+      - '{{.RUN}} scientific-calibration {{.CLI_ARGS}}'
+
   toolchain:check:
     desc: Verify local and hosted tool version alignment
     cmds:

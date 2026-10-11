@@ -598,6 +598,66 @@ def preflight() -> None:
     )
 
 
+def scientific_calibration(
+    *, output_dir: str = "", rscript: str = "", replicates: int = 100
+) -> None:
+    """Run the exploratory calibration pilot with isolated published binaries."""
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    if not 1 <= replicates <= 100:
+        raise CiError("pilot replicates must be between 1 and 100; confirmation is not enabled")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
+    destination = (
+        Path(output_dir).resolve()
+        if output_dir
+        else (ROOT / "benchmark-results/scientific/calibration/0.2.7" / run_id)
+    )
+    reference_runner = rscript or shutil.which("Rscript")
+    if not reference_runner and os.name == "nt":
+        path = (
+            Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "R/R-4.6.1/bin/Rscript.exe"
+        )
+        if path.is_file():
+            reference_runner = str(path)
+    if not reference_runner:
+        raise CiError("Rscript required; use --rscript PATH")
+    runner = ROOT / "scripts/lmm_calibration.py"
+    run(
+        [sys.executable, str(runner), "generate", str(destination), "--replicates", str(replicates)]
+    )
+    manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+    for name in manifest["sources"]:
+        archived = destination / "frozen-sources" / name
+        archived.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, archived)
+    environment = destination / "environment"
+    run(
+        [
+            _require_tool("uv"),
+            "sync",
+            "--project",
+            str(ROOT / "scientific"),
+            "--frozen",
+            "--python",
+            "3.11",
+            "--no-install-project",
+        ],
+        env={"UV_PROJECT_ENVIRONMENT": str(environment)},
+    )
+    print(f"calibration pilot evidence: {destination}", flush=True)
+    run([str(venv_python(environment)), str(runner), "candidate", str(destination)])
+    run(
+        [
+            reference_runner,
+            "--vanilla",
+            str(ROOT / "comparisons/scientific/lmm_calibration.R"),
+            str(destination),
+        ]
+    )
+    run([sys.executable, str(runner), "analyse", str(destination)])
+
+
 def scientific_baseline(*, output_dir: str = "", rscript: str = "") -> None:
     """Verify the frozen published engine in an isolated locked environment."""
     import hashlib
@@ -1516,6 +1576,17 @@ def main(argv: list[str] | None = None) -> int:
         "scientific-oracle", help="Check the independent rational/Decimal oracle"
     ).set_defaults(
         fn=lambda _: run([sys.executable, "scripts/scientific_validation.py", "--self-test"])
+    )
+    p_calibration = sub.add_parser(
+        "scientific-calibration", help="Run the exploratory 80-case LMM pilot"
+    )
+    p_calibration.add_argument("--output-dir", default="")
+    p_calibration.add_argument("--rscript", default="")
+    p_calibration.add_argument("--replicates", type=int, default=100)
+    p_calibration.set_defaults(
+        fn=lambda a: scientific_calibration(
+            output_dir=a.output_dir, rscript=a.rscript, replicates=a.replicates
+        )
     )
     p_scientific = sub.add_parser(
         "scientific-baseline", help="Verify the frozen published engine and three paper examples"
