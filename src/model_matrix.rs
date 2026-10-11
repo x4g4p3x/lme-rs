@@ -1,7 +1,7 @@
 use crate::formula::{BasisSpec, BinaryOp, ColumnRole, FormulaModel, NumericExpr, UnaryOp};
 use ndarray::{Array1, Array2};
 use polars::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Observation group indices, unique level labels, and label→index map for one RE block.
 type GroupingIndices = (Vec<usize>, Vec<String>, HashMap<String, usize>);
@@ -697,16 +697,11 @@ fn encode_interaction_factor(
     n_obs: usize,
     has_main: bool,
     partner_has_main: bool,
-    has_intercept: bool,
     training_levels: Option<&HashMap<String, Vec<String>>>,
     extracted_levels: &mut HashMap<String, Vec<String>>,
     spec: Option<&crate::formula::FactorSpec>,
 ) -> crate::Result<EncodedTerm> {
-    let drop_first = if has_main {
-        false
-    } else {
-        partner_has_main && has_intercept
-    };
+    let drop_first = if has_main { false } else { partner_has_main };
     let encoded = encode_column(data, col_name, n_obs, drop_first, training_levels, spec)?;
     if let Some(levels) = encoded.levels.clone() {
         extracted_levels
@@ -1053,6 +1048,7 @@ pub fn build_x_matrix(
         .collect();
 
     let mut term_col_arrays: HashMap<String, Vec<Array1<f64>>> = HashMap::new();
+    let mut spanned_main_effects = HashSet::new();
 
     if ast.metadata.has_intercept {
         fixed_cols.push(Array1::<f64>::ones(n_obs));
@@ -1086,64 +1082,59 @@ pub fn build_x_matrix(
             let term_label = interaction_term_label(col_name, &factor_names);
             let left = &factors[0];
             let right = &factors[1];
-            let left_main = term_col_arrays.contains_key(left);
-            let right_main = term_col_arrays.contains_key(right);
+            // Presence in the whole formula determines coding, even when a
+            // colon interaction precedes one or both main-effect terms.
+            let has_main = |name: &str| {
+                spanned_main_effects.contains(name)
+                    || term_col_arrays.contains_key(name)
+                    || ast
+                        .columns
+                        .get(name)
+                        .is_some_and(|info| info.has_role(ColumnRole::FixedEffect))
+            };
+            let left_main = has_main(left);
+            let right_main = has_main(right);
 
             let (interaction_cols, dummy_names) = if left_main && right_main {
-                let factor_dummy_cols = [
-                    term_col_arrays.get(left).cloned().ok_or_else(|| {
-                        crate::LmeError::NotImplemented {
-                            feature: format!(
-                                "Interaction '{}' requires main effect '{}' in the design matrix first",
-                                col_name, left
-                            ),
-                        }
-                    })?,
-                    term_col_arrays.get(right).cloned().ok_or_else(|| {
-                        crate::LmeError::NotImplemented {
-                            feature: format!(
-                                "Interaction '{}' requires main effect '{}' in the design matrix first",
-                                col_name, right
-                            ),
-                        }
-                    })?,
-                ];
+                // Main effects already span the lower-order information. Use
+                // reduced factor contrasts for the interaction even if the
+                // first no-intercept main effect has full indicator columns.
+                let left_enc = encode_column(
+                    data,
+                    left,
+                    n_obs,
+                    true,
+                    training_levels,
+                    ast.factors.get(left),
+                )?;
+                let right_enc = encode_column(
+                    data,
+                    right,
+                    n_obs,
+                    true,
+                    training_levels,
+                    ast.factors.get(right),
+                )?;
+                for (name, levels) in [(left, &left_enc.levels), (right, &right_enc.levels)] {
+                    if let Some(levels) = levels {
+                        extracted_levels
+                            .entry(name.clone())
+                            .or_insert_with(|| levels.clone());
+                    }
+                }
+                let factor_dummy_cols = [&left_enc.cols, &right_enc.cols];
                 let mut interaction_cols: Vec<Array1<f64>> = Vec::new();
-                for a_col in &factor_dummy_cols[0] {
-                    for b_col in &factor_dummy_cols[1] {
+                for a_col in factor_dummy_cols[0] {
+                    for b_col in factor_dummy_cols[1] {
                         interaction_cols.push(a_col * b_col);
                     }
                 }
                 let mut dummy_names: Vec<String> = Vec::new();
                 if !factor_dummy_cols[0].is_empty() {
-                    let a_levels = extracted_levels.get(left).cloned().unwrap_or_default();
-                    let b_levels = extracted_levels.get(right).cloned().unwrap_or_default();
-                    let a_start = if intercept_handled
-                        && a_levels.len() > 1
-                        && !ast
-                            .factors
-                            .get(left)
-                            .is_some_and(|s| s.coding == crate::formula::FactorCoding::Sum)
-                    {
-                        1
-                    } else {
-                        0
-                    };
-                    let b_start = if intercept_handled
-                        && b_levels.len() > 1
-                        && !ast
-                            .factors
-                            .get(right)
-                            .is_some_and(|s| s.coding == crate::formula::FactorCoding::Sum)
-                    {
-                        1
-                    } else {
-                        0
-                    };
                     for (ai, _) in factor_dummy_cols[0].iter().enumerate() {
                         for (bi, _) in factor_dummy_cols[1].iter().enumerate() {
-                            let av = a_levels.get(a_start + ai).map(|s| s.as_str()).unwrap_or("");
-                            let bv = b_levels.get(b_start + bi).map(|s| s.as_str()).unwrap_or("");
+                            let av = &left_enc.suffixes[ai];
+                            let bv = &right_enc.suffixes[bi];
                             dummy_names.push(format!("{}:{}", av, bv));
                         }
                     }
@@ -1156,7 +1147,6 @@ pub fn build_x_matrix(
                     n_obs,
                     left_main,
                     right_main,
-                    ast.metadata.has_intercept,
                     training_levels,
                     &mut extracted_levels,
                     ast.factors.get(left),
@@ -1167,14 +1157,13 @@ pub fn build_x_matrix(
                     n_obs,
                     right_main,
                     left_main,
-                    ast.metadata.has_intercept,
                     training_levels,
                     &mut extracted_levels,
                     ast.factors.get(right),
                 )?;
                 let drop_reference = !left_main
                     && !right_main
-                    && ast.metadata.has_intercept
+                    && intercept_handled
                     && left_enc.levels.is_some()
                     && right_enc.levels.is_some();
                 let mut interaction_cols = Vec::new();
@@ -1195,6 +1184,24 @@ pub fn build_x_matrix(
                 }
                 (interaction_cols, dummy_names)
             };
+
+            // A full categorical cell design also spans its main effects.
+            // Factor-specific slopes span their numeric main effect, but do
+            // not imply categorical intercepts. Track these lower-order spaces
+            // so subsequent interaction terms do not repeat them.
+            let left_factor = extracted_levels.contains_key(left);
+            let right_factor = extracted_levels.contains_key(right);
+            if left_factor && right_factor {
+                spanned_main_effects.insert(left.clone());
+                spanned_main_effects.insert(right.clone());
+                if !left_main && !right_main {
+                    intercept_handled = true;
+                }
+            } else if left_factor {
+                spanned_main_effects.insert(right.clone());
+            } else if right_factor {
+                spanned_main_effects.insert(left.clone());
+            }
 
             let int_start = fixed_cols.len();
             for (k, col) in interaction_cols.into_iter().enumerate() {

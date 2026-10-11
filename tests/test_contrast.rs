@@ -10,6 +10,42 @@ const R_CASK_F: f64 = 1.4071;
 const R_CASK_P: f64 = 0.2548;
 const R_CASK_DEN_DF: f64 = 48.004;
 
+#[test]
+fn named_contrasts_reject_ambiguous_coefficient_labels() {
+    let data = df!(
+        "y" => [1., 2.1, 3., 4.2, 5., 6.3, 7., 8.1],
+        "a" => ["a", "a", "a", "a", "bc", "bc", "bc", "bc"],
+        "ab" => ["a", "a", "c", "c", "a", "a", "c", "c"]
+    )
+    .unwrap();
+    let fit = lme_rs::lm_df("y ~ a + ab", &data).unwrap();
+    let names = fit.fixed_names.as_ref().unwrap();
+    assert_eq!(names.iter().filter(|n| n.as_str() == "abc").count(), 2);
+    let row = ContrastRowSpec {
+        label: "ambiguous",
+        weights: &[("abc", 1.)],
+    };
+    assert!(contrast_matrix_from_names(names, &[row]).is_err());
+    // An unambiguous coefficient remains usable despite unrelated collisions.
+    let row = ContrastRowSpec {
+        label: "intercept",
+        weights: &[("(Intercept)", 1.)],
+    };
+    let l = contrast_matrix_from_names(names, &[row]).unwrap();
+    assert_eq!(l, ndarray::array![[1., 0., 0.]]);
+    // Explicit indices and ANOVA term labels disambiguate the two effects.
+    for (term, index) in [("a", 1), ("ab", 2)] {
+        let named = fit.linear_hypothesis(term, DdfMethod::Residual).unwrap();
+        let explicit = fit
+            .test_contrast(
+                &contrast_matrix(3, &[vec![(index, 1.)]]),
+                DdfMethod::Residual,
+            )
+            .unwrap();
+        assert!((named.f_value - explicit.f_value).abs() < 1e-12);
+    }
+}
+
 fn assert_close(name: &str, got: f64, expected: f64, tol: f64) {
     let diff = (got - expected).abs();
     assert!(

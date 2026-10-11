@@ -10,6 +10,76 @@ use lme_rs::LmeError;
 use polars::prelude::*;
 
 #[test]
+fn reversing_interaction_factors_does_not_duplicate_a_term() {
+    let data =
+        df!("y" => [1., 2., 3., 4.], "a" => [1., 2., 3., 4.], "b" => [2., 3., 1., 4.]).unwrap();
+    for (formula, expected_columns) in [
+        ("y ~ a*b + b*a", 4),
+        ("y ~ a:b + b:a", 2),
+        ("y ~ a + b + a:b + b:a", 4),
+    ] {
+        let design = build_design_matrices(&parse(formula).unwrap(), &data).unwrap();
+        assert_eq!(design.x.ncols(), expected_columns, "{formula}");
+    }
+}
+
+#[test]
+fn categorical_interactions_can_precede_their_main_effects() {
+    let data = df!(
+        "y" => [1., 1.2, 2., 2.3, 3., 3.1, 5., 5.4],
+        "a" => ["A", "A", "A", "A", "B", "B", "B", "B"],
+        "b" => ["u", "u", "v", "v", "u", "u", "v", "v"]
+    )
+    .unwrap();
+    let expected = lme_rs::lm_df("y ~ a*b", &data).unwrap();
+    for formula in ["y ~ a:b + a + b", "y ~ a:b + a*b", "y ~ b:a + a + b"] {
+        let design = build_design_matrices(&parse(formula).unwrap(), &data).unwrap();
+        assert_eq!(design.x.ncols(), 4, "{formula}");
+        let fit = lme_rs::lm_df(formula, &data).unwrap();
+        assert!(
+            (&fit.fitted - &expected.fitted)
+                .iter()
+                .all(|v| v.abs() < 1e-12),
+            "{formula}"
+        );
+        assert!(
+            (&fit.predict(&data).unwrap() - &expected.fitted)
+                .iter()
+                .all(|v| v.abs() < 1e-12),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn no_intercept_factor_interactions_do_not_repeat_main_effect_columns() {
+    for numeric in [false, true] {
+        let mut data = df!(
+            "y" => [1., 1.2, 2., 2.3, 3., 3.1, 5., 5.4],
+            "a" => ["A", "A", "A", "A", "B", "B", "B", "B"],
+            "b" => ["u", "u", "v", "v", "u", "u", "v", "v"]
+        )
+        .unwrap();
+        if numeric {
+            data.with_column(Column::new("b".into(), [1., 2., 3., 4., 1., 2., 3., 4.]))
+                .unwrap();
+        }
+        let expected = lme_rs::lm_df("y ~ a*b", &data).unwrap();
+        for formula in ["y ~ 0 + a*b", "y ~ 0 + a:b + a + b"] {
+            let design = build_design_matrices(&parse(formula).unwrap(), &data).unwrap();
+            assert_eq!(design.x.ncols(), 4, "{formula}, numeric {numeric}");
+            let fit = lme_rs::lm_df(formula, &data).unwrap();
+            assert!(
+                (&fit.fitted - &expected.fitted)
+                    .iter()
+                    .all(|v| v.abs() < 1e-12),
+                "{formula}, numeric {numeric}"
+            );
+        }
+    }
+}
+
+#[test]
 fn star_interactions_do_not_alias_source_columns_with_underscores() {
     let data = df!(
         "y" => [1., 2., 3., 4., 5., 6.],
@@ -693,6 +763,134 @@ fn categorical_colon_drops_reference_cell_with_intercept() {
     assert_eq!(no_intercept.x.ncols(), 4); // all cells
     assert_eq!(no_intercept.x.row(0).to_vec(), [1.0, 0.0, 0.0, 0.0]);
     assert_eq!(no_intercept.x.row(1).to_vec(), [0.0, 1.0, 0.0, 0.0]);
+}
+
+#[test]
+fn no_intercept_interactions_with_one_main_effect_are_full_rank() {
+    let data = polars::df!("y" => [1., 2.2, 3.1, 4.3, 1.3, 2.4, 3.5, 4.8],
+        "a" => ["A", "A", "B", "B", "A", "A", "B", "B"],
+        "b" => ["X", "Y", "X", "Y", "X", "Y", "X", "Y"],
+        "x" => [1., 2., 1., 2., 3., 4., 3., 4.],
+        "ax" => [1., 2., 0., 0., 3., 4., 0., 0.],
+        "bx" => [0., 0., 1., 2., 0., 0., 3., 4.])
+    .unwrap();
+    let saturated = lme_rs::lm_df("y ~ a*b", &data).unwrap();
+    for formula in ["y ~ 0 + a + a:b", "y ~ 0 + a:b + a", "y ~ 0 + b + a:b"] {
+        let fit = lme_rs::lm_df(formula, &data).unwrap();
+        assert_eq!(fit.coefficients.len(), 4);
+        assert!(
+            (&fit.fitted - &saturated.fitted)
+                .iter()
+                .all(|v| v.abs() < 1e-10),
+            "{formula}"
+        );
+    }
+    let slopes = lme_rs::lm_df("y ~ 0 + ax + bx", &data).unwrap();
+    for formula in ["y ~ 0 + x + a:x", "y ~ 0 + a:x + x"] {
+        let fit = lme_rs::lm_df(formula, &data).unwrap();
+        assert_eq!(fit.coefficients.len(), 2);
+        assert!(
+            (&fit.fitted - &slopes.fitted)
+                .iter()
+                .all(|v| v.abs() < 1e-10),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn self_interactions_reduce_to_the_original_term() {
+    let data = polars::df!("y" => [1., 3., 4., 8., 12., 19.],
+        "x" => [1., 2., 3., 4., 5., 6.], "a" => ["A", "A", "B", "B", "C", "C"])
+    .unwrap();
+    for predictor in ["x", "a"] {
+        for prefix in ["", "0 + "] {
+            let expected =
+                build_design_matrices(&assert_parse_ok(&format!("y ~ {prefix}{predictor}")), &data)
+                    .unwrap();
+            for operator in ["*", ":"] {
+                let formula = format!("y ~ {prefix}{predictor}{operator}{predictor}");
+                let actual = build_design_matrices(&assert_parse_ok(&formula), &data).unwrap();
+                assert_eq!(actual.x, expected.x, "{formula}");
+                assert_eq!(actual.fixed_names, expected.fixed_names, "{formula}");
+            }
+        }
+    }
+    // Arithmetic squaring remains available explicitly through I().
+    let quadratic = build_design_matrices(&assert_parse_ok("y ~ I(x^2)"), &data).unwrap();
+    assert_eq!(quadratic.x[[2, 1]], 9.0);
+}
+
+#[test]
+fn separate_interactions_do_not_duplicate_shared_lower_order_effects() {
+    let mut a = Vec::new();
+    let mut b = Vec::new();
+    let mut c = Vec::new();
+    let mut d = Vec::new();
+    let mut x = Vec::new();
+    let mut y = Vec::new();
+    for ai in 0..2 {
+        for bi in 0..2 {
+            for ci in 0..2 {
+                for di in 0..2 {
+                    for repeat in 0..3 {
+                        a.push(if ai == 0 { "A" } else { "B" });
+                        b.push(if bi == 0 { "X" } else { "Y" });
+                        c.push(if ci == 0 { "U" } else { "V" });
+                        d.push(if di == 0 { "M" } else { "N" });
+                        x.push(1.0 + repeat as f64 + 0.2 * ci as f64);
+                        y.push(
+                            2.0 + ai as f64
+                                + 2.0 * bi as f64
+                                + 3.0 * ci as f64
+                                + 4.0 * di as f64
+                                + 1.5 * (ai * bi) as f64
+                                + 0.8 * (ai * ci) as f64
+                                + 0.4 * (bi * ci) as f64
+                                + 0.2 * (ci * di) as f64
+                                + 0.03 * repeat as f64,
+                        );
+                    }
+                }
+            }
+        }
+    }
+    let data = polars::df!("a" => a, "b" => b, "c" => c, "d" => d, "x" => x, "y" => y).unwrap();
+    for (explicit, implicit) in [
+        ("a*b + a*c", "a:b + a:c"),
+        ("a*b + a*c", "a:b + a:c + a"),
+        ("a*b + a*c", "a:c + b:a"),
+        ("a*b + a*c + b*c", "a:b + a:c + b:c"),
+        ("a*b + c*d", "a:b + c:d"),
+        ("a*b + c", "a:b + c"),
+        ("x + x:a + x:b", "x:a + x:b"),
+    ] {
+        for prefix in ["", "0 + "] {
+            let expected = lme_rs::lm_df(&format!("y ~ {prefix}{explicit}"), &data).unwrap();
+            let formula = format!("y ~ {prefix}{implicit}");
+            let actual = lme_rs::lm_df(&formula, &data).unwrap();
+            assert_eq!(
+                actual.coefficients.len(),
+                expected.coefficients.len(),
+                "{formula}"
+            );
+            assert!(
+                (&actual.fitted - &expected.fitted)
+                    .iter()
+                    .all(|v| v.abs() < 1e-10),
+                "{formula}"
+            );
+        }
+    }
+    let mut collinear = data.clone();
+    let x = data.column("x").unwrap().f64().unwrap();
+    collinear
+        .with_column(Column::new(
+            "twice".into(),
+            x.into_no_null_iter().map(|v| 2.0 * v).collect::<Vec<_>>(),
+        ))
+        .unwrap();
+    assert!(lme_rs::lm_df("y ~ x + twice", &collinear).is_err());
 }
 
 #[test]

@@ -14,6 +14,145 @@ fn sleepstudy() -> DataFrame {
         .unwrap()
 }
 
+#[test]
+fn kenward_roger_tests_preserve_response_units() {
+    let data = sleepstudy();
+    let mut baseline = lmer("Reaction ~ Days + (1 | Subject)", &data, true).unwrap();
+    baseline.with_kenward_roger(&data).unwrap();
+    let hypotheses = [
+        array![[0., 1.]],
+        array![[0.3, 1.]],
+        array![[1., 0.], [0., 1.]],
+    ];
+    let expected: Vec<_> = hypotheses
+        .iter()
+        .map(|l| baseline.test_contrast(l, DdfMethod::KenwardRoger).unwrap())
+        .collect();
+    for scale in [1e-8, 1e8] {
+        let response = data.column("Reaction").unwrap().f64().unwrap();
+        let mut rescaled = data.clone();
+        rescaled
+            .with_column(Column::new(
+                "Reaction".into(),
+                response
+                    .into_no_null_iter()
+                    .map(|v| v * scale)
+                    .collect::<Vec<_>>(),
+            ))
+            .unwrap();
+        let mut fit = lmer("Reaction ~ Days + (1 | Subject)", &rescaled, true).unwrap();
+        fit.with_kenward_roger(&rescaled).unwrap();
+        for (l, expected) in hypotheses.iter().zip(&expected) {
+            let result = fit.test_contrast(l, DdfMethod::KenwardRoger).unwrap();
+            assert!(
+                (result.den_df / expected.den_df - 1.).abs() < 1e-4,
+                "scale {scale}: {result:?} vs {expected:?}"
+            );
+            assert!(
+                (result.f_value / expected.f_value - 1.).abs() < 1e-4,
+                "scale {scale}: {result:?} vs {expected:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn satterthwaite_response_units_preserve_denominator_df() {
+    let mut x = Vec::new();
+    let mut y = Vec::new();
+    let mut group = Vec::new();
+    for (i, shift) in [-5., -2., 2., 5.].into_iter().enumerate() {
+        for value in [-1.5_f64, -0.5, 0.5, 1.5] {
+            x.push(value);
+            y.push(3.0 + shift + 2.0 * value + 0.2 * (value * value - 1.25));
+            group.push(format!("g{i}"));
+        }
+    }
+    let data = df!("x" => x, "y" => y.clone(), "group" => group).unwrap();
+    let mut baseline = lmer("y ~ x + (1 | group)", &data, true).unwrap();
+    baseline.with_satterthwaite(&data).unwrap();
+    // Centered within-group slope: REML residual df = 16 - 4 groups - 1 slope.
+    // Allow finite-difference error in the approximate likelihood Hessian.
+    assert!(
+        (baseline.satterthwaite.as_ref().unwrap().dfs[1] - 11.0).abs() < 0.05,
+        "baseline dfs {:?}, sigma {:?}",
+        baseline.satterthwaite.as_ref().unwrap().dfs,
+        baseline.sigma2
+    );
+    let expected = baseline
+        .test_contrast(&array![[0.3, 1.]], DdfMethod::Satterthwaite)
+        .unwrap();
+    for scale in [1e-2, 1e-3, 1e2] {
+        let mut rescaled = data.clone();
+        rescaled
+            .with_column(Column::new(
+                "y".into(),
+                y.iter().map(|v| v * scale).collect::<Vec<_>>(),
+            ))
+            .unwrap();
+        let mut fit = lmer("y ~ x + (1 | group)", &rescaled, true).unwrap();
+        fit.with_satterthwaite(&rescaled).unwrap();
+        let dfs = &fit.satterthwaite.as_ref().unwrap().dfs;
+        assert!(
+            (dfs[1] - 11.0).abs() < 0.05,
+            "scale {scale}: slope df {}",
+            dfs[1]
+        );
+        let actual = fit
+            .test_contrast(&array![[0.3, 1.]], DdfMethod::Satterthwaite)
+            .unwrap();
+        assert!(actual.den_df.is_finite(), "scale {scale}: {actual:?}");
+        assert!(
+            (actual.den_df - expected.den_df).abs() < 0.05,
+            "scale {scale}: {actual:?} vs {expected:?}"
+        );
+        assert!((actual.f_value / expected.f_value - 1.).abs() < 1e-4);
+    }
+}
+
+#[test]
+fn joint_satterthwaite_tests_preserve_rank_across_predictor_units() {
+    let data = sleepstudy();
+    let mut baseline = lmer("Reaction ~ Days + (1 | Subject)", &data, true).unwrap();
+    baseline.with_satterthwaite(&data).unwrap();
+    let hypothesis = array![[1., 0.], [0., 1.]];
+    let expected = baseline
+        .test_contrast(&hypothesis, DdfMethod::Satterthwaite)
+        .unwrap();
+    assert_eq!(expected.num_df, 2.);
+    for scale in [1e-4, 1e4] {
+        let mut rescaled = data.clone();
+        let days = data
+            .column("Days")
+            .unwrap()
+            .cast(&DataType::Float64)
+            .unwrap();
+        rescaled
+            .with_column(Column::new(
+                "Days".into(),
+                days.f64()
+                    .unwrap()
+                    .into_no_null_iter()
+                    .map(|v| v * scale)
+                    .collect::<Vec<_>>(),
+            ))
+            .unwrap();
+        let mut fit = lmer("Reaction ~ Days + (1 | Subject)", &rescaled, true).unwrap();
+        fit.with_satterthwaite(&rescaled).unwrap();
+        let actual = fit
+            .test_contrast(&hypothesis, DdfMethod::Satterthwaite)
+            .unwrap();
+        assert_eq!(actual.num_df, 2., "predictor scale {scale}: {actual:?}");
+        assert!(
+            (actual.f_value / expected.f_value - 1.).abs() < 1e-4,
+            "scale {scale}: {actual:?} vs {expected:?}"
+        );
+        // The multivariate df approximation uses covariance eigen-directions,
+        // which can change with coefficient units. Rank and Wald F cannot.
+        assert!(actual.den_df.is_finite() && actual.den_df > 0.);
+    }
+}
+
 fn check_balanced_intercept_variances(group_scale: f64) {
     let mut x = Vec::new();
     let mut y = Vec::new();

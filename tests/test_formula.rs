@@ -1,4 +1,84 @@
 #[test]
+fn orthogonal_polynomial_fits_preserve_predictor_units() {
+    use polars::prelude::*;
+    let x = [-3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5];
+    let data = df!("y" => [1.2, 2.1, 4.8, 4.2, 6.3, 5.7, 7.4, 8.1], "x" => x).unwrap();
+    let baseline = lme_rs::lm_df("y ~ poly(x, 4)", &data).unwrap();
+    let new_x = [-4., 0.25, 5.];
+    let expected = baseline.predict(&df!("x" => new_x).unwrap()).unwrap();
+    for scale in [1e-100, 1e100] {
+        let mut rescaled = data.clone();
+        rescaled
+            .with_column(Column::new("x".into(), x.map(|v| v * scale)))
+            .unwrap();
+        let fit = lme_rs::lm_df("y ~ poly(x, 4)", &rescaled).unwrap();
+        assert!(
+            (&fit.fitted - &baseline.fitted)
+                .iter()
+                .all(|v| v.abs() < 1e-10),
+            "scale {scale}"
+        );
+        let got = fit
+            .predict(&df!("x" => new_x.map(|v| v * scale)).unwrap())
+            .unwrap();
+        assert!(
+            (&got - &expected).iter().all(|v| v.abs() < 1e-9),
+            "scale {scale}: {got:?} vs {expected:?}"
+        );
+    }
+}
+
+#[test]
+fn natural_spline_fits_preserve_predictor_units() {
+    use polars::prelude::*;
+    let x = [1., 2., 3., 4., 5., 6., 7., 8.];
+    let data = df!("y" => [1.2, 2.1, 4.8, 4.2, 6.3, 5.7, 7.4, 8.1], "x" => x).unwrap();
+    let baseline = lme_rs::lm_df("y ~ ns(x, 3)", &data).unwrap();
+    let new_x = [-1., 4.25, 10.];
+    let expected = baseline.predict(&df!("x" => new_x).unwrap()).unwrap();
+    for scale in [1e-200, 1e200, 1e-310] {
+        let mut rescaled = data.clone();
+        rescaled
+            .with_column(Column::new("x".into(), x.map(|v| v * scale)))
+            .unwrap();
+        let fit = lme_rs::lm_df("y ~ ns(x, 3)", &rescaled).unwrap();
+        assert!(
+            (&fit.fitted - &baseline.fitted)
+                .iter()
+                .all(|v| v.abs() < 1e-10),
+            "scale {scale}"
+        );
+        let got = fit
+            .predict(&df!("x" => new_x.map(|v| v * scale)).unwrap())
+            .unwrap();
+        assert!(
+            (&got - &expected).iter().all(|v| v.abs() < 1e-9),
+            "scale {scale}: {got:?} vs {expected:?}"
+        );
+    }
+}
+
+#[test]
+fn natural_spline_with_repeated_observations_matches_truncated_power_space() {
+    let x = [0.0_f64, 1., 1., 1., 2., 3., 4., 5., 6., 8., 10., 12.];
+    // A natural cubic spline has linear tails. With boundary knots 0 and 12,
+    // differences of these truncated cubics span its two nonlinear directions.
+    let d = |x: f64, knot: f64| {
+        ((x - knot).max(0.0).powi(3) - (x - 12.0).max(0.0).powi(3)) / (12.0 - knot)
+    };
+    let data = polars::df!("x" => x,
+        "y" => [0.3, 1.2, 1.5, 0.8, 2.4, 4.1, 4.8, 4.3, 6.2, 8.3, 9.7, 13.1],
+        "b1" => x.map(|x| d(x, 5.0/3.0)-d(x, 0.0)),
+        "b2" => x.map(|x| d(x, 16.0/3.0)-d(x, 0.0)))
+    .unwrap();
+    let expected = lme_rs::lm_df("y ~ x + b1 + b2", &data).unwrap();
+    let actual = lme_rs::lm_df("y ~ ns(x, 3)", &data).unwrap();
+    assert!((&actual.fitted - &expected.fitted)
+        .iter()
+        .all(|v| v.abs() < 1e-9));
+}
+
+#[test]
 fn test_parse_formula_model() {
     let result = lme_rs::formula::parse("Reaction ~ 1 + Days + (1 + Days | Subject)").unwrap();
     assert!(result.metadata.has_intercept);

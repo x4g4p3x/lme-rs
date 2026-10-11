@@ -52,6 +52,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Scale ANOVA design columns before forming sequential and Type II cross-products,
+  retaining finite tests when a valid OLS design has an overflowing raw `X'X`.
+
+- Compute numeric reference-grid means in scaled units so marginal means remain
+  available when finite covariates have an unrepresentable raw sum.
+
+- Keep Kenward–Roger covariance adjustment, F statistics, and denominator degrees
+  of freedom invariant to response units; compute univariate Wald statistics
+  through standardized effects instead of discarding small positive variances.
+
+- Select natural-spline knots from observation quantiles, including repetitions,
+  matching `splines::ns`; keep boundary extrapolation finite in subnormal units.
+
+- Reject ambiguous coefficient names in named contrasts, and use a relative
+  column-space check when validating nested models for null-model bootstrap tests.
+
+- Reduce self-interactions such as `x*x` and `x:x` to `x`, preserving Wilkinson
+  semantics; arithmetic squaring remains available through `I(x^2)`.
+- Avoid repeating shared lower-order effects across separate categorical
+  interactions and factor-specific slopes, including no-intercept formulas.
+
+- Preserve Satterthwaite degrees of freedom under response rescaling by using
+  relative residual-variance coordinates and avoiding squared variance thresholds.
+  Joint tests retain all independent restrictions across predictor units instead
+  of dropping small positive covariance directions.
+- Deduplicate reversed fixed interactions (`a:b` and `b:a`). Choose categorical
+  interaction contrasts from the complete formula, allowing interactions before
+  main effects and avoiding redundant columns in no-intercept interaction models.
+- Scale orthogonal polynomial predictors before taking powers and retain the scale
+  for prediction. `BasisEncoding::Poly` now includes `xscale`; its QR factor uses
+  centered, scaled predictors. Keep natural-spline constraints stable in very small
+  and large knot units.
+- Reject stored polynomial/spline encodings with mismatched degree, coding, or
+  dimensions, including malformed spline projections that previously panicked.
+
 - Give `*` interactions the same colon-separated formula metadata key as explicit
   `:` terms. Preserve source predictors containing underscores and distinct
   interactions such as `a*b_c` and `a_b*c`, and avoid duplicate columns in

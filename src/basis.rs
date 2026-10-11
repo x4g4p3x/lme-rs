@@ -27,7 +27,9 @@ pub enum BasisEncoding {
         raw: bool,
         /// Mean of the training predictor (orthogonal only).
         xbar: f64,
-        /// Upper-triangular factor of the training Vandermonde QR (orthogonal only).
+        /// Scale of centered training predictors (orthogonal only).
+        xscale: f64,
+        /// Upper-triangular factor of the scaled training Vandermonde QR (orthogonal only).
         r: Array2<f64>,
     },
     /// Natural cubic spline basis.
@@ -65,6 +67,14 @@ pub fn eval_poly(
     if x.iter().any(|v| !v.is_finite()) {
         return Err(basis_error("poly() requires finite values"));
     }
+    if let Some(encoding) = training {
+        if !matches!(encoding, BasisEncoding::Poly { degree: d, raw: stored_raw, .. } if *d == degree && *stored_raw == raw)
+        {
+            return Err(basis_error(
+                "poly() training encoding does not match the formula term",
+            ));
+        }
+    }
     if raw {
         return eval_raw_poly(x, degree);
     }
@@ -73,9 +83,9 @@ pub fn eval_poly(
             degree: d,
             raw: false,
             xbar,
+            xscale,
             r,
-        }) if *d == degree => eval_orthogonal_poly_with_r(x, degree, *xbar, r),
-        Some(BasisEncoding::Poly { raw: true, .. }) => eval_raw_poly(x, degree),
+        }) if *d == degree => eval_orthogonal_poly_with_r(x, degree, *xbar, *xscale, r),
         Some(_) => Err(basis_error(
             "poly() training encoding does not match the formula term",
         )),
@@ -105,6 +115,7 @@ fn eval_raw_poly(
             degree,
             raw: true,
             xbar: 0.0,
+            xscale: 1.0,
             r: Array2::zeros((0, 0)),
         },
     ))
@@ -126,8 +137,17 @@ fn eval_orthogonal_poly_train(
             "poly() degree must be less than the number of unique points",
         ));
     }
-    let xbar = x.mean().unwrap_or(0.0);
-    let vandermonde = centered_vandermonde(x, xbar, degree);
+    // Center and scale before taking powers. The final orthonormal columns do
+    // not depend on predictor units, even when raw powers are unrepresentable.
+    let input_scale = x.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+    let xbar = x.mapv(|v| v / input_scale).mean().unwrap_or(0.0) * input_scale;
+    let centered_scale = x.iter().map(|v| (v - xbar).abs()).fold(0.0_f64, f64::max);
+    let xscale = if centered_scale.is_finite() {
+        centered_scale
+    } else {
+        input_scale
+    };
+    let vandermonde = centered_vandermonde(x, xbar, xscale, degree);
     let (q, r) = vandermonde.qr_into().map_err(|e| LmeError::LinearAlgebra {
         message: format!("poly() QR failed: {e}"),
     })?;
@@ -144,6 +164,7 @@ fn eval_orthogonal_poly_train(
             degree,
             raw: false,
             xbar,
+            xscale,
             r,
         },
     ))
@@ -153,9 +174,20 @@ fn eval_orthogonal_poly_with_r(
     x: &Array1<f64>,
     degree: usize,
     xbar: f64,
+    xscale: f64,
     r: &Array2<f64>,
 ) -> crate::Result<(Vec<Array1<f64>>, BasisEncoding)> {
-    let vandermonde = centered_vandermonde(x, xbar, degree);
+    if !xbar.is_finite()
+        || !xscale.is_finite()
+        || xscale <= 0.0
+        || r.dim() != (degree + 1, degree + 1)
+        || r.iter().any(|v| !v.is_finite())
+    {
+        return Err(basis_error(
+            "poly() training encoding has invalid center, scale, or QR dimensions",
+        ));
+    }
+    let vandermonde = centered_vandermonde(x, xbar, xscale, degree);
     let r_inv = r.inv().map_err(|e| LmeError::LinearAlgebra {
         message: format!("poly() R inverse failed: {e}"),
     })?;
@@ -170,16 +202,22 @@ fn eval_orthogonal_poly_with_r(
             degree,
             raw: false,
             xbar,
+            xscale,
             r: r.clone(),
         },
     ))
 }
 
-fn centered_vandermonde(x: &Array1<f64>, xbar: f64, degree: usize) -> Array2<f64> {
+fn centered_vandermonde(x: &Array1<f64>, xbar: f64, xscale: f64, degree: usize) -> Array2<f64> {
     let n = x.len();
     let mut v = Array2::zeros((n, degree + 1));
     for i in 0..n {
-        let xc = x[i] - xbar;
+        let centered = x[i] - xbar;
+        let xc = if centered.is_finite() {
+            centered / xscale
+        } else {
+            x[i] / xscale - xbar / xscale
+        };
         let mut p = 1.0;
         v[[i, 0]] = 1.0;
         for d in 1..=degree {
@@ -210,7 +248,21 @@ pub fn eval_ns(
             knots,
             intercept: stored_intercept,
             projection,
-        }) if *stored_intercept == intercept => {
+        }) if *stored_intercept == intercept && projection.ncols() == df => {
+            let expected_rows = knots
+                .len()
+                .checked_sub(BSPLINE_DEGREE + 1 + usize::from(!intercept));
+            if knots.len() < 8
+                || expected_rows != Some(projection.nrows())
+                || knots.iter().any(|v| !v.is_finite())
+                || knots.windows(2).any(|pair| pair[0] > pair[1])
+                || knots[0] >= knots[knots.len() - 1]
+                || projection.iter().any(|v| !v.is_finite())
+            {
+                return Err(basis_error(
+                    "ns() training encoding has invalid knots or projection dimensions",
+                ));
+            }
             eval_ns_with_encoding(x, knots, intercept, projection)
         }
         Some(_) => Err(basis_error(
@@ -235,7 +287,28 @@ fn eval_ns_train(
     }
     let intercept_flag = usize::from(intercept);
     let n_interior = df.saturating_sub(1 + intercept_flag);
-    let interior = interior_knots(&unique, n_interior);
+    let mut sample = x.to_vec();
+    sample.sort_by(|a, b| a.total_cmp(b));
+    let mut interior = interior_knots(&sample, n_interior);
+    // As in splines::ns, move quantiles that coincide with a boundary slightly
+    // inward. A sample concentrated entirely at one boundary cannot supply
+    // interior knots and must fail rather than silently changing the model.
+    for (side, &edge) in boundary.iter().enumerate() {
+        if interior.contains(&edge) {
+            let nearest = interior
+                .iter()
+                .copied()
+                .filter(|v| *v != edge)
+                .reduce(|a, b| if side == 0 { a.min(b) } else { a.max(b) })
+                .ok_or_else(|| basis_error("ns() interior knots all match a boundary"))?;
+            let adjusted = edge * 0.875 + nearest * 0.125;
+            for knot in &mut interior {
+                if *knot == edge {
+                    *knot = adjusted;
+                }
+            }
+        }
+    }
     let knots = cubic_knots(boundary, &interior);
     let bspline = bspline_design(x, &knots)?;
     let constrained = if intercept {
@@ -290,14 +363,14 @@ fn eval_ns_with_encoding(
     ))
 }
 
-fn interior_knots(sorted_unique: &[f64], n_interior: usize) -> Vec<f64> {
+fn interior_knots(sorted_sample: &[f64], n_interior: usize) -> Vec<f64> {
     if n_interior == 0 {
         return Vec::new();
     }
     (1..=n_interior)
         .map(|i| {
             let p = i as f64 / (n_interior + 1) as f64;
-            quantile_type7(sorted_unique, p)
+            quantile_type7(sorted_sample, p)
         })
         .collect()
 }
@@ -332,8 +405,15 @@ fn bspline_design(x: &Array1<f64>, knots: &[f64]) -> crate::Result<Array2<f64>> 
     if n_basis == 0 {
         return Err(basis_error("ns() knot vector is too short"));
     }
+    // Values and boundary tangents are invariant to a common coordinate scale.
+    // Normalize before differences or derivatives, including extrapolation, to
+    // avoid overflow of inverse tiny intervals and opposite-sign knot widths.
+    let scale = knots.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+    let normalized_knots: Vec<_> = knots.iter().map(|v| v / scale).collect();
+    let knots = normalized_knots.as_slice();
     let mut basis = Array2::zeros((x.len(), n_basis));
     for (row, &xi) in x.iter().enumerate() {
+        let xi = xi / scale;
         let boundary = xi.clamp(knots[0], knots[knots.len() - 1]);
         for j in 0..n_basis {
             let value = bspline_value(j, BSPLINE_DEGREE, boundary, knots);
@@ -405,6 +485,13 @@ fn second_deriv_at_boundaries(
     boundary: [f64; 2],
     intercept: bool,
 ) -> crate::Result<Array2<f64>> {
+    // Zero second derivatives define the same null space in any knot units.
+    // Evaluate this homogeneous constraint in scaled units before QR so tiny
+    // intervals cannot overflow derivatives and huge intervals cannot erase them.
+    let scale = knots.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+    let normalized_knots: Vec<_> = knots.iter().map(|v| v / scale).collect();
+    let knots = normalized_knots.as_slice();
+    let boundary = boundary.map(|v| v / scale);
     let n_basis = knots.len().saturating_sub(BSPLINE_DEGREE + 1);
     let start = usize::from(!intercept);
     if start >= n_basis {
@@ -492,6 +579,64 @@ fn complete_orthonormal_complement(q_thin: &Array2<f64>) -> crate::Result<Array2
 mod tests {
     use super::*;
     use ndarray::array;
+
+    #[test]
+    fn ns_knots_use_observation_quantiles_including_repetitions() {
+        let x = array![0., 1., 1., 1., 2., 3., 4., 5., 6., 8., 10., 12.];
+        let (_, encoding) = eval_ns(&x, 3, false, None).unwrap();
+        let BasisEncoding::Ns { knots, .. } = encoding else {
+            unreachable!()
+        };
+        // R type-7 sample quantiles interpolate at zero-based indices 11/3 and 22/3.
+        assert!((knots[4] - 5.0 / 3.0).abs() < 1e-12, "{knots:?}");
+        assert!((knots[5] - 16.0 / 3.0).abs() < 1e-12, "{knots:?}");
+        let boundary_repetitions = array![0., 0., 0., 0., 0., 1., 2., 3., 4., 5., 6., 7.];
+        let (_, encoding) = eval_ns(&boundary_repetitions, 3, false, None).unwrap();
+        let BasisEncoding::Ns { knots, .. } = encoding else {
+            unreachable!()
+        };
+        assert!((knots[4] - 5.0 / 12.0).abs() < 1e-12, "{knots:?}");
+        assert!((knots[5] - 10.0 / 3.0).abs() < 1e-12, "{knots:?}");
+        // With one interior knot, a zero median cannot supply a natural-spline
+        // interior. This is an error in splines::ns, not a different knot rule.
+        assert!(eval_ns(&array![0., 0., 0., 0., 1., 2.], 2, false, None).is_err());
+    }
+
+    #[test]
+    fn poly_rejects_training_encodings_for_a_different_term() {
+        let x = array![1., 2., 3., 4., 5.];
+        for raw in [false, true] {
+            let (_, encoding) = eval_poly(&x, 2, raw, None).unwrap();
+            assert!(eval_poly(&x, 3, raw, Some(&encoding)).is_err());
+            assert!(eval_poly(&x, 2, !raw, Some(&encoding)).is_err());
+        }
+    }
+
+    #[test]
+    fn ns_rejects_training_encodings_for_different_df() {
+        let x = array![1., 2., 3., 4., 5.];
+        let (_, encoding) = eval_ns(&x, 3, false, None).unwrap();
+        assert!(eval_ns(&x, 2, false, Some(&encoding)).is_err());
+    }
+
+    #[test]
+    fn ns_rejects_malformed_encoding_without_panicking() {
+        let x = array![1., 2., 3.];
+        let (_, valid) = eval_ns(&x, 3, false, None).unwrap();
+        let BasisEncoding::Ns { knots, .. } = valid else {
+            unreachable!()
+        };
+        for knots in [vec![], knots] {
+            let encoding = BasisEncoding::Ns {
+                knots,
+                intercept: false,
+                projection: Array2::zeros((0, 3)),
+            };
+            let result = std::panic::catch_unwind(|| eval_ns(&x, 3, false, Some(&encoding)));
+            assert!(result.is_ok(), "invalid stored dimensions must not panic");
+            assert!(result.unwrap().is_err());
+        }
+    }
 
     #[test]
     fn raw_poly_matches_powers() {

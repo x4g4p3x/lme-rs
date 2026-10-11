@@ -7,6 +7,28 @@ use std::fs::File;
 use std::io::Read;
 
 #[test]
+fn polynomial_reference_means_preserve_extreme_predictor_units() {
+    let x = [6.0_f64, 7., 8., 9., 10., 11., 12., 13., 14., 15., 16., 17.];
+    let data = df!("x" => x, "a" => ["A", "B", "A", "B", "A", "B", "A", "B", "A", "B", "A", "B"],
+        "y" => [1.2, 2.3, 3.4, 4.1, 5.5, 6.2, 7.1, 8.6, 9.4, 10.8, 11.2, 12.3])
+    .unwrap();
+    let fit = lme_rs::lm_df("y ~ a + poly(x, 2)", &data).unwrap();
+    let expected = fit.emmeans("a", &data, 0.95, None).unwrap();
+    let mut rescaled = data.clone();
+    rescaled
+        .with_column(Column::new("x".into(), x.map(|v| v * 1e307)))
+        .unwrap();
+    let fit = lme_rs::lm_df("y ~ a + poly(x, 2)", &rescaled).unwrap();
+    let actual = fit.emmeans("a", &rescaled, 0.95, None).unwrap();
+    assert!((&actual.estimate - &expected.estimate)
+        .iter()
+        .all(|v| v.abs() < 1e-10));
+    assert!((&actual.std_error - &expected.std_error)
+        .iter()
+        .all(|v| v.abs() < 1e-10));
+}
+
+#[test]
 fn proportional_joint_weights_match_observed_prediction_averages() {
     use lme_rs::{lm_df_with_factors, FactorCoding, FactorSpec, GridWeights, ReferenceGrid};
     let mut a = Vec::new();

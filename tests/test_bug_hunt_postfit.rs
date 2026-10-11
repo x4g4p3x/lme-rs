@@ -266,7 +266,7 @@ fn sequential_anova_is_invariant_to_predictor_units() {
     let first_ss =
         intercept.residuals.dot(&intercept.residuals) - first.residuals.dot(&first.residuals);
     assert!((expected.sum_sq.as_ref().unwrap()[0] - first_ss).abs() < 1e-10);
-    for scale in [1e-100, 1e-20, 1e20, 1e100] {
+    for scale in [1e-100, 1e-20, 1e20, 1e100, 1e155] {
         let mut rescaled = data.clone();
         let x: Vec<_> = data
             .column("x")

@@ -1095,29 +1095,40 @@ fn parse_interaction(
         [Token::Ident(left), Token::Star, Token::Ident(right)] => {
             add_role(model, left, ColumnRole::FixedEffect, true);
             add_role(model, right, ColumnRole::FixedEffect, true);
-            add_role(
-                model,
-                // Use the same unambiguous key as an explicit colon term.
-                // Underscores are valid in source names and cannot separate factors.
-                &format!("{}:{}", left, right),
-                ColumnRole::Interaction,
-                true,
-            );
+            add_interaction(model, left, right);
             Ok(())
         }
         [Token::Ident(left), Token::Colon, Token::Ident(right)] => {
             ensure_column(model, left);
             ensure_column(model, right);
-            add_role(
-                model,
-                &format!("{}:{}", left, right),
-                ColumnRole::Interaction,
-                true,
-            );
+            add_interaction(model, left, right);
             Ok(())
         }
         _ => Err(parse_error("malformed or unsupported fixed-effect term")),
     }
+}
+
+fn add_interaction(model: &mut FormulaModel, left: &str, right: &str) {
+    // Wilkinson interactions are sets of variables, not arithmetic powers.
+    if left == right {
+        add_role(model, left, ColumnRole::FixedEffect, true);
+        return;
+    }
+    // Factor order does not change a fixed interaction; retain the first label.
+    let reversed = format!("{right}:{left}");
+    if model
+        .columns
+        .get(&reversed)
+        .is_some_and(|info| info.has_role(ColumnRole::Interaction))
+    {
+        return;
+    }
+    add_role(
+        model,
+        &format!("{left}:{right}"),
+        ColumnRole::Interaction,
+        true,
+    );
 }
 
 fn parse_random_effect(tokens: &[Token<'_>], model: &mut FormulaModel) -> crate::Result<()> {

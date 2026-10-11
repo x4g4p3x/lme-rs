@@ -427,13 +427,34 @@ fn reference_grid_linfct(
         }
         let mean = match options.at.get(name.as_str()) {
             Some(&value) => value,
-            None => column
-                .cast(&DataType::Float64)
-                .map_err(|e| invalid(e.to_string()))?
-                .f64()
-                .map_err(|e| invalid(e.to_string()))?
-                .mean()
-                .ok_or_else(|| invalid(format!("No numeric reference value for '{name}'")))?,
+            None => {
+                let numeric = column
+                    .cast(&DataType::Float64)
+                    .map_err(|e| invalid(e.to_string()))?;
+                let values = numeric.f64().map_err(|e| invalid(e.to_string()))?;
+                let count = values.len() - values.null_count();
+                if count == 0 {
+                    return Err(invalid(format!("No numeric reference value for '{name}'")));
+                }
+                let scale = values
+                    .into_iter()
+                    .flatten()
+                    .map(f64::abs)
+                    .fold(0.0_f64, f64::max);
+                if !scale.is_finite() || values.into_iter().flatten().any(|v| !v.is_finite()) {
+                    return Err(invalid(format!(
+                        "Numeric reference covariate '{name}' must be finite"
+                    )));
+                }
+                if scale == 0.0 {
+                    0.0
+                } else {
+                    // Average in bounded units before restoring predictor units.
+                    // The finite mean can exist even when the raw sum overflows.
+                    values.into_iter().flatten().map(|v| v / scale).sum::<f64>() / count as f64
+                        * scale
+                }
+            }
         };
         grid.with_column(Column::new(name.clone(), vec![mean; n_grid]))
             .map_err(|e| invalid(e.to_string()))?;

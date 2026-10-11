@@ -52,11 +52,20 @@ pub fn contrast_matrix_from_names(
     for row in rows {
         let mut idx_row = Vec::with_capacity(row.weights.len());
         for &(name, w) in row.weights {
-            let j = fixed_names.iter().position(|n| n == name).ok_or_else(|| {
-                LmeError::NotImplemented {
+            let mut matches = fixed_names.iter().enumerate().filter(|(_, n)| *n == name);
+            let j = matches
+                .next()
+                .map(|(j, _)| j)
+                .ok_or_else(|| LmeError::NotImplemented {
                     feature: format!("Unknown coefficient name '{name}' in contrast"),
-                }
-            })?;
+                })?;
+            if matches.next().is_some() {
+                return Err(LmeError::InvalidInput {
+                    message: format!(
+                        "Ambiguous coefficient name '{name}' in contrast; use column indices"
+                    ),
+                });
+            }
             idx_row.push((j, w));
         }
         index_rows.push(idx_row);

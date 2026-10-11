@@ -284,3 +284,36 @@ fn classical_contrast_rank_is_invariant_to_row_units() {
         close(result.p_value, expected.p_value, 1e-12);
     }
 }
+#[test]
+fn null_bootstrap_rejects_non_nested_models_even_in_small_predictor_units() {
+    use polars::prelude::*;
+    let mut x = Vec::new();
+    let mut y = Vec::new();
+    let mut group = Vec::new();
+    for (i, shift) in [-5., -2., 2., 5.].into_iter().enumerate() {
+        for value in [-1.5_f64, -0.5, 0.5, 1.5] {
+            x.push(value);
+            y.push(3.0 + shift + 2.0 * value + 0.2 * (value * value - 1.25));
+            group.push(format!("g{i}"));
+        }
+    }
+    let z: Vec<_> = x.iter().map(|v| v * v - 1.25).collect();
+    for scale in [1.0, 1e-10] {
+        let data = df!("x" => x.clone(), "y" => y.clone(), "group" => group.clone(),
+            "z" => z.iter().map(|v| v * scale).collect::<Vec<_>>())
+        .unwrap();
+        let full = lme_rs::prepare_lmer("y ~ x + (1 | group)", &data).unwrap();
+        let null = lme_rs::prepare_lmer("y ~ 0 + z + (1 | group)", &data).unwrap();
+        let error = lme_rs::bootstrap_lrt(&full, &null, 1, 7, 1, &Default::default()).unwrap_err();
+        assert!(
+            error.to_string().contains("not nested"),
+            "scale {scale}: {error}"
+        );
+        let nested_data = data
+            .hstack(&[Series::new("one".into(), vec![scale; x.len()]).into()])
+            .unwrap();
+        let nested = lme_rs::prepare_lmer("y ~ 0 + one + (1 | group)", &nested_data).unwrap();
+        let result = lme_rs::bootstrap_lrt(&full, &nested, 1, 7, 1, &Default::default()).unwrap();
+        assert_eq!(result.valid, 1, "{:?}", result.errors);
+    }
+}

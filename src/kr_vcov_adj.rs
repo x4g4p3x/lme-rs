@@ -28,6 +28,11 @@ pub fn kenward_roger_modcomp_data(
     let sigma2 = fit.sigma2.ok_or_else(|| LmeError::NotImplemented {
         feature: "sigma2 missing for Kenward-Roger vcovAdj.".to_string(),
     })?;
+    if !sigma2.is_finite() || sigma2 <= 0.0 {
+        return Err(LmeError::InvalidInput {
+            message: "Kenward-Roger requires finite positive residual variance".into(),
+        });
+    }
 
     let mut ast = parse(formula_str)?;
     ast.factors = fit.factors.clone();
@@ -38,16 +43,20 @@ pub fn kenward_roger_modcomp_data(
     let base = lmm.evaluate(theta.as_slice().unwrap(), reml);
     let inv_lx =
         crate::kenward_roger::invert_kr_matrix(&base.l_x, "fixed-effects Cholesky factor")?;
-    let phi = inv_lx.t().dot(&inv_lx) * sigma2;
+    let phi = inv_lx.t().dot(&inv_lx);
 
     let n = lmm.y.len();
-    let (g_list, ggamma) = build_sigma_g(&lmm, theta.view(), sigma2)?;
+    // Work in residual-variance units. The information matrix's conditioning
+    // and its fallback must not depend on the units of the response.
+    let (g_list, ggamma) = build_sigma_g(&lmm, theta.view(), 1.0)?;
     let (phi_a, p_list, w) = vcov_adj16_with_pw(&phi, &matrices.x, &g_list, &ggamma, n)?;
 
     Ok(KenwardRogerModcompData {
-        phi,
-        phi_a,
-        p_list,
+        phi: phi * sigma2,
+        phi_a: phi_a * sigma2,
+        // Use relative variance parameters: P scales inversely with Phi and
+        // their expected-information inverse W remains dimensionless.
+        p_list: p_list.into_iter().map(|p| p / sigma2).collect(),
         w,
     })
 }

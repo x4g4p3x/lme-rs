@@ -102,3 +102,28 @@ def test_classical_contrast_rank_is_invariant_to_units(reference):
     actual = fit.test_contrast(matrix.tolist(), ddf_method="residual")
     assert actual.num_df == expected.num_df == 2
     assert actual.f_value == pytest.approx(expected.f_value)
+
+
+def test_sequential_anova_preserves_large_predictor_units():
+    data = pl.DataFrame(
+        {
+            "x": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "a": ["A", "B", "A", "B", "A", "B", "A", "B"],
+            "y": [1.2, 2.4, 3.1, 4.6, 5.3, 6.5, 7.8, 8.2],
+        }
+    )
+    intercept = lme.lm("y ~ 1", data)
+    first = lme.lm("y ~ x", data)
+    first_ss = np.sum(np.square(intercept.residuals)) - np.sum(np.square(first.residuals))
+    rescaled = data.with_columns((pl.col("x") * 1e155).alias("x"))
+    for formula in ["y ~ x + a", "y ~ x*a"]:
+        baseline = lme.lm(formula, data)
+        fit = lme.lm(formula, rescaled)
+        np.testing.assert_allclose(fit.fitted, baseline.fitted, atol=1e-12)
+        for kind in ["I", "II", "III"]:
+            expected = baseline.anova(ddf_method="residual", anova_type=kind)
+            if kind == "I":
+                assert expected.sum_sq[0] == pytest.approx(first_ss, abs=1e-10)
+            actual = fit.anova(ddf_method="residual", anova_type=kind)
+            np.testing.assert_allclose(actual.f_value, expected.f_value, rtol=1e-9)
+            np.testing.assert_allclose(actual.sum_sq, expected.sum_sq, rtol=1e-9)

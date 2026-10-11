@@ -74,9 +74,14 @@ fn validate_models(full: &LmerPrepared, null: &LmerPrepared) -> Result<()> {
     }
     // QR projection tests the actual column spaces, independently of coding/names.
     for column in b.x.columns() {
-        let projection = crate::lm(&column.to_owned(), &a.x)?;
+        let scale = column.iter().fold(0.0_f64, |scale, x| scale.max(x.abs()));
+        if scale == 0.0 {
+            continue;
+        }
+        let normalized = &column / scale;
+        let projection = crate::lm(&normalized, &a.x)?;
         let error = projection.residuals.dot(&projection.residuals).sqrt();
-        if error > 1e-9 * column.dot(&column).sqrt().max(1.0) {
+        if error > 1e-9 * normalized.dot(&normalized).sqrt() {
             return Err(invalid(
                 "Null fixed-effect design is not nested in the full design",
             ));

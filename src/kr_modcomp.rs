@@ -16,9 +16,9 @@ pub(crate) struct KenwardRogerModcompData {
     pub phi: Array2<f64>,
     /// KR-adjusted covariance `PhiA` (= `vcovAdj`).
     pub phi_a: Array2<f64>,
-    /// `P[[i]]` = ∂Φ/∂ρᵢ (one matrix per variance parameter, including σ²).
+    /// Negative precision derivatives `-XᵀΣ⁻¹GᵢΣ⁻¹X` for relative variance parameters.
     pub p_list: Vec<Array2<f64>>,
-    /// `W` = 2 × inverse expected information for ρ (pbkrtest `attr(PhiA, "W")`).
+    /// `W` = 2 × inverse expected information for the relative variance parameters.
     pub w: Array2<f64>,
 }
 
@@ -241,8 +241,8 @@ fn solve_wald_quadratic(v: &Array2<f64>, rhs: &Array1<f64>) -> crate::Result<f64
     }
     if q == 1 {
         let denom = v[[0, 0]];
-        return Ok(if denom.abs() > 1e-15 {
-            rhs[0] * rhs[0] / denom
+        return Ok(if denom.is_finite() && denom > 0.0 {
+            (rhs[0] / denom.sqrt()).powi(2)
         } else {
             f64::NAN
         });

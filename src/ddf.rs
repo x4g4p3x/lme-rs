@@ -26,6 +26,25 @@ pub(crate) fn qform_grad(g: ndarray::ArrayView1<f64>, a: &Array2<f64>) -> f64 {
     denom
 }
 
+/// Satterthwaite df in units of the tested variance. Normalizing first avoids
+/// squaring tiny/large variances and makes the positivity check unit-independent.
+pub(crate) fn variance_df(
+    variance: f64,
+    gradient: ndarray::ArrayView1<f64>,
+    a: &Array2<f64>,
+) -> f64 {
+    if !variance.is_finite() || variance <= 0.0 {
+        return f64::NAN;
+    }
+    let relative_gradient = gradient.mapv(|v| v / variance);
+    let relative_variance = qform_grad(relative_gradient.view(), a);
+    if relative_variance.is_finite() && relative_variance > 0.0 {
+        2.0 / relative_variance
+    } else {
+        f64::NAN
+    }
+}
+
 /// Denominator df for an F statistic formed from independent squared t-statistics (`lmerTest`).
 pub(crate) fn get_fstat_ddf(nu: &[f64], tol: f64) -> f64 {
     debug_assert!(!nu.is_empty());
@@ -87,13 +106,8 @@ pub(crate) fn satterthwaite_contrast_f_test(
             t * t
         };
         let grad = Array1::from_iter(jac_s.iter().map(|js| js[[0, 0]]));
-        let denom = qform_grad(grad.view(), a_mat);
         let var_m = v_s[[0, 0]];
-        let mut den_df = if denom > 1e-12 {
-            2.0 * var_m * var_m / denom
-        } else {
-            f64::NAN
-        };
+        let mut den_df = variance_df(var_m, grad.view(), a_mat);
         if den_df.is_nan() || den_df <= 0.0 {
             den_df = f64::NAN;
         }
@@ -110,16 +124,16 @@ pub(crate) fn satterthwaite_contrast_f_test(
             ),
         })?;
 
-    let eps = f64::EPSILON.sqrt();
-    let d_max = eval.iter().copied().fold(0.0_f64, f64::max);
-    let tol = (eps * d_max).max(0.0);
-
-    let mut directions: Vec<(usize, f64)> = eval
-        .iter()
-        .enumerate()
-        .filter(|(_, &d)| d > tol)
-        .map(|(i, &d)| (i, d))
-        .collect();
+    // The caller already reduced L to independent rows. A relative cutoff on
+    // covariance eigenvalues can discard a valid restriction simply because
+    // its coefficient uses different units. Require positive covariance in
+    // every independent direction; an unestimable covariance is an error.
+    if eval.iter().any(|&d| !d.is_finite() || d <= 0.0) {
+        return Err(LmeError::InvalidInput {
+            message: "Satterthwaite contrast covariance must be positive definite".into(),
+        });
+    }
+    let mut directions: Vec<(usize, f64)> = eval.iter().enumerate().map(|(i, &d)| (i, d)).collect();
     directions.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     let q_eff = directions.len();
@@ -137,12 +151,7 @@ pub(crate) fn satterthwaite_contrast_f_test(
 
         let c_owned = c_m.to_owned();
         let grad_var: Array1<f64> = Array1::from_iter(jac_s.iter().map(|js| qform(&c_owned, js)));
-        let denom = qform_grad(grad_var.view(), a_mat);
-        let mut df_m = if denom > 1e-12 {
-            2.0 * var_m * var_m / denom
-        } else {
-            f64::NAN
-        };
+        let mut df_m = variance_df(var_m, grad_var.view(), a_mat);
         if df_m.is_nan() || df_m <= 0.0 {
             df_m = f64::NAN;
         } else if df_m > 3000.0 {

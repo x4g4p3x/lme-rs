@@ -132,10 +132,24 @@ pub fn type2_contrast(
     cols_term.sort_unstable();
     let col_order: Vec<usize> = cols_rest.into_iter().chain(cols_term).collect();
 
+    // Form cross-products in bounded column units. X can have a finite QR fit
+    // and representable coefficient covariance even when X'X overflows.
+    let scales: Vec<_> = col_order
+        .iter()
+        .map(|&j| {
+            let scale = x.column(j).iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+            if scale > 0.0 {
+                scale
+            } else {
+                1.0
+            }
+        })
+        .collect();
     let x_new = {
         let mut out = Array2::<f64>::zeros((x.nrows(), p));
         for (new_j, &old_j) in col_order.iter().enumerate() {
-            out.column_mut(new_j).assign(&x.column(old_j));
+            out.column_mut(new_j)
+                .assign(&(&x.column(old_j) / scales[new_j]));
         }
         out
     };
@@ -151,7 +165,7 @@ pub fn type2_contrast(
     for (out_row, &r) in term_rows.iter().enumerate() {
         for old_j in 0..p {
             let orig_j = col_order[old_j];
-            l_term[[out_row, orig_j]] = lc[[r, old_j]];
+            l_term[[out_row, orig_j]] = lc[[r, old_j]] * scales[old_j];
         }
     }
     l_term

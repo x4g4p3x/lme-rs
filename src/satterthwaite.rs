@@ -56,23 +56,26 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<Sa
     let base_sigma2 = base_coefs.sigma2;
     let n = matrices.y.len();
     let reml_df = if reml { (n - p) as f64 } else { n as f64 };
-    let twopi = std::f64::consts::PI * 2.0;
+    let base_deviance = base_coefs.reml_crit;
 
-    let unprofiled_deviance = |th: &[f64], sig2: f64| -> f64 {
+    // Differentiate in relative residual-variance units. An absolute step floor
+    // can cross zero when a response is expressed in small units.
+    let unprofiled_deviance = |th: &[f64], relative_sig2: f64| -> f64 {
         let coefs = lmm.evaluate(th, reml);
         let d_prof = coefs.reml_crit;
         let s2_hat = coefs.sigma2;
-        let r2 = s2_hat * reml_df;
-        let base_term = d_prof - reml_df * (twopi * s2_hat).ln() - reml_df;
-        reml_df * (twopi * sig2).ln() + base_term + r2 / sig2
+        let relative_hat = s2_hat / base_sigma2;
+        d_prof - base_deviance
+            + reml_df
+                * (relative_sig2.ln() - relative_hat.ln() + relative_hat / relative_sig2 - 1.0)
     };
 
-    let n_rho = n_theta + 1; // rho = (theta, sigma2)
+    let n_rho = n_theta + 1; // rho = (theta, sigma2 / base_sigma2)
     let mut rho = Array1::<f64>::zeros(n_rho);
     for i in 0..n_theta {
         rho[i] = theta[i];
     }
-    rho[n_theta] = base_sigma2;
+    rho[n_theta] = 1.0;
 
     // 3. Compute Hessian of REML deviance w.r.t rho
     let mut hessian = Array2::<f64>::zeros((n_rho, n_rho));
@@ -138,11 +141,11 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<Sa
     })?;
     let a_mat = hess_inv * 2.0;
 
-    let get_vcov_beta = |th: &[f64], sig2: f64| -> Array2<f64> {
+    let get_vcov_beta = |th: &[f64], relative_sig2: f64| -> Array2<f64> {
         let c = lmm.evaluate(th, reml);
         let ilx = c.l_x.inv().unwrap();
         let unscaled_phi = ilx.t().dot(&ilx);
-        unscaled_phi * sig2
+        unscaled_phi * (base_sigma2 * relative_sig2)
     };
 
     // 4. Jacobian of vcov(beta) w.r.t. rho, and diagonal gradients for univariate dfs
@@ -176,21 +179,8 @@ pub fn compute_satterthwaite(fit: &LmeFit, data: &DataFrame) -> crate::Result<Sa
 
     for i in 0..p {
         let g_i = grad_v.row(i);
-        // denominator = g_i^T * A_mat * g_i
-        let mut denom = 0.0;
-        for j in 0..n_rho {
-            for k in 0..n_rho {
-                denom += g_i[j] * a_mat[[j, k]] * g_i[k];
-            }
-        }
-
         let v_i = vcov_beta_base[[i, i]];
-        let mut df = if denom > 1e-12 {
-            2.0 * v_i * v_i / denom
-        } else {
-            // Fallback if gradient is near zero (e.g. variance doesn't depend on theta)
-            (matrices.y.len() - p) as f64
-        };
+        let mut df = crate::ddf::variance_df(v_i, g_i, &a_mat);
 
         if df <= 0.0 || df.is_nan() {
             df = (matrices.y.len() - p) as f64;
