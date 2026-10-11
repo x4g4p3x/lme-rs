@@ -44,6 +44,11 @@ control; the other paper cases retain the default controls.
 
 From the repository root, using the pinned tools:
 
+Use a checkout containing this validation harness: its frozen initial commit is
+`0343652f6b11e1fd6244864cf7afe5728b2bb0c2`. The engine's earlier `v0.2.7` tag
+predates the harness. A newer development checkout still installs the exact
+published 0.2.7 engine for this baseline.
+
 ```bash
 task scientific:oracle
 task scientific:baseline

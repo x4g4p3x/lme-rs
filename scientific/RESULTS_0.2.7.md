@@ -17,7 +17,8 @@ the correlated fitted-value checks are not independent experiments.
 | Halekoh beets | 53 | Passed | 0.03658 |
 
 A ratio of one is the contract limit, with tolerance defined as
-`atol + rtol * abs(reference)`. Definitions, sources, controls and limits are
+`atol + rtol * abs(reference)`. Exact numerator-rank checks have zero tolerance
+and are excluded from the normalized-error statistic. Definitions, sources, controls and limits are
 in [cases.json](cases.json); commands and provenance policy are in the
 [baseline guide](README.md). The Python environment used polars 2.0.0 and
 polars-runtime-32 2.0.0. R 4.6.1 reference-package and loaded-namespace versions
@@ -37,11 +38,12 @@ that inferential fit.
 - Python lock SHA-256: `163c1e5cede8fd8f4e4bb6e1cbd8b9bc8480753b47c741f806e631585a65b79d`.
 - R adapter SHA-256: `2573cc062543c9799496f0de27dd2947ce5df3f0c7438ff6786ce0c710d34bab`.
 
-The full report, original downloads, exported inputs and R session are retained
-in the ignored run directory documented in the guide. This public summary
-does not redistribute the package datasets or downloaded author scripts.
-Long-term archival of a shareable evidence bundle and a portable, restorable R
-environment remain reproducibility work. The exact numerical study has run
+The [full per-metric report](https://github.com/x4g4p3x/lme-rs/releases/download/v0.2.7/scientific-baseline-0.2.7-windows.json)
+and [R session](https://github.com/x4g4p3x/lme-rs/releases/download/v0.2.7/scientific-baseline-0.2.7-R-session.txt)
+are archived on the release. Downloaded report bytes were checked against the
+hash above. Original downloads and exported inputs are retained in the ignored
+run directory documented in the guide. A complete shareable input bundle and a
+portable, restorable R environment remain reproducibility work. The exact numerical study has run
 on one OS/interpreter; the separate release CI checks installation and existing
 tests across the supported matrix.
 
