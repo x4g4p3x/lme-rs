@@ -15,6 +15,7 @@ use smallvec::SmallVec;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FormulaModel {
     /// Generated columns in formula order. `intercept` is metadata-only and has no [`ColumnInfo`].
+    /// Fixed interactions use colon-separated keys for both `a*b` and `a:b`.
     pub all_generated_columns: Vec<String>,
     /// Mapping of source/generated columns to their model roles and random effects.
     pub columns: AHashMap<String, ColumnInfo>,
@@ -1096,7 +1097,9 @@ fn parse_interaction(
             add_role(model, right, ColumnRole::FixedEffect, true);
             add_role(
                 model,
-                &format!("{}_{}", left, right),
+                // Use the same unambiguous key as an explicit colon term.
+                // Underscores are valid in source names and cannot separate factors.
+                &format!("{}:{}", left, right),
                 ColumnRole::Interaction,
                 true,
             );

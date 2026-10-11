@@ -52,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Give `*` interactions the same colon-separated formula metadata key as explicit
+  `:` terms. Preserve source predictors containing underscores and distinct
+  interactions such as `a*b_c` and `a_b*c`, and avoid duplicate columns in
+  `a*b + a:b`. Parsed star-interaction keys now use `a:b` rather than `a_b`.
+
 - Install the pinned workflow validator through mise in hosted CI and remove an
   accidental perfect fit from the rank-deficiency panic regression fixture;
   require a finite fit or a documented numerical error across BLAS implementations.

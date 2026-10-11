@@ -968,7 +968,7 @@ fn append_encoded_column(
     Ok(())
 }
 
-/// Map the parser's interaction column name (`trt_blk`) to R-style term label (`trt:blk`).
+/// Resolve a colon-separated interaction label, accepting legacy underscore keys.
 fn interaction_term_label(col_name: &str, factor_names: &[String]) -> String {
     if col_name.contains(':') {
         return col_name.to_string();

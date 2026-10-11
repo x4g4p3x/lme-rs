@@ -9,6 +9,117 @@ use lme_rs::model_matrix::build_design_matrices;
 use lme_rs::LmeError;
 use polars::prelude::*;
 
+#[test]
+fn star_interactions_do_not_alias_source_columns_with_underscores() {
+    let data = df!(
+        "y" => [1., 2., 3., 4., 5., 6.],
+        "a" => [1., 2., 3., 4., 5., 6.],
+        "b" => [2., 4., 1., 3., 2., 1.],
+        "a_b" => [3., 1., 4., 1., 5., 9.]
+    )
+    .unwrap();
+    for formula in ["y ~ a*b + a_b", "y ~ a_b + a*b"] {
+        let design = build_design_matrices(&parse(formula).unwrap(), &data).unwrap();
+        assert_eq!(
+            design.x.ncols(),
+            5,
+            "{formula}: a_b must remain a source covariate"
+        );
+        for (name, expected) in [
+            ("a_b", vec![3., 1., 4., 1., 5., 9.]),
+            ("a:b", vec![2., 8., 3., 12., 10., 6.]),
+        ] {
+            let column = design
+                .fixed_term_assign
+                .iter()
+                .position(|term| term == name)
+                .unwrap();
+            assert_eq!(
+                design.x.column(column).to_vec(),
+                expected,
+                "{formula}: {name}"
+            );
+        }
+        // A required source column must still be validated after disambiguation.
+        let missing = data.drop("a_b").unwrap();
+        assert!(build_design_matrices(&parse(formula).unwrap(), &missing).is_err());
+    }
+}
+
+#[test]
+fn star_and_colon_spellings_deduplicate_the_same_interaction() {
+    let data = df!("y" => [1., 2., 3.], "a" => [1., 2., 3.], "b" => [2., 3., 1.]).unwrap();
+    let expected = build_design_matrices(&parse("y ~ a*b").unwrap(), &data).unwrap();
+    for formula in ["y ~ a*b + a:b", "y ~ a + b + a:b + a*b"] {
+        let design = build_design_matrices(&parse(formula).unwrap(), &data).unwrap();
+        assert_eq!(design.x, expected.x, "{formula}");
+        assert_eq!(
+            design.fixed_term_assign, expected.fixed_term_assign,
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn star_interactions_with_ambiguous_underscore_partitions_stay_distinct() {
+    let data = df!(
+        "y" => [1., 2., 3.],
+        "a" => [1., 2., 3.],
+        "b_c" => [2., 3., 1.],
+        "a_b" => [3., 1., 4.],
+        "c" => [4., 2., 5.]
+    )
+    .unwrap();
+    let design = build_design_matrices(&parse("y ~ a*b_c + a_b*c").unwrap(), &data).unwrap();
+    assert_eq!(design.x.ncols(), 7);
+    for (name, expected) in [("a:b_c", vec![2., 6., 3.]), ("a_b:c", vec![12., 2., 20.])] {
+        let column = design
+            .fixed_term_assign
+            .iter()
+            .position(|term| term == name)
+            .unwrap();
+        assert_eq!(design.x.column(column).to_vec(), expected);
+    }
+}
+
+#[test]
+fn star_interaction_fits_and_predictions_match_an_explicit_design() {
+    use ndarray::array;
+    let y = array![1.2, 2.1, 4.8, 4.2, 6.3, 5.7, 7.4, 8.1];
+    // Independent design: intercept, a, b, a*b, and the unrelated source a_b.
+    let x = array![
+        [1., 1., 2., 2., 3.],
+        [1., 2., 4., 8., 1.],
+        [1., 3., 1., 3., 4.],
+        [1., 4., 3., 12., 1.],
+        [1., 5., 2., 10., 5.],
+        [1., 6., 1., 6., 9.],
+        [1., 7., 4., 28., 2.],
+        [1., 8., 3., 24., 6.]
+    ];
+    let data = df!(
+        "y" => y.to_vec(),
+        "a" => x.column(1).to_vec(),
+        "b" => x.column(2).to_vec(),
+        "a_b" => x.column(4).to_vec()
+    )
+    .unwrap();
+    let expected = lme_rs::lm(&y, &x).unwrap();
+    for formula in ["y ~ a*b + a_b", "y ~ a_b + a*b", "y ~ a*b + a:b + a_b"] {
+        let fit = lme_rs::lm_df(formula, &data).unwrap();
+        for actual in [fit.fitted.clone(), fit.predict(&data).unwrap()] {
+            assert!(
+                (&actual - &expected.fitted).iter().all(|v| v.abs() < 1e-12),
+                "{formula}"
+            );
+        }
+        assert!(
+            (fit.sigma2.unwrap() - expected.sigma2.unwrap()).abs() < 1e-12,
+            "{formula}"
+        );
+    }
+}
+
 fn assert_parse_ok(formula: &str) -> lme_rs::formula::FormulaModel {
     parse(formula).unwrap_or_else(|e| panic!("expected parse ok for {:?}, got {:?}", formula, e))
 }
@@ -355,12 +466,12 @@ fn typed_roles_and_formula_order_are_exact_and_deduplicated() {
     let ast = assert_parse_ok("y ~ x + x + a * b + (x | g)");
     assert_eq!(
         ast.all_generated_columns,
-        ["y", "intercept", "x", "a", "b", "a_b", "g"]
+        ["y", "intercept", "x", "a", "b", "a:b", "g"]
     );
     assert!(ast.columns["y"].has_role(ColumnRole::Response));
     assert!(ast.columns["x"].has_role(ColumnRole::FixedEffect));
     assert!(ast.columns["x"].has_role(ColumnRole::RandomEffect));
-    assert!(ast.columns["a_b"].has_role(ColumnRole::Interaction));
+    assert!(ast.columns["a:b"].has_role(ColumnRole::Interaction));
     assert!(ast.columns["g"].has_role(ColumnRole::GroupingVariable));
 }
 
