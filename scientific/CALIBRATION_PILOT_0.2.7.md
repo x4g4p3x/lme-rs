@@ -148,7 +148,9 @@ Before confirmation, freeze the final repetition budget and confirmatory
 generator/analysis, restore and verify an independent R environment, declare
 worker/resource limits, and use fresh held-out seeds. Retain the bands, family
 and failure policy. Additional models, distributional stresses, GLMM/NLMM and
-independent human review remain outside this completed pilot milestone.
+independent human review remain outside this completed pilot milestone. See the
+[completed confirmatory study](CALIBRATION_CONFIRMATORY_0.2.7.md) for the
+subsequent 20,000-replicate campaign under protocol v3.
 
 ## Implementation checks
 

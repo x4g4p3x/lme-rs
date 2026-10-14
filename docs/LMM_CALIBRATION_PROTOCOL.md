@@ -1,13 +1,17 @@
-# LMM calibration protocol v2
+# LMM calibration protocol v3
 
-Status: AI-reviewed internal pilot protocol, 11 October 2026. No confirmatory
-study or independent human peer review has occurred. The user chose an AI
-methodological critique in place of recruiting a statistician for this milestone.
-See the [review and responses](LMM_CALIBRATION_AI_REVIEW.md). Freeze this document, the generator,
-case registry, candidate binaries and analysis script together before execution.
-The [scientific validation plan](SCIENTIFIC_VALIDATION_PLAN.md) defines the
-larger programme. This initial protocol applies only to Gaussian random-intercept
-models with an intercept and one continuous fixed predictor.
+Status: Frozen internal confirmatory protocol, 13 October 2026 (superseding exploratory
+pilot protocol v2 of 11 October 2026). The user chose internal AI methodological and
+implementation review in place of recruiting an external human statistician. See the
+[pilot methodological critique](LMM_CALIBRATION_AI_REVIEW.md),
+[pilot implementation review](LMM_CALIBRATION_IMPLEMENTATION_REVIEW.md),
+[pilot results](../scientific/CALIBRATION_PILOT_0.2.7.md), and
+[confirmatory review](LMM_CALIBRATION_CONFIRMATORY_REVIEW.md). Freeze this document,
+the generator, case registry, R environment lock, candidate binaries and analysis
+script together before confirmatory execution. The
+[scientific validation plan](SCIENTIFIC_VALIDATION_PLAN.md) defines the larger
+programme. This initial protocol applies only to Gaussian random-intercept models
+with an intercept and one continuous fixed predictor.
 
 ## Aim and estimands
 
@@ -63,20 +67,28 @@ with the standard normal critical value and tail probability in the harness.
 This is the library's default LMM confidence-interval convention. Its
 residual-df test API is restricted to OLS and is not an LMM study method.
 All methods receive identical response arrays. Save options and explicit
-optimizer/convergence controls; archive package versions and binary hashes.
+optimizer/convergence controls; archive package versions, R dependency lock
+and binary hashes. Verify the R 4.6.1 environment against
+[scientific/renv.lock](../scientific/renv.lock) before reference execution.
 Do not infer independence from agreement between Rust, Python and MCP/SCP.
 
 For scalar tests, save beta, the method's covariance/SE, denominator df, t or F,
 and p-value. Use the same method's adjusted variance and df for its interval.
-For KR, check that the scalar F test and its interval use the same adjusted
-covariance, rank one and scalar scaling one. The Python API does not expose
-adjusted covariance: obtain its scalar variance through a unit-displacement
-contrast against beta_hat minus one (variance = 1/F), avoiding beta_hat squared
-divided by a near-zero observed F. Verify the observed F against beta_hat
-squared/variance and the reference against pbkrtest's exposed vcovAdj.
-Distribution probabilities and t quantiles come independently from R.
-LRT/ML and parametric bootstrap require distinct protocols and
-budgets; they are not included in the primary REML comparison.
+For KR and Satterthwaite, check that the scalar F test and its interval use the
+same adjusted covariance, rank one and scalar scaling one. The Python API does
+not expose adjusted covariance: obtain its scalar variance through a
+unit-displacement contrast against beta_hat minus one (variance = 1/F), avoiding
+beta_hat squared divided by a near-zero observed F. Verify that both the
+observed and unit-displacement contrasts have numerator df one, positive finite
+unit F, positive finite denominator df, matching denominator df
+(relative/absolute tolerance 1e-12), and observed F matching beta_hat
+squared/variance (relative tolerance 1e-8, absolute tolerance 1e-10). Record the
+isolated candidate Python interpreter version and implementation in
+`candidate-environment.json`. In the R reference adapter, verify `KRmodcomp`
+against `pbkrtest`'s exposed `vcovAdj` with scaling one.
+Distribution probabilities and t quantiles come independently from R for every
+attempted candidate and reference fit. LRT/ML and parametric bootstrap require
+distinct protocols and budgets; they are not included in the primary REML comparison.
 
 Include a known-true-variance Gaussian GLS z control, with variance blocks
 constructed from generating rho. For balanced designs its slope variance is
@@ -87,36 +99,71 @@ boundary estimates. Neither control is a replacement for candidate results.
 ## Randomness, sample size and uncertainty
 
 Use SHA-256 counter uniforms with 52-bit open-interval values and Box-Muller
-normal pairs, keyed by `lmm-calibration-v2|pilot|case ID|replicate ID|counter`.
-Archive exact generated response arrays: cross-platform math-library rounding
-is not claimed bitwise identical. Use a documented derivation keyed by protocol ID, case ID and
-replicate ID. Save the generated response or a deterministic generator version
-and its content hash. Worker count and case execution order must not affect
-the data. Pilot and confirmatory seed namespaces must be disjoint.
+normal pairs. The exploratory pilot (`lmm-calibration-v2`, `namespace = "pilot"`)
+is keyed by `lmm-calibration-v2|pilot|case ID|replicate ID|counter` with
+1 to 100 replicates per case. The confirmatory study (`lmm-calibration-v3`,
+`namespace = "confirmatory"`) is keyed by
+`lmm-calibration-v3|confirmatory|case ID|replicate ID|counter`. Pilot and
+confirmatory seed namespaces are strictly disjoint; pilot results are never
+pooled into the confirmatory sample. Archive exact generated response arrays in
+deterministic per-case compressed shards (`cases/<case_id>/inputs.jsonl.gz`,
+zero gzip timestamp and empty header filename) with per-case and aggregate
+SHA-256 digests: cross-platform math-library rounding is not claimed bitwise
+identical. Worker count (`1 <= workers <= 16`) and case execution order must not
+affect the generated inputs, fits or summaries. Each worker process sets
+`MKL_NUM_THREADS=1`, `OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1` and
+`POLARS_MAX_THREADS=1`.
 
-Run 100 pilot replicates per case for harness and cost assessment only. Use
-10,000 confirmatory replicates per case: at a probability of 0.05, the MCSE
-is approximately 0.00218. A null rejection estimate then has an approximate
-95% Monte Carlo interval half-width of 0.00427. Pilot results cannot be
-silently added to the confirmatory sample.
+The confirmatory repetition budget is **20,000 replicates per case** across all
+80 designs (**1,600,000 candidate and true-variance GLS datasets**; 480,000
+primary null datasets across the 24 balanced interior null cases). At a true
+rejection probability of 0.05 with no failed fits, the [exact binomial planning
+calculation](../comparisons/scientific/lmm_confirmation_planning.R) gives a
+single-claim support probability of 99.794% (eligible rejection counts 905..1,094)
+and a union-bound joint probability of at least **90.12%** across all 48 primary
+claims under the Bonferroni Clopper-Pearson rule (`alpha = 0.05 / 48`), compared
+with 79.84% single-claim and 0% union-bound lower bound at n = 10,000.
+
+In the confirmatory campaign:
+
+- All **20,000 replicates per case** (1,600,000 datasets) are evaluated by the
+  isolated published 0.2.7 candidate engine (`normal`, `satterthwaite`,
+  `kenward_roger`), the known-true-variance Gaussian GLS control, and R's
+  independent reference distribution evaluator (`qnorm`, `pnorm`, `qt`, `pf`,
+  plus exact `qbeta` Clopper-Pearson bounds for n = 20,000).
+- A fixed prespecified paired reference audit subsample of the first **1,000
+  confirmatory replicates per case** (`0 <= replicate < 1000`, **80,000 paired
+  datasets** across the 80 designs; 10x the pilot sample size) is additionally
+  fitted in R (`lmerTest::lmer`, `contest1D`, `pbkrtest::vcovAdj`,
+  `pbkrtest::KRmodcomp`), with exact `qbeta` Clopper-Pearson bounds at n = 1,000
+  and paired candidate-versus-reference differences on the common-evaluable
+  datasets.
 
 Report Wilson 95% Monte Carlo intervals for rejection/coverage rates and MCSE
 for every performance measure. For bias, use sd(beta_hat - beta1)/sqrt(R).
 Use sqrt(mean(SE squared))/empirical SD as the SE calibration ratio; mean SE
 is descriptive. Report mean interval width and both noncoverage tails.
 Estimate uncertainty of RMSE, empirical SD, SE calibration and means using
-1,000 paired dataset bootstrap resamples. The separate seed is SHA-256 of
-`lmm-calibration-v2|analysis|pilot|case ID`, interpreted as a big-endian integer
-for Python's Random (archive Python version and analysis source). Compare methods with
-paired differences from the common simulated datasets. Account for Monte
+1,000 paired dataset bootstrap resamples per case. The separate seed is SHA-256 of
+`lmm-calibration-v2|analysis|pilot|case ID` for pilot runs and
+`lmm-calibration-v3|analysis|confirmatory|case ID` for confirmatory candidate/control
+methods (plus `lmm-calibration-v3|analysis|confirmatory|reference|case ID` for the
+paired reference subsample when `reference_replicates < replicates`),
+interpreted as a big-endian integer for Python's `Random` (archive Python version
+and analysis source). Stream analysis case-by-case so memory remains bounded at
+20,000 replicates per case. Compare candidate and reference methods with paired
+differences on the prespecified paired reference replicates. Account for Monte
 Carlo uncertainty rather than demanding identical percentages between runs.
 
 ## Decision rules fixed before confirmation
 
 For each balanced interior null case, the target practical rejection band is
 [0.04, 0.06] and coverage band [0.94, 0.96]. Classify an estimate with its
-95% Monte Carlo interval: wholly inside the band supports the scoped claim;
-wholly outside contradicts it; overlap with a band edge is inconclusive.
+conservative 95% simultaneous Clopper-Pearson failure envelope: wholly inside
+the band (`lower >= 0.04` and `upper <= 0.06` for rejection; `lower >= 0.94`
+and `upper <= 0.96` for coverage) supports the scoped claim (`supported`);
+wholly outside (`upper < 0.04` or `lower > 0.06`) contradicts it
+(`contradicted`); overlap with a band edge is `inconclusive`.
 Boundary and imbalance cases are reported individually as exploratory
 calibration evidence. Power is descriptive, not required to match a fixed
 target. These bands are engineering acceptance criteria, not a universal
@@ -131,13 +178,11 @@ global decision; show pointwise Wilson intervals for description. Simultaneous
 bounds on comparators are descriptive, outside this declared candidate family.
 Require the conservative failure envelope described below, not only the
 conditional evaluable interval, to fall inside the acceptance band. Do not
-replace casewise failures with an average. Require all primary cases to support a claim before calling that method
-validated for this declared primary scope. Record inconclusive cases as gaps.
-The retained 10,000/case confirmatory budget can readily yield an inconclusive
-global result even for well-calibrated methods after multiplicity correction.
-No confirmation is enabled by the pilot runner. Final sample-size planning and
-a separately frozen confirmatory implementation remain required; bands must
-not be relaxed in response to pilot results.
+replace casewise failures with an average. Require all 24 primary cases for a
+candidate adjusted method to be `supported` before calling that method validated
+for this declared primary scope. Record any `inconclusive` or `contradicted`
+cases explicitly as gaps. The confirmatory CLI refuses any replicate count other
+than 20,000 in the `confirmatory` namespace.
 
 ## Failures and exclusions
 
@@ -153,32 +198,26 @@ Coverage and rejection rates among evaluable fits must state that denominator
 and quantify selection: report the worst-case bounds obtained by treating
 each failed replicate as either a success or a failure of the binary outcome.
 Also compare observable design/response summaries between evaluable and
-failed replicates. Do not count an unevaluable fit as a non-rejection or a
-covered interval. No per-dataset result is replaced with the reference result.
-For r observed binary successes, f failures and n attempts, identification
-bounds are [r/n, (r+f)/n]. The conservative uncertainty envelope uses the lower
-Clopper-Pearson bound for r and upper bound for r+f, with the declared pointwise
-or simultaneous alpha. Retain response mean and spread for selection diagnostics.
+failed replicates (retaining aggregate evaluable/failed response-mean and
+response-SD summaries plus individual records for failed replicates in
+confirmatory mode so report files stay bounded). Do not count an unevaluable
+fit as a non-rejection or a covered interval. No per-dataset result is replaced
+with the reference result. For r observed binary successes, f failures and n
+attempts, identification bounds are [r/n, (r+f)/n]. The conservative uncertainty
+envelope uses the lower Clopper-Pearson bound for r and upper bound for r+f,
+with the declared pointwise or simultaneous alpha.
 
 ## Review and archival gate
 
-The AI critique was performed by a separately tasked agent which did not edit
-the candidate or harness. Its objections and the implementing agent's responses
-are recorded. Both agents belong to the same AI system: this is internal
-methodological review, not independent human peer review or endorsement.
-Human review remains a useful additional source of scrutiny, but is not a
-prerequisite for the user-authorized pilot. Before confirmation, resolve the
-remaining sample-size and environment-restoration questions and freeze a
-reviewed confirmatory protocol, generator, analysis and hashes. A pilot may identify
-harness bugs; changes to scientific choices require a new version and a
-visible explanation before a new held-out confirmatory seed set is used.
-
-Archive the protocol and registry, source and environment locks, binary hashes,
-generated inputs/seeds, every attempted outcome, analysis code, raw results
-and report. A clean-environment rerun should reproduce deterministic inputs
-and agree within the declared numerical and Monte Carlo uncertainty.
+The AI critiques were performed by separately tasked agents which did not edit
+the candidate or harness. Their objections and the implementing agent's responses
+are recorded. These agents belong to the same AI system: this is internal
+methodological and implementation review, not independent human peer review or
+endorsement. Archive the protocol and registry, source and environment locks,
+binary hashes, generated inputs/seeds, every attempted outcome, analysis code,
+raw results and report. A clean-environment rerun should reproduce deterministic
+inputs and agree within the declared numerical and Monte Carlo uncertainty.
 
 This follows the ADEMP structure described by
 [Morris, White and Crowther (2019)](https://doi.org/10.1002/sim.8086): aims,
 data-generating mechanisms, estimands, methods and performance measures.
-It does not assert that the library has already passed this study.

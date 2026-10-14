@@ -1,9 +1,12 @@
-"""Independent controls for pilot designs, analysis and evidence integrity."""
+"""Independent controls for pilot and confirmatory designs, analysis and evidence integrity."""
 
 import importlib.util
 import json
 import math
+import random
+import statistics
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -33,6 +36,12 @@ class CalibrationTests(unittest.TestCase):
         self.assertEqual(forward, backward)
         self.assertNotEqual(study.response(cases[0], 7), study.response(cases[0], 8))
         self.assertNotEqual(study.normals("pilot", 4), study.normals("confirmatory", 4))
+        self.assertNotEqual(
+            study.response(cases[0], 0),
+            study.response(
+                cases[0], 0, protocol=study.CONFIRMATORY_PROTOCOL, namespace="confirmatory"
+            ),
+        )
 
     def test_known_variance_gls_matches_balanced_information(self):
         for case in study.cases():
@@ -180,6 +189,152 @@ class CalibrationTests(unittest.TestCase):
             paired.write_text("{}\n")
             with self.assertRaisesRegex(ValueError, "original evidence changed"):
                 study.reanalyse(path)
+
+    def test_confirmatory_budget_enforcement_and_worker_determinism(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, "requires 20000"):
+                study.generate(root / "bad_reps", 100, namespace="confirmatory")
+            with self.assertRaisesRegex(ValueError, "1000..20000"):
+                study.generate(
+                    root / "bad_ref",
+                    20000,
+                    namespace="confirmatory",
+                    reference_replicates=500,
+                )
+            with self.assertRaisesRegex(ValueError, "workers"):
+                study.generate(
+                    root / "bad_workers",
+                    20000,
+                    namespace="confirmatory",
+                    workers=0,
+                )
+            run1 = root / "w1"
+            run2 = root / "w2"
+            study.generate(
+                run1,
+                2,
+                namespace="confirmatory",
+                reference_replicates=1,
+                workers=1,
+                _allow_test_budget=True,
+            )
+            study.generate(
+                run2,
+                2,
+                namespace="confirmatory",
+                reference_replicates=1,
+                workers=2,
+                _allow_test_budget=True,
+            )
+            m1 = study.verify_inputs(run1, _allow_test_budget=True)
+            m2 = study.verify_inputs(run2, _allow_test_budget=True)
+            self.assertEqual(m1["inputs_sha256"], m2["inputs_sha256"])
+            self.assertEqual(m1["case_inputs_sha256"], m2["case_inputs_sha256"])
+            with self.assertRaisesRegex(ValueError, "requires 20000"):
+                study.verify_inputs(run1, _allow_test_budget=False)
+
+    def test_unit_displacement_contrast_checks_rank_df_and_f(self):
+        class FakeFit:
+            coefficients = [2.0, 0.4]
+            std_errors = [0.1, 0.2]
+
+            def __init__(self, *, unit_num_df=1, unit_den_df=16.0, unit_f=25.0):
+                self.unit_num_df = unit_num_df
+                self.unit_den_df = unit_den_df
+                self.unit_f = unit_f
+
+            def with_satterthwaite(self, _data):
+                return None
+
+            def with_kenward_roger(self, _data):
+                return None
+
+            def test_contrast(self, _l, ddf_method=""):
+                return types.SimpleNamespace(
+                    num_df=1, den_df=16.0, f_value=0.4 * 0.4 * 25.0, p_value=0.06
+                )
+
+            def test_contrast_vs(self, _l, _rhs, ddf_method=""):
+                return types.SimpleNamespace(
+                    num_df=self.unit_num_df,
+                    den_df=self.unit_den_df,
+                    f_value=self.unit_f,
+                    p_value=0.01,
+                )
+
+        ok = study.evaluate_candidate_methods(FakeFit(), None, 0.4)
+        self.assertAlmostEqual(ok["satterthwaite"]["se"], 0.2)
+        self.assertAlmostEqual(ok["kenward_roger"]["se"], 0.2)
+        bad_rank = study.evaluate_candidate_methods(FakeFit(unit_num_df=2), None, 0.4)
+        self.assertIn("error", bad_rank["satterthwaite"])
+        bad_df = study.evaluate_candidate_methods(FakeFit(unit_den_df=15.9), None, 0.4)
+        self.assertIn("error", bad_df["satterthwaite"])
+        bad_f = study.evaluate_candidate_methods(FakeFit(unit_f=20.0), None, 0.4)
+        self.assertIn("error", bad_f["satterthwaite"])
+
+    def test_fast_bootstrap_matches_reference_performance_and_decisions(self):
+        rng = random.Random(99)
+        n = 40
+        valid = {
+            "candidate:satterthwaite": {
+                i: {
+                    "error": rng.gauss(0.0, 0.1),
+                    "se": 0.1 + 0.01 * (i % 3),
+                    "width": 0.4 + 0.04 * (i % 3),
+                }
+                for i in range(n)
+            }
+        }
+        resamples = [[rng.randrange(n) for _ in range(n)] for _ in range(50)]
+        fast = study.fast_bootstrap_mcse(valid, ["candidate:satterthwaite"], n, resamples)[
+            "candidate:satterthwaite"
+        ]
+        direct_boot = [
+            study.performance([valid["candidate:satterthwaite"][i] for i in ids])
+            for ids in resamples
+        ]
+        for metric in fast:
+            expected = statistics.stdev(row[metric] for row in direct_boot)
+            self.assertAlmostEqual(fast[metric], expected, places=12)
+
+        primary_cases = [c["id"] for c in study.cases() if c["primary"]]
+        summaries = []
+        for idx, cid in enumerate(primary_cases):
+            for method in ["candidate:satterthwaite", "candidate:kenward_roger"]:
+                inconclusive = idx == 0 and method == "candidate:satterthwaite"
+                rej_env = [0.039, 0.055] if inconclusive else [0.042, 0.058]
+                cov_env = [0.945, 0.961] if inconclusive else [0.942, 0.958]
+                summaries.append(
+                    {
+                        "case": cid,
+                        "primary": True,
+                        "method": method,
+                        "attempted": 20000,
+                        "failed": 0,
+                        "rejection": {
+                            "evaluable": 20000,
+                            "count": 1000,
+                            "rate": 0.05,
+                            "failure_envelope_simultaneous95": rej_env,
+                        },
+                        "coverage": {
+                            "evaluable": 20000,
+                            "count": 19000,
+                            "rate": 0.95,
+                            "failure_envelope_simultaneous95": cov_env,
+                        },
+                    }
+                )
+        decisions = study.build_confirmatory_decisions(summaries)
+        self.assertEqual(decisions["family_size"], 48)
+        self.assertFalse(
+            decisions["methods"]["candidate:satterthwaite"]["validated_for_primary_scope"]
+        )
+        self.assertEqual(decisions["methods"]["candidate:satterthwaite"]["inconclusive"], 1)
+        self.assertTrue(
+            decisions["methods"]["candidate:kenward_roger"]["validated_for_primary_scope"]
+        )
 
 
 if __name__ == "__main__":

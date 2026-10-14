@@ -24,6 +24,7 @@ Prefer Task for day-to-day work.
 | `task scientific:oracle` | `scientific-oracle` | Independent exact-arithmetic oracle controls |
 | `task scientific:baseline` | `scientific-baseline` | Frozen published 0.2.7, NIST and three selected paper examples |
 | `task scientific:calibration` | `scientific-calibration` | Exploratory 80-case Gaussian LMM pilot, default 100 replicates/case |
+| `task scientific:calibration:confirmatory` | `scientific-calibration-confirmatory` | Frozen 80-case Gaussian LMM confirmatory study, 20,000 replicates/case |
 
 For example:
 

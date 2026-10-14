@@ -6,11 +6,18 @@ or a certification.
 
 The initial deterministic contracts and reproduction runner are now described
 in the [frozen baseline](../scientific/README.md). The
-[calibration protocol](LMM_CALIBRATION_PROTOCOL.md) now has an internal
-[AI methodological review](LMM_CALIBRATION_AI_REVIEW.md) for the exploratory pilot.
-Human peer review and the confirmatory campaign remain separate, unfinished work.
-The [0.2.7 pilot results](../scientific/CALIBRATION_PILOT_0.2.7.md) now record
-8,000 paired simulated datasets and an exact binomial budget calculation.
+[calibration protocol](LMM_CALIBRATION_PROTOCOL.md) has an internal
+[AI methodological review](LMM_CALIBRATION_AI_REVIEW.md),
+[pilot implementation review](LMM_CALIBRATION_IMPLEMENTATION_REVIEW.md), and
+[confirmatory harness review](LMM_CALIBRATION_CONFIRMATORY_REVIEW.md).
+The [0.2.7 pilot results](../scientific/CALIBRATION_PILOT_0.2.7.md) record
+8,000 paired simulated datasets, and the
+[0.2.7 confirmatory study](../scientific/CALIBRATION_CONFIRMATORY_0.2.7.md)
+records 1,600,000 candidate and true-variance GLS datasets (20,000 replicates
+per case across all 80 designs) plus 80,000 paired R reference fits under the
+locked R 4.6.1 environment ([scientific/renv.lock](../scientific/renv.lock)).
+Independent human peer review and extensions beyond Gaussian random-intercept
+models remain separate, unfinished work.
 The inventory below records the starting assessment; completed evidence is
 reported separately by version and scope.
 

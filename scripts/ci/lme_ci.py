@@ -599,19 +599,36 @@ def preflight() -> None:
 
 
 def scientific_calibration(
-    *, output_dir: str = "", rscript: str = "", replicates: int = 100
+    *,
+    output_dir: str = "",
+    rscript: str = "",
+    replicates: int = 100,
+    namespace: str = "pilot",
+    reference_replicates: int = 1000,
+    workers: int = 1,
 ) -> None:
-    """Run the exploratory calibration pilot with isolated published binaries."""
+    """Run the LMM calibration pilot or frozen confirmatory study."""
     from datetime import datetime, timezone
     from uuid import uuid4
 
-    if not 1 <= replicates <= 100:
-        raise CiError("pilot replicates must be between 1 and 100; confirmation is not enabled")
+    if namespace == "pilot":
+        if not 1 <= replicates <= 100:
+            raise CiError("pilot replicates must be between 1 and 100")
+    elif namespace == "confirmatory":
+        if replicates != 20000 or not 1000 <= reference_replicates <= replicates:
+            raise CiError(
+                "confirmatory study requires 20000 replicates and 1000..20000 reference replicates"
+            )
+        if not 1 <= workers <= 16:
+            raise CiError("confirmatory workers must be between 1 and 16")
+    else:
+        raise CiError(f"unsupported calibration namespace: {namespace}")
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
+    subdir = "calibration/0.2.7" if namespace == "pilot" else "calibration-confirmatory/0.2.7"
     destination = (
         Path(output_dir).resolve()
         if output_dir
-        else (ROOT / "benchmark-results/scientific/calibration/0.2.7" / run_id)
+        else (ROOT / "benchmark-results/scientific" / subdir / run_id)
     )
     reference_runner = rscript or shutil.which("Rscript")
     if not reference_runner and os.name == "nt":
@@ -622,9 +639,31 @@ def scientific_calibration(
             reference_runner = str(path)
     if not reference_runner:
         raise CiError("Rscript required; use --rscript PATH")
+    if namespace == "confirmatory":
+        run(
+            [
+                reference_runner,
+                "--vanilla",
+                str(ROOT / "comparisons/scientific/restore_r_environment.R"),
+                "--verify",
+            ]
+        )
     runner = ROOT / "scripts/lmm_calibration.py"
     run(
-        [sys.executable, str(runner), "generate", str(destination), "--replicates", str(replicates)]
+        [
+            sys.executable,
+            str(runner),
+            "generate",
+            str(destination),
+            "--namespace",
+            namespace,
+            "--replicates",
+            str(replicates),
+            "--reference-replicates",
+            str(reference_replicates),
+            "--workers",
+            str(workers),
+        ]
     )
     manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
     for name in manifest["sources"]:
@@ -645,17 +684,49 @@ def scientific_calibration(
         ],
         env={"UV_PROJECT_ENVIRONMENT": str(environment)},
     )
-    print(f"calibration pilot evidence: {destination}", flush=True)
-    run([str(venv_python(environment)), str(runner), "candidate", str(destination)])
+    print(f"calibration {namespace} evidence: {destination}", flush=True)
     run(
         [
-            reference_runner,
-            "--vanilla",
-            str(ROOT / "comparisons/scientific/lmm_calibration.R"),
+            str(venv_python(environment)),
+            str(runner),
+            "candidate",
             str(destination),
+            "--workers",
+            str(workers),
         ]
     )
-    run([sys.executable, str(runner), "analyse", str(destination)])
+    if namespace == "pilot":
+        run(
+            [
+                reference_runner,
+                "--vanilla",
+                str(ROOT / "comparisons/scientific/lmm_calibration.R"),
+                str(destination),
+            ]
+        )
+    else:
+        run(
+            [
+                sys.executable,
+                str(runner),
+                "reference",
+                str(destination),
+                "--rscript",
+                str(reference_runner),
+                "--workers",
+                str(workers),
+            ]
+        )
+    run(
+        [
+            sys.executable,
+            str(runner),
+            "analyse",
+            str(destination),
+            "--workers",
+            str(workers),
+        ]
+    )
 
 
 def scientific_baseline(*, output_dir: str = "", rscript: str = "") -> None:
@@ -1586,6 +1657,25 @@ def main(argv: list[str] | None = None) -> int:
     p_calibration.set_defaults(
         fn=lambda a: scientific_calibration(
             output_dir=a.output_dir, rscript=a.rscript, replicates=a.replicates
+        )
+    )
+    p_confirmatory = sub.add_parser(
+        "scientific-calibration-confirmatory",
+        help="Run the frozen 80-case LMM confirmatory study (20,000 replicates/case)",
+    )
+    p_confirmatory.add_argument("--output-dir", default="")
+    p_confirmatory.add_argument("--rscript", default="")
+    p_confirmatory.add_argument("--replicates", type=int, default=20000)
+    p_confirmatory.add_argument("--reference-replicates", type=int, default=1000)
+    p_confirmatory.add_argument("--workers", type=int, default=min(12, max(1, os.cpu_count() or 1)))
+    p_confirmatory.set_defaults(
+        fn=lambda a: scientific_calibration(
+            output_dir=a.output_dir,
+            rscript=a.rscript,
+            replicates=a.replicates,
+            namespace="confirmatory",
+            reference_replicates=a.reference_replicates,
+            workers=a.workers,
         )
     )
     p_scientific = sub.add_parser(

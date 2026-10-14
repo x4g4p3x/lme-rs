@@ -50,6 +50,11 @@ tasks:
     cmds:
       - '{{.RUN}} scientific-calibration {{.CLI_ARGS}}'
 
+  scientific:calibration:confirmatory:
+    desc: Run the frozen 80-case LMM confirmatory calibration study on published 0.2.7
+    cmds:
+      - '{{.RUN}} scientific-calibration-confirmatory {{.CLI_ARGS}}'
+
   toolchain:check:
     desc: Verify local and hosted tool version alignment
     cmds:

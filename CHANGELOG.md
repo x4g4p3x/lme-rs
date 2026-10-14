@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A frozen LMM confirmatory calibration harness (protocol v3), portable R 4.6.1
+  dependency lock (`scientific/renv.lock`) and verifier/restorer, bounded-worker
+  per-case compressed sharding, and the completed 1,600,000-dataset confirmatory
+  campaign (20,000 replicates across 80 designs with 80,000 paired R reference
+  fits). See [scientific/CALIBRATION_CONFIRMATORY_0.2.7.md](scientific/CALIBRATION_CONFIRMATORY_0.2.7.md).
+
 - An AI-reviewed exploratory LMM calibration pilot with 80 fixed scenarios,
   paired published-engine/R fits, independent known-variance controls, immutable
   simulated inputs, Monte Carlo uncertainty and explicit failure envelopes.

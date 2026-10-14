@@ -9,19 +9,24 @@ validation remain separate, unfinished work. See the
 The [initial results](RESULTS_0.2.7.md) report the actual published-wheel run.
 
 The [completed 0.2.7 exploratory pilot](CALIBRATION_PILOT_0.2.7.md) reports
-8,000 paired datasets. The calibration runner is available:
-`task scientific:calibration` runs 100 replicates for each of 80 fixed Gaussian
-random-intercept scenarios. `--replicates 1` runs a smoke/cost assessment; the
-runner refuses values above 100 and never runs confirmation. Each new run
-retains exact designs/responses, published native binary identity, reference
-versions, frozen source copies, every attempted fit, paired scalar tests and
-intervals, failure envelopes and uncertainty under
-`benchmark-results/scientific/calibration/0.2.7/`. See the
-[AI critique](../docs/LMM_CALIBRATION_AI_REVIEW.md) for resolved objections and
-remaining confirmation requirements. AI review does not constitute human peer review.
+8,000 paired datasets, and the [completed 0.2.7 confirmatory study](CALIBRATION_CONFIRMATORY_0.2.7.md)
+reports 1,600,000 candidate and known-variance GLS datasets (20,000 replicates
+across all 80 designs) plus 80,000 paired R reference fits under
+[protocol v3](../docs/LMM_CALIBRATION_PROTOCOL.md) and the
+[confirmatory harness review](../docs/LMM_CALIBRATION_CONFIRMATORY_REVIEW.md).
+`task scientific:calibration` runs the 100-replicate exploratory pilot
+(`--replicates 1` runs a smoke/cost assessment), and
+`task scientific:calibration:confirmatory` runs the frozen 20,000-replicate
+confirmatory study across bounded workers under
+`benchmark-results/scientific/calibration-confirmatory/0.2.7/`. See the
+[AI critique](../docs/LMM_CALIBRATION_AI_REVIEW.md) for resolved objections;
+AI review does not constitute human peer review.
 For an already archived original pilot, `python scripts/lmm_calibration.py
 reanalyse RUN_DIRECTORY` performs only the documented diagnostic correction,
 checks the original evidence hashes, and writes a new report without refitting.
+The scientific R 4.6.1 reference environment is locked in [renv.lock](renv.lock)
+and verified or restored with
+`Rscript --vanilla comparisons/scientific/restore_r_environment.R --verify`.
 
 ## Contracts and independent evidence
 
