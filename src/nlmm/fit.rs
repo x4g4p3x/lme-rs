@@ -1258,20 +1258,17 @@ pub(crate) fn column_str(
         });
     }
     if let Ok(ca) = s.str() {
-        return Ok(ca
-            .into_iter()
-            .map(|v| v.unwrap_or("").to_string())
-            .collect());
+        return Ok(ca.iter().map(|v| v.unwrap_or("").to_string()).collect());
     }
     if let Ok(ca) = s.f64() {
         return Ok(ca
-            .into_iter()
+            .iter()
             .map(|v| v.map(|x| x.to_string()).unwrap_or_default())
             .collect());
     }
     if let Ok(ca) = s.i64() {
         return Ok(ca
-            .into_iter()
+            .iter()
             .map(|v| v.map(|x| x.to_string()).unwrap_or_default())
             .collect());
     }
@@ -1283,10 +1280,7 @@ pub(crate) fn column_str(
     let ca = cast.str().map_err(|e| LmeError::NotImplemented {
         feature: format!("Column '{name}' string cast failed: {e}"),
     })?;
-    Ok(ca
-        .into_iter()
-        .map(|v| v.unwrap_or("").to_string())
-        .collect())
+    Ok(ca.iter().map(|v| v.unwrap_or("").to_string()).collect())
 }
 
 fn build_ranef_df(rows: &[(String, String, String, f64)]) -> polars::prelude::DataFrame {
@@ -1295,7 +1289,7 @@ fn build_ranef_df(rows: &[(String, String, String, f64)]) -> polars::prelude::Da
     let levels: Vec<String> = rows.iter().map(|r| r.1.clone()).collect();
     let names: Vec<String> = rows.iter().map(|r| r.2.clone()).collect();
     let vals: Vec<f64> = rows.iter().map(|r| r.3).collect();
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("group".into(), &groups),
         Column::new("level".into(), &levels),
         Column::new("term".into(), &names),
@@ -1328,7 +1322,7 @@ fn build_nlmm_varcorr(
     var1.push(String::new());
     vcov.push(sigma2);
     sdcor.push(sigma2.sqrt());
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("grp".into(), &grps),
         Column::new("var1".into(), &var1),
         Column::new("vcov".into(), &vcov),

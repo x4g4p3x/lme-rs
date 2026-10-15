@@ -292,7 +292,7 @@ fn release_gate_prediction_throughput_sleepstudy() {
     let fit = lmer("Reaction ~ Days + (Days | Subject)", &df, true).expect("lmer");
 
     let days = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();
-    let days = days.f64().unwrap().into_no_null_iter().collect::<Vec<_>>();
+    let days = days.f64().unwrap().no_null_iter().collect::<Vec<_>>();
     let subjects = df
         .column("Subject")
         .unwrap()
@@ -301,7 +301,7 @@ fn release_gate_prediction_throughput_sleepstudy() {
     let subjects = subjects
         .str()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .map(str::to_owned)
         .collect::<Vec<_>>();
 

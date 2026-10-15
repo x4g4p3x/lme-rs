@@ -126,7 +126,7 @@ fn test_orange_nlmer_predict_new_level_errors() -> Result<(), Box<dyn std::error
     let trees: Vec<String> = df_tree_str
         .column("Tree")?
         .str()?
-        .into_iter()
+        .iter()
         .enumerate()
         .map(|(i, v)| {
             if i == 0 {

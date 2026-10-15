@@ -88,7 +88,7 @@ fn build_prediction_df(base: &DataFrame, repeats: usize) -> DataFrame {
     let days = days
         .f64()
         .expect("Days should be f64")
-        .into_no_null_iter()
+        .no_null_iter()
         .collect::<Vec<_>>();
 
     let subjects = base
@@ -99,7 +99,7 @@ fn build_prediction_df(base: &DataFrame, repeats: usize) -> DataFrame {
     let subjects = subjects
         .str()
         .expect("Subject should be string")
-        .into_no_null_iter()
+        .no_null_iter()
         .map(str::to_owned)
         .collect::<Vec<_>>();
 
@@ -135,13 +135,13 @@ fn with_nested_group_column(df: &DataFrame) -> DataFrame {
         .expect("cask should be string");
 
     let nested = batch
-        .into_no_null_iter()
-        .zip(cask.into_no_null_iter())
+        .no_null_iter()
+        .zip(cask.no_null_iter())
         .map(|(batch, cask)| format!("{batch}_{cask}"))
         .collect::<Vec<_>>();
 
     let mut out = df.clone();
-    out.with_column(Series::new("batch:cask".into(), nested))
+    out.with_column(Column::new("batch:cask".into(), nested))
         .unwrap();
     out
 }
@@ -943,7 +943,7 @@ fn robust_benchmark_fit(rows: usize, coefficients: usize) -> (DataFrame, lme_rs:
             .map(|i| format!("g{}", i % 100))
             .collect::<Vec<_>>(),
     ));
-    let data = DataFrame::new(columns).unwrap();
+    let data = DataFrame::new_infer_height(columns).unwrap();
     let fit = lme_rs::lm_df(&format!("y ~ {}", terms.join(" + ")), &data).unwrap();
     (data, fit)
 }

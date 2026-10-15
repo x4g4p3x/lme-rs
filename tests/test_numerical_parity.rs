@@ -188,7 +188,7 @@ fn test_conditional_vs_population_magnitude() {
     // Predict for Subject 308 at Days 0, 5, 9
     let new_days = Series::new("Days".into(), &[0.0, 5.0, 9.0]);
     let new_subject = Series::new("Subject".into(), &["308", "308", "308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop = fit.predict(&newdata).unwrap();
     let cond = fit.predict_conditional(&newdata, true).unwrap();
@@ -230,9 +230,9 @@ fn test_offset_parity() {
     // Create an arbitrary offset column, e.g. Days * 10
     let days_series = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();
     let days_f64 = days_series.f64().unwrap();
-    let offset_vec: Vec<f64> = days_f64.into_no_null_iter().map(|d| d * 10.0).collect();
+    let offset_vec: Vec<f64> = days_f64.no_null_iter().map(|d| d * 10.0).collect();
     let offset_series = Series::new("OffsetCol".into(), offset_vec);
-    df.with_column(offset_series).unwrap();
+    df.with_column(offset_series.into()).unwrap();
 
     let fit = lmer(
         "Reaction ~ Days + offset(OffsetCol) + (Days | Subject)",

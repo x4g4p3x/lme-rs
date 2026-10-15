@@ -66,7 +66,7 @@ fn synthetic_df(ast: &FormulaModel) -> DataFrame {
         let v: Vec<f64> = (0..N_OBS).map(|i| (i as f64) * 0.25).collect();
         cols.push(Series::new(name.as_str().into(), v).into());
     }
-    DataFrame::new(cols).unwrap()
+    DataFrame::new_infer_height(cols).unwrap()
 }
 
 fuzz_target!(|data: &[u8]| {

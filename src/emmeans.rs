@@ -396,7 +396,7 @@ fn reference_grid_linfct(
     // Project before replicating rows so responses, grouping columns, and unused
     // metadata do not add allocation and copying cost to the reference grid.
     // Retain source order for dot expansion, including categorical covariates.
-    let grid_columns = data.get_columns().iter().filter_map(|column| {
+    let grid_columns = data.columns().iter().filter_map(|column| {
         let name = column.name().as_str();
         (fixed_covariates.contains(name) || categorical.contains_key(name)).then_some(name)
     });
@@ -417,7 +417,7 @@ fn reference_grid_linfct(
             )));
         }
     }
-    for column in data.get_columns() {
+    for column in data.columns() {
         let name = column.name();
         if !fixed_covariates.contains(name.as_str())
             || categorical.contains_key(name.as_str())
@@ -437,11 +437,11 @@ fn reference_grid_linfct(
                     return Err(invalid(format!("No numeric reference value for '{name}'")));
                 }
                 let scale = values
-                    .into_iter()
+                    .iter()
                     .flatten()
                     .map(f64::abs)
                     .fold(0.0_f64, f64::max);
-                if !scale.is_finite() || values.into_iter().flatten().any(|v| !v.is_finite()) {
+                if !scale.is_finite() || values.iter().flatten().any(|v| !v.is_finite()) {
                     return Err(invalid(format!(
                         "Numeric reference covariate '{name}' must be finite"
                     )));
@@ -451,8 +451,7 @@ fn reference_grid_linfct(
                 } else {
                     // Average in bounded units before restoring predictor units.
                     // The finite mean can exist even when the raw sum overflows.
-                    values.into_iter().flatten().map(|v| v / scale).sum::<f64>() / count as f64
-                        * scale
+                    values.iter().flatten().map(|v| v / scale).sum::<f64>() / count as f64 * scale
                 }
             }
         };

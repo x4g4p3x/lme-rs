@@ -453,7 +453,7 @@ fn poly_ns_and_dot_parse() {
 
 #[test]
 fn formula_data_mismatch_fails_at_matrix_build() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), vec![1.0_f64, 2.0, 3.0]).into(),
         Series::new("x".into(), vec![1.0_f64, 2.0, 3.0]).into(),
         Series::new("g".into(), vec!["a", "b", "a"]).into(),
@@ -467,7 +467,7 @@ fn formula_data_mismatch_fails_at_matrix_build() {
 
 #[test]
 fn weird_column_names_round_trip_when_present_in_dataframe() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("resp_2".into(), vec![1.0_f64, 2.0]).into(),
         Series::new("pred_x".into(), vec![0.0_f64, 1.0]).into(),
         Series::new("weird_col".into(), vec![10.0_f64, 20.0]).into(),
@@ -482,7 +482,7 @@ fn weird_column_names_round_trip_when_present_in_dataframe() {
 
 #[test]
 fn categorical_style_factor_columns_parse_and_build() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), vec![1.0_f64, 2.0, 3.0, 4.0]).into(),
         Series::new("trt".into(), vec!["A", "A", "B", "B"]).into(),
         Series::new("blk".into(), vec!["b1", "b2", "b1", "b2"]).into(),
@@ -637,7 +637,7 @@ fn thousand_term_formula_scales_and_deduplicates() {
 
 #[test]
 fn numeric_star_interaction_materializes_expected_product() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0]).into(),
         Series::new("a".into(), [2.0, 3.0]).into(),
         Series::new("b".into(), [5.0, 7.0]).into(),
@@ -651,7 +651,7 @@ fn numeric_star_interaction_materializes_expected_product() {
 
 #[test]
 fn numeric_colon_interaction_materializes_product_only() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0]).into(),
         Series::new("a".into(), [2.0, 3.0]).into(),
         Series::new("b".into(), [5.0, 7.0]).into(),
@@ -666,7 +666,7 @@ fn numeric_colon_interaction_materializes_product_only() {
 
 #[test]
 fn log_sqrt_exp_and_identity_materialize() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0]).into(),
         Series::new("x".into(), [4.0, 9.0]).into(),
         Series::new("z".into(), [1.0, 2.0]).into(),
@@ -690,7 +690,7 @@ fn log_sqrt_exp_and_identity_materialize() {
 
 #[test]
 fn offset_log_matches_precomputed_column() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0]).into(),
         Series::new("x".into(), [1.0, 1.0]).into(),
         Series::new(
@@ -710,7 +710,7 @@ fn offset_log_matches_precomputed_column() {
 
 #[test]
 fn string_offset_column_errors() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0, 3.0]).into(),
         Series::new("x".into(), [1.0, 2.0, 3.0]).into(),
         Series::new("g".into(), ["A", "A", "B"]).into(),
@@ -729,7 +729,7 @@ fn string_offset_column_errors() {
 
 #[test]
 fn integer_offset_column_is_accepted() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0]).into(),
         Series::new("x".into(), [1.0, 1.0]).into(),
         Series::new("off".into(), [2i32, 3]).into(),
@@ -745,7 +745,7 @@ fn integer_offset_column_is_accepted() {
 
 #[test]
 fn categorical_colon_drops_reference_cell_with_intercept() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0, 3.0, 4.0]).into(),
         Series::new("a".into(), ["A", "A", "B", "B"]).into(),
         Series::new("b".into(), ["X", "Y", "X", "Y"]).into(),
@@ -887,7 +887,7 @@ fn separate_interactions_do_not_duplicate_shared_lower_order_effects() {
     collinear
         .with_column(Column::new(
             "twice".into(),
-            x.into_no_null_iter().map(|v| 2.0 * v).collect::<Vec<_>>(),
+            x.no_null_iter().map(|v| 2.0 * v).collect::<Vec<_>>(),
         ))
         .unwrap();
     assert!(lme_rs::lm_df("y ~ x + twice", &collinear).is_err());
@@ -895,7 +895,7 @@ fn separate_interactions_do_not_duplicate_shared_lower_order_effects() {
 
 #[test]
 fn numeric_by_factor_colon_uses_all_levels() {
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.0, 2.0, 3.0, 4.0]).into(),
         Series::new("x".into(), [1.0, 2.0, 3.0, 4.0]).into(),
         Series::new("f".into(), ["U", "U", "V", "V"]).into(),
@@ -912,7 +912,7 @@ fn numeric_by_factor_colon_uses_all_levels() {
 fn lmer_fits_log_and_colon_formulas() {
     // Keep residual variance estimable for the factor-cell + group model.
     // Opposing within-group errors preserve the factor-cell means.
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("y".into(), [1.1, 1.9, 3.1, 3.9, 4.9, 6.1, 6.9, 8.1]).into(),
         Series::new("x".into(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),
         Series::new("a".into(), ["A", "A", "B", "B", "A", "A", "B", "B"]).into(),

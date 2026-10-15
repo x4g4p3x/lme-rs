@@ -1465,7 +1465,7 @@ impl PyLmeFit {
                                 message: e.to_string(),
                             }
                         })?;
-                        if labels.str().unwrap().into_iter().any(|label| {
+                        if labels.str().unwrap().iter().any(|label| {
                             label.is_none_or(|label| !levels.iter().any(|level| level == label))
                         }) {
                             return Err(lme_rs::LmeError::InvalidInput {

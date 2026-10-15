@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     println!("\n=== Predictions (response scale) ===");
     println!("Population-level predictions for Subject 308 at Days 0 and 1...");
 
-    let newdata = DataFrame::new(vec![
+    let newdata = DataFrame::new_infer_height(vec![
         Series::new("Days".into(), &[0.0, 1.0]).into(),
         Series::new("Subject".into(), &["308", "308"]).into(),
     ])?;

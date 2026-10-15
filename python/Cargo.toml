@@ -2,7 +2,7 @@
 name = "lme_python"
 version = "0.2.8-dev.0"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Python bindings for lme-rs"
 
@@ -16,6 +16,7 @@ abi3 = ["pyo3/abi3-py310"]
 
 [dependencies]
 pyo3 = { version = "0.29", features = ["extension-module"] }
-polars = { version = "0.46.0", features = ["csv", "ipc"] }
+polars = { version = "0.55.2", default-features = false, features = ["polars-io"] }
+polars-io = { version = "0.55.2", features = ["ipc"] }
 lme-rs = { path = ".." }
 ndarray = "0.17.2"

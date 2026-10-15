@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
     let new_batch = Series::new("batch".into(), &["A", "B", "C"]);
     let new_cask = Series::new("cask".into(), &["a", "b", "c"]);
 
-    let newdata = DataFrame::new(vec![new_batch.into(), new_cask.into()])?;
+    let newdata = DataFrame::new_infer_height(vec![new_batch.into(), new_cask.into()])?;
 
     let preds = fit.predict(&newdata)?;
     println!("Predictions:\n{:?}", preds);

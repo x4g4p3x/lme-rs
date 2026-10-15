@@ -120,7 +120,7 @@ fn fpl_df() -> DataFrame {
             id.push(format!("{}", g + 1));
         }
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("id".into(), id),
@@ -144,7 +144,7 @@ fn biexp_df() -> DataFrame {
             id.push(format!("{}", g + 1));
         }
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("id".into(), id),
@@ -168,7 +168,7 @@ fn weibull_df() -> DataFrame {
             id.push(format!("{}", g + 1));
         }
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("id".into(), id),

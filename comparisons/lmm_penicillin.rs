@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
     let new_plate = Series::new("plate".into(), &["a", "b", "c", "d"]);
     let new_sample = Series::new("sample".into(), &["A", "C", "E", "F"]);
 
-    let newdata = DataFrame::new(vec![new_plate.into(), new_sample.into()])?;
+    let newdata = DataFrame::new_infer_height(vec![new_plate.into(), new_sample.into()])?;
 
     let preds = fit.predict(&newdata)?;
     println!("Predictions:\n{:?}", preds);

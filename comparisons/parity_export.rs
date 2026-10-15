@@ -97,7 +97,7 @@ fn fit_sleepstudy_offset() -> (Vec<String>, Vec<f64>) {
 
 fn weights_column(df: &DataFrame, col: &str) -> Array1<f64> {
     let s = df.column(col).expect("weights column");
-    Array1::from_iter(s.f64().expect("float weights").into_no_null_iter())
+    Array1::from_iter(s.f64().expect("float weights").no_null_iter())
 }
 
 fn main() {

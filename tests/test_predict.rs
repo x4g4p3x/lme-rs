@@ -24,7 +24,7 @@ fn test_predict_population_level() -> anyhow::Result<()> {
     // The subject column shouldn't technically matter for re.form=NA, but the dataframe might need it
     let new_subject = Series::new("Subject".into(), &["308", "308", "308", "308"]);
 
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()])?;
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()])?;
 
     // 4. Trigger predicting
     let preds = fit.predict(&newdata)?;
@@ -60,7 +60,7 @@ fn test_predict_conditional_unseen_levels() -> anyhow::Result<()> {
     // 3. Construct a dataframe with a Subject ID not present in the original dataset ("999")
     let new_days = Series::new("Days".into(), &[0.0]);
     let new_subject = Series::new("Subject".into(), &["999"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()])?;
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()])?;
 
     // 4. Test missing level trapping with `allow_new_levels = false`
     let cond_reject = fit.predict_conditional(&newdata, false);

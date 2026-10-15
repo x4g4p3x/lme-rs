@@ -22,7 +22,7 @@ fn power_df() -> DataFrame {
         y.push(mu + 0.05 * (i as f64 - 25.0));
         g.push(gi.to_string());
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), &y),
         Column::new("x".into(), &x),
         Column::new("g".into(), &g),

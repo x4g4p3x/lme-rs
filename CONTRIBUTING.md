@@ -19,7 +19,7 @@ task setup
 The compiler pin also lives in [rust-toolchain.toml](rust-toolchain.toml).
 `task toolchain:check` detects drift between local and hosted validation versions;
 CI separately checks compatibility with the newest stable Rust compiler.
-The declared minimums are Rust 1.88 and Python 3.10. Hosted validation checks
+The declared minimums are Rust 1.95 and Python 3.10. Hosted validation checks
 the minimum compiler, optional optimizer, and bindings, as well as Python
 3.10 through 3.14. `task compatibility:check` prevents declaration drift.
 If tools are installed already, `task hooks:install` installs the Git hooks.

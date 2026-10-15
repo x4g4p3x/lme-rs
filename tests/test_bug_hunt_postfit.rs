@@ -273,7 +273,7 @@ fn sequential_anova_is_invariant_to_predictor_units() {
             .unwrap()
             .f64()
             .unwrap()
-            .into_no_null_iter()
+            .no_null_iter()
             .map(|v| v * scale)
             .collect();
         rescaled.with_column(Column::new("x".into(), x)).unwrap();

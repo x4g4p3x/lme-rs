@@ -48,7 +48,7 @@ fn test_predict_mismatched_columns() {
 
     // Create new data missing the 'Days' column
     let new_subject = Series::new("Subject".into(), &["308"]);
-    let newdata = DataFrame::new(vec![new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_subject.into()]).unwrap();
 
     // predict should fail building X matrix
     let result = fit.predict(&newdata);

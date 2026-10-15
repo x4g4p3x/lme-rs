@@ -10,7 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 lme-rs = { path = ".." }
-polars = { version = "0.46.0", features = ["lazy", "csv", "object"] }
+polars = { version = "0.55.2", default-features = false }
 
 [[bin]]
 name = "formula_parse"

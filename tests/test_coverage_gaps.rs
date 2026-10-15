@@ -178,7 +178,7 @@ fn test_predict_column_name_mismatch() {
 
     let new_days = Series::new("Days".into(), &[0.0, 5.0]);
     let new_subject = Series::new("Subject".into(), &["308", "308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let result = fit.predict(&newdata);
     assert!(

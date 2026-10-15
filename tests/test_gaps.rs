@@ -33,7 +33,7 @@ fn test_residuals_fitted_computed() {
         .cast(&DataType::Float64)
         .unwrap();
     let y_f64 = y_series.f64().unwrap();
-    let y_vec: Vec<f64> = y_f64.into_no_null_iter().collect();
+    let y_vec: Vec<f64> = y_f64.no_null_iter().collect();
 
     for (i, &y_val) in y_vec.iter().enumerate() {
         let reconstructed = fit.fitted[i] + fit.residuals[i];
@@ -207,7 +207,7 @@ fn test_conditional_predictions() {
     // Gap 7: conditional predictions should exist
     let new_days = Series::new("Days".into(), &[0.0, 1.0, 5.0]);
     let new_subject = Series::new("Subject".into(), &["308", "308", "308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop_preds = fit.predict(&newdata).unwrap();
     let cond_preds = fit.predict_conditional(&newdata, true).unwrap();
@@ -246,7 +246,7 @@ fn test_lib_rs_edge_cases() {
         fit_lmm_ml.theta.as_ref().unwrap().as_slice().unwrap()
     );
 
-    let nd = DataFrame::new(vec![
+    let nd = DataFrame::new_infer_height(vec![
         Series::new("Days".into(), &[0.0, 1.0]).into(),
         Series::new("Subject".into(), &["308", "308"]).into(),
     ])

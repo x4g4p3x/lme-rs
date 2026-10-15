@@ -40,7 +40,7 @@ fn grouseticks_df() -> DataFrame {
 
 fn f64_column(df: &DataFrame, name: &str) -> Vec<f64> {
     let series = df.column(name).unwrap().cast(&DataType::Float64).unwrap();
-    series.f64().unwrap().into_no_null_iter().collect()
+    series.f64().unwrap().no_null_iter().collect()
 }
 
 /// OLS with an intercept: residuals sum to zero (exact under full-rank fixed-effects design).
@@ -94,7 +94,7 @@ fn lmm_y_equals_fitted_plus_residual() {
         .cast(&DataType::Float64)
         .unwrap();
     let y = y.f64().unwrap();
-    for (i, yv) in y.into_no_null_iter().enumerate() {
+    for (i, yv) in y.no_null_iter().enumerate() {
         let recon = fit.fitted[i] + fit.residuals[i];
         assert!(
             (recon - yv).abs() < 1e-5,

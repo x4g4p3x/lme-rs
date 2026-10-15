@@ -86,7 +86,7 @@ fn fpl_df() -> DataFrame {
         y.push(mu + if gi == "A" { 0.4 } else { -0.3 });
         g.push(gi.to_string());
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), &y),
         Column::new("x".into(), &x),
         Column::new("g".into(), &g),
@@ -107,7 +107,7 @@ fn biexp_df() -> DataFrame {
         y.push(mu + if gi == "A" { 0.05 } else { -0.04 });
         g.push(gi.to_string());
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), &y),
         Column::new("x".into(), &x),
         Column::new("g".into(), &g),
@@ -128,7 +128,7 @@ fn weibull_df() -> DataFrame {
         y.push(mu + if gi == "A" { 0.5 } else { -0.4 });
         g.push(gi.to_string());
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), &y),
         Column::new("x".into(), &x),
         Column::new("g".into(), &g),

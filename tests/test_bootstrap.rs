@@ -164,7 +164,7 @@ fn synthetic_binary_glmm() -> (DataFrame, &'static str) {
             g.push(format!("g{gi}"));
         }
     }
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("g".into(), g),
@@ -252,7 +252,7 @@ fn synthetic_proportion_trials_glmm() -> (DataFrame, Array1<f64>, &'static str) 
             w.push(n_trials as f64);
         }
     }
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("g".into(), g),
@@ -308,7 +308,7 @@ fn test_boot_glmer_parametric_proportion_trials() {
 #[test]
 fn test_binomial_trials_reject_non_integer_counts() {
     use lme_rs::glmer_weighted;
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Column::new("y".into(), vec![0.3_f64, 0.5]),
         Column::new("x".into(), vec![0.0_f64, 1.0]),
         Column::new("g".into(), vec!["a".to_string(), "b".to_string()]),

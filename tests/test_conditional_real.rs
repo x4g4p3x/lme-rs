@@ -19,7 +19,7 @@ fn test_conditional_differs_from_population_for_known_group() {
     // Subject "308" is in the training data — conditional predictions should differ
     let new_days = Series::new("Days".into(), &[0.0, 1.0, 5.0]);
     let new_subject = Series::new("Subject".into(), &["308", "308", "308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop_preds = fit.predict(&newdata).unwrap();
     let cond_preds = fit.predict_conditional(&newdata, true).unwrap();
@@ -51,7 +51,7 @@ fn test_conditional_equals_population_for_unknown_group() {
     // Subject "999" does NOT exist in training data → should fallback to population-level
     let new_days = Series::new("Days".into(), &[0.0, 5.0, 10.0]);
     let new_subject = Series::new("Subject".into(), &["999", "999", "999"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop_preds = fit.predict(&newdata).unwrap();
     let cond_preds = fit.predict_conditional(&newdata, true).unwrap();

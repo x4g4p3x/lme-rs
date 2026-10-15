@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade Rust and Python bindings together to Polars 0.55.2 and statrs 0.19.1,
+  adapting frame construction and chunked-array iteration. Raise the supported
+  Rust minimum to 1.95 and check native and shared-ABI bindings on that compiler.
+- Enable eager CSV and IPC through polars-io, retaining optional lazy expressions
+  without Polars' unused streaming/cloud dependencies and their XML and
+  unmaintained serialization dependencies.
+
+### Fixed
+
+- Update rustls to 0.23.46 in the library, bindings, and fuzz lockfiles to address
+  RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
+- Update the fuzz harness's crossbeam-epoch dependency to address RUSTSEC-2026-0204.
+
 ### Added
 
 - A frozen LMM confirmatory calibration harness (protocol v3), portable R 4.6.1

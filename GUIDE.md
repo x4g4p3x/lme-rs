@@ -47,8 +47,10 @@ anyhow = "1"
 Use a stable Rust toolchain and a native compiler/linker for your platform.
 The library uses static MKL on x86_64 and static OpenBLAS on the other targets
 configured in [Cargo.toml](Cargo.toml). The first build can take longer while
-native dependencies are prepared. Rust Polars **0.46** must match the library's
-DataFrame type; Python's Polars version numbers are independent.
+native dependencies are prepared. Rust Polars **0.46** must match the published 0.2.7 library's
+DataFrame type; Python's Polars version numbers are independent. The development
+branch requires Rust 1.95 and Polars 0.55.2; use `DataFrame::new_infer_height`
+in place of `DataFrame::new` with that version.
 
 ### First model
 

@@ -600,7 +600,7 @@ pub fn lm(y: &Array1<f64>, x: &Array2<f64>) -> Result<LmeFit> {
 /// use lme_rs::lmer;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     // let df = DataFrame::new(vec![])?;
+///     // let df = DataFrame::new_infer_height(vec![])?;
 ///     // let result = lmer("Reaction ~ 1 + (1|Subject)", &df)?;
 ///     Ok(())
 /// }
@@ -1018,7 +1018,7 @@ pub fn lm_df_with_factors(
 /// use lme_rs::{glmer, family::Family};
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     // let df = DataFrame::new(vec![])?;
+///     // let df = DataFrame::new_infer_height(vec![])?;
 ///     // let result = glmer("y ~ x + (1|group)", &df, Family::Binomial)?;
 ///     Ok(())
 /// }
@@ -1529,7 +1529,7 @@ fn build_ranef_dataframe(b: &Array1<f64>, re_blocks: &[model_matrix::ReBlock]) -
         offset += block.m * block.k;
     }
 
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("Grouping".into(), &group_name_col),
         Column::new("Group".into(), &group_col),
         Column::new("Effect".into(), &effect_col),
@@ -1608,7 +1608,7 @@ fn build_var_corr_dataframe(
     stddev_col.push(residual_variance.sqrt());
     corr_col.push(None);
 
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("Group".into(), &group_col),
         Column::new("Effect1".into(), &eff1_col),
         Column::new("Effect2".into(), &eff2_col),

@@ -167,7 +167,7 @@ fn inference_is_invariant_to_explicit_offset() {
         .unwrap()
         .f64()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .zip(&offset)
         .map(|(y, o)| y + o)
         .collect();
@@ -279,7 +279,7 @@ fn cv_rejects_missing_and_nonfinite_responses() {
             .unwrap()
             .f64()
             .unwrap()
-            .into_iter()
+            .iter()
             .collect();
         y[0] = bad;
         df.with_column(Column::new("Reaction".into(), y)).unwrap();
@@ -304,18 +304,18 @@ fn weighted_inference_matches_explicitly_whitened_model() {
     let reaction = df.column("Reaction").unwrap().f64().unwrap();
     let days = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();
     let y: Vec<f64> = reaction
-        .into_no_null_iter()
+        .no_null_iter()
         .zip(&sqrt_w)
         .map(|(y, w)| y * w)
         .collect();
     let x: Vec<f64> = days
         .f64()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .zip(&sqrt_w)
         .map(|(x, w)| x * w)
         .collect();
-    let whitened = DataFrame::new(vec![
+    let whitened = DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("one_w".into(), sqrt_w.to_vec()),

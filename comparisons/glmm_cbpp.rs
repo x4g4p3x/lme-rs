@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     let new_p3 = Series::new("period3".into(), &[0.0, 0.0, 1.0, 0.0]);
     let new_p4 = Series::new("period4".into(), &[0.0, 0.0, 0.0, 1.0]);
 
-    let newdata = DataFrame::new(vec![
+    let newdata = DataFrame::new_infer_height(vec![
         new_herd.into(),
         new_p2.into(),
         new_p3.into(),

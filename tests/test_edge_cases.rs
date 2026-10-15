@@ -83,7 +83,7 @@ fn test_intercept_only_predict_is_constant() {
     // With no fixed-effect slope, predictions should be constant (= intercept)
     let new_days = Series::new("Days".into(), &[0.0, 5.0, 10.0]);
     let new_subject = Series::new("Subject".into(), &["308", "308", "308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let preds = fit.predict(&newdata).unwrap();
 
@@ -114,7 +114,7 @@ fn test_conditional_predict_intercept_only() {
     // Conditional predictions for a known subject should differ from population
     let new_days = Series::new("Days".into(), &[0.0]);
     let new_subject = Series::new("Subject".into(), &["308"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop = fit.predict(&newdata).unwrap();
     let cond = fit.predict_conditional(&newdata, true).unwrap();
@@ -162,7 +162,7 @@ fn test_multiple_subjects_conditional() {
     // Predict for two different known subjects at same Day value
     let new_days = Series::new("Days".into(), &[5.0, 5.0]);
     let new_subject = Series::new("Subject".into(), &["308", "309"]);
-    let newdata = DataFrame::new(vec![new_days.into(), new_subject.into()]).unwrap();
+    let newdata = DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()]).unwrap();
 
     let pop = fit.predict(&newdata).unwrap();
     let cond = fit.predict_conditional(&newdata, true).unwrap();

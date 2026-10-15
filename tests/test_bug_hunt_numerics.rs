@@ -35,7 +35,7 @@ fn kenward_roger_tests_preserve_response_units() {
             .with_column(Column::new(
                 "Reaction".into(),
                 response
-                    .into_no_null_iter()
+                    .no_null_iter()
                     .map(|v| v * scale)
                     .collect::<Vec<_>>(),
             ))
@@ -132,7 +132,7 @@ fn joint_satterthwaite_tests_preserve_rank_across_predictor_units() {
                 "Days".into(),
                 days.f64()
                     .unwrap()
-                    .into_no_null_iter()
+                    .no_null_iter()
                     .map(|v| v * scale)
                     .collect::<Vec<_>>(),
             ))
@@ -264,14 +264,14 @@ fn robust_covariance_matches_explicit_whitening() {
     let weights = Array1::from_iter((0..df.height()).map(|i| 1.0 + (i % 4) as f64));
     let sqrt_w = weights.mapv(f64::sqrt);
     let days = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();
-    let whitened = DataFrame::new(vec![
+    let whitened = DataFrame::new_infer_height(vec![
         Column::new(
             "y".into(),
             df.column("Reaction")
                 .unwrap()
                 .f64()
                 .unwrap()
-                .into_no_null_iter()
+                .no_null_iter()
                 .zip(&sqrt_w)
                 .map(|(y, w)| y * w)
                 .collect::<Vec<_>>(),
@@ -280,7 +280,7 @@ fn robust_covariance_matches_explicit_whitening() {
             "x".into(),
             days.f64()
                 .unwrap()
-                .into_no_null_iter()
+                .no_null_iter()
                 .zip(&sqrt_w)
                 .map(|(x, w)| x * w)
                 .collect::<Vec<_>>(),
@@ -456,7 +456,7 @@ fn kr_marginal_means_and_multiple_comparisons_use_adjusted_uncertainty() {
         "phase".into(),
         days.f64()
             .unwrap()
-            .into_no_null_iter()
+            .no_null_iter()
             .map(|d| if d < 3.0 { "early" } else { "late" })
             .collect::<Vec<_>>(),
     ))

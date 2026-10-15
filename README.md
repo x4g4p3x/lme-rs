@@ -57,6 +57,9 @@ polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```
 
+The development branch requires Rust 1.95 and Polars 0.55.2. The published
+0.2.7 release uses Polars 0.46, as shown above.
+
 Use the compatible Polars **0.46** Rust dependency when passing DataFrames to
 `lme-rs`. Run numerical examples with `cargo run --release`.
 See [Rust setup](GUIDE.md#getting-started) for build requirements.

@@ -61,7 +61,7 @@ fn prediction_grid_sleepstudy(base: &DataFrame, repeats: usize) -> DataFrame {
         .unwrap()
         .cast(&DataType::Float64)
         .unwrap();
-    let days = days.f64().unwrap().into_no_null_iter().collect::<Vec<_>>();
+    let days = days.f64().unwrap().no_null_iter().collect::<Vec<_>>();
     let subjects = base
         .column("Subject")
         .unwrap()
@@ -70,7 +70,7 @@ fn prediction_grid_sleepstudy(base: &DataFrame, repeats: usize) -> DataFrame {
     let subjects = subjects
         .str()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .map(str::to_owned)
         .collect::<Vec<_>>();
     let total = days.len() * repeats;

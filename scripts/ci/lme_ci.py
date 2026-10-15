@@ -858,8 +858,8 @@ def toolchain_check() -> None:
 def minimum_versions_check() -> None:
     """Reject advertised minimums that drift from the tested compatibility jobs."""
     for manifest in (ROOT / "Cargo.toml", PYTHON_DIR / "Cargo.toml"):
-        if 'rust-version = "1.88"' not in manifest.read_text(encoding="utf-8"):
-            raise CiError(f"{manifest}: minimum Rust version must match the 1.88 CI job")
+        if 'rust-version = "1.95"' not in manifest.read_text(encoding="utf-8"):
+            raise CiError(f"{manifest}: minimum Rust version must match the 1.95 CI job")
     if 'requires-python = ">=3.10"' not in (PYTHON_DIR / "pyproject.toml").read_text(
         encoding="utf-8"
     ):
@@ -868,13 +868,13 @@ def minimum_versions_check() -> None:
     if "  rust-msrv:" not in workflow:
         raise CiError("CI must have a dedicated minimum Rust compatibility job")
     msrv = workflow.split("  rust-msrv:", 1)[1]
-    if 'toolchain: "1.88.0"' not in msrv or "cargo +1.88.0 check" not in msrv:
+    if 'toolchain: "1.95.0"' not in msrv or "cargo +1.95.0 check" not in msrv:
         raise CiError("CI must check the minimum Rust compiler explicitly")
     if "--manifest-path python/Cargo.toml --features abi3" not in msrv:
         raise CiError("CI must check the shared ABI bindings with the minimum Rust compiler")
     if not re.search(r"python-version: \[[\"']3\.10[\"'],", workflow):
         raise CiError("CI must test Python 3.10 explicitly")
-    print("minimum supported versions: Rust 1.88 / Python 3.10", flush=True)
+    print("minimum supported versions: Rust 1.95 / Python 3.10", flush=True)
 
 
 def workflow_lint() -> None:
