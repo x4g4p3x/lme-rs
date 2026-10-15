@@ -18,8 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Update rustls to 0.23.46 in both Rust lockfiles to address
+- Update rustls to 0.23.46 in the library, bindings, and fuzz lockfiles to address
   RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
+- Update the fuzz harness's crossbeam-epoch dependency to address RUSTSEC-2026-0204.
 
 ### Added
 
