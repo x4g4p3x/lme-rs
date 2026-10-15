@@ -6,7 +6,7 @@
 
 | Symptom | Check and next step |
 |:--------|:--------------------|
-| Rust rejects a Polars DataFrame type | Use Polars 0.55.2 as in [Rust setup](../GUIDE.md#getting-started); inspect `cargo tree -d` for incompatible versions |
+| Rust rejects a Polars DataFrame type | Use Polars 0.46 for release 0.2.7 or 0.55.2 for the development branch, as in [Rust setup](../GUIDE.md#getting-started); inspect `cargo tree -d` for incompatible versions |
 | A Rust fit is very slow | Run numerical examples in release mode: `cargo run --release --example sleepstudy` |
 | First build is slow | Native dependencies may need compilation or downloading; check free disk space and the actual error before retrying |
 | `pip` attempts a source build | Check [release wheel files](https://pypi.org/project/lme-python/#files) for the interpreter/platform; follow [source setup](../CONTRIBUTING.md#python-bindings) if needed |

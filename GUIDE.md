@@ -40,15 +40,17 @@ dependencies to its `Cargo.toml`:
 ```toml
 [dependencies]
 lme-rs = "0.2.7"
-polars = { version = "0.55.2", features = ["csv"] }
+polars = { version = "0.46", features = ["csv"] }
 anyhow = "1"
 ```
 
 Use a stable Rust toolchain and a native compiler/linker for your platform.
 The library uses static MKL on x86_64 and static OpenBLAS on the other targets
 configured in [Cargo.toml](Cargo.toml). The first build can take longer while
-native dependencies are prepared. Rust Polars **0.55.2** must match the library's
-DataFrame type; Python's Polars version numbers are independent.
+native dependencies are prepared. Rust Polars **0.46** must match the published 0.2.7 library's
+DataFrame type; Python's Polars version numbers are independent. The development
+branch requires Rust 1.95 and Polars 0.55.2; use `DataFrame::new_infer_height`
+in place of `DataFrame::new` with that version.
 
 ### First model
 
@@ -377,7 +379,7 @@ let iterations = fit.iterations;
 `predict()` uses fixed effects only.
 
 ```rust
-let newdata = DataFrame::new_infer_height(vec![
+let newdata = DataFrame::new(vec![
     Series::new("Days".into(), &[0.0, 1.0, 5.0, 10.0]).into(),
     Series::new("Subject".into(), &["308", "308", "308", "308"]).into(),
 ])?;
