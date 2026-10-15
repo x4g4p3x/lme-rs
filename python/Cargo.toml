@@ -16,6 +16,7 @@ abi3 = ["pyo3/abi3-py310"]
 
 [dependencies]
 pyo3 = { version = "0.29", features = ["extension-module"] }
-polars = { version = "0.55.2", features = ["csv", "ipc"] }
+polars = { version = "0.55.2", default-features = false, features = ["polars-io"] }
+polars-io = { version = "0.55.2", features = ["ipc"] }
 lme-rs = { path = ".." }
 ndarray = "0.17.2"

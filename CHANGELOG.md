@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgrade Rust and Python bindings together to Polars 0.55.2 and statrs 0.19.1,
   adapting frame construction and chunked-array iteration. Raise the supported
   Rust minimum to 1.95 and check native and shared-ABI bindings on that compiler.
+- Enable eager CSV and IPC through polars-io, retaining optional lazy expressions
+  without Polars' unused streaming/cloud dependencies and their XML and
+  unmaintained serialization dependencies.
 
 ### Fixed
 

@@ -36,7 +36,10 @@ slow-production-benches = []
 ci-consolidated-tests = []
 
 [dependencies]
-polars = { version = "0.55.2", features = ["csv"] }
+# Enable eager CSV through polars-io. Polars' csv feature also enables its
+# streaming engine and cloud stack, neither needed for local eager CSV reads.
+polars = { version = "0.55.2", default-features = false, features = ["polars-io", "fmt", "zip_with"] }
+polars-io = { version = "0.55.2", features = ["csv"] }
 ndarray = "0.17.2"
 
 statrs = { version = "0.19", default-features = false }
@@ -58,7 +61,7 @@ smallvec = "1.15"
 
 [dev-dependencies]
 # Comparison examples and fixtures use lazy expressions; consumers do not need them.
-polars = { version = "0.55.2", features = ["lazy", "csv"] }
+polars = { version = "0.55.2", default-features = false, features = ["lazy"] }
 criterion = { version = "0.8.2", features = ["html_reports"] }
 env_logger = "0.11.9"
 rayon = "1.11"
