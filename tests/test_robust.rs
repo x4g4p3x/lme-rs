@@ -95,7 +95,7 @@ fn robust_design_validation_preserves_column_units_and_layouts() {
             .map(|row| 1.0 + sign(row, 1) + sign(row, 64) * (1.0 + 0.2 * sign(row, 2)))
             .collect::<Vec<_>>(),
     ));
-    let data = DataFrame::new(columns).unwrap();
+    let data = DataFrame::new_infer_height(columns).unwrap();
     let base = lme_rs::lm_df(&format!("y ~ {}", terms.join(" + ")), &data).unwrap();
     for column_major in [false, true] {
         let mut fit = base.clone();

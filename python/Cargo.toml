@@ -2,7 +2,7 @@
 name = "lme_python"
 version = "0.2.8-dev.0"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 authors = ["Martin Huck <x4g4p3x@users.noreply.github.com>"]
 description = "Python bindings for lme-rs"
 

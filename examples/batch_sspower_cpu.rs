@@ -188,7 +188,7 @@ fn main() -> anyhow::Result<()> {
             y_col.push(y);
         }
     }
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Series::new("sensor_id".into(), sensor_id).into(),
         Series::new("x".into(), x_col).into(),
         Series::new("y".into(), y_col).into(),

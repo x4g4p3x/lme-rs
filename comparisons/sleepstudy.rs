@@ -46,7 +46,8 @@ fn main() -> anyhow::Result<()> {
     let new_subject = Series::new("Subject".into(), &["308", "308", "308", "308"]);
 
     // Combine into a new DataFrame
-    let newdata: DataFrame = DataFrame::new(vec![new_days.into(), new_subject.into()])?;
+    let newdata: DataFrame =
+        DataFrame::new_infer_height(vec![new_days.into(), new_subject.into()])?;
 
     // predict expects the new DataFrame
     let preds = fit.predict(&newdata)?;

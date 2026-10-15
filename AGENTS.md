@@ -100,7 +100,7 @@ and a `gap` for every incomplete criterion.
 - Tooling changes also use `task lint:scripts` and `task lint:workflows` (included
   in CI/preflight). `task test:comparisons` runs the optional statistical harness
   regressions in the locked benchmark environment; full CI includes it.
-- Supported minimums are Rust 1.88 and Python 3.10. `task compatibility:check`
+- Supported minimums are Rust 1.95 and Python 3.10. `task compatibility:check`
   validates the declarations against hosted compatibility jobs. R comparisons
   use R 4.6.1 and `task benchmarks:r:setup`; Julia uses the locked project.
 - Shared release wheels use `task python:abi3`, retaining a native editable

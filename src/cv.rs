@@ -600,7 +600,7 @@ fn unique_group_labels(df: &DataFrame, group_col: &str) -> Result<Vec<String>> {
         feature: format!("Grouping column '{group_col}' is not string-like: {e}"),
     })?;
     let mut labels: Vec<String> = strs
-        .into_no_null_iter()
+        .no_null_iter()
         .map(|s| s.to_string())
         .collect::<HashSet<_>>()
         .into_iter()
@@ -637,7 +637,7 @@ fn row_indices_for_groups(
         feature: format!("Grouping column '{group_col}' is not string-like: {e}"),
     })?;
     Ok(strs
-        .into_no_null_iter()
+        .no_null_iter()
         .enumerate()
         .filter_map(|(i, g)| allowed.contains(g).then_some(i))
         .collect())
@@ -660,7 +660,7 @@ fn group_mask(
         feature: format!("Grouping column '{group_col}' is not string-like: {e}"),
     })?;
     Ok(strs
-        .into_iter()
+        .iter()
         .map(|opt| opt.map(|s| allowed.contains(s)).unwrap_or(false))
         .collect())
 }

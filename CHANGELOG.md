@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade Rust and Python bindings together to Polars 0.55.2 and statrs 0.19.1,
+  adapting frame construction and chunked-array iteration. Raise the supported
+  Rust minimum to 1.95 and check native and shared-ABI bindings on that compiler.
+
+### Fixed
+
+- Update rustls to 0.23.46 in both Rust lockfiles to address
+  RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
+
 ### Added
 
 - A frozen LMM confirmatory calibration harness (protocol v3), portable R 4.6.1

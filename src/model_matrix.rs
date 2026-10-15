@@ -541,12 +541,12 @@ pub(crate) fn numeric_column_f64(data: &DataFrame, col_name: &str) -> crate::Res
     let values = cast.f64().map_err(|e| crate::LmeError::InvalidInput {
         message: e.to_string(),
     })?;
-    if values.null_count() > 0 || values.into_no_null_iter().any(|v| !v.is_finite()) {
+    if values.null_count() > 0 || values.no_null_iter().any(|v| !v.is_finite()) {
         return Err(crate::LmeError::InvalidInput {
             message: format!("Column '{col_name}' contains nulls or non-finite values"),
         });
     }
-    Ok(Array1::from_iter(values.into_no_null_iter()))
+    Ok(Array1::from_iter(values.no_null_iter()))
 }
 
 struct EncodedTerm {
@@ -584,11 +584,8 @@ fn encode_column(
                 }
             })?;
             let unique_str = unique_cast.str().unwrap();
-            let mut vals: Vec<String> = unique_str
-                .into_iter()
-                .flatten()
-                .map(|x| x.to_string())
-                .collect();
+            let mut vals: Vec<String> =
+                unique_str.iter().flatten().map(|x| x.to_string()).collect();
             vals.sort();
             vals
         };
@@ -618,7 +615,7 @@ fn encode_column(
         let str_data: Vec<&str> = full_str_col
             .str()
             .unwrap()
-            .into_iter()
+            .iter()
             .map(|o| o.unwrap_or(""))
             .collect();
 
@@ -836,7 +833,7 @@ fn push_basis_term(
                     })
                 }
                 None => data
-                    .get_columns()
+                    .columns()
                     .iter()
                     .map(|column| column.name().as_str())
                     .filter(|name| {
@@ -1338,7 +1335,7 @@ fn build_grouping_from_utf8(
             message: "grouping column contains nulls".into(),
         });
     }
-    for val in g_str.into_no_null_iter() {
+    for val in g_str.no_null_iter() {
         let idx = *group_map_str.entry(val).or_insert_with(|| {
             unique_groups.push(val.to_string());
             unique_groups.len() - 1

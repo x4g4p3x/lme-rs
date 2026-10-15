@@ -297,10 +297,10 @@ fn weights_from_column(data: &DataFrame, col: &str) -> Array1<f64> {
         .column(col)
         .unwrap_or_else(|_| panic!("weights column '{col}' missing from data"));
     if let Ok(ca) = s.f64() {
-        return Array1::from_iter(ca.into_iter().map(|v| v.unwrap_or(f64::NAN)));
+        return Array1::from_iter(ca.iter().map(|v| v.unwrap_or(f64::NAN)));
     }
     if let Ok(ca) = s.i64() {
-        return Array1::from_iter(ca.into_iter().map(|v| v.unwrap_or(0) as f64));
+        return Array1::from_iter(ca.iter().map(|v| v.unwrap_or(0) as f64));
     }
     panic!("weights column '{col}' must be numeric");
 }
@@ -392,7 +392,7 @@ fn prediction_frame(spec: &PredictionCheck) -> DataFrame {
         }
     }
 
-    DataFrame::new(columns).expect("failed to build prediction DataFrame")
+    DataFrame::new_infer_height(columns).expect("failed to build prediction DataFrame")
 }
 
 fn assert_predictions(case_id: &str, fit: &LmeFit, checks: &[PredictionCheck], conditional: bool) {

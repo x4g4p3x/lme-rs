@@ -48,7 +48,8 @@ fn main() -> anyhow::Result<()> {
     let new_height = Series::new("HEIGHT".into(), &[400, 500, 450]);
     let new_brood = Series::new("BROOD".into(), &["new1", "new2", "new3"]);
 
-    let newdata = DataFrame::new(vec![new_year.into(), new_height.into(), new_brood.into()])?;
+    let newdata =
+        DataFrame::new_infer_height(vec![new_year.into(), new_height.into(), new_brood.into()])?;
 
     // predict_response applies the inverse-link (exp for Poisson)
     // to give actual expected counts instead of log-counts

@@ -52,7 +52,7 @@ fn type3_factor_main_effect_averages_over_interaction_levels() {
 }
 
 fn toy_interaction_df() -> DataFrame {
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Series::new("y".into(), vec![1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).into(),
         Series::new("trt".into(), vec!["A", "A", "B", "B", "A", "A", "B", "B"]).into(),
         Series::new(

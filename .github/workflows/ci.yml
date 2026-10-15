@@ -348,7 +348,7 @@ jobs:
         run: cargo +stable check --locked --all-targets --features polars-lazy
 
   rust-msrv:
-    name: Minimum Rust 1.88 compatibility
+    name: Minimum Rust 1.95 compatibility
     runs-on: ubuntu-latest
     env:
       RUSTC_WRAPPER: ""
@@ -356,18 +356,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: "1.88.0"
+          toolchain: "1.95.0"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
         with:
-          shared-key: rust-msrv-1.88
+          shared-key: rust-msrv-1.95
           workspaces: |
             . -> target
             python -> target
       - name: Check library, optional optimizer, examples and bindings
         run: |
-          cargo +1.88.0 check --locked --all-targets --features basin,polars-lazy
-          cargo +1.88.0 check --locked --manifest-path python/Cargo.toml
-          cargo +1.88.0 check --locked --manifest-path python/Cargo.toml --features abi3
+          cargo +1.95.0 check --locked --all-targets --features basin,polars-lazy
+          cargo +1.95.0 check --locked --manifest-path python/Cargo.toml
+          cargo +1.95.0 check --locked --manifest-path python/Cargo.toml --features abi3

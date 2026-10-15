@@ -179,7 +179,7 @@ fn synthetic_binary_cv() -> DataFrame {
             g.push(format!("g{gi}"));
         }
     }
-    DataFrame::new(vec![
+    DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("g".into(), g),

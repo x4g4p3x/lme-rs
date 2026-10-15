@@ -15,7 +15,7 @@ fn custom_exponential_mean_runs() {
         y.push(3.0 * (-0.5 * xi).exp() + 0.1);
         g.push(if i < 15 { "1" } else { "2" }.to_string());
     }
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Column::new("y".into(), &y),
         Column::new("x".into(), &x),
         Column::new("g".into(), &g),

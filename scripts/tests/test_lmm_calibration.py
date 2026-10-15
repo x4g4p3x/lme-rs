@@ -9,6 +9,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location(
     "lmm_calibration", Path(__file__).resolve().parents[1] / "lmm_calibration.py"
@@ -18,6 +19,16 @@ SPEC.loader.exec_module(study)
 
 
 class CalibrationTests(unittest.TestCase):
+    def setUp(self):
+        # Unit fixtures must also work in tag-free, shallow CI checkouts. Real
+        # campaigns still resolve and record the release tag in production.
+        self.release_sha = "0123456789abcdef0123456789abcdef01234567"
+        release = patch.object(
+            study.subprocess, "check_output", return_value=self.release_sha + "\n"
+        )
+        self.release_lookup = release.start()
+        self.addCleanup(release.stop)
+
     def test_factorial_scope_and_design_normalization(self):
         cases = study.cases()
         self.assertEqual(len(cases), 80)
@@ -128,6 +139,11 @@ class CalibrationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 study.generate(path, 101)
             study.generate(path, 1)
+            manifest = json.loads((path / "manifest.json").read_text())
+            self.assertEqual(manifest["candidate_release_git_sha"], self.release_sha)
+            self.release_lookup.assert_called_once_with(
+                ["git", "rev-list", "-n", "1", "v0.2.7"], cwd=study.ROOT, text=True
+            )
             study.verify_inputs(path)
             with self.assertRaises(FileExistsError):
                 study.generate(path, 1)

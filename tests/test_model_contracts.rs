@@ -29,10 +29,10 @@ fn offsets_survive_fit_prediction_and_response_replacement() {
     let offset: Vec<f64> = days
         .f64()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .map(|v| v * 10.0)
         .collect();
-    df.with_column(Series::new("off".into(), &offset)).unwrap();
+    df.with_column(Column::new("off".into(), &offset)).unwrap();
     for formula in [
         "Reaction ~ Days + offset(off)",
         "Reaction ~ Days + offset(off) + (1 | Subject)",
@@ -54,7 +54,7 @@ fn offsets_survive_fit_prediction_and_response_replacement() {
         );
         let mut newdata = df.clone();
         newdata
-            .with_column(Series::new(
+            .with_column(Column::new(
                 "off".into(),
                 offset.iter().map(|x| x + 7.0).collect::<Vec<_>>(),
             ))
@@ -77,7 +77,7 @@ fn offsets_survive_fit_prediction_and_response_replacement() {
         .simulations
         .remove(0);
     let hot = fit_prepared_with_response(&prepared, Some(y.clone()), true).unwrap();
-    df.with_column(Series::new("Reaction".into(), y.to_vec()))
+    df.with_column(Column::new("Reaction".into(), y.to_vec()))
         .unwrap();
     let cold = lmer_weighted(formula, &df, true, Some(weights)).unwrap();
     close(
@@ -108,7 +108,7 @@ fn weighted_bootstrap_matches_explicit_refit_and_parallel_seeds() {
         .remove(0);
     let mut sample = df.clone();
     sample
-        .with_column(Series::new("Reaction".into(), simulated.to_vec()))
+        .with_column(Column::new("Reaction".into(), simulated.to_vec()))
         .unwrap();
     let expected = lmer_weighted(formula, &sample, true, Some(weights)).unwrap();
     for method in [BootLmerMethod::Parametric, BootLmerMethod::Residual] {
@@ -151,7 +151,7 @@ fn gaussian_simulation_uses_observation_precision() {
 #[test]
 fn nested_groups_predict_without_synthetic_columns() {
     let mut df = data();
-    df.with_column(Series::new(
+    df.with_column(Column::new(
         "site".into(),
         (0..df.height())
             .map(|i| if i < 90 { "a" } else { "b" })
@@ -191,13 +191,7 @@ fn ols_offset_matches_adjusted_response_and_qr_covariance() {
 #[test]
 fn workspace_reuses_design_without_stale_response_products() {
     let df = data();
-    let y = Array1::from_iter(
-        df.column("Reaction")
-            .unwrap()
-            .f64()
-            .unwrap()
-            .into_no_null_iter(),
-    );
+    let y = Array1::from_iter(df.column("Reaction").unwrap().f64().unwrap().no_null_iter());
     for formula in [
         "Reaction ~ Days + (1 | Subject)",
         "Reaction ~ Days + (Days | Subject)",
@@ -254,7 +248,7 @@ fn iteration_limits_are_visible_and_can_be_required() {
 
 fn limited_inference_fit() -> (DataFrame, lme_rs::LmeFit) {
     let mut df = data();
-    df.with_column(Series::new(
+    df.with_column(Column::new(
         "phase".into(),
         (0..df.height())
             .map(|i| if i % 10 < 5 { "early" } else { "late" })
@@ -625,12 +619,12 @@ fn transformed_glmm_offset_survives_both_prediction_scales() {
         .unwrap();
     let mut newdata = df.clone();
     newdata
-        .with_column(Series::new(
+        .with_column(Column::new(
             "HEIGHT".into(),
             heights
                 .f64()
                 .unwrap()
-                .into_no_null_iter()
+                .no_null_iter()
                 .map(|v| v * 2.0)
                 .collect::<Vec<_>>(),
         ))

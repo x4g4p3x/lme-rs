@@ -249,7 +249,7 @@ fn nuisance_factor_data(noise: f64) -> PolarsResult<(DataFrame, Vec<f64>)> {
             }
         }
     }
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("a".into(), a),
         Column::new("b".into(), b),
@@ -287,7 +287,7 @@ fn emmeans_reference_grid_equal_weights_nuisance_factor() -> Result<(), Box<dyn 
     let means = fit.emmeans("a", &df, 0.95, None)?;
 
     let x_mean = x.iter().sum::<f64>() / x.len() as f64;
-    let reference = DataFrame::new(vec![
+    let reference = DataFrame::new_infer_height(vec![
         Column::new("a".into(), ["a1", "a1", "a2", "a2"]),
         Column::new("b".into(), ["b1", "b2", "b1", "b2"]),
         Column::new("x".into(), vec![x_mean; 4]),

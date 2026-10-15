@@ -273,7 +273,7 @@ fn test_glmm_gamma_dyestuff_reasonable_scale() {
         .unwrap()
         .f64()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .sum::<f64>()
         / df.height() as f64;
     let expected_beta = 1.0 / mean_y;
@@ -354,7 +354,7 @@ fn test_glmm_poisson_random_slope_agq_in_theta() {
             g.push(format!("g{gi}"));
         }
     }
-    let df = DataFrame::new(vec![
+    let df = DataFrame::new_infer_height(vec![
         Column::new("y".into(), y),
         Column::new("x".into(), x),
         Column::new("g".into(), g),

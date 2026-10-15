@@ -47,7 +47,7 @@ fn lrt_checks_reml_design_values_not_only_coefficient_counts() {
         .unwrap()
         .f64()
         .unwrap()
-        .into_no_null_iter()
+        .no_null_iter()
         .map(|x| 2.0 * x)
         .collect();
     df.with_column(Column::new("ScaledDays".into(), scaled))

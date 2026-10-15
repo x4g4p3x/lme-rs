@@ -69,14 +69,14 @@ class ToolchainTests(unittest.TestCase):
         root = self.environment(
             directory,
             'python-version: ["3.10", "3.11"]\n'
-            '  rust-msrv:\n    toolchain: "1.88.0"\n    run: |\n'
-            "      cargo +1.88.0 check --locked\n"
-            "      cargo +1.88.0 check --locked "
+            '  rust-msrv:\n    toolchain: "1.95.0"\n    run: |\n'
+            "      cargo +1.95.0 check --locked\n"
+            "      cargo +1.95.0 check --locked "
             "--manifest-path python/Cargo.toml --features abi3\n",
         )
         (root / "python").mkdir()
         for manifest in (root / "Cargo.toml", root / "python" / "Cargo.toml"):
-            manifest.write_text('rust-version = "1.88"\n')
+            manifest.write_text('rust-version = "1.95"\n')
         (root / "python" / "pyproject.toml").write_text('requires-python = ">=3.10"\n')
         return root
 
