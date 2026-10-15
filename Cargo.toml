@@ -39,7 +39,7 @@ ci-consolidated-tests = []
 polars = { version = "0.46.0", features = ["csv"] }
 ndarray = "0.17.2"
 
-statrs = { version = "0.18", default-features = false }
+statrs = { version = "0.19", default-features = false }
 thiserror = "2"
 anyhow = "1"
 ahash = "0.8.12"
