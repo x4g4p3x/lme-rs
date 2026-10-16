@@ -7,6 +7,12 @@ below is retained as the scope record. Read the current `AGENTS.md` before furth
 work and preserve unrelated changes. This supersedes the earlier suggestion to
 launch confirmation: that campaign has now completed.
 
+Follow-up, 16 October 2026: the [random-slope milestone record](work/2026-10-16-random-slope-pilot.md)
+and [completed pilot report](../scientific/RANDOM_SLOPE_PILOT_V1.md) now supersede
+the implementation handoff below. The previous raw archive has been publicly
+published and its fresh download verified; the new pilot exposed nonoptimal
+reported-converged fits, which must be resolved before further calibration.
+
 Registered in the [living work record index](work/README.md). This existing plan
 is the record for this milestone; no duplicate task file is needed. The user
 authorized commit/push delivery on 16 October 2026 after validation. This record

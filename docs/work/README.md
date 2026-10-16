@@ -19,8 +19,9 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
+| [Random-slope pilot and evidence publication](2026-10-16-random-slope-pilot.md) | Pilot completed; numerical blockers documented, 16 October 2026 | Reproduce and fix nonoptimal convergence against the independent optimum, then freeze a new candidate/pilot |
 | [Durable work record workflow](2026-10-16-durable-work-records.md) | Implemented and validated for authorized delivery, 16 October 2026 | Apply the rules on subsequent substantive tasks |
-| [Scientific evidence audit and boundary milestone](../SCIENTIFIC_VALIDATION_NEXT_STEP_PLAN.md) | Implemented and validated for authorized delivery, 16 October 2026 | Implement the separately drafted random-slope pilot harness; the raw-evidence archive still needs durable publication |
+| [Scientific evidence audit and boundary milestone](../SCIENTIFIC_VALIDATION_NEXT_STEP_PLAN.md) | Delivered in 1c5057e; raw archive subsequently published, 16 October 2026 | Follow the completed random-slope pilot record and its numerical findings |
 
 Statuses describe recorded evidence, not authorization to commit, publish or start
 another phase. Update the row and record when their status materially changes.

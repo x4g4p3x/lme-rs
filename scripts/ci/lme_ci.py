@@ -1658,6 +1658,13 @@ def main(argv: list[str] | None = None) -> int:
             [sys.executable, "scripts/audit_lmm_evidence.py", a.run_dir, "--output", a.output]
         )
     )
+    p_slope = sub.add_parser(
+        "scientific-random-slope", help="Separate Gaussian random-slope pilot operations"
+    )
+    p_slope.add_argument("arguments", nargs=argparse.REMAINDER)
+    p_slope.set_defaults(
+        fn=lambda a: run([sys.executable, "scripts/lmm_random_slope.py", *a.arguments])
+    )
     p_calibration = sub.add_parser(
         "scientific-calibration", help="Run the exploratory 80-case LMM pilot"
     )

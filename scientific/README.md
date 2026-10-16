@@ -11,6 +11,9 @@ The [post-study audit](BOUNDARY_AUDIT_0.2.7.md) corrects the boundary explanatio
 and checksum transcription, and the [inference evidence guide](INFERENCE_EVIDENCE_GUIDE.md)
 describes the tested scope and limitations without implying that either global
 scope gate passed.
+The separate [random-slope pilot v1](RANDOM_SLOPE_PILOT_V1.md) evaluates an exact
+development build on 1,880 paired datasets and records numerical blockers found
+by a post-study independent global optimum. It grants no new calibration claim.
 
 The [completed 0.2.7 exploratory pilot](CALIBRATION_PILOT_0.2.7.md) reports
 8,000 paired datasets, and the [completed 0.2.7 confirmatory study](CALIBRATION_CONFIRMATORY_0.2.7.md)
@@ -18,6 +21,9 @@ reports 1,600,000 candidate and known-variance GLS datasets (20,000 replicates
 across all 80 designs) plus 80,000 paired R reference fits under
 [protocol v3](../docs/LMM_CALIBRATION_PROTOCOL.md) and the
 [confirmatory harness review](../docs/LMM_CALIBRATION_CONFIRMATORY_REVIEW.md).
+Its [full raw archive](https://github.com/x4g4p3x/lme-rs/releases/download/v0.2.7/lmm-calibration-confirmatory-v3-0.2.7.zip)
+and [SHA-256 checksum](https://github.com/x4g4p3x/lme-rs/releases/download/v0.2.7/lmm-calibration-confirmatory-v3-0.2.7.sha256)
+are public release assets; fresh retrieval was verified on 16 October 2026.
 `task scientific:calibration` runs the 100-replicate exploratory pilot
 (`--replicates 1` runs a smoke/cost assessment), and
 `task scientific:calibration:confirmatory` runs the frozen 20,000-replicate

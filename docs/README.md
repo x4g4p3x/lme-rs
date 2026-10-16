@@ -27,6 +27,9 @@ the evidence audit, boundary explanation, supported scope and next model extensi
 The [completed post-study audit](../scientific/BOUNDARY_AUDIT_0.2.7.md) records
 the corrections and optimizer regression; the next extension has a
 [prospective random-slope pilot protocol](LMM_RANDOM_SLOPE_PILOT_PROTOCOL.md).
+The [completed random-slope pilot](../scientific/RANDOM_SLOPE_PILOT_V1.md) tests
+the development engine and exposes nonoptimal reported-converged fits; it does
+not establish calibration.
 
 ## Start here
 

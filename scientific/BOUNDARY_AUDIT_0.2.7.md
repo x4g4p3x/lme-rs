@@ -163,11 +163,21 @@ SHA-256: 3cd1ccb4768e487698154da2a62230e94182f5623ee279803bdf733f03527902
 ```
 
 It includes original inputs, outputs, frozen sources/locks, summary, audit and
-post-study fixture sources/results. It has not been uploaded by this task.
+post-study fixture sources/results. At preparation time it had not been uploaded.
 Raw evidence availability must not be inferred from the readable public report;
 future publication should expose and verify this bundle separately. Restore
 dependencies/binaries from the archived locks to refit; the evidence audit
 itself needs only standard-library Python.
+
+### Public availability addendum, 16 October 2026
+
+The [full confirmatory archive](https://github.com/x4g4p3x/lme-rs/releases/download/v0.2.7/lmm-calibration-confirmatory-v3-0.2.7.zip)
+and [checksum file](https://github.com/x4g4p3x/lme-rs/releases/download/v0.2.7/lmm-calibration-confirmatory-v3-0.2.7.sha256)
+are now attached to the existing 0.2.7 release. No original asset was replaced.
+The GitHub asset digest matches the SHA-256 above. A fresh download from the
+release was also hashed locally and matched; the public file has 1,815,464,268
+bytes. The archive preserves the original evidence and post-study diagnostics;
+publishing it changes no statistical outcome or global scope gate.
 
 ## Development validation and remaining limits
 
@@ -193,5 +203,6 @@ and prospective random-slope design. Its low-budget search finding was reproduce
 and fixed; its pilot reporting requests were incorporated into the draft. This
 is internal AI critique, not independent human statistical review. The retained
 published-candidate near-interior failure and R exact-boundary precision miss
-above remain limitations of those fixture results. No new calibration campaign
-was run, no original observation was replaced and no archive was uploaded.
+above remain limitations of those fixture results. During the original audit no
+new calibration campaign was run and no original observation was replaced.
+The subsequent archive publication is documented in the availability addendum.

@@ -1,6 +1,9 @@
-# Gaussian random-slope pilot protocol: prospective draft
+# Gaussian random-slope pilot protocol v1
 
-Prepared 16 October 2026. Status: **design only, not frozen or executed**.
+Prepared 16 October 2026. Status: **frozen before diagnostic/pilot observations**.
+The run's `freeze.json` identifies exact source, dependency and candidate hashes.
+Execution outcomes belong in a separate report; do not edit this protocol in
+response to them. This is a pilot freeze, not a confirmatory protocol.
 This follows the [random-intercept audit](../scientific/BOUNDARY_AUDIT_0.2.7.md)
 and [evidence guide](../scientific/INFERENCE_EVIDENCE_GUIDE.md). It neither changes
 the completed v3 study nor grants its claims to a different engine binary.
@@ -91,6 +94,49 @@ and each package's flags; unknown diagnostics are not nonsingular outcomes.
 These are proposed engineering thresholds, to be checked with deterministic
 negative controls before freezing, rather than statistical standards.
 
+## Implemented settings to freeze before observations
+
+The candidate is an isolated CPython 3.11 wheel built from engine commit
+`1c5057e3270b4010cac2958e5bf25c8826335561` (`0.2.8.dev0`), including the scalar
+optimizer fix. Candidate controls are tolerance `1e-8`, maximum 5,000 outer
+iterations, default starting parameters and `require_convergence=false` so failed
+fits remain observable. R uses bobyqa with `maxfun=100000`; these are explicit
+algorithm-specific controls, not a claim that the optimizers are identical.
+
+The frozen manifest must hash the installed native, matching wheel native member,
+engine/harness/protocol/review sources, exact Python dependency pins and R lock.
+Every R worker verifies all locked package/namespace versions. Analysis checks
+R-enriched candidate payloads against the original immutable records and uses the
+original candidate numbers. Source changes require a separate freeze/run; do not
+overwrite old records or silently retry a failed scientific fit.
+
+For numeric parity, use `atol + rtol*abs(reference)`:
+
+| Quantity | atol | rtol |
+|:---|---:|---:|
+| Slope coefficient | 1e-5 | 1e-4 |
+| Residual variance and random covariance entries | 1e-6*S | 1e-3 |
+| REML criterion | 1e-6 | 1e-8 |
+| Method SE | 1e-6 | 1e-3 |
+| Denominator df | 0.05 | 0.005 |
+| Scalar F | 1e-6 | 0.002 |
+| p | 1e-4 | 0 |
+
+Here `S=max(1,sigma2_candidate,sigma2_reference,trace(Sigma_candidate),trace(Sigma_reference))`.
+These are engineering discrepancy flags; they never remove observations. Record
+every rejection/coverage disagreement separately. Exact rational GLS identities
+and balanced closed forms use much tighter numerical checks (about 1e-12 absolute
+plus 1e-10 relative for floating comparisons). The covariance eigen diagnostics
+are coordinate-dependent and apply only to this declared predictor scaling.
+
+Binary MCSE is `sqrt(p_hat*(1-p_hat)/n_evaluable)`, alongside exact intervals and
+all-attempt failure envelopes. Performance MCSE uses 1,000 paired dataset bootstrap
+resamples per case, with a disjoint deterministic analysis seed and the same
+resample indices for every method; missing outcomes are retained in denominators
+and conditional resampling is labelled as such. Zero plug-in MCSE has no special
+reliability interpretation. Measured worker wall times and sampled per-process OS
+peak working sets describe this run, not a general performance comparison.
+
 ## Pilot size, seeds and budget
 
 The proposed harness/cost pilot is **20 replicates per case: 1,880 datasets**,
@@ -98,6 +144,9 @@ all paired with R. Its planning MCSE near probability 0.05 is about 0.0487, so
 it cannot demonstrate a 4%–6% calibration band. Start with tiny diagnostic smoke
 fixtures before the full pilot; retain failed attempts and name all diagnostic
 variants. No automatic per-dataset retry or result substitution is allowed.
+The smoke set has two replicates in the first registered case of each of the five
+strata, plus two at G=50,m=15,v1=0.25,r=0.5,beta1=0: 12 datasets in a separate
+namespace. This includes the largest balanced design for resource checks.
 
 Pilot tables must include pointwise exact binomial intervals and worst-case
 failure envelopes for rejection/coverage, as well as failure-rate intervals.
@@ -140,19 +189,20 @@ reporting before confirmation. Pilot observations never enter that sample.
 
 ## Freeze checklist before this pilot can run
 
-- [ ] Select an exact candidate release/commit and binary; assess the custom-control fix for that version. Do not mistake the development editable extension for published 0.2.7.
-- [ ] Implement and test all 94 IDs, arrays, generating covariances, zero/rank-one controls and seed separation.
-- [ ] Choose matching explicit fit controls and numerical comparison tolerances from precision/identities, before examining pilot outputs.
-- [ ] Restore/verify and archive the R/Python environments; check reference versions and source licenses.
-- [ ] Resolve covariance singularity diagnostics, inference API support, failure policy and resource limits.
-- [ ] Test record/hash/order integrity, distribution/interval pairing and bounded analysis; freeze sources and manifest.
-- [ ] Record a separate AI methodological/implementation critique and resolutions, accurately labelled internal review.
+- [x] Select an exact candidate commit and isolated binary; verify the custom-control fix in that wheel.
+- [x] Implement and test all 94 IDs, arrays, generating covariances, zero/rank-one controls and seed separation.
+- [x] Declare explicit algorithm-specific fit controls and diagnostic numerical gates before observing outcomes.
+- [x] Verify the R lock and isolated Python environment; archive source locks, dependency pins and the native-matched candidate wheel. Existing dependency notices/licenses apply; all study inputs are synthetic.
+- [x] Define and test covariance singularity diagnostics, inference API support, failure policy and resource limits.
+- [x] Test record/hash/order integrity, distribution/interval pairing and bounded analysis; capture source/manifest hashes before execution.
+- [x] Record the separate [internal AI implementation critique and resolutions](LMM_RANDOM_SLOPE_IMPLEMENTATION_REVIEW.md).
 
 An internal AI design review on 16 October 2026 checked the 94-case count,
 36 interior null cases, rank-one generation and undefined-correlation cases.
 Its requests for explicit pilot uncertainty, covariance-order comparisons and
 zero/roundoff diagnostic rules are incorporated above. Implementation review
-and threshold checks remain prerequisites to freezing this draft.
+and deterministic threshold checks have also been completed before this freeze.
 
-This draft is ready for implementation review. It does not authorize a full
-confirmatory campaign or imply that random-slope inference is already validated.
+This frozen pilot does not imply that random-slope inference is already validated.
+The user authorized diagnostic/pilot execution separately. A full confirmatory
+campaign still needs a new protocol and decision-power budget.

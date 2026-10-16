@@ -50,6 +50,11 @@ tasks:
     cmds:
       - '{{.RUN}} scientific-baseline {{.CLI_ARGS}}'
 
+  scientific:slope:
+    desc: Freeze, execute or analyse the separate Gaussian random-slope pilot
+    cmds:
+      - '{{.RUN}} scientific-random-slope {{.CLI_ARGS}}'
+
   scientific:calibration:
     desc: Run the exploratory 80-case LMM calibration pilot on published 0.2.7
     cmds:

@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An independently checked Gaussian random-slope pilot harness with 94 fixed
+  designs, matched R references, immutable source/input records and explicit
+  binomial uncertainty, numerical discrepancy and failure reporting.
+
 - A read-only verifier for all confirmatory records and a versioned inference
   evidence ledger, independent rational boundary fixtures and a separate
   Gaussian random-slope pilot protocol.
