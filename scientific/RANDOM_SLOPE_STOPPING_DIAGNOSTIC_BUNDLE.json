@@ -1,0 +1,27 @@
+{
+  "bytes": 53764960,
+  "crc_verified": true,
+  "entries": 240,
+  "name": "lmm-random-slope-stopping-diagnostic-20261016.zip",
+  "public_copies": [
+    {
+      "path": "RANDOM_SLOPE_STOPPING_DIAGNOSTIC.json",
+      "sha256": "841fff821a8ae95b3dfaa4cdf1c3bbac6ec69a9c654cdc16402cd85081544944"
+    },
+    {
+      "path": "RANDOM_SLOPE_STOPPING_DIAGNOSTIC_FREEZE.json",
+      "sha256": "d0dfa939ee0c53335bf9c1dbdcfc677e526d2868487eda2575e9128f908995a5"
+    },
+    {
+      "path": "RANDOM_SLOPE_STOPPING_DIAGNOSTIC_PROVENANCE.json",
+      "sha256": "8b3e1770fb679c1ee1de6c6a5b7d7c0b2fa140d676305b5040acfe1b6336dc43"
+    },
+    {
+      "path": "RANDOM_SLOPE_STOPPING_DIAGNOSTIC_RESOURCES.json",
+      "sha256": "ad8b423b06c78c77fb83d7da8ac30e45d972ca0fed7a408aa55732371f2fcbd9"
+    }
+  ],
+  "publication": "local archive; not uploaded",
+  "scope": "Final diagnostic sources, default/Basin executables, raw trace, exact input bits, original read-only journals, high-precision results, sensitivity outcomes and capped receipts; exploratory outputs retained and labeled separately",
+  "sha256": "4778b8532d9d82f9a195a72faaea7d3bc509221d16ec3b0e34c3ba5c662a8cb8"
+}

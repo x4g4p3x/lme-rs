@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add reproducible random-slope stopping diagnostics with exact input-bit replay,
+  independent high-precision likelihood checks and retained control-sensitivity
+  evidence, without changing production convergence semantics.
+
 ### Changed
 
 - Upgrade Rust and Python bindings together to Polars 0.55.2 and statrs 0.19.1,
