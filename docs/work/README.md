@@ -19,7 +19,8 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
-| [Random-slope optimizer boundary recovery](2026-10-16-random-slope-optimizer-fix.md) | Implemented and validated for authorized delivery, 16 October 2026 | Settle tighter prospective controls and remaining boundary/inference diagnostics before a fresh frozen pilot |
+| [Random-slope numerical controls](2026-10-16-random-slope-numerical-controls.md) | Selected diagnostics and fresh pilot validated for delivery, 16 October 2026 | Plan exact confirmation decision power/resources and reference robustness before a new freeze |
+| [Random-slope optimizer boundary recovery](2026-10-16-random-slope-optimizer-fix.md) | Delivered in 580b270, 16 October 2026 | Follow the numerical-controls record and its fresh frozen pilot |
 | [Random-slope pilot and evidence publication](2026-10-16-random-slope-pilot.md) | Pilot completed; numerical blockers documented, 16 October 2026 | Follow the optimizer recovery record and remaining diagnostics before a fresh frozen pilot |
 | [Durable work record workflow](2026-10-16-durable-work-records.md) | Implemented and validated for authorized delivery, 16 October 2026 | Apply the rules on subsequent substantive tasks |
 | [Scientific evidence audit and boundary milestone](../SCIENTIFIC_VALIDATION_NEXT_STEP_PLAN.md) | Delivered in 1c5057e; raw archive subsequently published, 16 October 2026 | Follow the completed random-slope pilot record and its numerical findings |

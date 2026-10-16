@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A separately frozen random-slope pilot v2 with stricter fitting controls,
+  prospective balanced global-REML/precision/rank diagnostics for both engines,
+  and independent dense analytic REML derivative checks at saved parameter values.
 - An independently checked Gaussian random-slope pilot harness with 94 fixed
   designs, matched R references, immutable source/input records and explicit
   binomial uncertainty, numerical discrepancy and failure reporting.
