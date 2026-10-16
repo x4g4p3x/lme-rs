@@ -1,0 +1,13 @@
+{
+  "scope": "selected post-study reference diagnostics; no replacement pilot or calibration claim",
+  "selection": "all nine R objectives above balanced oracle tolerance in immutable v2",
+  "ranking": "minimum criterion among converged finite fits with valid covariance; fixed variant order breaks exact ties; inference never used",
+  "hashes": {
+    "scripts/diagnose_lmm_random_slope_reference.py": "81986679370b9802e68451b2f08805645159c3c48d1b2dc5fb49573c829ebf08",
+    "comparisons/scientific/lmm_random_slope_reference_controls.R": "838bab8c07f0d1f716b66c698970396241a832714bc3a427179659cac50b66d4",
+    "scientific/renv.lock": "b66975674f03d6431e31e830548f1456030d81cec5e931714d6c3c5cce58a0f2"
+  },
+  "inputs_sha256": "3ca419434696f1bdcd9832c64693ab77e0cd608b53646007a0f8c5870f9135f9",
+  "variants_sha256": "aded54f8749a7f50b3ebcff01e5e5c660830b7b3f427a27c423a273c1bdecd1c",
+  "source_summary_sha256": "011e1692e1958c230a7ec1ce551b094a5bce5b36599e3c18298a231c5c3b54f0"
+}

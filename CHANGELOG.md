@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Exact random-slope confirmation planning for a 72-claim candidate family,
+  independently checked in R, with failure sensitivity, case-weighted resource
+  estimates and separately retained reference optimizer diagnostics. Propose a
+  streaming execution/rehearsal milestone before any full confirmation campaign.
 - A separately frozen random-slope pilot v2 with stricter fitting controls,
   prospective balanced global-REML/precision/rank diagnostics for both engines,
   and independent dense analytic REML derivative checks at saved parameter values.

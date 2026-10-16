@@ -1,0 +1,12 @@
+{
+  "name": "lmm-random-slope-confirmation-planning-20261016.zip",
+  "bytes": 140185,
+  "sha256": "98272645b573e6850766343b991abe7928d9e78e31f599a81a765f49444e81bf",
+  "entries": 25,
+  "crc_verified": true,
+  "publication": "prepared locally; not uploaded",
+  "scope": "planning calculations and separately retained selected R diagnostics; no confirmation run",
+  "final_diagnostic_directory": "benchmark-results/scientific/random-slope-pilot/20261016-reference-controls-v2",
+  "original_diagnostic_source": "20261016-reference-controls/executed-source.py matches original receipt; formatter changed line layout before final fixed-tie-policy rerun",
+  "planning_source_scope": "sources/ contains executed v3 planner and current diagnostic/R sources; earlier calculations retained as historical planning drafts"
+}

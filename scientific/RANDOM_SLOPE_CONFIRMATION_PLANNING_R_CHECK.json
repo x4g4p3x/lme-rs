@@ -1,0 +1,10 @@
+{
+  "scope": "independent planning calculation; no model fits or calibration claim",
+  "input_sha256": "cd50e657c89317e0f18ffc223d21cd5b0ccec0e5c63e13f6fc2c85e20ef1256e",
+  "source_sha256": "edcdd6ed03995a08b6b55f3536738e663be3b13664b2a0e92103387bd41854a8",
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "jsonlite_version": "2.0.0",
+  "rows_checked": 432,
+  "maximum_absolute_probability_error": 2.2093438190040615e-13,
+  "all_count_intervals_match": true
+}

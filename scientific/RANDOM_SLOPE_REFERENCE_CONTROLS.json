@@ -1,0 +1,5489 @@
+{
+  "scope": "selected post-study optimizer diagnostics; cannot estimate future recovery probability",
+  "receipt_sha256": "5f27dbfae10bda8c38b0d4a1bb15e8e8c2ca5d43eb23e85626fefdc5cd5de08a",
+  "attempts_sha256": "8ac3b377be0a1167775491e41b60b1360f7cc2e1ab2bf570b19f82c345109a2e",
+  "environment_sha256": "e865ef2642cbb9cf09d64f3a9406b4ffebba2c672ed875da92326233fd46cafc",
+  "summaries": [
+    {
+      "case": "interior-G8-m5-v0.05-r0-beta0",
+      "replicate": 14,
+      "selected": "tight_default",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": -0.38437788937567824,
+        "sigma2": 0.8612426322811659,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.36713315914091277
+          ]
+        ],
+        "criterion": 117.53108071132287,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": -0.38437788937567824,
+            "se": 0.25965883520427974,
+            "df": null,
+            "f": 2.1913441377206864,
+            "p": 0.1387881534206419,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.1387881534206419
+          },
+          "satterthwaite": {
+            "beta": -0.38437788937567824,
+            "se": 0.25965883520427974,
+            "df": 6.999844851731977,
+            "f": 2.1913441377206864,
+            "p": 0.1823332462729716,
+            "critical": 2.3646348762429987,
+            "distribution_p": 0.1823332462729716
+          },
+          "kenward_roger": {
+            "beta": -0.38437788937567824,
+            "se": 0.2596588352042797,
+            "df": 6.999999999999991,
+            "f": 2.1913441377206873,
+            "p": 0.18233231559989324,
+            "scaling": 1,
+            "critical": 2.364624251592785,
+            "distribution_p": 0.18233231559989324
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -1.5e+00"
+        ],
+        "seconds": 0.10000000000000009
+      },
+      "attempts": [
+        {
+          "case": "interior-G8-m5-v0.05-r0-beta0",
+          "replicate": 14,
+          "variant": "baseline",
+          "fit": {
+            "beta": -0.38437788937567824,
+            "sigma2": 0.8612426322811659,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.36713315914091277
+              ]
+            ],
+            "theta": [
+              0,
+              -0.040219898152219734,
+              0.6516635915641541
+            ],
+            "criterion": 117.53108071132287,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.38437788937567824,
+                "se": 0.25965883520427974,
+                "df": null,
+                "f": 2.1913441377206864,
+                "p": 0.1387881534206419,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.1387881534206419
+              },
+              "satterthwaite": {
+                "beta": -0.38437788937567824,
+                "se": 0.25965883520427974,
+                "df": 6.999844851731977,
+                "f": 2.1913441377206864,
+                "p": 0.1823332462729716,
+                "critical": 2.3646348762429987,
+                "distribution_p": 0.1823332462729716
+              },
+              "kenward_roger": {
+                "beta": -0.38437788937567824,
+                "se": 0.2596588352042797,
+                "df": 6.999999999999991,
+                "f": 2.1913441377206873,
+                "p": 0.18233231559989324,
+                "scaling": 1,
+                "critical": 2.364624251592785,
+                "distribution_p": 0.18233231559989324
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -1.5e+00"
+            ],
+            "seconds": 0.29000000000000004
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.38437788937567813,
+              "coefficients": [
+                2.179024171422828,
+                -0.38437788937567813
+              ],
+              "sigma2": 0.85533896843381,
+              "covariance": [
+                [
+                  0.004474821243768486,
+                  0.04063881596085821
+                ],
+                [
+                  0.04063881596085821,
+                  0.36906800802386636
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021942826866316312,
+                  0.005079851995107276
+                ],
+                [
+                  0.005079851995107276,
+                  0.06751697521382855
+                ]
+              ],
+              "criterion": 117.38538300469673,
+              "binding_directions": 1,
+              "ssw": 22.731516414071457,
+              "between_eigenvalues": [
+                0.5405702296252359,
+                2.7230531147719836
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.14569770662613735,
+                "limit": 2.173853830046967e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.005903663847355967,
+                "limit": 0.00085633896843381,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.004474821243768486,
+                "limit": 5.474821243768486e-06,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.04063881596085821,
+                "limit": 4.16388159608582e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0019348488829535881,
+                "limit": 0.0003700680080238664,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m5-v0.05-r0-beta0",
+          "replicate": 14,
+          "variant": "tight_default",
+          "fit": {
+            "beta": -0.3843778893756778,
+            "sigma2": 0.8553389662383823,
+            "covariance": [
+              [
+                0.004474821054493953,
+                0.04063881547681765
+              ],
+              [
+                0.04063881547681765,
+                0.3690680148427968
+              ]
+            ],
+            "theta": [
+              0.07233004040482476,
+              0.6568770303095056,
+              0
+            ],
+            "criterion": 117.38538300469678,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.3843778893756778,
+                "se": 0.2598402894304675,
+                "df": null,
+                "f": 2.188284644385632,
+                "p": 0.13906411198619487,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.13906411198619487
+              },
+              "satterthwaite": {
+                "beta": -0.3843778893756778,
+                "se": 0.2598402894304675,
+                "df": 7.007718059494952,
+                "f": 2.188284644385632,
+                "p": 0.18255403383509558,
+                "critical": 2.364096412353183,
+                "distribution_p": 0.18255403383509558
+              },
+              "kenward_roger": {
+                "beta": -0.3843778893756778,
+                "se": 0.25984028943046744,
+                "df": 7.000000000000007,
+                "f": 2.1882846443856323,
+                "p": 0.18260027083410854,
+                "scaling": 1,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.18260027083410854
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.38437788937567813,
+              "coefficients": [
+                2.179024171422828,
+                -0.38437788937567813
+              ],
+              "sigma2": 0.85533896843381,
+              "covariance": [
+                [
+                  0.004474821243768486,
+                  0.04063881596085821
+                ],
+                [
+                  0.04063881596085821,
+                  0.36906800802386636
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021942826866316312,
+                  0.005079851995107276
+                ],
+                [
+                  0.005079851995107276,
+                  0.06751697521382855
+                ]
+              ],
+              "criterion": 117.38538300469673,
+              "binding_directions": 1,
+              "ssw": 22.731516414071457,
+              "between_eigenvalues": [
+                0.5405702296252359,
+                2.7230531147719836
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 4.263256414560601e-14,
+                "limit": 2.173853830046967e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -2.195427617479595e-09,
+                "limit": 0.00085633896843381,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -1.8927453267897354e-10,
+                "limit": 5.474821243768486e-06,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -4.840405576356233e-10,
+                "limit": 4.16388159608582e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 6.818930420315894e-09,
+                "limit": 0.0003700680080238664,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "interior-G8-m5-v0.05-r0-beta0",
+          "replicate": 14,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": -0.3843778893756781,
+            "sigma2": 0.8553389793533492,
+            "covariance": [
+              [
+                0.004474822391569659,
+                0.0406388192942006
+              ],
+              [
+                0.0406388192942006,
+                0.3690679739017261
+              ]
+            ],
+            "theta": [
+              0.07233005065640469,
+              0.6568769888395352,
+              0
+            ],
+            "criterion": 117.38538300469679,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.3843778893756781,
+                "se": 0.25984028021372957,
+                "df": null,
+                "f": 2.188284799625973,
+                "p": 0.13906409796830158,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.13906409796830158
+              },
+              "satterthwaite": {
+                "beta": -0.3843778893756781,
+                "se": 0.25984028021372957,
+                "df": 7.007718678237013,
+                "f": 2.188284799625973,
+                "p": 0.1825540165217493,
+                "critical": 2.364096370092132,
+                "distribution_p": 0.1825540165217493
+              },
+              "kenward_roger": {
+                "beta": -0.3843778893756781,
+                "se": 0.25984028021372957,
+                "df": 7.000000000000002,
+                "f": 2.188284799625972,
+                "p": 0.18260025722410825,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.18260025722410825
+              }
+            },
+            "warnings": [],
+            "seconds": 0.07999999999999985
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.38437788937567813,
+              "coefficients": [
+                2.179024171422828,
+                -0.38437788937567813
+              ],
+              "sigma2": 0.85533896843381,
+              "covariance": [
+                [
+                  0.004474821243768486,
+                  0.04063881596085821
+                ],
+                [
+                  0.04063881596085821,
+                  0.36906800802386636
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021942826866316312,
+                  0.005079851995107276
+                ],
+                [
+                  0.005079851995107276,
+                  0.06751697521382855
+                ]
+              ],
+              "criterion": 117.38538300469673,
+              "binding_directions": 1,
+              "ssw": 22.731516414071457,
+              "between_eigenvalues": [
+                0.5405702296252359,
+                2.7230531147719836
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 5.684341886080802e-14,
+                "limit": 2.173853830046967e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 1.0919539272791212e-08,
+                "limit": 0.00085633896843381,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 1.1478011735510663e-09,
+                "limit": 5.474821243768486e-06,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 3.3333423937742523e-09,
+                "limit": 4.16388159608582e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -3.412214027997962e-08,
+                "limit": 0.0003700680080238664,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "interior-G8-m5-v0.05-r0-beta0",
+          "replicate": 14,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": -0.384377889375678,
+            "sigma2": 0.8612426551379349,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.3671330911754143
+              ]
+            ],
+            "theta": [
+              0,
+              -0.17522820639455183,
+              0.6289499679883489
+            ],
+            "criterion": 117.53108071132284,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.384377889375678,
+                "se": 0.2596588199452795,
+                "df": null,
+                "f": 2.1913443952718943,
+                "p": 0.1387881302160471,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.1387881302160471
+              },
+              "satterthwaite": {
+                "beta": -0.384377889375678,
+                "se": 0.2596588199452795,
+                "df": 6.997229114033506,
+                "f": 2.1913443952718943,
+                "p": 0.18234892048788395,
+                "critical": 2.3648140870282166,
+                "distribution_p": 0.18234892048788395
+              },
+              "kenward_roger": {
+                "beta": -0.384377889375678,
+                "se": 0.2596588199452796,
+                "df": 7.000000000000014,
+                "f": 2.1913443952718916,
+                "p": 0.18233229306604332,
+                "scaling": 1,
+                "critical": 2.364624251592783,
+                "distribution_p": 0.18233229306604332
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -1.3e+00"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.38437788937567813,
+              "coefficients": [
+                2.179024171422828,
+                -0.38437788937567813
+              ],
+              "sigma2": 0.85533896843381,
+              "covariance": [
+                [
+                  0.004474821243768486,
+                  0.04063881596085821
+                ],
+                [
+                  0.04063881596085821,
+                  0.36906800802386636
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021942826866316312,
+                  0.005079851995107276
+                ],
+                [
+                  0.005079851995107276,
+                  0.06751697521382855
+                ]
+              ],
+              "criterion": 117.38538300469673,
+              "binding_directions": 1,
+              "ssw": 22.731516414071457,
+              "between_eigenvalues": [
+                0.5405702296252359,
+                2.7230531147719836
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.14569770662610892,
+                "limit": 2.173853830046967e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.005903686704124889,
+                "limit": 0.00085633896843381,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.004474821243768486,
+                "limit": 5.474821243768486e-06,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.04063881596085821,
+                "limit": 4.16388159608582e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0019349168484520396,
+                "limit": 0.0003700680080238664,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        }
+      ]
+    },
+    {
+      "case": "interior-G8-m5-v0.05-r0.5-beta0",
+      "replicate": 13,
+      "selected": "tight_positive",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": 0.2364957687997218,
+        "sigma2": 0.833671636947833,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.2786775750320782
+          ]
+        ],
+        "criterion": 115.18247628819886,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": 0.2364957687997218,
+            "se": 0.23595865697766963,
+            "df": null,
+            "f": 1.0045577741607037,
+            "p": 0.3162101675006531,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.3162101675006531
+          },
+          "satterthwaite": {
+            "beta": 0.2364957687997218,
+            "se": 0.23595865697766963,
+            "df": 6.997649766217068,
+            "f": 1.0045577741607037,
+            "p": 0.34960120449648446,
+            "critical": 2.364785256452822,
+            "distribution_p": 0.34960120449648446
+          },
+          "kenward_roger": {
+            "beta": 0.2364957687997218,
+            "se": 0.2359586569776696,
+            "df": 7.000000000000005,
+            "f": 1.0045577741607037,
+            "p": 0.3495904259575471,
+            "scaling": 0.9999999999999998,
+            "critical": 2.3646242515927836,
+            "distribution_p": 0.3495904259575471
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -7.2e-01"
+        ],
+        "seconds": 0.07000000000000028
+      },
+      "attempts": [
+        {
+          "case": "interior-G8-m5-v0.05-r0.5-beta0",
+          "replicate": 13,
+          "variant": "baseline",
+          "fit": {
+            "beta": 0.2364957687997218,
+            "sigma2": 0.833671636947833,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.2786775750320782
+              ]
+            ],
+            "theta": [
+              0,
+              0.25674068629908037,
+              0.5180362973189458
+            ],
+            "criterion": 115.18247628819886,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.2364957687997218,
+                "se": 0.23595865697766963,
+                "df": null,
+                "f": 1.0045577741607037,
+                "p": 0.3162101675006531,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.3162101675006531
+              },
+              "satterthwaite": {
+                "beta": 0.2364957687997218,
+                "se": 0.23595865697766963,
+                "df": 6.997649766217068,
+                "f": 1.0045577741607037,
+                "p": 0.34960120449648446,
+                "critical": 2.364785256452822,
+                "distribution_p": 0.34960120449648446
+              },
+              "kenward_roger": {
+                "beta": 0.2364957687997218,
+                "se": 0.2359586569776696,
+                "df": 7.000000000000005,
+                "f": 1.0045577741607037,
+                "p": 0.3495904259575471,
+                "scaling": 0.9999999999999998,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.3495904259575471
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -7.2e-01"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.2364957687997219,
+              "coefficients": [
+                2.0017155299244878,
+                0.2364957687997219
+              ],
+              "sigma2": 0.82837488747844,
+              "covariance": [
+                [
+                  0.0033231050485406713,
+                  -0.030563740141136036
+                ],
+                [
+                  -0.030563740141136036,
+                  0.2811052307314544
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021124760318028582,
+                  -0.0038204675176420045
+                ],
+                [
+                  -0.0038204675176420045,
+                  0.0558475260283928
+                ]
+              ],
+              "criterion": 115.05823245959945,
+              "binding_directions": 1,
+              "ssw": 23.979996964752296,
+              "between_eigenvalues": [
+                0.2428035067256209,
+                2.250516566378415
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.12424382859940408,
+                "limit": 2.1505823245959944e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.005296749469392958,
+                "limit": 0.00082937488747844,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0033231050485406713,
+                "limit": 4.323105048540671e-06,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 0.030563740141136036,
+                "limit": 3.156374014113603e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0024276556993761966,
+                "limit": 0.0002821052307314544,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m5-v0.05-r0.5-beta0",
+          "replicate": 13,
+          "variant": "tight_default",
+          "fit": {
+            "beta": 0.2364957687997218,
+            "sigma2": 0.8336716453432176,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.27867755348880413
+              ]
+            ],
+            "theta": [
+              0,
+              0.41036423021145607,
+              0.4072819105932269
+            ],
+            "criterion": 115.18247628819886,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.2364957687997218,
+                "se": 0.23595865171610242,
+                "df": null,
+                "f": 1.0045578189613353,
+                "p": 0.3162101567094521,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.3162101567094521
+              },
+              "satterthwaite": {
+                "beta": 0.2364957687997218,
+                "se": 0.23595865171610242,
+                "df": 6.994372829314281,
+                "f": 1.0045578189613353,
+                "p": 0.34961623457595287,
+                "critical": 2.365009958388349,
+                "distribution_p": 0.34961623457595287
+              },
+              "kenward_roger": {
+                "beta": 0.2364957687997218,
+                "se": 0.23595865171610242,
+                "df": 7.000000000000007,
+                "f": 1.0045578189613353,
+                "p": 0.34959041589308565,
+                "scaling": 1,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.34959041589308565
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -4.2e-01"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.2364957687997219,
+              "coefficients": [
+                2.0017155299244878,
+                0.2364957687997219
+              ],
+              "sigma2": 0.82837488747844,
+              "covariance": [
+                [
+                  0.0033231050485406713,
+                  -0.030563740141136036
+                ],
+                [
+                  -0.030563740141136036,
+                  0.2811052307314544
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021124760318028582,
+                  -0.0038204675176420045
+                ],
+                [
+                  -0.0038204675176420045,
+                  0.0558475260283928
+                ]
+              ],
+              "criterion": 115.05823245959945,
+              "binding_directions": 1,
+              "ssw": 23.979996964752296,
+              "between_eigenvalues": [
+                0.2428035067256209,
+                2.250516566378415
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.12424382859940408,
+                "limit": 2.1505823245959944e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.005296757864777568,
+                "limit": 0.00082937488747844,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0033231050485406713,
+                "limit": 4.323105048540671e-06,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 0.030563740141136036,
+                "limit": 3.156374014113603e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.00242767724265025,
+                "limit": 0.0002821052307314544,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m5-v0.05-r0.5-beta0",
+          "replicate": 13,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": 0.2364957687997216,
+            "sigma2": 0.8283748784758195,
+            "covariance": [
+              [
+                0.003323107033898874,
+                -0.030563750438772953
+              ],
+              [
+                -0.030563750438772953,
+                0.28110525220958643
+              ]
+            ],
+            "theta": [
+              0.06333717734465498,
+              -0.5825336536293004,
+              0
+            ],
+            "criterion": 115.05823245959945,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.2364957687997216,
+                "se": 0.23632081687420978,
+                "df": null,
+                "f": 1.0014811787435713,
+                "p": 0.31695237120141917,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.31695237120141917
+              },
+              "satterthwaite": {
+                "beta": 0.2364957687997216,
+                "se": 0.23632081687420978,
+                "df": 7.017760151603204,
+                "f": 1.0014811787435713,
+                "p": 0.3502015375596815,
+                "critical": 2.363411675562822,
+                "distribution_p": 0.3502015375596815
+              },
+              "kenward_roger": {
+                "beta": 0.2364957687997216,
+                "se": 0.23632081687420975,
+                "df": 6.999999999999997,
+                "f": 1.0014811787435718,
+                "p": 0.35028264528756,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.35028264528756
+              }
+            },
+            "warnings": [],
+            "seconds": 0.06999999999999984
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.2364957687997219,
+              "coefficients": [
+                2.0017155299244878,
+                0.2364957687997219
+              ],
+              "sigma2": 0.82837488747844,
+              "covariance": [
+                [
+                  0.0033231050485406713,
+                  -0.030563740141136036
+                ],
+                [
+                  -0.030563740141136036,
+                  0.2811052307314544
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021124760318028582,
+                  -0.0038204675176420045
+                ],
+                [
+                  -0.0038204675176420045,
+                  0.0558475260283928
+                ]
+              ],
+              "criterion": 115.05823245959945,
+              "binding_directions": 1,
+              "ssw": 23.979996964752296,
+              "between_eigenvalues": [
+                0.2428035067256209,
+                2.250516566378415
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.0,
+                "limit": 2.1505823245959944e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -9.002620537934547e-09,
+                "limit": 0.00082937488747844,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 1.9853582029251415e-09,
+                "limit": 4.323105048540671e-06,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -1.0297636916789532e-08,
+                "limit": 3.156374014113603e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 2.1478132050667398e-08,
+                "limit": 0.0002821052307314544,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "interior-G8-m5-v0.05-r0.5-beta0",
+          "replicate": 13,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": 0.23649576879972167,
+            "sigma2": 0.8283748800428714,
+            "covariance": [
+              [
+                0.0033231047115888043,
+                -0.0305637396634467
+              ],
+              [
+                -0.0305637396634467,
+                0.281105250447695
+              ]
+            ],
+            "theta": [
+              0.06333715515356235,
+              -0.5825336512526802,
+              2.264382608877843e-07
+            ],
+            "criterion": 115.05823245959947,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.23649576879972167,
+                "se": 0.2363208164911286,
+                "df": null,
+                "f": 1.0014811819904177,
+                "p": 0.3169523704169398,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.3169523704169398
+              },
+              "satterthwaite": {
+                "beta": 0.23649576879972167,
+                "se": 0.2363208164911286,
+                "df": 7.017760194977208,
+                "f": 1.0014811819904177,
+                "p": 0.3502015366303069,
+                "critical": 2.363411672610269,
+                "distribution_p": 0.3502015366303069
+              },
+              "kenward_roger": {
+                "beta": 0.23649576879972167,
+                "se": 0.23632081649112863,
+                "df": 6.999999999999993,
+                "f": 1.0014811819904177,
+                "p": 0.3502826445559123,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.3502826445559123
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.2364957687997219,
+              "coefficients": [
+                2.0017155299244878,
+                0.2364957687997219
+              ],
+              "sigma2": 0.82837488747844,
+              "covariance": [
+                [
+                  0.0033231050485406713,
+                  -0.030563740141136036
+                ],
+                [
+                  -0.030563740141136036,
+                  0.2811052307314544
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.021124760318028582,
+                  -0.0038204675176420045
+                ],
+                [
+                  -0.0038204675176420045,
+                  0.0558475260283928
+                ]
+              ],
+              "criterion": 115.05823245959945,
+              "binding_directions": 1,
+              "ssw": 23.979996964752296,
+              "between_eigenvalues": [
+                0.2428035067256209,
+                2.250516566378415
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 1.4210854715202004e-14,
+                "limit": 2.1505823245959944e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -7.435568605274057e-09,
+                "limit": 0.00082937488747844,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -3.3695186701585e-10,
+                "limit": 4.323105048540671e-06,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 4.776893360036727e-10,
+                "limit": 3.156374014113603e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 1.9716240640121896e-08,
+                "limit": 0.0002821052307314544,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+      "replicate": 16,
+      "selected": "tight_negative",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": 0.018744890878732354,
+        "sigma2": 1.4284369556875254,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.552976568619464
+          ]
+        ],
+        "criterion": 136.30554163970373,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": 0.018744890878732354,
+            "se": 0.32377923801507286,
+            "df": null,
+            "f": 0.003351720840918498,
+            "p": 0.953833023856002,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.953833023856002
+          },
+          "satterthwaite": {
+            "beta": 0.018744890878732354,
+            "se": 0.32377923801507286,
+            "df": 6.999913658632896,
+            "f": 0.003351720840918498,
+            "p": 0.9554510309240863,
+            "critical": 2.364630164235126,
+            "distribution_p": 0.9554510309240863
+          },
+          "kenward_roger": {
+            "beta": 0.018744890878732354,
+            "se": 0.32377923801507286,
+            "df": 6.999999999999989,
+            "f": 0.003351720840918498,
+            "p": 0.9554510114481854,
+            "scaling": 1,
+            "critical": 2.364624251592785,
+            "distribution_p": 0.9554510114481854
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -2.6e+00"
+        ],
+        "seconds": 0.10999999999999943
+      },
+      "attempts": [
+        {
+          "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+          "replicate": 16,
+          "variant": "baseline",
+          "fit": {
+            "beta": 0.018744890878732354,
+            "sigma2": 1.4284369556875254,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.552976568619464
+              ]
+            ],
+            "theta": [
+              0,
+              -0.031306233720365104,
+              0.6214016074709034
+            ],
+            "criterion": 136.30554163970373,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.018744890878732354,
+                "se": 0.32377923801507286,
+                "df": null,
+                "f": 0.003351720840918498,
+                "p": 0.953833023856002,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.953833023856002
+              },
+              "satterthwaite": {
+                "beta": 0.018744890878732354,
+                "se": 0.32377923801507286,
+                "df": 6.999913658632896,
+                "f": 0.003351720840918498,
+                "p": 0.9554510309240863,
+                "critical": 2.364630164235126,
+                "distribution_p": 0.9554510309240863
+              },
+              "kenward_roger": {
+                "beta": 0.018744890878732354,
+                "se": 0.32377923801507286,
+                "df": 6.999999999999989,
+                "f": 0.003351720840918498,
+                "p": 0.9554510114481854,
+                "scaling": 1,
+                "critical": 2.364624251592785,
+                "distribution_p": 0.9554510114481854
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -2.6e+00"
+            ],
+            "seconds": 0.06999999999999984
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.018744890878732434,
+              "coefficients": [
+                1.7829423673770117,
+                0.018744890878732434
+              ],
+              "sigma2": 1.4253727126394906,
+              "covariance": [
+                [
+                  0.0026766536091677793,
+                  0.03849502911854353
+                ],
+                [
+                  0.03849502911854353,
+                  0.5536268352998557
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03596889951713324,
+                  0.004811878639817941
+                ],
+                [
+                  0.004811878639817941,
+                  0.10483767222846924
+                ]
+              ],
+              "criterion": 136.26158659469291,
+              "binding_directions": 1,
+              "ssw": 34.480826036971266,
+              "between_eigenvalues": [
+                1.3865325792647063,
+                4.206890157184608
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.043955045010818594,
+                "limit": 2.362615865946929e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.003064243048034765,
+                "limit": 0.0014268011495951782,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0026766536091677793,
+                "limit": 4.105090564855305e-06,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.03849502911854353,
+                "limit": 3.992346607423106e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0006502666803916979,
+                "limit": 0.0005550552722555431,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+          "replicate": 16,
+          "variant": "tight_default",
+          "fit": {
+            "beta": 0.018744890878732663,
+            "sigma2": 1.428436920928456,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.5529766659484457
+              ]
+            ],
+            "theta": [
+              0,
+              -0.5802721811893637,
+              0.22450904509987404
+            ],
+            "criterion": 136.30554163970373,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.018744890878732663,
+                "se": 0.32377925546082653,
+                "df": null,
+                "f": 0.003351720479726261,
+                "p": 0.9538330263407752,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.9538330263407752
+              },
+              "satterthwaite": {
+                "beta": 0.018744890878732663,
+                "se": 0.32377925546082653,
+                "df": 6.994878673259507,
+                "f": 0.003351720479726261,
+                "p": 0.9554521698647593,
+                "critical": 2.3649752561390947,
+                "distribution_p": 0.9554521698647593
+              },
+              "kenward_roger": {
+                "beta": 0.018744890878732663,
+                "se": 0.3237792554608265,
+                "df": 6.999999999999997,
+                "f": 0.003351720479726262,
+                "p": 0.9554510138454944,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.9554510138454944
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -3.4e-02"
+            ],
+            "seconds": 0.07000000000000028
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.018744890878732434,
+              "coefficients": [
+                1.7829423673770117,
+                0.018744890878732434
+              ],
+              "sigma2": 1.4253727126394906,
+              "covariance": [
+                [
+                  0.0026766536091677793,
+                  0.03849502911854353
+                ],
+                [
+                  0.03849502911854353,
+                  0.5536268352998557
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03596889951713324,
+                  0.004811878639817941
+                ],
+                [
+                  0.004811878639817941,
+                  0.10483767222846924
+                ]
+              ],
+              "criterion": 136.26158659469291,
+              "binding_directions": 1,
+              "ssw": 34.480826036971266,
+              "between_eigenvalues": [
+                1.3865325792647063,
+                4.206890157184608
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.043955045010818594,
+                "limit": 2.362615865946929e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.0030642082889653643,
+                "limit": 0.001426801149560419,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0026766536091677793,
+                "limit": 4.105090530096236e-06,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.03849502911854353,
+                "limit": 3.9923466039471985e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0006501693514099349,
+                "limit": 0.000555055272220784,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+          "replicate": 16,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": 0.018744890878732275,
+            "sigma2": 1.425372702737135,
+            "covariance": [
+              [
+                0.0026766544881184364,
+                0.0384950363772322
+              ],
+              [
+                0.0384950363772322,
+                0.5536268622873752
+              ]
+            ],
+            "theta": [
+              0.04333431526674161,
+              0.6232242711864927,
+              0
+            ],
+            "criterion": 136.26158659469294,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.018744890878732275,
+                "se": 0.3237864656750653,
+                "df": null,
+                "f": 0.0033515712063239703,
+                "p": 0.9538340532584664,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.9538340532584664
+              },
+              "satterthwaite": {
+                "beta": 0.018744890878732275,
+                "se": 0.3237864656750653,
+                "df": 7.000329038670514,
+                "f": 0.0033515712063239703,
+                "p": 0.95545193040073,
+                "critical": 2.3646017206523307,
+                "distribution_p": 0.95545193040073
+              },
+              "kenward_roger": {
+                "beta": 0.018744890878732275,
+                "se": 0.32378646567506525,
+                "df": 7.000000000000007,
+                "f": 0.003351571206323971,
+                "p": 0.9554520046155746,
+                "scaling": 1,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.9554520046155746
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08999999999999986
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.018744890878732434,
+              "coefficients": [
+                1.7829423673770117,
+                0.018744890878732434
+              ],
+              "sigma2": 1.4253727126394906,
+              "covariance": [
+                [
+                  0.0026766536091677793,
+                  0.03849502911854353
+                ],
+                [
+                  0.03849502911854353,
+                  0.5536268352998557
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03596889951713324,
+                  0.004811878639817941
+                ],
+                [
+                  0.004811878639817941,
+                  0.10483767222846924
+                ]
+              ],
+              "criterion": 136.26158659469291,
+              "binding_directions": 1,
+              "ssw": 34.480826036971266,
+              "between_eigenvalues": [
+                1.3865325792647063,
+                4.206890157184608
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 2.842170943040401e-14,
+                "limit": 2.362615865946929e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -9.902355602164903e-09,
+                "limit": 0.00142679808535213,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 8.789506570489047e-10,
+                "limit": 4.10202632180727e-06,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 7.258688670963576e-09,
+                "limit": 3.9920401831183024e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 2.6987519552434946e-08,
+                "limit": 0.0005550522080124951,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+          "replicate": 16,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": 0.018744890878732132,
+            "sigma2": 1.4253727083916854,
+            "covariance": [
+              [
+                0.0026766549983171135,
+                0.03849503947505335
+              ],
+              [
+                0.03849503947505335,
+                0.5536268458645611
+              ]
+            ],
+            "theta": [
+              0.04333431931077591,
+              0.6232242607066286,
+              0
+            ],
+            "criterion": 136.26158659469291,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.018744890878732132,
+                "se": 0.32378646272329276,
+                "df": null,
+                "f": 0.003351571267432564,
+                "p": 0.9538340528380687,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.9538340528380687
+              },
+              "satterthwaite": {
+                "beta": 0.018744890878732132,
+                "se": 0.32378646272329276,
+                "df": 7.000329194231024,
+                "f": 0.003351571267432564,
+                "p": 0.9554519299600445,
+                "critical": 2.3646017100009056,
+                "distribution_p": 0.9554519299600445
+              },
+              "kenward_roger": {
+                "beta": 0.018744890878732132,
+                "se": 0.32378646272329287,
+                "df": 6.999999999999997,
+                "f": 0.0033515712674325624,
+                "p": 0.9554520042099749,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.9554520042099749
+              }
+            },
+            "warnings": [],
+            "seconds": 0.10000000000000009
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.018744890878732434,
+              "coefficients": [
+                1.7829423673770117,
+                0.018744890878732434
+              ],
+              "sigma2": 1.4253727126394906,
+              "covariance": [
+                [
+                  0.0026766536091677793,
+                  0.03849502911854353
+                ],
+                [
+                  0.03849502911854353,
+                  0.5536268352998557
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03596889951713324,
+                  0.004811878639817941
+                ],
+                [
+                  0.004811878639817941,
+                  0.10483767222846924
+                ]
+              ],
+              "criterion": 136.26158659469291,
+              "binding_directions": 1,
+              "ssw": 34.480826036971266,
+              "between_eigenvalues": [
+                1.3865325792647063,
+                4.206890157184608
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.0,
+                "limit": 2.362615865946929e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -4.247805218682288e-09,
+                "limit": 0.00142679808535213,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 1.3891493341917915e-09,
+                "limit": 4.10202632180727e-06,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 1.0356509823339355e-08,
+                "limit": 3.9920401831183024e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 1.0564705443805167e-08,
+                "limit": 0.0005550522080124951,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "interior-G8-m15-v0.05-r0-beta0.5",
+      "replicate": 17,
+      "selected": "tight_positive",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": 0.6624723982093714,
+        "sigma2": 1.2007892072055817,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.1255123859966074
+          ]
+        ],
+        "criterion": 372.6375482451991,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": 0.6624723982093714,
+            "se": 0.1602985495139901,
+            "df": null,
+            "f": 17.079548708943516,
+            "p": 3.5846248498631003e-05,
+            "critical": 1.9599639845400536,
+            "distribution_p": 3.5846248498631003e-05
+          },
+          "satterthwaite": {
+            "beta": 0.6624723982093714,
+            "se": 0.1602985495139901,
+            "df": 6.988758300818124,
+            "f": 17.079548708943516,
+            "p": 0.004404212401794369,
+            "critical": 2.365395526914663,
+            "distribution_p": 0.004404212401794369
+          },
+          "kenward_roger": {
+            "beta": 0.6624723982093714,
+            "se": 0.16029854951398997,
+            "df": 6.99999999999997,
+            "f": 17.079548708943545,
+            "p": 0.004388885874306796,
+            "scaling": 0.9999999999999997,
+            "critical": 2.3646242515927858,
+            "distribution_p": 0.004388885874306796
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -8.1e-03"
+        ],
+        "seconds": 0.0600000000000005
+      },
+      "attempts": [
+        {
+          "case": "interior-G8-m15-v0.05-r0-beta0.5",
+          "replicate": 17,
+          "variant": "baseline",
+          "fit": {
+            "beta": 0.6624723982093714,
+            "sigma2": 1.2007892072055817,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.1255123859966074
+              ]
+            ],
+            "theta": [
+              0,
+              -0.3229067934433968,
+              0.01600357982767956
+            ],
+            "criterion": 372.6375482451991,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.6624723982093714,
+                "se": 0.1602985495139901,
+                "df": null,
+                "f": 17.079548708943516,
+                "p": 3.5846248498631003e-05,
+                "critical": 1.9599639845400536,
+                "distribution_p": 3.5846248498631003e-05
+              },
+              "satterthwaite": {
+                "beta": 0.6624723982093714,
+                "se": 0.1602985495139901,
+                "df": 6.988758300818124,
+                "f": 17.079548708943516,
+                "p": 0.004404212401794369,
+                "critical": 2.365395526914663,
+                "distribution_p": 0.004404212401794369
+              },
+              "kenward_roger": {
+                "beta": 0.6624723982093714,
+                "se": 0.16029854951398997,
+                "df": 6.99999999999997,
+                "f": 17.079548708943545,
+                "p": 0.004388885874306796,
+                "scaling": 0.9999999999999997,
+                "critical": 2.3646242515927858,
+                "distribution_p": 0.004388885874306796
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -8.1e-03"
+            ],
+            "seconds": 0.06999999999999984
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.6624723982093715,
+              "coefficients": [
+                1.6440351474362163,
+                0.6624723982093715
+              ],
+              "sigma2": 1.1769197657130457,
+              "covariance": [
+                [
+                  0.02523340891793584,
+                  0.018054257308665802
+                ],
+                [
+                  0.018054257308665802,
+                  0.12710368379062
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.01296184082901736,
+                  0.0022567821635832252
+                ],
+                [
+                  0.0022567821635832252,
+                  0.02569562518810288
+                ]
+              ],
+              "criterion": 372.2529013175679,
+              "binding_directions": 0,
+              "ssw": 122.39965563415674,
+              "between_eigenvalues": [
+                1.5088447921825705,
+                3.1300511298718585
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.38464692763125186,
+                "limit": 4.722529013175679e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.023869441492536003,
+                "limit": 0.0011781205549202512,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.02523340891793584,
+                "limit": 2.6434198125141423e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.018054257308665802,
+                "limit": 1.9255046515871383e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0015912977940125972,
+                "limit": 0.0001283044729978256,
+                "passed": false
+              }
+            ],
+            "rank_match": false
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m15-v0.05-r0-beta0.5",
+          "replicate": 17,
+          "variant": "tight_default",
+          "fit": {
+            "beta": 0.6624723982093719,
+            "sigma2": 1.2007892082365912,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.1255123831290847
+              ]
+            ],
+            "theta": [
+              0,
+              -0.3233031222588081,
+              2.18889415426487e-05
+            ],
+            "criterion": 372.637548245199,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.6624723982093719,
+                "se": 0.16029854842274935,
+                "df": null,
+                "f": 17.079548941483388,
+                "p": 3.584624410936002e-05,
+                "critical": 1.9599639845400536,
+                "distribution_p": 3.584624410936002e-05
+              },
+              "satterthwaite": {
+                "beta": 0.6624723982093719,
+                "se": 0.16029854842274935,
+                "df": 6.988771845241328,
+                "f": 17.079548941483388,
+                "p": 0.0044041937337797946,
+                "critical": 2.3653945958966607,
+                "distribution_p": 0.0044041937337797946
+              },
+              "kenward_roger": {
+                "beta": 0.6624723982093719,
+                "se": 0.16029854842274938,
+                "df": 6.999999999999997,
+                "f": 17.07954894148338,
+                "p": 0.004388885719600092,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.004388885719600092
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.6624723982093715,
+              "coefficients": [
+                1.6440351474362163,
+                0.6624723982093715
+              ],
+              "sigma2": 1.1769197657130457,
+              "covariance": [
+                [
+                  0.02523340891793584,
+                  0.018054257308665802
+                ],
+                [
+                  0.018054257308665802,
+                  0.12710368379062
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.01296184082901736,
+                  0.0022567821635832252
+                ],
+                [
+                  0.0022567821635832252,
+                  0.02569562518810288
+                ]
+              ],
+              "criterion": 372.2529013175679,
+              "binding_directions": 0,
+              "ssw": 122.39965563415674,
+              "between_eigenvalues": [
+                1.5088447921825705,
+                3.1300511298718585
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.38464692763113817,
+                "limit": 4.722529013175679e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.023869442523545503,
+                "limit": 0.0011781205549212823,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.02523340891793584,
+                "limit": 2.6434198126172435e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.018054257308665802,
+                "limit": 1.9255046516902395e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0015913006615353165,
+                "limit": 0.0001283044729988566,
+                "passed": false
+              }
+            ],
+            "rank_match": false
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m15-v0.05-r0-beta0.5",
+          "replicate": 17,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": 0.662472398209372,
+            "sigma2": 1.1769197644158782,
+            "covariance": [
+              [
+                0.025233408328212505,
+                0.01805425217779116
+              ],
+              [
+                0.01805425217779116,
+                0.12710368674560968
+              ]
+            ],
+            "theta": [
+              0.14642476297274692,
+              0.10476545860939343,
+              0.3114821009723122
+            ],
+            "criterion": 372.25290131756776,
+            "converged": true,
+            "package_singular": false,
+            "optimizer_messages": [],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.662472398209372,
+                "se": 0.16029855129310078,
+                "df": null,
+                "f": 17.07954832982088,
+                "p": 3.584625565470383e-05,
+                "critical": 1.9599639845400536,
+                "distribution_p": 3.584625565470383e-05
+              },
+              "satterthwaite": {
+                "beta": 0.662472398209372,
+                "se": 0.16029855129310078,
+                "df": 6.999999933374507,
+                "f": 17.07954832982088,
+                "p": 0.004388886217137663,
+                "critical": 2.36462425615522,
+                "distribution_p": 0.004388886217137663
+              },
+              "kenward_roger": {
+                "beta": 0.662472398209372,
+                "se": 0.16029855129310086,
+                "df": 7.000000000000011,
+                "f": 17.07954832982086,
+                "p": 0.004388886126533674,
+                "scaling": 0.9999999999999998,
+                "critical": 2.364624251592783,
+                "distribution_p": 0.004388886126533674
+              }
+            },
+            "warnings": [],
+            "seconds": 0.10000000000000009
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.6624723982093715,
+              "coefficients": [
+                1.6440351474362163,
+                0.6624723982093715
+              ],
+              "sigma2": 1.1769197657130457,
+              "covariance": [
+                [
+                  0.02523340891793584,
+                  0.018054257308665802
+                ],
+                [
+                  0.018054257308665802,
+                  0.12710368379062
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.01296184082901736,
+                  0.0022567821635832252
+                ],
+                [
+                  0.0022567821635832252,
+                  0.02569562518810288
+                ]
+              ],
+              "criterion": 372.2529013175679,
+              "binding_directions": 0,
+              "ssw": 122.39965563415674,
+              "between_eigenvalues": [
+                1.5088447921825705,
+                3.1300511298718585
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -1.1368683772161603e-13,
+                "limit": 4.722529013175679e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -1.2971674845374537e-09,
+                "limit": 0.0011780966854787588,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -5.897233361362719e-10,
+                "limit": 2.6410328683648888e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -5.130874641823269e-09,
+                "limit": 1.9231177074378848e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 2.9549896696234867e-09,
+                "limit": 0.00012828060355633307,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "interior-G8-m15-v0.05-r0-beta0.5",
+          "replicate": 17,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": 0.662472398209372,
+            "sigma2": 1.1769197687123694,
+            "covariance": [
+              [
+                0.025233393955671878,
+                0.018054255207799484
+              ],
+              [
+                0.018054255207799484,
+                0.12710370445975955
+              ]
+            ],
+            "theta": [
+              0.14642472100488368,
+              0.1047655058371088,
+              0.31148210861537723
+            ],
+            "criterion": 372.2529013175678,
+            "converged": true,
+            "package_singular": false,
+            "optimizer_messages": [],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.662472398209372,
+                "se": 0.16029855831148226,
+                "df": null,
+                "f": 17.079546834226853,
+                "p": 3.584628388457997e-05,
+                "critical": 1.9599639845400536,
+                "distribution_p": 3.584628388457997e-05
+              },
+              "satterthwaite": {
+                "beta": 0.662472398209372,
+                "se": 0.16029855831148226,
+                "df": 6.999999181405524,
+                "f": 17.079546834226853,
+                "p": 0.0043888882347458925,
+                "critical": 2.364624307649191,
+                "distribution_p": 0.0043888882347458925
+              },
+              "kenward_roger": {
+                "beta": 0.662472398209372,
+                "se": 0.16029855831148224,
+                "df": 7.000000000000002,
+                "f": 17.079546834226857,
+                "p": 0.004388887121539203,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.004388887121539203
+              }
+            },
+            "warnings": [],
+            "seconds": 0.06999999999999984
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.6624723982093715,
+              "coefficients": [
+                1.6440351474362163,
+                0.6624723982093715
+              ],
+              "sigma2": 1.1769197657130457,
+              "covariance": [
+                [
+                  0.02523340891793584,
+                  0.018054257308665802
+                ],
+                [
+                  0.018054257308665802,
+                  0.12710368379062
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.01296184082901736,
+                  0.0022567821635832252
+                ],
+                [
+                  0.0022567821635832252,
+                  0.02569562518810288
+                ]
+              ],
+              "criterion": 372.2529013175679,
+              "binding_directions": 0,
+              "ssw": 122.39965563415674,
+              "between_eigenvalues": [
+                1.5088447921825705,
+                3.1300511298718585
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -5.684341886080802e-14,
+                "limit": 4.722529013175679e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 2.9993236783099064e-09,
+                "limit": 0.0011780966854817582,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -1.4962263962525757e-08,
+                "limit": 2.641032868664821e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -2.1008663177168874e-09,
+                "limit": 1.923117707737817e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 2.066913953879812e-08,
+                "limit": 0.00012828060355933238,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "interior-G8-m15-v0.25-r0-beta0",
+      "replicate": 16,
+      "selected": "tight_positive",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": -0.048398197684636594,
+        "sigma2": 0.6846102255192732,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.09736959871060281
+          ]
+        ],
+        "criterion": 307.7284339747516,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": -0.048398197684636594,
+            "se": 0.13370222530491396,
+            "df": null,
+            "f": 0.13103312754158902,
+            "p": 0.7173632527856477,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.7173632527856477
+          },
+          "satterthwaite": {
+            "beta": -0.048398197684636594,
+            "se": 0.13370222530491396,
+            "df": 6.9738719049200615,
+            "f": 0.13103312754158902,
+            "p": 0.7280830498627278,
+            "critical": 2.3664213625091297,
+            "distribution_p": 0.7280830498627278
+          },
+          "kenward_roger": {
+            "beta": -0.048398197684636594,
+            "se": 0.13370222530491385,
+            "df": 6.999999999999981,
+            "f": 0.1310331275415892,
+            "p": 0.728044059289058,
+            "scaling": 1,
+            "critical": 2.364624251592785,
+            "distribution_p": 0.728044059289058
+          }
+        },
+        "warnings": [],
+        "seconds": 0.11000000000000121
+      },
+      "attempts": [
+        {
+          "case": "interior-G8-m15-v0.25-r0-beta0",
+          "replicate": 16,
+          "variant": "baseline",
+          "fit": {
+            "beta": -0.048398197684636594,
+            "sigma2": 0.6846102255192732,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.09736959871060281
+              ]
+            ],
+            "theta": [
+              0,
+              -0.3771290598794162,
+              2.2831738112300957e-05
+            ],
+            "criterion": 307.7284339747516,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.048398197684636594,
+                "se": 0.13370222530491396,
+                "df": null,
+                "f": 0.13103312754158902,
+                "p": 0.7173632527856477,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.7173632527856477
+              },
+              "satterthwaite": {
+                "beta": -0.048398197684636594,
+                "se": 0.13370222530491396,
+                "df": 6.9738719049200615,
+                "f": 0.13103312754158902,
+                "p": 0.7280830498627278,
+                "critical": 2.3664213625091297,
+                "distribution_p": 0.7280830498627278
+              },
+              "kenward_roger": {
+                "beta": -0.048398197684636594,
+                "se": 0.13370222530491385,
+                "df": 6.999999999999981,
+                "f": 0.1310331275415892,
+                "p": 0.728044059289058,
+                "scaling": 1,
+                "critical": 2.364624251592785,
+                "distribution_p": 0.728044059289058
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.04839819768463598,
+              "coefficients": [
+                1.959079375433218,
+                -0.04839819768463598
+              ],
+              "sigma2": 0.6682975350604712,
+              "covariance": [
+                [
+                  0.017244846458514984,
+                  0.011988824178993477
+                ],
+                [
+                  0.011988824178993477,
+                  0.09845710432886111
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.007724751932818299,
+                  0.0014986030223741846
+                ],
+                [
+                  0.0014986030223741846,
+                  0.017876284166611564
+                ]
+              ],
+              "criterion": 307.22707409737257,
+              "binding_directions": 0,
+              "ssw": 69.502943646289,
+              "between_eigenvalues": [
+                0.9009773977920376,
+                2.1711469341395464
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.5013598773790591,
+                "limit": 4.0722707409737255e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.016312690458802015,
+                "limit": 0.0006692975350604712,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.017244846458514984,
+                "limit": 1.8244846458514985e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.011988824178993477,
+                "limit": 1.2988824178993477e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0010875056182582943,
+                "limit": 9.945710432886111e-05,
+                "passed": false
+              }
+            ],
+            "rank_match": false
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m15-v0.25-r0-beta0",
+          "replicate": 16,
+          "variant": "tight_default",
+          "fit": {
+            "beta": -0.04839819768463553,
+            "sigma2": 0.6846102260631176,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.09736959687289141
+              ]
+            ],
+            "theta": [
+              0,
+              -0.37694355200540935,
+              0.011827262196531218
+            ],
+            "criterion": 307.72843397475157,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.04839819768463553,
+                "se": 0.13370222446281174,
+                "df": null,
+                "f": 0.13103312919216595,
+                "p": 0.7173632510819137,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.7173632510819137
+              },
+              "satterthwaite": {
+                "beta": -0.04839819768463553,
+                "se": 0.13370222446281174,
+                "df": 6.973857955414646,
+                "f": 0.13103312919216595,
+                "p": 0.7280830691254749,
+                "critical": 2.366422326199811,
+                "distribution_p": 0.7280830691254749
+              },
+              "kenward_roger": {
+                "beta": -0.04839819768463553,
+                "se": 0.13370222446281185,
+                "df": 6.999999999999998,
+                "f": 0.13103312919216573,
+                "p": 0.7280440576590919,
+                "scaling": 0.9999999999999998,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.7280440576590919
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -2.6e-03"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.04839819768463598,
+              "coefficients": [
+                1.959079375433218,
+                -0.04839819768463598
+              ],
+              "sigma2": 0.6682975350604712,
+              "covariance": [
+                [
+                  0.017244846458514984,
+                  0.011988824178993477
+                ],
+                [
+                  0.011988824178993477,
+                  0.09845710432886111
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.007724751932818299,
+                  0.0014986030223741846
+                ],
+                [
+                  0.0014986030223741846,
+                  0.017876284166611564
+                ]
+              ],
+              "criterion": 307.22707409737257,
+              "binding_directions": 0,
+              "ssw": 69.502943646289,
+              "between_eigenvalues": [
+                0.9009773977920376,
+                2.1711469341395464
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.5013598773790022,
+                "limit": 4.0722707409737255e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.01631269100264643,
+                "limit": 0.0006692975350604712,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.017244846458514984,
+                "limit": 1.8244846458514985e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.011988824178993477,
+                "limit": 1.2988824178993477e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.001087507455969694,
+                "limit": 9.945710432886111e-05,
+                "passed": false
+              }
+            ],
+            "rank_match": false
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "interior-G8-m15-v0.25-r0-beta0",
+          "replicate": 16,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": -0.048398197684635796,
+            "sigma2": 0.668297529991653,
+            "covariance": [
+              [
+                0.01724485017240748,
+                0.011988826794726806
+              ],
+              [
+                0.011988826794726806,
+                0.0984571137224085
+              ]
+            ],
+            "theta": [
+              0.16063670406887726,
+              0.11167656446438683,
+              0.36722420190491273
+            ],
+            "criterion": 307.22707409737245,
+            "converged": true,
+            "package_singular": false,
+            "optimizer_messages": [],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.048398197684635796,
+                "se": 0.1337022262289033,
+                "df": null,
+                "f": 0.13103312573049725,
+                "p": 0.7173632546550661,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.7173632546550661
+              },
+              "satterthwaite": {
+                "beta": -0.048398197684635796,
+                "se": 0.1337022262289033,
+                "df": 6.999999418603663,
+                "f": 0.13103312573049725,
+                "p": 0.7280440619419981,
+                "critical": 2.3646242914061344,
+                "distribution_p": 0.7280440619419981
+              },
+              "kenward_roger": {
+                "beta": -0.048398197684635796,
+                "se": 0.13370222622890335,
+                "df": 7.000000000000009,
+                "f": 0.1310331257304971,
+                "p": 0.7280440610775352,
+                "scaling": 0.9999999999999998,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.7280440610775352
+              }
+            },
+            "warnings": [],
+            "seconds": 0.06999999999999984
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.04839819768463598,
+              "coefficients": [
+                1.959079375433218,
+                -0.04839819768463598
+              ],
+              "sigma2": 0.6682975350604712,
+              "covariance": [
+                [
+                  0.017244846458514984,
+                  0.011988824178993477
+                ],
+                [
+                  0.011988824178993477,
+                  0.09845710432886111
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.007724751932818299,
+                  0.0014986030223741846
+                ],
+                [
+                  0.0014986030223741846,
+                  0.017876284166611564
+                ]
+              ],
+              "criterion": 307.22707409737257,
+              "binding_directions": 0,
+              "ssw": 69.502943646289,
+              "between_eigenvalues": [
+                0.9009773977920376,
+                2.1711469341395464
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -1.1368683772161603e-13,
+                "limit": 4.0722707409737255e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -5.068818142994758e-09,
+                "limit": 0.0006692975350604712,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 3.7138924956214847e-09,
+                "limit": 1.8244846458514985e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 2.615733329588976e-09,
+                "limit": 1.2988824178993477e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 9.393547398262037e-09,
+                "limit": 9.945710432886111e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "interior-G8-m15-v0.25-r0-beta0",
+          "replicate": 16,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": -0.04839819768463574,
+            "sigma2": 0.668297535324779,
+            "covariance": [
+              [
+                0.017244847249431913,
+                0.011988817971544505
+              ],
+              [
+                0.011988817971544505,
+                0.09845709920501627
+              ]
+            ],
+            "theta": [
+              0.1606366898140858,
+              0.11167649129486919,
+              0.3672241929784962
+            ],
+            "criterion": 307.2270740973725,
+            "converged": true,
+            "package_singular": false,
+            "optimizer_messages": [],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.04839819768463574,
+                "se": 0.1337022196088514,
+                "df": null,
+                "f": 0.13103313870628922,
+                "p": 0.7173632412613868,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.7173632412613868
+              },
+              "satterthwaite": {
+                "beta": -0.04839819768463574,
+                "se": 0.1337022196088514,
+                "df": 7.000000394586272,
+                "f": 0.13103313870628922,
+                "p": 0.7280440476770704,
+                "critical": 2.3646242245719757,
+                "distribution_p": 0.7280440476770704
+              },
+              "kenward_roger": {
+                "beta": -0.04839819768463574,
+                "se": 0.13370221960885134,
+                "df": 6.999999999999982,
+                "f": 0.13103313870628935,
+                "p": 0.7280440482637702,
+                "scaling": 1,
+                "critical": 2.3646242515927853,
+                "distribution_p": 0.7280440482637702
+              }
+            },
+            "warnings": [],
+            "seconds": 0.10000000000000009
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.04839819768463598,
+              "coefficients": [
+                1.959079375433218,
+                -0.04839819768463598
+              ],
+              "sigma2": 0.6682975350604712,
+              "covariance": [
+                [
+                  0.017244846458514984,
+                  0.011988824178993477
+                ],
+                [
+                  0.011988824178993477,
+                  0.09845710432886111
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.007724751932818299,
+                  0.0014986030223741846
+                ],
+                [
+                  0.0014986030223741846,
+                  0.017876284166611564
+                ]
+              ],
+              "criterion": 307.22707409737257,
+              "binding_directions": 0,
+              "ssw": 69.502943646289,
+              "between_eigenvalues": [
+                0.9009773977920376,
+                2.1711469341395464
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -5.684341886080802e-14,
+                "limit": 4.0722707409737255e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 2.6430779787034453e-10,
+                "limit": 0.0006692975350604712,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 7.90916929171992e-10,
+                "limit": 1.8244846458514985e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -6.207448971506935e-09,
+                "limit": 1.2988824178993477e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -5.1238448345314325e-09,
+                "limit": 9.945710432886111e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "zero_slope-G8-m15-v0-rundefined-beta0",
+      "replicate": 18,
+      "selected": "tight_default",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": 0.15278153365439662,
+        "sigma2": 0.9551477018080476,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.014114121912678544
+          ]
+        ],
+        "criterion": 340.4309781021998,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": 0.15278153365439662,
+            "se": 0.09860947936592378,
+            "df": null,
+            "f": 2.4005148605151687,
+            "p": 0.12129532383784541,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.12129532383784541
+          },
+          "satterthwaite": {
+            "beta": 0.15278153365439662,
+            "se": 0.09860947936592378,
+            "df": 6.961638422215546,
+            "f": 2.4005148605151687,
+            "p": 0.16546093690714264,
+            "critical": 2.3672682493967256,
+            "distribution_p": 0.16546093690714264
+          },
+          "kenward_roger": {
+            "beta": 0.15278153365439662,
+            "se": 0.0986094793659238,
+            "df": 7.000000000000005,
+            "f": 2.4005148605151665,
+            "p": 0.1652267265639782,
+            "scaling": 0.9999999999999998,
+            "critical": 2.3646242515927836,
+            "distribution_p": 0.1652267265639782
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -4.7e+01"
+        ],
+        "seconds": 0.10999999999999943
+      },
+      "attempts": [
+        {
+          "case": "zero_slope-G8-m15-v0-rundefined-beta0",
+          "replicate": 18,
+          "variant": "baseline",
+          "fit": {
+            "beta": 0.15278153365439662,
+            "sigma2": 0.9551477018080476,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.014114121912678544
+              ]
+            ],
+            "theta": [
+              0,
+              -0.04701665891690306,
+              0.1120996592970184
+            ],
+            "criterion": 340.4309781021998,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.15278153365439662,
+                "se": 0.09860947936592378,
+                "df": null,
+                "f": 2.4005148605151687,
+                "p": 0.12129532383784541,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.12129532383784541
+              },
+              "satterthwaite": {
+                "beta": 0.15278153365439662,
+                "se": 0.09860947936592378,
+                "df": 6.961638422215546,
+                "f": 2.4005148605151687,
+                "p": 0.16546093690714264,
+                "critical": 2.3672682493967256,
+                "distribution_p": 0.16546093690714264
+              },
+              "kenward_roger": {
+                "beta": 0.15278153365439662,
+                "se": 0.0986094793659238,
+                "df": 7.000000000000005,
+                "f": 2.4005148605151665,
+                "p": 0.1652267265639782,
+                "scaling": 0.9999999999999998,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.1652267265639782
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -4.7e+01"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.15278153365439653,
+              "coefficients": [
+                1.9389821371682734,
+                0.15278153365439653
+              ],
+              "sigma2": 0.9446740534454444,
+              "covariance": [
+                [
+                  0.01022172879188981,
+                  0.012653090732643991
+                ],
+                [
+                  0.012653090732643991,
+                  0.01566278154587208
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.009149999877698264,
+                  0.0015816363415804989
+                ],
+                [
+                  0.0015816363415804989,
+                  0.009830131471946047
+                ]
+              ],
+              "criterion": 340.13859409149774,
+              "binding_directions": 1,
+              "ssw": 98.47221640672058,
+              "between_eigenvalues": [
+                0.9123719322462512,
+                1.332941708511873
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.292384010702051,
+                "limit": 4.401385940914977e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.010473648362603227,
+                "limit": 0.0009456740534454444,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.01022172879188981,
+                "limit": 1.1221728791889811e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.012653090732643991,
+                "limit": 1.3653090732643991e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.0015486596331935366,
+                "limit": 1.666278154587208e-05,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "zero_slope-G8-m15-v0-rundefined-beta0",
+          "replicate": 18,
+          "variant": "tight_default",
+          "fit": {
+            "beta": 0.15278153365439678,
+            "sigma2": 0.9446740566776887,
+            "covariance": [
+              [
+                0.010221725080681327,
+                0.012653087900219599
+              ],
+              [
+                0.012653087900219599,
+                0.015662780220265144
+              ]
+            ],
+            "theta": [
+              0.10402101898304884,
+              0.12876369558700734,
+              2.0723942555174802e-09
+            ],
+            "criterion": 340.13859409149757,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.15278153365439678,
+                "se": 0.0991470187811038,
+                "df": null,
+                "f": 2.3745559682402724,
+                "p": 0.12332665995141516,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.12332665995141516
+              },
+              "satterthwaite": {
+                "beta": 0.15278153365439678,
+                "se": 0.0991470187811038,
+                "df": 8.017601484504006,
+                "f": 2.3745559682402724,
+                "p": 0.16181253967086684,
+                "critical": 2.3051232365193552,
+                "distribution_p": 0.16181253967086684
+              },
+              "kenward_roger": {
+                "beta": 0.15278153365439678,
+                "se": 0.0991470187811038,
+                "df": 6.999999999999992,
+                "f": 2.374555968240272,
+                "p": 0.16722637977681437,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.16722637977681437
+              }
+            },
+            "warnings": [],
+            "seconds": 0.06000000000000005
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.15278153365439653,
+              "coefficients": [
+                1.9389821371682734,
+                0.15278153365439653
+              ],
+              "sigma2": 0.9446740534454444,
+              "covariance": [
+                [
+                  0.01022172879188981,
+                  0.012653090732643991
+                ],
+                [
+                  0.012653090732643991,
+                  0.01566278154587208
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.009149999877698264,
+                  0.0015816363415804989
+                ],
+                [
+                  0.0015816363415804989,
+                  0.009830131471946047
+                ]
+              ],
+              "criterion": 340.13859409149774,
+              "binding_directions": 1,
+              "ssw": 98.47221640672058,
+              "between_eigenvalues": [
+                0.9123719322462512,
+                1.332941708511873
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -1.7053025658242404e-13,
+                "limit": 4.401385940914977e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 3.2322442500287707e-09,
+                "limit": 0.0009456740534454444,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -3.711208482887196e-09,
+                "limit": 1.1221728791889811e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -2.832424392251731e-09,
+                "limit": 1.3653090732643991e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -1.32560693671957e-09,
+                "limit": 1.666278154587208e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "zero_slope-G8-m15-v0-rundefined-beta0",
+          "replicate": 18,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": 0.15278153365439687,
+            "sigma2": 0.9446740536361218,
+            "covariance": [
+              [
+                0.010221729118795637,
+                0.012653090682911353
+              ],
+              [
+                0.012653090682911353,
+                0.01566278092183161
+              ]
+            ],
+            "theta": [
+              0.10402103969736785,
+              0.12876369867807605,
+              5.0713140309242277e-08
+            ],
+            "criterion": 340.1385940914976,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.15278153365439687,
+                "se": 0.0991470190955329,
+                "df": null,
+                "f": 2.3745559531792164,
+                "p": 0.12332666114086466,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.12332666114086466
+              },
+              "satterthwaite": {
+                "beta": 0.15278153365439687,
+                "se": 0.0991470190955329,
+                "df": 8.017601319763932,
+                "f": 2.3745559531792164,
+                "p": 0.16181254161309025,
+                "critical": 2.305123244743202,
+                "distribution_p": 0.16181254161309025
+              },
+              "kenward_roger": {
+                "beta": 0.15278153365439687,
+                "se": 0.09914701909553288,
+                "df": 6.999999999999991,
+                "f": 2.3745559531792177,
+                "p": 0.16722638094659548,
+                "scaling": 1,
+                "critical": 2.364624251592785,
+                "distribution_p": 0.16722638094659548
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.15278153365439653,
+              "coefficients": [
+                1.9389821371682734,
+                0.15278153365439653
+              ],
+              "sigma2": 0.9446740534454444,
+              "covariance": [
+                [
+                  0.01022172879188981,
+                  0.012653090732643991
+                ],
+                [
+                  0.012653090732643991,
+                  0.01566278154587208
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.009149999877698264,
+                  0.0015816363415804989
+                ],
+                [
+                  0.0015816363415804989,
+                  0.009830131471946047
+                ]
+              ],
+              "criterion": 340.13859409149774,
+              "binding_directions": 1,
+              "ssw": 98.47221640672058,
+              "between_eigenvalues": [
+                0.9123719322462512,
+                1.332941708511873
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -1.1368683772161603e-13,
+                "limit": 4.401385940914977e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 1.906773627879943e-10,
+                "limit": 0.0009456740534454444,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 3.2690582706107474e-10,
+                "limit": 1.1221728791889811e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -4.973263814656015e-11,
+                "limit": 1.3653090732643991e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -6.240404720747605e-10,
+                "limit": 1.666278154587208e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "zero_slope-G8-m15-v0-rundefined-beta0",
+          "replicate": 18,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": 0.15278153365439665,
+            "sigma2": 0.9446740525356295,
+            "covariance": [
+              [
+                0.01022172963995783,
+                0.01265309148765366
+              ],
+              [
+                0.01265309148765366,
+                0.015662782115571
+              ]
+            ],
+            "theta": [
+              0.10402104240975084,
+              0.12876370365995207,
+              0
+            ],
+            "criterion": 340.1385940914976,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": 0.15278153365439665,
+                "se": 0.09914701980179043,
+                "df": null,
+                "f": 2.374555919349691,
+                "p": 0.12332666381255734,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.12332666381255734
+              },
+              "satterthwaite": {
+                "beta": 0.15278153365439665,
+                "se": 0.09914701980179043,
+                "df": 8.017601150455116,
+                "f": 2.374555919349691,
+                "p": 0.16181254503905476,
+                "critical": 2.305123253195121,
+                "distribution_p": 0.16181254503905476
+              },
+              "kenward_roger": {
+                "beta": 0.15278153365439665,
+                "se": 0.09914701980179041,
+                "df": 6.999999999999989,
+                "f": 2.374555919349691,
+                "p": 0.16722638357411013,
+                "scaling": 1,
+                "critical": 2.364624251592785,
+                "distribution_p": 0.16722638357411013
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": 0.15278153365439653,
+              "coefficients": [
+                1.9389821371682734,
+                0.15278153365439653
+              ],
+              "sigma2": 0.9446740534454444,
+              "covariance": [
+                [
+                  0.01022172879188981,
+                  0.012653090732643991
+                ],
+                [
+                  0.012653090732643991,
+                  0.01566278154587208
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.009149999877698264,
+                  0.0015816363415804989
+                ],
+                [
+                  0.0015816363415804989,
+                  0.009830131471946047
+                ]
+              ],
+              "criterion": 340.13859409149774,
+              "binding_directions": 1,
+              "ssw": 98.47221640672058,
+              "between_eigenvalues": [
+                0.9123719322462512,
+                1.332941708511873
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -1.1368683772161603e-13,
+                "limit": 4.401385940914977e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -9.098148900932301e-10,
+                "limit": 0.0009456740534454444,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 8.480680203232227e-10,
+                "limit": 1.1221728791889811e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 7.550096693675901e-10,
+                "limit": 1.3653090732643991e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 5.696989199832636e-10,
+                "limit": 1.666278154587208e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+      "replicate": 17,
+      "selected": "tight_positive",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": -0.25254573831971894,
+        "sigma2": 0.8287902854662353,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.03579291839095568
+          ]
+        ],
+        "criterion": 109.44973018095502,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": -0.25254573831971894,
+            "se": 0.15872577590147527,
+            "df": null,
+            "f": 2.5315421983041055,
+            "p": 0.11159110393512635,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.11159110393512635
+          },
+          "satterthwaite": {
+            "beta": -0.25254573831971894,
+            "se": 0.15872577590147527,
+            "df": 4.948651551123907,
+            "f": 2.5315421983041055,
+            "p": 0.17306776365995127,
+            "critical": 2.5786252225474486,
+            "distribution_p": 0.17306776365995127
+          },
+          "kenward_roger": {
+            "beta": -0.25254573831971894,
+            "se": 0.1587257759014753,
+            "df": 7.000000000000002,
+            "f": 2.5315421983041047,
+            "p": 0.1556173372238357,
+            "scaling": 1,
+            "critical": 2.364624251592784,
+            "distribution_p": 0.1556173372238357
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -1.2e+01"
+        ],
+        "seconds": 0.10000000000000142
+      },
+      "attempts": [
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 17,
+          "variant": "baseline",
+          "fit": {
+            "beta": -0.25254573831971894,
+            "sigma2": 0.8287902854662353,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.03579291839095568
+              ]
+            ],
+            "theta": [
+              0,
+              -0.20779813419842125,
+              0.0026225768122016798
+            ],
+            "criterion": 109.44973018095502,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.25254573831971894,
+                "se": 0.15872577590147527,
+                "df": null,
+                "f": 2.5315421983041055,
+                "p": 0.11159110393512635,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.11159110393512635
+              },
+              "satterthwaite": {
+                "beta": -0.25254573831971894,
+                "se": 0.15872577590147527,
+                "df": 4.948651551123907,
+                "f": 2.5315421983041055,
+                "p": 0.17306776365995127,
+                "critical": 2.5786252225474486,
+                "distribution_p": 0.17306776365995127
+              },
+              "kenward_roger": {
+                "beta": -0.25254573831971894,
+                "se": 0.1587257759014753,
+                "df": 7.000000000000002,
+                "f": 2.5315421983041047,
+                "p": 0.1556173372238357,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.1556173372238357
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -1.2e+01"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.2525457383197189,
+              "coefficients": [
+                1.8143830846456073,
+                -0.2525457383197189
+              ],
+              "sigma2": 0.7208111223632344,
+              "covariance": [
+                [
+                  0.0584703729060264,
+                  0.0743558128191057
+                ],
+                [
+                  0.0743558128191057,
+                  0.09455706583017266
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.02532907467233416,
+                  0.009294476602388212
+                ],
+                [
+                  0.009294476602388212,
+                  0.029839911287852447
+                ]
+              ],
+              "criterion": 107.84073717850404,
+              "binding_directions": 1,
+              "ssw": 20.704131531028647,
+              "between_eigenvalues": [
+                0.23443046603308848,
+                1.4859483160442297
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 1.6089930024509727,
+                "limit": 2.0784073717850403e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.10797916310300093,
+                "limit": 0.0007218111223632345,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0584703729060264,
+                "limit": 5.9470372906026396e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.0743558128191057,
+                "limit": 7.53558128191057e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.058764147439216985,
+                "limit": 9.555706583017266e-05,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 17,
+          "variant": "tight_default",
+          "fit": {
+            "beta": -0.25254573831971866,
+            "sigma2": 0.7208111146610479,
+            "covariance": [
+              [
+                0.05847037530413397,
+                0.07435581953614065
+              ],
+              [
+                0.07435581953614065,
+                0.09455707903588945
+              ]
+            ],
+            "theta": [
+              0.28481129165117497,
+              0.36218985928712866,
+              0
+            ],
+            "criterion": 107.84073717850403,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.25254573831971866,
+                "se": 0.17274233049838242,
+                "df": null,
+                "f": 2.137383928911618,
+                "p": 0.1437468397337081,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.1437468397337081
+              },
+              "satterthwaite": {
+                "beta": -0.25254573831971866,
+                "se": 0.17274233049838242,
+                "df": 8.52811669084737,
+                "f": 2.137383928911618,
+                "p": 0.17959488362551695,
+                "critical": 2.281382251316954,
+                "distribution_p": 0.17959488362551695
+              },
+              "kenward_roger": {
+                "beta": -0.25254573831971866,
+                "se": 0.17274233049838242,
+                "df": 6.999999999999998,
+                "f": 2.1373839289116177,
+                "p": 0.18713931417666707,
+                "scaling": 0.9999999999999998,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.18713931417666707
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08999999999999986
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.2525457383197189,
+              "coefficients": [
+                1.8143830846456073,
+                -0.2525457383197189
+              ],
+              "sigma2": 0.7208111223632344,
+              "covariance": [
+                [
+                  0.0584703729060264,
+                  0.0743558128191057
+                ],
+                [
+                  0.0743558128191057,
+                  0.09455706583017266
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.02532907467233416,
+                  0.009294476602388212
+                ],
+                [
+                  0.009294476602388212,
+                  0.029839911287852447
+                ]
+              ],
+              "criterion": 107.84073717850404,
+              "binding_directions": 1,
+              "ssw": 20.704131531028647,
+              "between_eigenvalues": [
+                0.23443046603308848,
+                1.4859483160442297
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -1.4210854715202004e-14,
+                "limit": 2.0784073717850403e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -7.702186555214041e-09,
+                "limit": 0.0007218111223632345,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 2.3981075736312363e-09,
+                "limit": 5.9470372906026396e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 6.71703495602749e-09,
+                "limit": 7.53558128191057e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 1.3205716783981636e-08,
+                "limit": 9.555706583017266e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 17,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": -0.25254573831971894,
+            "sigma2": 0.720811124212432,
+            "covariance": [
+              [
+                0.05847037377465586,
+                0.07435581155692782
+              ],
+              [
+                0.07435581155692782,
+                0.0945570612152616
+              ]
+            ],
+            "theta": [
+              0.28481128603910305,
+              0.3621898227575416,
+              2.5127700514735617e-09
+            ],
+            "criterion": 107.84073717850401,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.25254573831971894,
+                "se": 0.17274232474184922,
+                "df": null,
+                "f": 2.137384071365671,
+                "p": 0.14374682638262318,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.14374682638262318
+              },
+              "satterthwaite": {
+                "beta": -0.25254573831971894,
+                "se": 0.17274232474184922,
+                "df": 8.528117640947462,
+                "f": 2.137384071365671,
+                "p": 0.17959486674046302,
+                "critical": 2.281382210158079,
+                "distribution_p": 0.17959486674046302
+              },
+              "kenward_roger": {
+                "beta": -0.25254573831971894,
+                "se": 0.17274232474184917,
+                "df": 7.000000000000009,
+                "f": 2.137384071365672,
+                "p": 0.18713930125587075,
+                "scaling": 0.9999999999999998,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.18713930125587075
+              }
+            },
+            "warnings": [],
+            "seconds": 0.06999999999999984
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.2525457383197189,
+              "coefficients": [
+                1.8143830846456073,
+                -0.2525457383197189
+              ],
+              "sigma2": 0.7208111223632344,
+              "covariance": [
+                [
+                  0.0584703729060264,
+                  0.0743558128191057
+                ],
+                [
+                  0.0743558128191057,
+                  0.09455706583017266
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.02532907467233416,
+                  0.009294476602388212
+                ],
+                [
+                  0.009294476602388212,
+                  0.029839911287852447
+                ]
+              ],
+              "criterion": 107.84073717850404,
+              "binding_directions": 1,
+              "ssw": 20.704131531028647,
+              "between_eigenvalues": [
+                0.23443046603308848,
+                1.4859483160442297
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -2.842170943040401e-14,
+                "limit": 2.0784073717850403e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 1.8491975728451848e-09,
+                "limit": 0.0007218111223632345,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 8.686294600268596e-10,
+                "limit": 5.9470372906026396e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -1.2621778761046087e-09,
+                "limit": 7.53558128191057e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -4.614911064404481e-09,
+                "limit": 9.555706583017266e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 17,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": -0.2525457383197185,
+            "sigma2": 0.7208111253599714,
+            "covariance": [
+              [
+                0.05847036906772503,
+                0.07435580950067192
+              ],
+              [
+                0.07435580950067192,
+                0.09455706359739811
+              ]
+            ],
+            "theta": [
+              0.28481127434857706,
+              0.3621898270314847,
+              7.624917512376057e-09
+            ],
+            "criterion": 107.84073717850401,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.2525457383197185,
+                "se": 0.17274232568676987,
+                "df": null,
+                "f": 2.1373840479821844,
+                "p": 0.14374682857417123,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.14374682857417123
+              },
+              "satterthwaite": {
+                "beta": -0.2525457383197185,
+                "se": 0.17274232568676987,
+                "df": 8.52811754644738,
+                "f": 2.1373840479821844,
+                "p": 0.17959486926133164,
+                "critical": 2.281382214251876,
+                "distribution_p": 0.17959486926133164
+              },
+              "kenward_roger": {
+                "beta": -0.2525457383197185,
+                "se": 0.17274232568676987,
+                "df": 7,
+                "f": 2.137384047982184,
+                "p": 0.1871393033767882,
+                "scaling": 1,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.1871393033767882
+              }
+            },
+            "warnings": [],
+            "seconds": 0.07000000000000028
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.2525457383197189,
+              "coefficients": [
+                1.8143830846456073,
+                -0.2525457383197189
+              ],
+              "sigma2": 0.7208111223632344,
+              "covariance": [
+                [
+                  0.0584703729060264,
+                  0.0743558128191057
+                ],
+                [
+                  0.0743558128191057,
+                  0.09455706583017266
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.02532907467233416,
+                  0.009294476602388212
+                ],
+                [
+                  0.009294476602388212,
+                  0.029839911287852447
+                ]
+              ],
+              "criterion": 107.84073717850404,
+              "binding_directions": 1,
+              "ssw": 20.704131531028647,
+              "between_eigenvalues": [
+                0.23443046603308848,
+                1.4859483160442297
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -2.842170943040401e-14,
+                "limit": 2.0784073717850403e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 2.9967369696848323e-09,
+                "limit": 0.0007218111223632345,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -3.838301371184016e-09,
+                "limit": 5.9470372906026396e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -3.3184337777658612e-09,
+                "limit": 7.53558128191057e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -2.2327745485828387e-09,
+                "limit": 9.555706583017266e-05,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+      "replicate": 19,
+      "selected": "tight_negative",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": -0.2436191519942834,
+        "sigma2": 1.6215787358521694,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.24747184308244682
+          ]
+        ],
+        "criterion": 137.5556451959757,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": -0.2436191519942834,
+            "se": 0.2673451865689938,
+            "df": null,
+            "f": 0.8303823619839709,
+            "p": 0.3621619883593574,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.3621619883593574
+          },
+          "satterthwaite": {
+            "beta": -0.2436191519942834,
+            "se": 0.2673451865689938,
+            "df": 6.990609831159088,
+            "f": 0.8303823619839709,
+            "p": 0.39250001746080093,
+            "critical": 2.3652682955900652,
+            "distribution_p": 0.39250001746080093
+          },
+          "kenward_roger": {
+            "beta": -0.2436191519942834,
+            "se": 0.2673451865689938,
+            "df": 6.9999999999999964,
+            "f": 0.8303823619839709,
+            "p": 0.3924608110799641,
+            "scaling": 1,
+            "critical": 2.3646242515927844,
+            "distribution_p": 0.3924608110799641
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -4.2e-02"
+        ],
+        "seconds": 0.09000000000000341
+      },
+      "attempts": [
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 19,
+          "variant": "baseline",
+          "fit": {
+            "beta": -0.2436191519942834,
+            "sigma2": 1.6215787358521694,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.24747184308244682
+              ]
+            ],
+            "theta": [
+              0,
+              -0.38752277261615586,
+              0.04937381162063015
+            ],
+            "criterion": 137.5556451959757,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.2436191519942834,
+                "se": 0.2673451865689938,
+                "df": null,
+                "f": 0.8303823619839709,
+                "p": 0.3621619883593574,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.3621619883593574
+              },
+              "satterthwaite": {
+                "beta": -0.2436191519942834,
+                "se": 0.2673451865689938,
+                "df": 6.990609831159088,
+                "f": 0.8303823619839709,
+                "p": 0.39250001746080093,
+                "critical": 2.3652682955900652,
+                "distribution_p": 0.39250001746080093
+              },
+              "kenward_roger": {
+                "beta": -0.2436191519942834,
+                "se": 0.2673451865689938,
+                "df": 6.9999999999999964,
+                "f": 0.8303823619839709,
+                "p": 0.3924608110799641,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.3924608110799641
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -4.2e-02"
+            ],
+            "seconds": 0.10000000000000009
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.24361915199428355,
+              "coefficients": [
+                1.4841696550580035,
+                -0.24361915199428355
+              ],
+              "sigma2": 1.5995626197559747,
+              "covariance": [
+                [
+                  0.015802086666474223,
+                  0.06354987342588217
+                ],
+                [
+                  0.06354987342588217,
+                  0.25557298208052054
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.041964326327208645,
+                  0.007943734178235271
+                ],
+                [
+                  0.007943734178235271,
+                  0.07193568825396444
+                ]
+              ],
+              "criterion": 137.366620608463,
+              "binding_directions": 1,
+              "ssw": 40.61218212134376,
+              "between_eigenvalues": [
+                1.2820370130130656,
+                2.956437963490948
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.189024587512705,
+                "limit": 2.37366620608463e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.022016116096194693,
+                "limit": 0.001601184198491827,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.015802086666474223,
+                "limit": 1.7423665402326394e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.06354987342588217,
+                "limit": 6.517145216173434e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.008101138998073715,
+                "limit": 0.0002571945608163727,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 19,
+          "variant": "tight_default",
+          "fit": {
+            "beta": -0.2436191519942835,
+            "sigma2": 1.6215787188324073,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.2474718730638808
+              ]
+            ],
+            "theta": [
+              0,
+              -0.3891938646510257,
+              0.03376134444720397
+            ],
+            "criterion": 137.5556451959757,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.2436191519942835,
+                "se": 0.2673451927822816,
+                "df": null,
+                "f": 0.8303823233866474,
+                "p": 0.3621619995154721,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.3621619995154721
+              },
+              "satterthwaite": {
+                "beta": -0.2436191519942835,
+                "se": 0.2673451927822816,
+                "df": 6.99054038644785,
+                "f": 0.8303823233866474,
+                "p": 0.39250031820086356,
+                "critical": 2.3652730661804466,
+                "distribution_p": 0.39250031820086356
+              },
+              "kenward_roger": {
+                "beta": -0.2436191519942835,
+                "se": 0.2673451927822816,
+                "df": 6.999999999999997,
+                "f": 0.8303823233866474,
+                "p": 0.3924608214942504,
+                "scaling": 1,
+                "critical": 2.3646242515927844,
+                "distribution_p": 0.3924608214942504
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -1.9e-02"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.24361915199428355,
+              "coefficients": [
+                1.4841696550580035,
+                -0.24361915199428355
+              ],
+              "sigma2": 1.5995626197559747,
+              "covariance": [
+                [
+                  0.015802086666474223,
+                  0.06354987342588217
+                ],
+                [
+                  0.06354987342588217,
+                  0.25557298208052054
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.041964326327208645,
+                  0.007943734178235271
+                ],
+                [
+                  0.007943734178235271,
+                  0.07193568825396444
+                ]
+              ],
+              "criterion": 137.366620608463,
+              "binding_directions": 1,
+              "ssw": 40.61218212134376,
+              "between_eigenvalues": [
+                1.2820370130130656,
+                2.956437963490948
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.189024587512705,
+                "limit": 2.37366620608463e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.02201609907643265,
+                "limit": 0.0016011841984748072,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.015802086666474223,
+                "limit": 1.7423665385306633e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.06354987342588217,
+                "limit": 6.517145214471458e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.00810110901663974,
+                "limit": 0.00025719456079935295,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 19,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": -0.2436191519942835,
+            "sigma2": 1.5995626253985962,
+            "covariance": [
+              [
+                0.015802078713658248,
+                0.06354985713431008
+              ],
+              [
+                0.06354985713431008,
+                0.2555729796675763
+              ]
+            ],
+            "theta": [
+              0.09939315726327383,
+              0.3997208885404157,
+              0
+            ],
+            "criterion": 137.36662060846302,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.2436191519942835,
+                "se": 0.2682082923651168,
+                "df": null,
+                "f": 0.8250465490973631,
+                "p": 0.36370879305256937,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.36370879305256937
+              },
+              "satterthwaite": {
+                "beta": -0.2436191519942835,
+                "se": 0.2682082923651168,
+                "df": 7.089977263097047,
+                "f": 0.8250465490973631,
+                "p": 0.3935354198241865,
+                "critical": 2.358554485971895,
+                "distribution_p": 0.3935354198241865
+              },
+              "kenward_roger": {
+                "beta": -0.2436191519942835,
+                "se": 0.2682082923651168,
+                "df": 7.000000000000002,
+                "f": 0.825046549097363,
+                "p": 0.3939048028510102,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.3939048028510102
+              }
+            },
+            "warnings": [],
+            "seconds": 0.0699999999999994
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.24361915199428355,
+              "coefficients": [
+                1.4841696550580035,
+                -0.24361915199428355
+              ],
+              "sigma2": 1.5995626197559747,
+              "covariance": [
+                [
+                  0.015802086666474223,
+                  0.06354987342588217
+                ],
+                [
+                  0.06354987342588217,
+                  0.25557298208052054
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.041964326327208645,
+                  0.007943734178235271
+                ],
+                [
+                  0.007943734178235271,
+                  0.07193568825396444
+                ]
+              ],
+              "criterion": 137.366620608463,
+              "binding_directions": 1,
+              "ssw": 40.61218212134376,
+              "between_eigenvalues": [
+                1.2820370130130656,
+                2.956437963490948
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 2.842170943040401e-14,
+                "limit": 2.37366620608463e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 5.6426214811722275e-09,
+                "limit": 0.0016011621823813734,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -7.952815975209582e-09,
+                "limit": 1.7401649291872822e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -1.6291572091375883e-08,
+                "limit": 6.514943605128076e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -2.412944233309844e-09,
+                "limit": 0.00025717254470591916,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "near_correlation-G8-m5-v0.25-r0.95-beta0",
+          "replicate": 19,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": -0.24361915199428347,
+            "sigma2": 1.5995626215282568,
+            "covariance": [
+              [
+                0.015802087585211157,
+                0.0635498747542741
+              ],
+              [
+                0.0635498747542741,
+                0.25557297790601774
+              ]
+            ],
+            "theta": [
+              0.09939318528401249,
+              0.3997208876464375,
+              8.964264142377625e-08
+            ],
+            "criterion": 137.366620608463,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.24361915199428347,
+                "se": 0.26820829177424516,
+                "df": null,
+                "f": 0.8250465527325718,
+                "p": 0.3637087919956458,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.3637087919956458
+              },
+              "satterthwaite": {
+                "beta": -0.24361915199428347,
+                "se": 0.26820829177424516,
+                "df": 7.089977225507233,
+                "f": 0.8250465527325718,
+                "p": 0.3935354189890776,
+                "critical": 2.3585544884698892,
+                "distribution_p": 0.3935354189890776
+              },
+              "kenward_roger": {
+                "beta": -0.24361915199428347,
+                "se": 0.26820829177424527,
+                "df": 7.000000000000002,
+                "f": 0.8250465527325711,
+                "p": 0.393904801864309,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.393904801864309
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.24361915199428355,
+              "coefficients": [
+                1.4841696550580035,
+                -0.24361915199428355
+              ],
+              "sigma2": 1.5995626197559747,
+              "covariance": [
+                [
+                  0.015802086666474223,
+                  0.06354987342588217
+                ],
+                [
+                  0.06354987342588217,
+                  0.25557298208052054
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.041964326327208645,
+                  0.007943734178235271
+                ],
+                [
+                  0.007943734178235271,
+                  0.07193568825396444
+                ]
+              ],
+              "criterion": 137.366620608463,
+              "binding_directions": 1,
+              "ssw": 40.61218212134376,
+              "between_eigenvalues": [
+                1.2820370130130656,
+                2.956437963490948
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.0,
+                "limit": 2.37366620608463e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 1.7722820988552712e-09,
+                "limit": 0.001601162182377503,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 9.187369337526619e-10,
+                "limit": 1.740164928800248e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 1.3283919242379483e-09,
+                "limit": 6.514943604741043e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -4.174502798992563e-09,
+                "limit": 0.00025717254470204883,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    },
+    {
+      "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+      "replicate": 9,
+      "selected": "tight_positive",
+      "selected_numerical_pass": true,
+      "retained_reference": {
+        "beta": -0.4187358141936651,
+        "sigma2": 1.3717202548418577,
+        "covariance": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0.12994389556524
+          ]
+        ],
+        "criterion": 129.94179139855595,
+        "converged": true,
+        "package_singular": true,
+        "optimizer_messages": [
+          "boundary (singular) fit: see help('isSingular')"
+        ],
+        "optimizer_code": 0,
+        "methods": {
+          "normal": {
+            "beta": -0.4187358141936651,
+            "se": 0.22480212035632902,
+            "df": null,
+            "f": 3.4695999936046444,
+            "p": 0.06250642425965781,
+            "critical": 1.9599639845400536,
+            "distribution_p": 0.06250642425965781
+          },
+          "satterthwaite": {
+            "beta": -0.4187358141936651,
+            "se": 0.22480212035632902,
+            "df": 6.53890339509409,
+            "f": 3.4695999936046444,
+            "p": 0.10776734284470045,
+            "critical": 2.398849819745493,
+            "distribution_p": 0.10776734284470045
+          },
+          "kenward_roger": {
+            "beta": -0.4187358141936651,
+            "se": 0.22480212035632902,
+            "df": 7.000000000000005,
+            "f": 3.4695999936046436,
+            "p": 0.10479735242313801,
+            "scaling": 0.9999999999999998,
+            "critical": 2.3646242515927836,
+            "distribution_p": 0.10479735242313801
+          }
+        },
+        "warnings": [
+          "Model failed to converge with 1 negative eigenvalue: -8.9e-02"
+        ],
+        "seconds": 0.10999999999999943
+      },
+      "attempts": [
+        {
+          "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+          "replicate": 9,
+          "variant": "baseline",
+          "fit": {
+            "beta": -0.4187358141936651,
+            "sigma2": 1.3717202548418577,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.12994389556524
+              ]
+            ],
+            "theta": [
+              0,
+              -0.3069858416772793,
+              0.022142771623018285
+            ],
+            "criterion": 129.94179139855595,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.4187358141936651,
+                "se": 0.22480212035632902,
+                "df": null,
+                "f": 3.4695999936046444,
+                "p": 0.06250642425965781,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.06250642425965781
+              },
+              "satterthwaite": {
+                "beta": -0.4187358141936651,
+                "se": 0.22480212035632902,
+                "df": 6.53890339509409,
+                "f": 3.4695999936046444,
+                "p": 0.10776734284470045,
+                "critical": 2.398849819745493,
+                "distribution_p": 0.10776734284470045
+              },
+              "kenward_roger": {
+                "beta": -0.4187358141936651,
+                "se": 0.22480212035632902,
+                "df": 7.000000000000005,
+                "f": 3.4695999936046436,
+                "p": 0.10479735242313801,
+                "scaling": 0.9999999999999998,
+                "critical": 2.3646242515927836,
+                "distribution_p": 0.10479735242313801
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -8.9e-02"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.4187358141936651,
+              "coefficients": [
+                1.7481451920832842,
+                -0.4187358141936651
+              ],
+              "sigma2": 1.30355196805327,
+              "covariance": [
+                [
+                  0.0436231894529043,
+                  0.08363129139973716
+                ],
+                [
+                  0.08363129139973716,
+                  0.16033199288966937
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03804169788294478,
+                  0.010453911424967145
+                ],
+                [
+                  0.010453911424967145,
+                  0.05263029831254042
+                ]
+              ],
+              "criterion": 129.33596902561263,
+              "binding_directions": 1,
+              "ssw": 34.02691590056931,
+              "between_eigenvalues": [
+                0.9118850155831509,
+                2.323327879766138
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.6058223729433223,
+                "limit": 2.2933596902561263e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.06816828678858777,
+                "limit": 0.0013049236883081118,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0436231894529043,
+                "limit": 4.4994909707746155e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.08363129139973716,
+                "limit": 8.500301165457902e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.030388097324429375,
+                "limit": 0.00016170371314451124,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+          "replicate": 9,
+          "variant": "tight_default",
+          "fit": {
+            "beta": -0.4187358141936653,
+            "sigma2": 1.3717202478662143,
+            "covariance": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0.12994390606522738
+              ]
+            ],
+            "theta": [
+              0,
+              -0.3077831923122577,
+              0.0003521248092679422
+            ],
+            "criterion": 129.94179139855595,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.4187358141936653,
+                "se": 0.2248021228876827,
+                "df": null,
+                "f": 3.469599915466731,
+                "p": 0.0625064272123496,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.0625064272123496
+              },
+              "satterthwaite": {
+                "beta": -0.4187358141936653,
+                "se": 0.2248021228876827,
+                "df": 6.530085323275919,
+                "f": 3.469599915466731,
+                "p": 0.1078281676991265,
+                "critical": 2.3995603987840872,
+                "distribution_p": 0.1078281676991265
+              },
+              "kenward_roger": {
+                "beta": -0.4187358141936653,
+                "se": 0.22480212288768275,
+                "df": 7.000000000000002,
+                "f": 3.4695999154667287,
+                "p": 0.10479735565048007,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.10479735565048007
+              }
+            },
+            "warnings": [
+              "Model failed to converge with 1 negative eigenvalue: -1.8e-03"
+            ],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.4187358141936651,
+              "coefficients": [
+                1.7481451920832842,
+                -0.4187358141936651
+              ],
+              "sigma2": 1.30355196805327,
+              "covariance": [
+                [
+                  0.0436231894529043,
+                  0.08363129139973716
+                ],
+                [
+                  0.08363129139973716,
+                  0.16033199288966937
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03804169788294478,
+                  0.010453911424967145
+                ],
+                [
+                  0.010453911424967145,
+                  0.05263029831254042
+                ]
+              ],
+              "criterion": 129.33596902561263,
+              "binding_directions": 1,
+              "ssw": 34.02691590056931,
+              "between_eigenvalues": [
+                0.9118850155831509,
+                2.323327879766138
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": 0.6058223729433223,
+                "limit": 2.2933596902561263e-06,
+                "passed": false
+              },
+              {
+                "metric": "sigma2",
+                "difference": 0.06816827981294438,
+                "limit": 0.001304923688301136,
+                "passed": false
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -0.0436231894529043,
+                "limit": 4.499490970077051e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -0.08363129139973716,
+                "limit": 8.500301164760337e-05,
+                "passed": false
+              },
+              {
+                "metric": "covariance_11",
+                "difference": -0.030388086824441995,
+                "limit": 0.0001617037131375356,
+                "passed": false
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": false
+        },
+        {
+          "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+          "replicate": 9,
+          "variant": "tight_positive",
+          "fit": {
+            "beta": -0.41873581419366496,
+            "sigma2": 1.3035519611149466,
+            "covariance": [
+              [
+                0.04362319236419037,
+                0.08363129664961598
+              ],
+              [
+                0.08363129664961598,
+                0.16033200231897746
+              ]
+            ],
+            "theta": [
+              0.18293404961191542,
+              0.3507082114184838,
+              9.399102744211737e-08
+            ],
+            "criterion": 129.3359690256126,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.41873581419366496,
+                "se": 0.22941294496550507,
+                "df": null,
+                "f": 3.3315349591658228,
+                "p": 0.06796341922825755,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.06796341922825755
+              },
+              "satterthwaite": {
+                "beta": -0.41873581419366496,
+                "se": 0.22941294496550507,
+                "df": 7.586815863027719,
+                "f": 3.3315349591658228,
+                "p": 0.10742901078938785,
+                "critical": 2.328048213291553,
+                "distribution_p": 0.10742901078938785
+              },
+              "kenward_roger": {
+                "beta": -0.41873581419366496,
+                "se": 0.22941294496550507,
+                "df": 7.000000000000002,
+                "f": 3.3315349591658237,
+                "p": 0.11071362639329684,
+                "scaling": 1,
+                "critical": 2.364624251592784,
+                "distribution_p": 0.11071362639329684
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08000000000000007
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.4187358141936651,
+              "coefficients": [
+                1.7481451920832842,
+                -0.4187358141936651
+              ],
+              "sigma2": 1.30355196805327,
+              "covariance": [
+                [
+                  0.0436231894529043,
+                  0.08363129139973716
+                ],
+                [
+                  0.08363129139973716,
+                  0.16033199288966937
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03804169788294478,
+                  0.010453911424967145
+                ],
+                [
+                  0.010453911424967145,
+                  0.05263029831254042
+                ]
+              ],
+              "criterion": 129.33596902561263,
+              "binding_directions": 1,
+              "ssw": 34.02691590056931,
+              "between_eigenvalues": [
+                0.9118850155831509,
+                2.323327879766138
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -2.842170943040401e-14,
+                "limit": 2.2933596902561263e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": -6.938323249272571e-09,
+                "limit": 0.0013048555200213233,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": 2.911286073326025e-09,
+                "limit": 4.492674142095757e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": 5.249878823332388e-09,
+                "limit": 8.493484336779042e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 9.42930808434106e-09,
+                "limit": 0.00016163554485772264,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        },
+        {
+          "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+          "replicate": 9,
+          "variant": "tight_negative",
+          "fit": {
+            "beta": -0.4187358141936652,
+            "sigma2": 1.30355196924487,
+            "covariance": [
+              [
+                0.04362318561005802,
+                0.0836312881656077
+              ],
+              [
+                0.0836312881656077,
+                0.1603319946131191
+              ]
+            ],
+            "theta": [
+              0.18293403487971635,
+              0.3507082018970082,
+              0
+            ],
+            "criterion": 129.3359690256126,
+            "converged": true,
+            "package_singular": true,
+            "optimizer_messages": [
+              "boundary (singular) fit: see help('isSingular')"
+            ],
+            "optimizer_code": 0,
+            "methods": {
+              "normal": {
+                "beta": -0.4187358141936652,
+                "se": 0.22941294330913772,
+                "df": null,
+                "f": 3.3315350072733625,
+                "p": 0.06796341724048176,
+                "critical": 1.9599639845400536,
+                "distribution_p": 0.06796341724048176
+              },
+              "satterthwaite": {
+                "beta": -0.4187358141936652,
+                "se": 0.22941294330913772,
+                "df": 7.586816044277338,
+                "f": 3.3315350072733625,
+                "p": 0.10742900772034648,
+                "critical": 2.3280482030093186,
+                "distribution_p": 0.10742900772034648
+              },
+              "kenward_roger": {
+                "beta": -0.4187358141936652,
+                "se": 0.22941294330913775,
+                "df": 7.000000000000011,
+                "f": 3.3315350072733616,
+                "p": 0.11071362425496646,
+                "scaling": 0.9999999999999998,
+                "critical": 2.364624251592783,
+                "distribution_p": 0.11071362425496646
+              }
+            },
+            "warnings": [],
+            "seconds": 0.08999999999999986
+          },
+          "numerical": {
+            "oracle": {
+              "beta": -0.4187358141936651,
+              "coefficients": [
+                1.7481451920832842,
+                -0.4187358141936651
+              ],
+              "sigma2": 1.30355196805327,
+              "covariance": [
+                [
+                  0.0436231894529043,
+                  0.08363129139973716
+                ],
+                [
+                  0.08363129139973716,
+                  0.16033199288966937
+                ]
+              ],
+              "fixed_covariance": [
+                [
+                  0.03804169788294478,
+                  0.010453911424967145
+                ],
+                [
+                  0.010453911424967145,
+                  0.05263029831254042
+                ]
+              ],
+              "criterion": 129.33596902561263,
+              "binding_directions": 1,
+              "ssw": 34.02691590056931,
+              "between_eigenvalues": [
+                0.9118850155831509,
+                2.323327879766138
+              ]
+            },
+            "evaluable": true,
+            "checks": [
+              {
+                "metric": "criterion",
+                "difference": -2.842170943040401e-14,
+                "limit": 2.2933596902561263e-06,
+                "passed": true
+              },
+              {
+                "metric": "sigma2",
+                "difference": 1.1916001518841313e-09,
+                "limit": 0.0013048555200225148,
+                "passed": true
+              },
+              {
+                "metric": "covariance_00",
+                "difference": -3.8428462773021366e-09,
+                "limit": 4.492674142214917e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_01",
+                "difference": -3.2341294503579476e-09,
+                "limit": 8.493484336898203e-05,
+                "passed": true
+              },
+              {
+                "metric": "covariance_11",
+                "difference": 1.723449716273251e-09,
+                "limit": 0.00016163554485891423,
+                "passed": true
+              }
+            ],
+            "rank_match": true
+          },
+          "eligible": true,
+          "numerical_pass": true
+        }
+      ]
+    }
+  ]
+}
