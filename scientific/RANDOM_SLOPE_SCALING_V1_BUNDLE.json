@@ -1,0 +1,54 @@
+{
+  "bytes": 28801948,
+  "counterexamples_sha256": "d5c57bc3315e8d3aa3d61a8b9a62f7f1d4e8b2f34c0e3673ce52b5a611a24de8",
+  "crc_verified": true,
+  "entries": 1508,
+  "name": "lmm-random-slope-scaling-v1-20261016.zip",
+  "privacy": "synthetic data and relative source/case paths; installed environments excluded",
+  "public_copies": [
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N10_FREEZE.json",
+      "sha256": "da344bf13d2aeb7558032cc19483c5187d4aeba66b4e8a269f4014d22ddcd3c8"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N10.json",
+      "sha256": "949ce20a660568f073a66b1e76815aa86a69349e43da89f1157b2d614d460df4"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N10_R_CHECK.json",
+      "sha256": "9e6b5bcf20ad514bd5c41500a42d3ed97c24772bd3d4aa4decab29f63b9b13fa"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N10_ACCEPTANCE.json",
+      "sha256": "7913b3e768b6e704ef76d2c9c49eccf1f110c025e408797287741628feb78071"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N20_FREEZE.json",
+      "sha256": "e10562b20930409e943328c593205fb9e7269d70aed33ee2092cb1a8e9f68e62"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N20.json",
+      "sha256": "0855ae4e03108fcc4e3b48d97d2a313b67b264d5c3aba812a3e769e7b848803c"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N20_R_CHECK.json",
+      "sha256": "03c55542e6b92c1b48f36a10e8ec1d305c0394e51730d0e4026bfe116691ea82"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_N20_ACCEPTANCE.json",
+      "sha256": "2a61a57a149bc2acbd58347a0d8b0e2b5eb6c2ffd373414e0ba4c325818ea021"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_CONTROLS.json",
+      "sha256": "b3d4b56c570fdc4a07d83da0760d3ee389a6d1d3454c6a6a0ab93e69585d22d6"
+    },
+    {
+      "path": "RANDOM_SLOPE_SCALING_V1_BANK.json",
+      "sha256": "2ec9b00f11a203e64f6b2feb99dfef1601bd891125a43c09020ab84d2cd45be2"
+    }
+  ],
+  "publication": "prepared locally; not uploaded",
+  "resource_receipt_sha256": "4df8c120ed13d427fe2d96838ef08e2d716cb21cb53607b9997849dd43745370",
+  "scope": "failed bank A controls and all three original freezes; completed bank B controls,940/1880 candidate and3760/7520 R attempts,source freezes,journals,logs,audits and capped R checks; no confirmation",
+  "sha256": "5a026f30f8c58f05f53d64e809eba6180f477090824dfea8c7388da4e7ab5ef2"
+}

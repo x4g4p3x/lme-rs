@@ -1,0 +1,2583 @@
+{
+  "caps": {
+    "disk_bytes": 536870912,
+    "job_commit_bytes": 4294967296,
+    "min_free_bytes": 1073741824,
+    "poll_seconds": 0.1,
+    "seconds": 900
+  },
+  "measurements": {
+    "n10": {
+      "analysis_file_bytes": 3515694,
+      "analysis_jobs": {
+        "analysis": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0
+            ],
+            "final_disk": {
+              "bytes": 14992162,
+              "free_bytes": 61533278208
+            },
+            "identity": {
+              "caps": {
+                "disk_bytes": 536870912,
+                "job_commit_bytes": 4294967296,
+                "min_free_bytes": 1073741824,
+                "poll_seconds": 0.1,
+                "seconds": 900
+              },
+              "command": {
+                "argv_sha256": "a65ba55e459655ee0dd5069a7ec5f31f7746a5d9b0a6e2d11f53f0044637dad2",
+                "executable": {
+                  "name": "python.exe",
+                  "sha256": "ae7e969410d751d010c2ca03394fe5c53230fbf48ca7d368b897e455eca14fba"
+                },
+                "script_sources": {
+                  "1": {
+                    "name": "report_lmm_random_slope_scaling.py",
+                    "sha256": "f72a996ef866ee1293af151755b37d21f1572226cf1d4297e65ea6a777fc445b"
+                  }
+                }
+              },
+              "inputs": {
+                "journal:exact_correlation-G20-m5-v0.25-r-1-beta0": "522491887fc2a0b09f5121205fae984914ee7cdfa01071990586834e9e69aeec",
+                "journal:exact_correlation-G20-m5-v0.25-r1-beta0": "49efc2938ca9df711647f36280eb059ba6acaa8996102c45899c4e7a48e47ba5",
+                "journal:exact_correlation-G8-m5-v0.25-r-1-beta0": "fe44878c6737b1d6fc1595aba95483234dd0207e8aaf8371933c38bee8cd9934",
+                "journal:exact_correlation-G8-m5-v0.25-r1-beta0": "53ba925dd667efaff44762889efa1819b7c29ddea8809ff6afac30da6f74e620",
+                "journal:imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0": "d194b61da3a4da13ae32f1aa5495e9960a4d3b09ee88b5aaf001256dbca2f8e2",
+                "journal:imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0": "c4d240eb9779011a506948514862091c60d2334260313bf990574386c20bb0ad",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0": "4e5b91680deab1a60e28c3f0cdc9f896bc816ffa8a1ea5b37ddc22fe12d46fee",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0.5": "23217dcd83079612058c235182337f506c8600f51dc63f522e825c42aec3541a",
+                "journal:interior-G20-m15-v0.05-r0-beta0": "449e0a73478a1f1e36d71a739427271bfe24e7f56b09678acc096e6ac5b6ddf1",
+                "journal:interior-G20-m15-v0.05-r0-beta0.5": "f2ca0f2a31b137c028501b180d4bb0fcefa035fe1d28c140b4cdec7d3fde0a4e",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0": "ecfe7d91e83b6fdce16fece525a41e0dfb1c34dbd24fcca412bf62d2c9eba658",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0.5": "95ef2de056558da1f20fbc247ffb54e489264aafea467b9e3d4a55889e23d356",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0": "b727913db3cc18b546911d57090f7fd3f7d529d2783cf5998d60eacbcbe651d6",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0.5": "22316f5003cce4c6e01f81142abf51ccf01e0b2fe1cfbe8366055f71af63ac1e",
+                "journal:interior-G20-m15-v0.25-r0-beta0": "29e678b392530f2c740d02494d16eb38af5830db34bd229d510c1d18119ea27a",
+                "journal:interior-G20-m15-v0.25-r0-beta0.5": "1cf2ccc9f54dda4a227f391412e8ad93a8d5b430182b07caeee22a1274a0059f",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0": "558b14b39f3ed2ddd099cccdbfeafff695990fa9b75078da5d2f47d1fdc3bc97",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0.5": "b78e4e4b5f06dc337548c98412114258fd333aeced512566a2f99e7d602703b3",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0": "89435346b4edad096b30bf8f94733ab324b86ba055faef6b99e5831c243cc561",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0.5": "e8e568f225eddec1e7710b3ce9945d18e13df08f4a17762e1f71770fe8fd1787",
+                "journal:interior-G20-m5-v0.05-r0-beta0": "8f6812d1f6ca9538ebbaa24cee5c8e26c625f283af742425ff558a3164a255a2",
+                "journal:interior-G20-m5-v0.05-r0-beta0.5": "d9376ad0680ebc52a583dba847254fcf1cf233b312450fdc09490911c5234f6d",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0": "5604ba9038753d32b90215ac0dfa7fc1379d5d62e57a9d0862ab1e4063cfc76b",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0.5": "2348cff083159680f8c0d26b2c22a403f66f43a25774e28a11d7293184ffd64a",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0": "9ffa5335ba278315919c3626d537eb5905c2be63da16a0163ab1b3f3f23d088e",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0.5": "506ff8aeb20ddf3b8102ccb975a3a4769d7867c0ba9529d3aa63b7c138f14a6d",
+                "journal:interior-G20-m5-v0.25-r0-beta0": "1be0eeec0e1eae55e4445c0b5cbcc5a2ac683e5af398b320fad4b3c2988546dd",
+                "journal:interior-G20-m5-v0.25-r0-beta0.5": "45f338c2f5a2bb072f131e7c0a413186b58ef89dabae9216b86d3f5e0ced0b87",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0": "2e446165317ac0889b77c4ac160e8620eefb6351a81c659794af621c344b5499",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0.5": "09bc4cec9d3a51b3e5724c2cdabe023613879400f83cca41b37010d39196b790",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0": "428f5228747288274d3dd7acf65ffe9da5d4af87d6a0463b59627c9537d644b5",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0.5": "1209bf5bf0a1e6919800f9e0ac762f569b351066fe9434f3cc528b108c4e681b",
+                "journal:interior-G50-m15-v0.05-r0-beta0": "4687e57d144995db8eb1209c6c30ac8efba68f254b2f5c8d671bb0df545d3324",
+                "journal:interior-G50-m15-v0.05-r0-beta0.5": "36811bb6bff70ff3cb2046fc595d078303b4fbd88c7b618db40cd8b7266ce71d",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0": "cbc1731947ccef0fd0f741b94d4a27766f19333ba5c7a4f0f37eb4b85feb32ed",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0.5": "112ec12fa5fff664cebf322553eb0183b951b6a8d2707498c2849187a05b73a6",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0": "d0929205ca760899a93e701a53646adb1831a8c3b828471ceaa77ab97a5d8088",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0.5": "0b3a48c3b8d7c1fdf0c4a94a9da49cbb36e91f5c109043f6cb0c67bc0fd40bdf",
+                "journal:interior-G50-m15-v0.25-r0-beta0": "689ac1d75eeb14dd92b4a622aa614694396e2b318fe0533f16eb46f2d5a5fc9a",
+                "journal:interior-G50-m15-v0.25-r0-beta0.5": "3d5c5fd5e895a777776033281b9325328e8549b43ffd58030d8a04a8c8005192",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0": "96707fec366b9ad16c05514d621e5dc1501b9612e70b2044eb11045c5df36f79",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0.5": "41e7c9a32096cc059b33af23e4c3f87a1b47091bb5f78ebdca5184b32b5a0abf",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0": "bb10a6db56c4e2bb6b0b8568423b9e443b25cb048bacc84a1c5defdb92e92b55",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0.5": "b21a7a6e482b84f2aa3e99c7ec53f596451283766ff58f5bf4bea27dcf2914ae",
+                "journal:interior-G50-m5-v0.05-r0-beta0": "2e5869b3b8f43b458e63cf341ed9c96372041f8fcae73e5dbfa8dd06d8f4076a",
+                "journal:interior-G50-m5-v0.05-r0-beta0.5": "c7a64c24972fa7e5612a8a276e5d6b3ae8d9d522141dbb751ef1d1f4e3caead9",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0": "692952336127182f1fa761b0d57025538805e4323cefa2842291632401d24224",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0.5": "0baffe59a60594c05446ae3113f0f129c33300f3a05180b57634b893848444f9",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0": "d65e9828a058b12212dc6f59c1c35860a344e15f6b97ad19e96ddc4347c1a0a9",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0.5": "659a3c87d71a9515c5df0755c990c43ce53cdf2987460b26d64685028eeded1f",
+                "journal:interior-G50-m5-v0.25-r0-beta0": "71d4843fac60d1dc94f5577083dac0d64baf11e69bcc204f7e64a52ffa1d2526",
+                "journal:interior-G50-m5-v0.25-r0-beta0.5": "000e5399500844e56298416c2168753f95de47a655601f3be1b7afd2870bfe3e",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0": "354e95b2139ba53bc0e784b667fc122a35b3fc52d1b61cee065d86fd4399ce15",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0.5": "199c27b66fabd1ecb52936a5b1f531d969345f90db9f3ad0c497a60b1299b04f",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0": "85e0eb7dd80d9cadd2d93d2366d6dfba4e7dcb481552c0db1b4f3488dd7a9d79",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0.5": "e3db886e6be72fc2b70a19f0dd746f22e11af766087d7df4493f0eafac130ca8",
+                "journal:interior-G8-m15-v0.05-r0-beta0": "1fb312539467a7936f385a37ddb2a4b5f660c9ff5d206d3dcfaac1e029c58908",
+                "journal:interior-G8-m15-v0.05-r0-beta0.5": "384d21749a73de56b5172b7ea78fb9516d964052139ac1f5fde70cf5ec054464",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0": "589df974e26ff21f8b1b1ce6d575147c905267fc1a093c9fb1656f4b9aac1fdd",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0.5": "504bd4e93b614dd4845d8c7d73dc0bba0bbf0139f5562734a6b85da67f4cd134",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0": "aaa9465272fb42f8ea7eb90dbc7d0f88896529b4b2186320500bf9ee6d539189",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0.5": "daeb84480a157696dc86823dc4149df3838ab2e720744be176a7cc3327dcc076",
+                "journal:interior-G8-m15-v0.25-r0-beta0": "4c58b84da407b56f066c5e397652dd2e40d872d31dc2dcecb92dcb67036409d3",
+                "journal:interior-G8-m15-v0.25-r0-beta0.5": "eb099873d3b26849be32537b43534f761b4194e9b13977105def8b8552958862",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0": "fd960549ce3ed50c285761c0db445d28278411d53a6e97a5812809a5cfc646b1",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0.5": "89856c8174ab29bfeb8367a18a18317f479967204b55f4dbcb283f28b12a8ba8",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0": "84484636c7571dc3736ba5c941a43fd2ef7d56c058848745d10eeb9f5d3e32f8",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0.5": "9445587d1b56339ba8f0760d7a27db6b388b2ebca6451a4d8669da4e829c8d3d",
+                "journal:interior-G8-m5-v0.05-r0-beta0": "8495521b783cf07f969fea8bdca955501b9af960d6f47b82e8e80b8df7202a5a",
+                "journal:interior-G8-m5-v0.05-r0-beta0.5": "2c206d6f321047f7cf66ee2b3a59e997e463b7ad9d4946e3b81bf065ecb6fe67",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0": "b1f92c50e6764235bc9073b9769539f041c0d47b9804bce3c4162a6b172b9261",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0.5": "c392690160fda8d2e13ce02100ffdc50be25d47086ee98831f380ef78945b28a",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0": "4f77ab637ed65463a6be07fcbd0a642610742107d1573fca9597cf1120e2694d",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0.5": "0e81c59f9212345ac64ce6feb1f88ed2bf673361f8f20187c23f3d0b540233fe",
+                "journal:interior-G8-m5-v0.25-r0-beta0": "710017aa5f1d2cc7579715b2d6b55cb7f33261d18231f3acbd1a0e8a34d2fd2c",
+                "journal:interior-G8-m5-v0.25-r0-beta0.5": "d55e0f76904b7d1f8694bd668a140aeb0767c1c5cc14a456305566a1cbc6abd7",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0": "a16fe42638feae56d19366b69b3fd1b0851942788f43b134b4cdcb84da2f1f69",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0.5": "bfcbe123b01f8e30d7eb8e7ebd5dad2c60ee01679db358b6442b205062045c4d",
+                "journal:near_correlation-G20-m5-v0.25-r-0.95-beta0": "e5e6fd683c50c188ae8ea8a1ea4b08495ef3acaf899a65ba692a9de60d8dbfb1",
+                "journal:near_correlation-G20-m5-v0.25-r0.95-beta0": "0d1dc08c21f9a1a5edec3597819092688e74909134a213052a60b23b0b42839e",
+                "journal:near_correlation-G8-m5-v0.25-r-0.95-beta0": "36d608f955158b07ba1964d0272d65fdd9483f09b9441a392fbc70145a3a6535",
+                "journal:near_correlation-G8-m5-v0.25-r0.95-beta0": "4ec0f66024318d13320596b4c90ba458dbfffa21712bdd0bb0316b2bc178e2a1",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0": "0501e9c449f8a8259b8908f666a8da3b90f0c0820ddc036bdd63e283f76136b8",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0.5": "1db69269587f8f128afeb41c4401da65be46c1731ce232bbce99573f381ac67d",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0": "dd04b40d38172352af8879c64db89499249ffc6c1854009ffe298ada27bdcb8a",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0.5": "d2fa422332df5d058cb98e925ea9878a6872c71996b2fe9eac57409597217123",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0": "a2328b3c29ace3bcd8fa9856b1e3fac5965b1257036a3824164b07d0e9973f58",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0.5": "96ddb6bb7237d3b26c769f986a9729da92810b2326f2e4222359abaf2a9a3fe8",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0": "56fce0b78b4b541cc501b97e65e0a068fe737dee2246153240e7ed8486923d97",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0.5": "ef1ae617b4e4e94699e303d25659eb02f47e08930e8e3e63b6e7bb48d3e716be",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0": "f60f231089bbb41b6cbe3a538b2b72507598810ec38b4a92d82108a0c02bdae3",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0.5": "7bc62f43d8d768e04325d3b56fe7b1b0815d7878e8c5d0c61c874ea9b73fddb2",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0": "eb9bf16ca2739d87746d424cca39fb73f7f8abe5bbd619e0911cbc938c279975",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0.5": "79b00b3f0c8aa1525e893848945d5182b4ebf0a90c3afa81fd54443323c53cb5",
+                "manifest": "da344bf13d2aeb7558032cc19483c5187d4aeba66b4e8a269f4014d22ddcd3c8"
+              },
+              "label": "analysis",
+              "thread_limits": {
+                "MKL_NUM_THREADS": "1",
+                "OMP_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "POLARS_MAX_THREADS": "1"
+              }
+            },
+            "outputs": {
+              "audit.jsonl.gz": "3120cbef8eeb74375c98d68f17a89129ee25155a0f788a2174151453353c1382",
+              "flags.jsonl": "ae50ae1211b3db07617fd183f90c4e87af5828dd24fef5231d22fdbd453d7ce3",
+              "summary.json": "949ce20a660568f073a66b1e76815aa86a69349e43da89f1157b2d614d460df4"
+            },
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 6.358213400002569,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 21896
+                },
+                {
+                  "message": 6,
+                  "native_pid": 15960
+                },
+                {
+                  "message": 6,
+                  "native_pid": 7696
+                },
+                {
+                  "message": 7,
+                  "native_pid": 7696
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21896
+                },
+                {
+                  "message": 7,
+                  "native_pid": 15960
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.15308799999183975,
+              "maximum_sampled_disk_bytes": 14992162,
+              "maximum_sampled_job_commit_bytes": 78729216,
+              "minimum_sampled_free_bytes": 61533278208,
+              "monitor_seconds": 6.31174689999898,
+              "os_peak_job_memory_bytes": 79777792,
+              "samples": 46,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 6.358339700003853,
+            "start_sha256": "6bcb823ace9d6a605c22e31d466adbefd65da1f96f78b69fbada21e7e6a2c360"
+          },
+          "end_sha256": "f8780492dba6d98e53bfcabea4dcb4f8293feaaf4b63150eb41f164223327560"
+        },
+        "r-check": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0
+            ],
+            "final_disk": {
+              "bytes": 15017119,
+              "free_bytes": 61533229056
+            },
+            "identity": {
+              "caps": {
+                "disk_bytes": 536870912,
+                "job_commit_bytes": 4294967296,
+                "min_free_bytes": 1073741824,
+                "poll_seconds": 0.1,
+                "seconds": 900
+              },
+              "command": {
+                "argv_sha256": "d44864d99364f21b29cdc9e2ab5e50b159aafe860182dd062d129a902b140113",
+                "executable": {
+                  "name": "Rscript.exe",
+                  "sha256": "d829bcf7e9fa1d7e3e828c565c3cdbb1ed416f551f4fa6fd4dfcdf231e33e5e8"
+                },
+                "script_sources": {
+                  "2": {
+                    "name": "lmm_random_slope_stream_check.R",
+                    "sha256": "871e969674bda5253b21bdbdb04e0a390ddb529f3aec4469521c5de47dc381ae"
+                  }
+                }
+              },
+              "inputs": {
+                "audit.jsonl.gz": "3120cbef8eeb74375c98d68f17a89129ee25155a0f788a2174151453353c1382",
+                "flags.jsonl": "ae50ae1211b3db07617fd183f90c4e87af5828dd24fef5231d22fdbd453d7ce3",
+                "journal:exact_correlation-G20-m5-v0.25-r-1-beta0": "522491887fc2a0b09f5121205fae984914ee7cdfa01071990586834e9e69aeec",
+                "journal:exact_correlation-G20-m5-v0.25-r1-beta0": "49efc2938ca9df711647f36280eb059ba6acaa8996102c45899c4e7a48e47ba5",
+                "journal:exact_correlation-G8-m5-v0.25-r-1-beta0": "fe44878c6737b1d6fc1595aba95483234dd0207e8aaf8371933c38bee8cd9934",
+                "journal:exact_correlation-G8-m5-v0.25-r1-beta0": "53ba925dd667efaff44762889efa1819b7c29ddea8809ff6afac30da6f74e620",
+                "journal:imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0": "d194b61da3a4da13ae32f1aa5495e9960a4d3b09ee88b5aaf001256dbca2f8e2",
+                "journal:imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0": "c4d240eb9779011a506948514862091c60d2334260313bf990574386c20bb0ad",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0": "4e5b91680deab1a60e28c3f0cdc9f896bc816ffa8a1ea5b37ddc22fe12d46fee",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0.5": "23217dcd83079612058c235182337f506c8600f51dc63f522e825c42aec3541a",
+                "journal:interior-G20-m15-v0.05-r0-beta0": "449e0a73478a1f1e36d71a739427271bfe24e7f56b09678acc096e6ac5b6ddf1",
+                "journal:interior-G20-m15-v0.05-r0-beta0.5": "f2ca0f2a31b137c028501b180d4bb0fcefa035fe1d28c140b4cdec7d3fde0a4e",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0": "ecfe7d91e83b6fdce16fece525a41e0dfb1c34dbd24fcca412bf62d2c9eba658",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0.5": "95ef2de056558da1f20fbc247ffb54e489264aafea467b9e3d4a55889e23d356",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0": "b727913db3cc18b546911d57090f7fd3f7d529d2783cf5998d60eacbcbe651d6",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0.5": "22316f5003cce4c6e01f81142abf51ccf01e0b2fe1cfbe8366055f71af63ac1e",
+                "journal:interior-G20-m15-v0.25-r0-beta0": "29e678b392530f2c740d02494d16eb38af5830db34bd229d510c1d18119ea27a",
+                "journal:interior-G20-m15-v0.25-r0-beta0.5": "1cf2ccc9f54dda4a227f391412e8ad93a8d5b430182b07caeee22a1274a0059f",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0": "558b14b39f3ed2ddd099cccdbfeafff695990fa9b75078da5d2f47d1fdc3bc97",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0.5": "b78e4e4b5f06dc337548c98412114258fd333aeced512566a2f99e7d602703b3",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0": "89435346b4edad096b30bf8f94733ab324b86ba055faef6b99e5831c243cc561",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0.5": "e8e568f225eddec1e7710b3ce9945d18e13df08f4a17762e1f71770fe8fd1787",
+                "journal:interior-G20-m5-v0.05-r0-beta0": "8f6812d1f6ca9538ebbaa24cee5c8e26c625f283af742425ff558a3164a255a2",
+                "journal:interior-G20-m5-v0.05-r0-beta0.5": "d9376ad0680ebc52a583dba847254fcf1cf233b312450fdc09490911c5234f6d",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0": "5604ba9038753d32b90215ac0dfa7fc1379d5d62e57a9d0862ab1e4063cfc76b",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0.5": "2348cff083159680f8c0d26b2c22a403f66f43a25774e28a11d7293184ffd64a",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0": "9ffa5335ba278315919c3626d537eb5905c2be63da16a0163ab1b3f3f23d088e",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0.5": "506ff8aeb20ddf3b8102ccb975a3a4769d7867c0ba9529d3aa63b7c138f14a6d",
+                "journal:interior-G20-m5-v0.25-r0-beta0": "1be0eeec0e1eae55e4445c0b5cbcc5a2ac683e5af398b320fad4b3c2988546dd",
+                "journal:interior-G20-m5-v0.25-r0-beta0.5": "45f338c2f5a2bb072f131e7c0a413186b58ef89dabae9216b86d3f5e0ced0b87",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0": "2e446165317ac0889b77c4ac160e8620eefb6351a81c659794af621c344b5499",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0.5": "09bc4cec9d3a51b3e5724c2cdabe023613879400f83cca41b37010d39196b790",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0": "428f5228747288274d3dd7acf65ffe9da5d4af87d6a0463b59627c9537d644b5",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0.5": "1209bf5bf0a1e6919800f9e0ac762f569b351066fe9434f3cc528b108c4e681b",
+                "journal:interior-G50-m15-v0.05-r0-beta0": "4687e57d144995db8eb1209c6c30ac8efba68f254b2f5c8d671bb0df545d3324",
+                "journal:interior-G50-m15-v0.05-r0-beta0.5": "36811bb6bff70ff3cb2046fc595d078303b4fbd88c7b618db40cd8b7266ce71d",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0": "cbc1731947ccef0fd0f741b94d4a27766f19333ba5c7a4f0f37eb4b85feb32ed",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0.5": "112ec12fa5fff664cebf322553eb0183b951b6a8d2707498c2849187a05b73a6",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0": "d0929205ca760899a93e701a53646adb1831a8c3b828471ceaa77ab97a5d8088",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0.5": "0b3a48c3b8d7c1fdf0c4a94a9da49cbb36e91f5c109043f6cb0c67bc0fd40bdf",
+                "journal:interior-G50-m15-v0.25-r0-beta0": "689ac1d75eeb14dd92b4a622aa614694396e2b318fe0533f16eb46f2d5a5fc9a",
+                "journal:interior-G50-m15-v0.25-r0-beta0.5": "3d5c5fd5e895a777776033281b9325328e8549b43ffd58030d8a04a8c8005192",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0": "96707fec366b9ad16c05514d621e5dc1501b9612e70b2044eb11045c5df36f79",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0.5": "41e7c9a32096cc059b33af23e4c3f87a1b47091bb5f78ebdca5184b32b5a0abf",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0": "bb10a6db56c4e2bb6b0b8568423b9e443b25cb048bacc84a1c5defdb92e92b55",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0.5": "b21a7a6e482b84f2aa3e99c7ec53f596451283766ff58f5bf4bea27dcf2914ae",
+                "journal:interior-G50-m5-v0.05-r0-beta0": "2e5869b3b8f43b458e63cf341ed9c96372041f8fcae73e5dbfa8dd06d8f4076a",
+                "journal:interior-G50-m5-v0.05-r0-beta0.5": "c7a64c24972fa7e5612a8a276e5d6b3ae8d9d522141dbb751ef1d1f4e3caead9",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0": "692952336127182f1fa761b0d57025538805e4323cefa2842291632401d24224",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0.5": "0baffe59a60594c05446ae3113f0f129c33300f3a05180b57634b893848444f9",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0": "d65e9828a058b12212dc6f59c1c35860a344e15f6b97ad19e96ddc4347c1a0a9",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0.5": "659a3c87d71a9515c5df0755c990c43ce53cdf2987460b26d64685028eeded1f",
+                "journal:interior-G50-m5-v0.25-r0-beta0": "71d4843fac60d1dc94f5577083dac0d64baf11e69bcc204f7e64a52ffa1d2526",
+                "journal:interior-G50-m5-v0.25-r0-beta0.5": "000e5399500844e56298416c2168753f95de47a655601f3be1b7afd2870bfe3e",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0": "354e95b2139ba53bc0e784b667fc122a35b3fc52d1b61cee065d86fd4399ce15",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0.5": "199c27b66fabd1ecb52936a5b1f531d969345f90db9f3ad0c497a60b1299b04f",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0": "85e0eb7dd80d9cadd2d93d2366d6dfba4e7dcb481552c0db1b4f3488dd7a9d79",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0.5": "e3db886e6be72fc2b70a19f0dd746f22e11af766087d7df4493f0eafac130ca8",
+                "journal:interior-G8-m15-v0.05-r0-beta0": "1fb312539467a7936f385a37ddb2a4b5f660c9ff5d206d3dcfaac1e029c58908",
+                "journal:interior-G8-m15-v0.05-r0-beta0.5": "384d21749a73de56b5172b7ea78fb9516d964052139ac1f5fde70cf5ec054464",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0": "589df974e26ff21f8b1b1ce6d575147c905267fc1a093c9fb1656f4b9aac1fdd",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0.5": "504bd4e93b614dd4845d8c7d73dc0bba0bbf0139f5562734a6b85da67f4cd134",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0": "aaa9465272fb42f8ea7eb90dbc7d0f88896529b4b2186320500bf9ee6d539189",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0.5": "daeb84480a157696dc86823dc4149df3838ab2e720744be176a7cc3327dcc076",
+                "journal:interior-G8-m15-v0.25-r0-beta0": "4c58b84da407b56f066c5e397652dd2e40d872d31dc2dcecb92dcb67036409d3",
+                "journal:interior-G8-m15-v0.25-r0-beta0.5": "eb099873d3b26849be32537b43534f761b4194e9b13977105def8b8552958862",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0": "fd960549ce3ed50c285761c0db445d28278411d53a6e97a5812809a5cfc646b1",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0.5": "89856c8174ab29bfeb8367a18a18317f479967204b55f4dbcb283f28b12a8ba8",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0": "84484636c7571dc3736ba5c941a43fd2ef7d56c058848745d10eeb9f5d3e32f8",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0.5": "9445587d1b56339ba8f0760d7a27db6b388b2ebca6451a4d8669da4e829c8d3d",
+                "journal:interior-G8-m5-v0.05-r0-beta0": "8495521b783cf07f969fea8bdca955501b9af960d6f47b82e8e80b8df7202a5a",
+                "journal:interior-G8-m5-v0.05-r0-beta0.5": "2c206d6f321047f7cf66ee2b3a59e997e463b7ad9d4946e3b81bf065ecb6fe67",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0": "b1f92c50e6764235bc9073b9769539f041c0d47b9804bce3c4162a6b172b9261",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0.5": "c392690160fda8d2e13ce02100ffdc50be25d47086ee98831f380ef78945b28a",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0": "4f77ab637ed65463a6be07fcbd0a642610742107d1573fca9597cf1120e2694d",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0.5": "0e81c59f9212345ac64ce6feb1f88ed2bf673361f8f20187c23f3d0b540233fe",
+                "journal:interior-G8-m5-v0.25-r0-beta0": "710017aa5f1d2cc7579715b2d6b55cb7f33261d18231f3acbd1a0e8a34d2fd2c",
+                "journal:interior-G8-m5-v0.25-r0-beta0.5": "d55e0f76904b7d1f8694bd668a140aeb0767c1c5cc14a456305566a1cbc6abd7",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0": "a16fe42638feae56d19366b69b3fd1b0851942788f43b134b4cdcb84da2f1f69",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0.5": "bfcbe123b01f8e30d7eb8e7ebd5dad2c60ee01679db358b6442b205062045c4d",
+                "journal:near_correlation-G20-m5-v0.25-r-0.95-beta0": "e5e6fd683c50c188ae8ea8a1ea4b08495ef3acaf899a65ba692a9de60d8dbfb1",
+                "journal:near_correlation-G20-m5-v0.25-r0.95-beta0": "0d1dc08c21f9a1a5edec3597819092688e74909134a213052a60b23b0b42839e",
+                "journal:near_correlation-G8-m5-v0.25-r-0.95-beta0": "36d608f955158b07ba1964d0272d65fdd9483f09b9441a392fbc70145a3a6535",
+                "journal:near_correlation-G8-m5-v0.25-r0.95-beta0": "4ec0f66024318d13320596b4c90ba458dbfffa21712bdd0bb0316b2bc178e2a1",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0": "0501e9c449f8a8259b8908f666a8da3b90f0c0820ddc036bdd63e283f76136b8",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0.5": "1db69269587f8f128afeb41c4401da65be46c1731ce232bbce99573f381ac67d",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0": "dd04b40d38172352af8879c64db89499249ffc6c1854009ffe298ada27bdcb8a",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0.5": "d2fa422332df5d058cb98e925ea9878a6872c71996b2fe9eac57409597217123",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0": "a2328b3c29ace3bcd8fa9856b1e3fac5965b1257036a3824164b07d0e9973f58",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0.5": "96ddb6bb7237d3b26c769f986a9729da92810b2326f2e4222359abaf2a9a3fe8",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0": "56fce0b78b4b541cc501b97e65e0a068fe737dee2246153240e7ed8486923d97",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0.5": "ef1ae617b4e4e94699e303d25659eb02f47e08930e8e3e63b6e7bb48d3e716be",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0": "f60f231089bbb41b6cbe3a538b2b72507598810ec38b4a92d82108a0c02bdae3",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0.5": "7bc62f43d8d768e04325d3b56fe7b1b0815d7878e8c5d0c61c874ea9b73fddb2",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0": "eb9bf16ca2739d87746d424cca39fb73f7f8abe5bbd619e0911cbc938c279975",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0.5": "79b00b3f0c8aa1525e893848945d5182b4ebf0a90c3afa81fd54443323c53cb5",
+                "manifest": "da344bf13d2aeb7558032cc19483c5187d4aeba66b4e8a269f4014d22ddcd3c8",
+                "summary.json": "949ce20a660568f073a66b1e76815aa86a69349e43da89f1157b2d614d460df4"
+              },
+              "label": "r-check",
+              "thread_limits": {
+                "MKL_NUM_THREADS": "1",
+                "OMP_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "POLARS_MAX_THREADS": "1"
+              }
+            },
+            "outputs": {
+              "r-check.json": "9e6b5bcf20ad514bd5c41500a42d3ed97c24772bd3d4aa4decab29f63b9b13fa"
+            },
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 2.6840468000154942,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 28176
+                },
+                {
+                  "message": 6,
+                  "native_pid": 10128
+                },
+                {
+                  "message": 6,
+                  "native_pid": 5344
+                },
+                {
+                  "message": 6,
+                  "native_pid": 33112
+                },
+                {
+                  "message": 7,
+                  "native_pid": 33112
+                },
+                {
+                  "message": 7,
+                  "native_pid": 5344
+                },
+                {
+                  "message": 7,
+                  "native_pid": 28176
+                },
+                {
+                  "message": 7,
+                  "native_pid": 10128
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.13367150002159178,
+              "maximum_sampled_disk_bytes": 15017119,
+              "maximum_sampled_job_commit_bytes": 135376896,
+              "minimum_sampled_free_bytes": 61533229056,
+              "monitor_seconds": 2.64758950000396,
+              "os_peak_job_memory_bytes": 135409664,
+              "samples": 21,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 2.684225500008324,
+            "start_sha256": "fb0998759c571810c1818ea36491addfa60ea4a6bd566eb841392c6f2f5c64b7"
+          },
+          "end_sha256": "ac5849cb2d39b1086173c9d05d5286ab2bdc80efb5a7af6a45f5138fb5277408"
+        }
+      },
+      "analysis_loop_seconds": 5.017145199992228,
+      "analysis_python_peak_working_set_bytes": 101466112,
+      "datasets": 940,
+      "phases": {
+        "candidate": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "final_disk": {
+              "bytes": 8271016,
+              "free_bytes": 61540139008
+            },
+            "native_root_pids": [
+              24000,
+              30756,
+              13588,
+              19008
+            ],
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 28.17741429997841,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 24000
+                },
+                {
+                  "message": 6,
+                  "native_pid": 10436
+                },
+                {
+                  "message": 6,
+                  "native_pid": 30756
+                },
+                {
+                  "message": 6,
+                  "native_pid": 9800
+                },
+                {
+                  "message": 6,
+                  "native_pid": 13588
+                },
+                {
+                  "message": 6,
+                  "native_pid": 7596
+                },
+                {
+                  "message": 6,
+                  "native_pid": 31716
+                },
+                {
+                  "message": 6,
+                  "native_pid": 19008
+                },
+                {
+                  "message": 6,
+                  "native_pid": 31508
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29500
+                },
+                {
+                  "message": 6,
+                  "native_pid": 15604
+                },
+                {
+                  "message": 6,
+                  "native_pid": 3504
+                },
+                {
+                  "message": 6,
+                  "native_pid": 33232
+                },
+                {
+                  "message": 6,
+                  "native_pid": 16492
+                },
+                {
+                  "message": 6,
+                  "native_pid": 27608
+                },
+                {
+                  "message": 7,
+                  "native_pid": 33232
+                },
+                {
+                  "message": 6,
+                  "native_pid": 22464
+                },
+                {
+                  "message": 7,
+                  "native_pid": 16492
+                },
+                {
+                  "message": 7,
+                  "native_pid": 27608
+                },
+                {
+                  "message": 7,
+                  "native_pid": 22464
+                },
+                {
+                  "message": 6,
+                  "native_pid": 12408
+                },
+                {
+                  "message": 6,
+                  "native_pid": 32964
+                },
+                {
+                  "message": 7,
+                  "native_pid": 12408
+                },
+                {
+                  "message": 7,
+                  "native_pid": 32964
+                },
+                {
+                  "message": 6,
+                  "native_pid": 23532
+                },
+                {
+                  "message": 6,
+                  "native_pid": 20964
+                },
+                {
+                  "message": 7,
+                  "native_pid": 20964
+                },
+                {
+                  "message": 7,
+                  "native_pid": 23532
+                },
+                {
+                  "message": 7,
+                  "native_pid": 31716
+                },
+                {
+                  "message": 7,
+                  "native_pid": 24000
+                },
+                {
+                  "message": 7,
+                  "native_pid": 10436
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29500
+                },
+                {
+                  "message": 7,
+                  "native_pid": 30756
+                },
+                {
+                  "message": 7,
+                  "native_pid": 9800
+                },
+                {
+                  "message": 7,
+                  "native_pid": 15604
+                },
+                {
+                  "message": 7,
+                  "native_pid": 13588
+                },
+                {
+                  "message": 7,
+                  "native_pid": 7596
+                },
+                {
+                  "message": 7,
+                  "native_pid": 3504
+                },
+                {
+                  "message": 7,
+                  "native_pid": 19008
+                },
+                {
+                  "message": 7,
+                  "native_pid": 31508
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.1788883999979589,
+              "maximum_sampled_disk_bytes": 8674954,
+              "maximum_sampled_job_commit_bytes": 466673664,
+              "minimum_sampled_free_bytes": 61539500032,
+              "monitor_seconds": 28.13765940000303,
+              "os_peak_job_memory_bytes": 475762688,
+              "samples": 206,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 28.17768769999384
+          },
+          "end_sha256": "972b809429b560dd0d858d813cb20eff40cf26e8f6d1f677bed398b8b10bfbfb",
+          "workers": [
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 31716,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122036224,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 18.067554899753304,
+                "input_generation_commit_seconds": 0.39695519994711503,
+                "outcome_commit_seconds": 0.990606300154468,
+                "start_commit_seconds": 0.8641593002248555,
+                "validation_recovery_seconds": 0.07183609995990992
+              },
+              "worker": 0,
+              "worker_seconds": 23.58494519998203
+            },
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 29500,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 121692160,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 18.48536959986086,
+                "input_generation_commit_seconds": 0.41195659997174516,
+                "outcome_commit_seconds": 0.9935195002472028,
+                "start_commit_seconds": 0.8876163003151305,
+                "validation_recovery_seconds": 0.0761537999205757
+              },
+              "worker": 1,
+              "worker_seconds": 23.765842499997234
+            },
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 15604,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122056704,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 22.397796399862273,
+                "input_generation_commit_seconds": 0.41460219988948666,
+                "outcome_commit_seconds": 0.9339430998661555,
+                "start_commit_seconds": 0.8137134000426158,
+                "validation_recovery_seconds": 0.0793729999277275
+              },
+              "worker": 2,
+              "worker_seconds": 27.65746400001808
+            },
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 3504,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122470400,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 22.515087200154085,
+                "input_generation_commit_seconds": 0.4189006998494733,
+                "outcome_commit_seconds": 0.9318569999886677,
+                "start_commit_seconds": 0.815773400128819,
+                "validation_recovery_seconds": 0.07686749988351949
+              },
+              "worker": 3,
+              "worker_seconds": 27.70944109998527
+            }
+          ]
+        },
+        "reference": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "final_disk": {
+              "bytes": 11463156,
+              "free_bytes": 61536821248
+            },
+            "native_root_pids": [
+              24996,
+              21080,
+              12992,
+              22660
+            ],
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 127.51577180001186,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 24996
+                },
+                {
+                  "message": 6,
+                  "native_pid": 25340
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21080
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21320
+                },
+                {
+                  "message": 6,
+                  "native_pid": 12992
+                },
+                {
+                  "message": 6,
+                  "native_pid": 27164
+                },
+                {
+                  "message": 6,
+                  "native_pid": 16428
+                },
+                {
+                  "message": 6,
+                  "native_pid": 22660
+                },
+                {
+                  "message": 6,
+                  "native_pid": 23648
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21784
+                },
+                {
+                  "message": 6,
+                  "native_pid": 18692
+                },
+                {
+                  "message": 6,
+                  "native_pid": 30932
+                },
+                {
+                  "message": 6,
+                  "native_pid": 25552
+                },
+                {
+                  "message": 6,
+                  "native_pid": 13284
+                },
+                {
+                  "message": 6,
+                  "native_pid": 22116
+                },
+                {
+                  "message": 6,
+                  "native_pid": 22596
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21576
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29664
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29436
+                },
+                {
+                  "message": 6,
+                  "native_pid": 17148
+                },
+                {
+                  "message": 6,
+                  "native_pid": 18032
+                },
+                {
+                  "message": 6,
+                  "native_pid": 9668
+                },
+                {
+                  "message": 6,
+                  "native_pid": 8248
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29180
+                },
+                {
+                  "message": 6,
+                  "native_pid": 26780
+                },
+                {
+                  "message": 6,
+                  "native_pid": 25252
+                },
+                {
+                  "message": 6,
+                  "native_pid": 27336
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21548
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21548
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29180
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29664
+                },
+                {
+                  "message": 7,
+                  "native_pid": 30932
+                },
+                {
+                  "message": 7,
+                  "native_pid": 22660
+                },
+                {
+                  "message": 7,
+                  "native_pid": 23648
+                },
+                {
+                  "message": 7,
+                  "native_pid": 25252
+                },
+                {
+                  "message": 7,
+                  "native_pid": 8248
+                },
+                {
+                  "message": 7,
+                  "native_pid": 22116
+                },
+                {
+                  "message": 7,
+                  "native_pid": 18692
+                },
+                {
+                  "message": 7,
+                  "native_pid": 12992
+                },
+                {
+                  "message": 7,
+                  "native_pid": 27164
+                },
+                {
+                  "message": 7,
+                  "native_pid": 27336
+                },
+                {
+                  "message": 7,
+                  "native_pid": 18032
+                },
+                {
+                  "message": 7,
+                  "native_pid": 13284
+                },
+                {
+                  "message": 7,
+                  "native_pid": 22596
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21784
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21080
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21320
+                },
+                {
+                  "message": 7,
+                  "native_pid": 26780
+                },
+                {
+                  "message": 7,
+                  "native_pid": 9668
+                },
+                {
+                  "message": 7,
+                  "native_pid": 25552
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21576
+                },
+                {
+                  "message": 7,
+                  "native_pid": 16428
+                },
+                {
+                  "message": 7,
+                  "native_pid": 24996
+                },
+                {
+                  "message": 7,
+                  "native_pid": 25340
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.17924800000037067,
+              "maximum_sampled_disk_bytes": 13511733,
+              "maximum_sampled_job_commit_bytes": 1947717632,
+              "minimum_sampled_free_bytes": 61534568448,
+              "monitor_seconds": 127.45567769999616,
+              "os_peak_job_memory_bytes": 1952272384,
+              "samples": 865,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 127.51640839999891
+          },
+          "end_sha256": "c2cab1a770f6f13b2fd57c56ec84a1ae70ef2aad24a4d2dc354d1d54d92bd6c1",
+          "workers": [
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 16428,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37408768,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 26780,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 432353280,
+              "timings": {
+                "fit_callback_seconds": 119.28453329997137,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 2.720474099711282,
+                "start_commit_seconds": 2.4834404998109676,
+                "validation_recovery_seconds": 0.19348830010858364
+              },
+              "worker": 0,
+              "worker_seconds": 126.9933805000037
+            },
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 21784,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37429248,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 27336,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 434749440,
+              "timings": {
+                "fit_callback_seconds": 119.0167901001114,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 2.823721400141949,
+                "start_commit_seconds": 2.5024632996646687,
+                "validation_recovery_seconds": 0.19654439992154948
+              },
+              "worker": 1,
+              "worker_seconds": 126.8595485999831
+            },
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 18692,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37842944,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 25252,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 444649472,
+              "timings": {
+                "fit_callback_seconds": 117.5061847998004,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 2.610172199725639,
+                "start_commit_seconds": 2.4046419996593613,
+                "validation_recovery_seconds": 0.20664869993925095
+              },
+              "worker": 2,
+              "worker_seconds": 125.0486654000124
+            },
+            {
+              "manifest_sha": "6b168b3e1a70d0dc8f6085162c870795ab8ad4c9b726e280053f50f6db0e07bc",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 30932,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37416960,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 21548,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 432807936,
+              "timings": {
+                "fit_callback_seconds": 116.65018180030165,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 2.6621308003377635,
+                "start_commit_seconds": 2.3657089997432195,
+                "validation_recovery_seconds": 0.20706949985469691
+              },
+              "worker": 3,
+              "worker_seconds": 124.2013221999805
+            }
+          ]
+        }
+      },
+      "r_attempts": 3760,
+      "storage": {
+        "compressed_input_payload_bytes": 2109585,
+        "compressed_outcome_payload_bytes": 2327418,
+        "journal_physical_bytes": 9080832,
+        "overhead_scope": "includes pages, unused space, indexes and metadata; not pure fixed cost",
+        "physical_minus_compressed_payload_bytes": 4643829
+      }
+    },
+    "n20": {
+      "analysis_file_bytes": 6861615,
+      "analysis_jobs": {
+        "analysis": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0
+            ],
+            "final_disk": {
+              "bytes": 24002826,
+              "free_bytes": 61459759104
+            },
+            "identity": {
+              "caps": {
+                "disk_bytes": 536870912,
+                "job_commit_bytes": 4294967296,
+                "min_free_bytes": 1073741824,
+                "poll_seconds": 0.1,
+                "seconds": 900
+              },
+              "command": {
+                "argv_sha256": "b7453c4e22d9d210f50ceceee8823b2d1027f7e5e32a01206958deab1138a01a",
+                "executable": {
+                  "name": "python.exe",
+                  "sha256": "ae7e969410d751d010c2ca03394fe5c53230fbf48ca7d368b897e455eca14fba"
+                },
+                "script_sources": {
+                  "1": {
+                    "name": "report_lmm_random_slope_scaling.py",
+                    "sha256": "f72a996ef866ee1293af151755b37d21f1572226cf1d4297e65ea6a777fc445b"
+                  }
+                }
+              },
+              "inputs": {
+                "journal:exact_correlation-G20-m5-v0.25-r-1-beta0": "247dc81b7901648485870ec426f00614a6b4c3cfa52e092d5d66c4e3528278e5",
+                "journal:exact_correlation-G20-m5-v0.25-r1-beta0": "77a737b3134f9e49ac4cad737c0b6cf8dcb151147f4690d3f1f54cb17d10edd3",
+                "journal:exact_correlation-G8-m5-v0.25-r-1-beta0": "65fe3ac4eda6a11455bdc2878ea73b70ccc8aa689f56bbe2a0c898eea0bfa28c",
+                "journal:exact_correlation-G8-m5-v0.25-r1-beta0": "dbaef7e8fd93e752ee0694a9c5bdef59d157083e0f05da3e3d562be6908baf15",
+                "journal:imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0": "7c48366512d3cbd6545bd1d12e2877fda61c2ec251a5aaf51c2b207e53c0648f",
+                "journal:imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0": "139791483888a0c30703d921a42673610ec79509c2b8456bde0639fbb55837fb",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0": "b58fea7a0b8794a9320f957f592a14ca9b634225b3c571631633e354aefd5b75",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0.5": "641c345871675babbb5568571bd6db3508f7dd0d12550a2c3bac929d16230483",
+                "journal:interior-G20-m15-v0.05-r0-beta0": "1823b0e024bfba606e5e3b7d98f762a2b992a18f67678ddbba2a96643eb267d4",
+                "journal:interior-G20-m15-v0.05-r0-beta0.5": "bf28e49b1f8c220e0ed070dd103aabb675b4dd3307f26c65ba019e192bbb9d29",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0": "e6f0d05d962fe3c8ed6a3bdb6d5e6c14fc0af71dd95983aaceea0dfd457e4182",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0.5": "34362c59c78db3396c488623e3fb6350d1ea199c26dbffeb67f4d88dc6127377",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0": "b6e0ac7d02e146599c1b2470369f87fd08665dccaa86b371d642c70a17da8811",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0.5": "3356d04c3785f36ac7e4f0125984a2a265cabfada8cc43c7d2724abcc8f3d5a6",
+                "journal:interior-G20-m15-v0.25-r0-beta0": "14848465aecd0d3e9d3a86e2822b0a5452d18369938cf3022d773f346b04c05d",
+                "journal:interior-G20-m15-v0.25-r0-beta0.5": "c1e006c463548924c2230d27177fecada95a7cd89b5f08e790b0b19a11e2d48a",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0": "c53b23eb544416fb55a2622dae7a7deed7706ecf639ba5142e986b5647d6504e",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0.5": "2b496c7dc33b9334c722a46b642096e959dc2c55de60f694ac71c2e7be73d919",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0": "8a3fced011ba9d3f2b53b5a36acd54d3c007aa6aea6d6f22973f3ba546dcf60f",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0.5": "7b0adac4a6c74cb2abcc774e948e09e43f45b1f4ae875b1498cdd0bad2d37dc1",
+                "journal:interior-G20-m5-v0.05-r0-beta0": "27ae64b88dee563a211c1fe90219fdf145732772a1811ae5ce4b43e1a125687f",
+                "journal:interior-G20-m5-v0.05-r0-beta0.5": "d6d48a41f253a90949bbe0828fd34e6c6e7724a6d587fb15b637121566429580",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0": "3dd601064ffb88e12d2cba6eb838ab57892c23f2bfce392747e1c48ce19a6aec",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0.5": "550b9767f350f39610981a0fb24eb233d7abcae6c1909ec99345dbd2b81b5f35",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0": "9ae16bcf3276b3cfe4f612a6e2c371de034a8c2a44cf2f41e43ca9a946cc05c0",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0.5": "f18e423c052eb35bc0c2e41b9804eda2afe37a81616fca7686a475757b8955d7",
+                "journal:interior-G20-m5-v0.25-r0-beta0": "8d82fa8ef681e7bb63362e9106dd7381e897506553056f2bfa0f14a9565601c2",
+                "journal:interior-G20-m5-v0.25-r0-beta0.5": "b7bc875f92712a39b3adb273e07d8e81c717f00333e9d9d853a6147bf20940e9",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0": "958d2fcbc0e2d92000761e06c1dcf8e1c27c1bf7c7901a8b9c8cf46275f17c7e",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0.5": "c73348bfeecfb123f9022ca3e83f03b5470d9af22348557134349a46284c4305",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0": "1ab6e7d892df8cf96baa060b8c643861c64551db7a2b870734d0c79e8290ee20",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0.5": "5ea37a155d715191cc992dec5dfaa22b63c0fbbcc1bb67995f5073f907aae2bb",
+                "journal:interior-G50-m15-v0.05-r0-beta0": "80e8cbe1d2e2ebd7a8a3cf18ad687cb28085b47e1a657cb338117a7dd08513ef",
+                "journal:interior-G50-m15-v0.05-r0-beta0.5": "11a4eff5a6ce73537defbca9bddd05c5d48706be93c7c63fad0ffc177e9e04f6",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0": "de372bb83eb91ba2b2c0316842d7a10d90097a6b745c8e5485c693c4bfefaa98",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0.5": "f85398f49c1fc01f54acc7795c8ca89bead6a0bca4437f89941ea7f341deeadc",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0": "2e339c8407e82386388f8907c4c3ab31b9fc23fbeb528d2ec340b7dc8414fbae",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0.5": "630bf493e91b836088aab7c758d79e994e6b9752c157734c95c81080cc5c7783",
+                "journal:interior-G50-m15-v0.25-r0-beta0": "60662cb9e3e3d7aff5aa976a02dbfe46d0e88dcad9934ee659a7dd1bf661f8ec",
+                "journal:interior-G50-m15-v0.25-r0-beta0.5": "15fc68c7fc9b9d58d9967d8990bc5f3fbf76fe07f0ee929ea5bff21e4c42c420",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0": "93a52ee0bfef05cf4f51954f2e7aa8b37c0ee0f34b99c375a85e3388cf006933",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0.5": "ca2b8efb625f798093243340d46e88a82f376fc39d7f1bc88070d341b0109109",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0": "764fa83aadff1bc5ae7112458b70a364cf6c0437b59abdd56580377a4ca6017d",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0.5": "9dea38e5e23dd4d31292d8ac46ce007e41d47987e4cf1971ef35cd1eb51b7375",
+                "journal:interior-G50-m5-v0.05-r0-beta0": "551ec80083fa5a2642bc8dd7a98f342761d3df05c7883e63f8cfffc6fcd16944",
+                "journal:interior-G50-m5-v0.05-r0-beta0.5": "f177260db67bb6ba3db50b8d447f9bae151960660395d8a0becc084cd334cff9",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0": "cc9fc3fe22db3fe5e947140d9b7a7a9b71276103e549ee68779df8439c60fe0e",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0.5": "4b2ed7ae22a04dc201830701b71d16320d2e47483abb434994518e5cd45d5d93",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0": "797ebd32cae50a6ca4fbc3592cee0fb2ceb45a0f88aaca66e7fe32209c0f24a2",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0.5": "cdf19b26face5de5d54dc72c43eb1b8e705e80e7120e8fe931bd6e57f49e335f",
+                "journal:interior-G50-m5-v0.25-r0-beta0": "2d4336d97df8313e4f5f62a3f6e6fb8d86be95b4c6e0676db09749b2f0e43520",
+                "journal:interior-G50-m5-v0.25-r0-beta0.5": "becf94fc5dbb4713fc5a4d6384a5c29244310569d6f8c75d4084f8ff413a695a",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0": "45a4a37010c6f9cede940be4fa4a452b85d44bf493cd497bcb55852fded6cd37",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0.5": "0aef0dd57c355021d0c41affc779784f38db81aa6687d98e85876573df677e32",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0": "092ebe6b44a7303ab64bf5da0c2df303aa0bef41fd568f7a1c998a2818631886",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0.5": "085d5d0cdaaeac521938283744f83e8918faa628391fd71b778956b438911849",
+                "journal:interior-G8-m15-v0.05-r0-beta0": "3eae0c6369d0116921dbc66a9a2b8ec481b6e018be9b30f6bc9ae86a9eae4614",
+                "journal:interior-G8-m15-v0.05-r0-beta0.5": "19dfa4a973e0cbbf2db9214c193146b7a2c18b75e81dc8fb526857cb44fc6372",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0": "1444e6848f2d0de4682f28a28d677d12caebcfbffbc58e3f11e82440c6db1727",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0.5": "4bec4e478fccad8a2b8d6c1132479e9ff490b0e07113fc29471b4c11b3e6ee9b",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0": "e7dbaf6cc2f67d1611616a6fe33ce6b75bfb0cf9ff6f45b6c3d35c0db27a2737",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0.5": "066a8f18166722c3ed3ee12d0d9f498f63f134416fe2ec2449242aa3c4f93298",
+                "journal:interior-G8-m15-v0.25-r0-beta0": "d11cc9a03b5bd2e5ec2ce8676121995817e0f099aaba47837c2e63dc7baadefa",
+                "journal:interior-G8-m15-v0.25-r0-beta0.5": "9305d86dca79f8d12ed30daa62de1e294cdf2acdee9e3a3a43752fcf0fcdf0d3",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0": "12a3117dcd576ebd909ed968f3995f1ee60da6df169b7afe6a87c7b3ad6c676e",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0.5": "2221e58ba3f1d8122802d98c531fa8d4f58d8f3ccef0583dcf20f55417f43c2d",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0": "d14818465568b37baf6d84221e02667355832926fc60ab809bc2c14c136ed1cf",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0.5": "c7dfda1567a98a8f94c0f06fdec0deeb94ebf59d45939f8f16011de054b474cf",
+                "journal:interior-G8-m5-v0.05-r0-beta0": "4de4f16d07123c051969b228d747806ea69ca9d6273d7d45bdb752fb1ba2c031",
+                "journal:interior-G8-m5-v0.05-r0-beta0.5": "b3b5522eaac3117729a69f7fab6e9cc79cf8df37e256411383638dc07e4d3088",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0": "02f0fb72965b4ec22e75eb8fb2637dd427b9433b1fde2299c0cb583a51b519c6",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0.5": "2ab1a0eb236201a6c1be31fc4c167eb424f01b3718693d3e312f079cda63f715",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0": "ef5156176048f440ef989e239ec76f17bb14cacb93f418e76203a9dcf4b344b9",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0.5": "30c250f38e30731e05288d0f81cca0c829bf7be1f6d105b0a124893a9cb046c9",
+                "journal:interior-G8-m5-v0.25-r0-beta0": "a89383b6b99818f36d0cad9c26fdd04eba46ef54914b2b5738d3e3c2159a47e7",
+                "journal:interior-G8-m5-v0.25-r0-beta0.5": "13e0d693b3595f08698bc8c48b591b65811e292df8e128c74eb2cb8e2c012635",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0": "cd523a2b37652784dc2eefa77a3abcddc97643c33d6e7c8ba34c6b1ed841883d",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0.5": "6ade4f6f6fc2ddcceb466ca8bd81cb1946bd4fac884ca48e5ff71a43f9c6af85",
+                "journal:near_correlation-G20-m5-v0.25-r-0.95-beta0": "cc4cfff3cf18faefc21e160e020f057fbe5df5e30b1d22e31c452ebf296d121a",
+                "journal:near_correlation-G20-m5-v0.25-r0.95-beta0": "9849ca616d5fddcc9a61aeffddade120d5ce650cd5e1a4a34b310817c3334392",
+                "journal:near_correlation-G8-m5-v0.25-r-0.95-beta0": "129c4b9e619ab0f947fdb569c8cc04c441debb6be2f898e4991a382f2dfd8e3b",
+                "journal:near_correlation-G8-m5-v0.25-r0.95-beta0": "3d7919e2d327161f322ab6db123b6967075684521d34fa65a8c438e656633bb8",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0": "2be788cb7e1bfbf0f706fba945758312c432d987e57f1fa50f74baa4735a6d54",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0.5": "59ed4c65b296ed69403ec636e82ee860c1bffa6247e75529b025c3c6a3181674",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0": "0c7b958c9c70228dd8634f58b52e880f05445bb5402d2c1b514d06b530e12fa3",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0.5": "ff689da49f8cebca3e44cd083fa57ddcab0c9fe899d77fa2885948ec2ea714fc",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0": "53f5096edefdef5d7f2fdf5f58dceb2ec837b63b4808f9e211ad7086f8b59d11",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0.5": "15ac0b4484113d08f01d3d65486c9d83291e4a37e82709bad34de7896cd4a4b6",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0": "d7882ae59867ae0d2f499df5576ef41a00072c8bbcf247cba876349d057cfc93",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0.5": "8cbcc64d6be63dabd5dabc8b137c123e6d9097506241824cc7e5160c0c70ba26",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0": "92e7375e54ecddf58bd9d7f33727fb61278d34a863bec7a01cbaabc0daa82429",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0.5": "003b74c9d967393915c0c96f8d23652ad9540ed5d5a2045f5be35f69dc06ec19",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0": "62cd75550d82299cab74d589c4b8174e1ba6d6fb011660578c1eaa78a0bc76b0",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0.5": "d8422b3c94fd120c720629e9b677e6b69db1cdb557d96f1a154078caa43f2559",
+                "manifest": "e10562b20930409e943328c593205fb9e7269d70aed33ee2092cb1a8e9f68e62"
+              },
+              "label": "analysis",
+              "thread_limits": {
+                "MKL_NUM_THREADS": "1",
+                "OMP_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "POLARS_MAX_THREADS": "1"
+              }
+            },
+            "outputs": {
+              "audit.jsonl.gz": "8819949ea71a39d41d4e754f01f008ce5e49a211542f3b5880ef5f146f8b8094",
+              "flags.jsonl": "dc6ead6cc795777d3e1351203ac17b5125fba0b9d6de19edef5506cab2d4442b",
+              "summary.json": "0855ae4e03108fcc4e3b48d97d2a313b67b264d5c3aba812a3e769e7b848803c"
+            },
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 11.556449700001394,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 22768
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29172
+                },
+                {
+                  "message": 6,
+                  "native_pid": 7876
+                },
+                {
+                  "message": 7,
+                  "native_pid": 7876
+                },
+                {
+                  "message": 7,
+                  "native_pid": 22768
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29172
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.16325770001276396,
+              "maximum_sampled_disk_bytes": 24002826,
+              "maximum_sampled_job_commit_bytes": 77942784,
+              "minimum_sampled_free_bytes": 61459685376,
+              "monitor_seconds": 11.510626500006765,
+              "os_peak_job_memory_bytes": 83902464,
+              "samples": 79,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 11.556653999985429,
+            "start_sha256": "33adddfdb6705d3fff1bd016f3ec82e633058294fb0e1965fbfc482ed658b8a2"
+          },
+          "end_sha256": "c209b47198274eea10b7afab57d76fa19229f713f504e2ac7f76957572e7abde"
+        },
+        "r-check": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0
+            ],
+            "final_disk": {
+              "bytes": 24027788,
+              "free_bytes": 61459611648
+            },
+            "identity": {
+              "caps": {
+                "disk_bytes": 536870912,
+                "job_commit_bytes": 4294967296,
+                "min_free_bytes": 1073741824,
+                "poll_seconds": 0.1,
+                "seconds": 900
+              },
+              "command": {
+                "argv_sha256": "063bb8528d6b03083d5863718fc3276d5fef46a8b8e2d806811ca54877c6e233",
+                "executable": {
+                  "name": "Rscript.exe",
+                  "sha256": "d829bcf7e9fa1d7e3e828c565c3cdbb1ed416f551f4fa6fd4dfcdf231e33e5e8"
+                },
+                "script_sources": {
+                  "2": {
+                    "name": "lmm_random_slope_stream_check.R",
+                    "sha256": "871e969674bda5253b21bdbdb04e0a390ddb529f3aec4469521c5de47dc381ae"
+                  }
+                }
+              },
+              "inputs": {
+                "audit.jsonl.gz": "8819949ea71a39d41d4e754f01f008ce5e49a211542f3b5880ef5f146f8b8094",
+                "flags.jsonl": "dc6ead6cc795777d3e1351203ac17b5125fba0b9d6de19edef5506cab2d4442b",
+                "journal:exact_correlation-G20-m5-v0.25-r-1-beta0": "247dc81b7901648485870ec426f00614a6b4c3cfa52e092d5d66c4e3528278e5",
+                "journal:exact_correlation-G20-m5-v0.25-r1-beta0": "77a737b3134f9e49ac4cad737c0b6cf8dcb151147f4690d3f1f54cb17d10edd3",
+                "journal:exact_correlation-G8-m5-v0.25-r-1-beta0": "65fe3ac4eda6a11455bdc2878ea73b70ccc8aa689f56bbe2a0c898eea0bfa28c",
+                "journal:exact_correlation-G8-m5-v0.25-r1-beta0": "dbaef7e8fd93e752ee0694a9c5bdef59d157083e0f05da3e3d562be6908baf15",
+                "journal:imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0": "7c48366512d3cbd6545bd1d12e2877fda61c2ec251a5aaf51c2b207e53c0648f",
+                "journal:imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0": "139791483888a0c30703d921a42673610ec79509c2b8456bde0639fbb55837fb",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0": "b58fea7a0b8794a9320f957f592a14ca9b634225b3c571631633e354aefd5b75",
+                "journal:interior-G20-m15-v0.05-r-0.5-beta0.5": "641c345871675babbb5568571bd6db3508f7dd0d12550a2c3bac929d16230483",
+                "journal:interior-G20-m15-v0.05-r0-beta0": "1823b0e024bfba606e5e3b7d98f762a2b992a18f67678ddbba2a96643eb267d4",
+                "journal:interior-G20-m15-v0.05-r0-beta0.5": "bf28e49b1f8c220e0ed070dd103aabb675b4dd3307f26c65ba019e192bbb9d29",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0": "e6f0d05d962fe3c8ed6a3bdb6d5e6c14fc0af71dd95983aaceea0dfd457e4182",
+                "journal:interior-G20-m15-v0.05-r0.5-beta0.5": "34362c59c78db3396c488623e3fb6350d1ea199c26dbffeb67f4d88dc6127377",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0": "b6e0ac7d02e146599c1b2470369f87fd08665dccaa86b371d642c70a17da8811",
+                "journal:interior-G20-m15-v0.25-r-0.5-beta0.5": "3356d04c3785f36ac7e4f0125984a2a265cabfada8cc43c7d2724abcc8f3d5a6",
+                "journal:interior-G20-m15-v0.25-r0-beta0": "14848465aecd0d3e9d3a86e2822b0a5452d18369938cf3022d773f346b04c05d",
+                "journal:interior-G20-m15-v0.25-r0-beta0.5": "c1e006c463548924c2230d27177fecada95a7cd89b5f08e790b0b19a11e2d48a",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0": "c53b23eb544416fb55a2622dae7a7deed7706ecf639ba5142e986b5647d6504e",
+                "journal:interior-G20-m15-v0.25-r0.5-beta0.5": "2b496c7dc33b9334c722a46b642096e959dc2c55de60f694ac71c2e7be73d919",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0": "8a3fced011ba9d3f2b53b5a36acd54d3c007aa6aea6d6f22973f3ba546dcf60f",
+                "journal:interior-G20-m5-v0.05-r-0.5-beta0.5": "7b0adac4a6c74cb2abcc774e948e09e43f45b1f4ae875b1498cdd0bad2d37dc1",
+                "journal:interior-G20-m5-v0.05-r0-beta0": "27ae64b88dee563a211c1fe90219fdf145732772a1811ae5ce4b43e1a125687f",
+                "journal:interior-G20-m5-v0.05-r0-beta0.5": "d6d48a41f253a90949bbe0828fd34e6c6e7724a6d587fb15b637121566429580",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0": "3dd601064ffb88e12d2cba6eb838ab57892c23f2bfce392747e1c48ce19a6aec",
+                "journal:interior-G20-m5-v0.05-r0.5-beta0.5": "550b9767f350f39610981a0fb24eb233d7abcae6c1909ec99345dbd2b81b5f35",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0": "9ae16bcf3276b3cfe4f612a6e2c371de034a8c2a44cf2f41e43ca9a946cc05c0",
+                "journal:interior-G20-m5-v0.25-r-0.5-beta0.5": "f18e423c052eb35bc0c2e41b9804eda2afe37a81616fca7686a475757b8955d7",
+                "journal:interior-G20-m5-v0.25-r0-beta0": "8d82fa8ef681e7bb63362e9106dd7381e897506553056f2bfa0f14a9565601c2",
+                "journal:interior-G20-m5-v0.25-r0-beta0.5": "b7bc875f92712a39b3adb273e07d8e81c717f00333e9d9d853a6147bf20940e9",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0": "958d2fcbc0e2d92000761e06c1dcf8e1c27c1bf7c7901a8b9c8cf46275f17c7e",
+                "journal:interior-G20-m5-v0.25-r0.5-beta0.5": "c73348bfeecfb123f9022ca3e83f03b5470d9af22348557134349a46284c4305",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0": "1ab6e7d892df8cf96baa060b8c643861c64551db7a2b870734d0c79e8290ee20",
+                "journal:interior-G50-m15-v0.05-r-0.5-beta0.5": "5ea37a155d715191cc992dec5dfaa22b63c0fbbcc1bb67995f5073f907aae2bb",
+                "journal:interior-G50-m15-v0.05-r0-beta0": "80e8cbe1d2e2ebd7a8a3cf18ad687cb28085b47e1a657cb338117a7dd08513ef",
+                "journal:interior-G50-m15-v0.05-r0-beta0.5": "11a4eff5a6ce73537defbca9bddd05c5d48706be93c7c63fad0ffc177e9e04f6",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0": "de372bb83eb91ba2b2c0316842d7a10d90097a6b745c8e5485c693c4bfefaa98",
+                "journal:interior-G50-m15-v0.05-r0.5-beta0.5": "f85398f49c1fc01f54acc7795c8ca89bead6a0bca4437f89941ea7f341deeadc",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0": "2e339c8407e82386388f8907c4c3ab31b9fc23fbeb528d2ec340b7dc8414fbae",
+                "journal:interior-G50-m15-v0.25-r-0.5-beta0.5": "630bf493e91b836088aab7c758d79e994e6b9752c157734c95c81080cc5c7783",
+                "journal:interior-G50-m15-v0.25-r0-beta0": "60662cb9e3e3d7aff5aa976a02dbfe46d0e88dcad9934ee659a7dd1bf661f8ec",
+                "journal:interior-G50-m15-v0.25-r0-beta0.5": "15fc68c7fc9b9d58d9967d8990bc5f3fbf76fe07f0ee929ea5bff21e4c42c420",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0": "93a52ee0bfef05cf4f51954f2e7aa8b37c0ee0f34b99c375a85e3388cf006933",
+                "journal:interior-G50-m15-v0.25-r0.5-beta0.5": "ca2b8efb625f798093243340d46e88a82f376fc39d7f1bc88070d341b0109109",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0": "764fa83aadff1bc5ae7112458b70a364cf6c0437b59abdd56580377a4ca6017d",
+                "journal:interior-G50-m5-v0.05-r-0.5-beta0.5": "9dea38e5e23dd4d31292d8ac46ce007e41d47987e4cf1971ef35cd1eb51b7375",
+                "journal:interior-G50-m5-v0.05-r0-beta0": "551ec80083fa5a2642bc8dd7a98f342761d3df05c7883e63f8cfffc6fcd16944",
+                "journal:interior-G50-m5-v0.05-r0-beta0.5": "f177260db67bb6ba3db50b8d447f9bae151960660395d8a0becc084cd334cff9",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0": "cc9fc3fe22db3fe5e947140d9b7a7a9b71276103e549ee68779df8439c60fe0e",
+                "journal:interior-G50-m5-v0.05-r0.5-beta0.5": "4b2ed7ae22a04dc201830701b71d16320d2e47483abb434994518e5cd45d5d93",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0": "797ebd32cae50a6ca4fbc3592cee0fb2ceb45a0f88aaca66e7fe32209c0f24a2",
+                "journal:interior-G50-m5-v0.25-r-0.5-beta0.5": "cdf19b26face5de5d54dc72c43eb1b8e705e80e7120e8fe931bd6e57f49e335f",
+                "journal:interior-G50-m5-v0.25-r0-beta0": "2d4336d97df8313e4f5f62a3f6e6fb8d86be95b4c6e0676db09749b2f0e43520",
+                "journal:interior-G50-m5-v0.25-r0-beta0.5": "becf94fc5dbb4713fc5a4d6384a5c29244310569d6f8c75d4084f8ff413a695a",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0": "45a4a37010c6f9cede940be4fa4a452b85d44bf493cd497bcb55852fded6cd37",
+                "journal:interior-G50-m5-v0.25-r0.5-beta0.5": "0aef0dd57c355021d0c41affc779784f38db81aa6687d98e85876573df677e32",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0": "092ebe6b44a7303ab64bf5da0c2df303aa0bef41fd568f7a1c998a2818631886",
+                "journal:interior-G8-m15-v0.05-r-0.5-beta0.5": "085d5d0cdaaeac521938283744f83e8918faa628391fd71b778956b438911849",
+                "journal:interior-G8-m15-v0.05-r0-beta0": "3eae0c6369d0116921dbc66a9a2b8ec481b6e018be9b30f6bc9ae86a9eae4614",
+                "journal:interior-G8-m15-v0.05-r0-beta0.5": "19dfa4a973e0cbbf2db9214c193146b7a2c18b75e81dc8fb526857cb44fc6372",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0": "1444e6848f2d0de4682f28a28d677d12caebcfbffbc58e3f11e82440c6db1727",
+                "journal:interior-G8-m15-v0.05-r0.5-beta0.5": "4bec4e478fccad8a2b8d6c1132479e9ff490b0e07113fc29471b4c11b3e6ee9b",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0": "e7dbaf6cc2f67d1611616a6fe33ce6b75bfb0cf9ff6f45b6c3d35c0db27a2737",
+                "journal:interior-G8-m15-v0.25-r-0.5-beta0.5": "066a8f18166722c3ed3ee12d0d9f498f63f134416fe2ec2449242aa3c4f93298",
+                "journal:interior-G8-m15-v0.25-r0-beta0": "d11cc9a03b5bd2e5ec2ce8676121995817e0f099aaba47837c2e63dc7baadefa",
+                "journal:interior-G8-m15-v0.25-r0-beta0.5": "9305d86dca79f8d12ed30daa62de1e294cdf2acdee9e3a3a43752fcf0fcdf0d3",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0": "12a3117dcd576ebd909ed968f3995f1ee60da6df169b7afe6a87c7b3ad6c676e",
+                "journal:interior-G8-m15-v0.25-r0.5-beta0.5": "2221e58ba3f1d8122802d98c531fa8d4f58d8f3ccef0583dcf20f55417f43c2d",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0": "d14818465568b37baf6d84221e02667355832926fc60ab809bc2c14c136ed1cf",
+                "journal:interior-G8-m5-v0.05-r-0.5-beta0.5": "c7dfda1567a98a8f94c0f06fdec0deeb94ebf59d45939f8f16011de054b474cf",
+                "journal:interior-G8-m5-v0.05-r0-beta0": "4de4f16d07123c051969b228d747806ea69ca9d6273d7d45bdb752fb1ba2c031",
+                "journal:interior-G8-m5-v0.05-r0-beta0.5": "b3b5522eaac3117729a69f7fab6e9cc79cf8df37e256411383638dc07e4d3088",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0": "02f0fb72965b4ec22e75eb8fb2637dd427b9433b1fde2299c0cb583a51b519c6",
+                "journal:interior-G8-m5-v0.05-r0.5-beta0.5": "2ab1a0eb236201a6c1be31fc4c167eb424f01b3718693d3e312f079cda63f715",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0": "ef5156176048f440ef989e239ec76f17bb14cacb93f418e76203a9dcf4b344b9",
+                "journal:interior-G8-m5-v0.25-r-0.5-beta0.5": "30c250f38e30731e05288d0f81cca0c829bf7be1f6d105b0a124893a9cb046c9",
+                "journal:interior-G8-m5-v0.25-r0-beta0": "a89383b6b99818f36d0cad9c26fdd04eba46ef54914b2b5738d3e3c2159a47e7",
+                "journal:interior-G8-m5-v0.25-r0-beta0.5": "13e0d693b3595f08698bc8c48b591b65811e292df8e128c74eb2cb8e2c012635",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0": "cd523a2b37652784dc2eefa77a3abcddc97643c33d6e7c8ba34c6b1ed841883d",
+                "journal:interior-G8-m5-v0.25-r0.5-beta0.5": "6ade4f6f6fc2ddcceb466ca8bd81cb1946bd4fac884ca48e5ff71a43f9c6af85",
+                "journal:near_correlation-G20-m5-v0.25-r-0.95-beta0": "cc4cfff3cf18faefc21e160e020f057fbe5df5e30b1d22e31c452ebf296d121a",
+                "journal:near_correlation-G20-m5-v0.25-r0.95-beta0": "9849ca616d5fddcc9a61aeffddade120d5ce650cd5e1a4a34b310817c3334392",
+                "journal:near_correlation-G8-m5-v0.25-r-0.95-beta0": "129c4b9e619ab0f947fdb569c8cc04c441debb6be2f898e4991a382f2dfd8e3b",
+                "journal:near_correlation-G8-m5-v0.25-r0.95-beta0": "3d7919e2d327161f322ab6db123b6967075684521d34fa65a8c438e656633bb8",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0": "2be788cb7e1bfbf0f706fba945758312c432d987e57f1fa50f74baa4735a6d54",
+                "journal:zero_slope-G20-m15-v0-rundefined-beta0.5": "59ed4c65b296ed69403ec636e82ee860c1bffa6247e75529b025c3c6a3181674",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0": "0c7b958c9c70228dd8634f58b52e880f05445bb5402d2c1b514d06b530e12fa3",
+                "journal:zero_slope-G20-m5-v0-rundefined-beta0.5": "ff689da49f8cebca3e44cd083fa57ddcab0c9fe899d77fa2885948ec2ea714fc",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0": "53f5096edefdef5d7f2fdf5f58dceb2ec837b63b4808f9e211ad7086f8b59d11",
+                "journal:zero_slope-G50-m15-v0-rundefined-beta0.5": "15ac0b4484113d08f01d3d65486c9d83291e4a37e82709bad34de7896cd4a4b6",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0": "d7882ae59867ae0d2f499df5576ef41a00072c8bbcf247cba876349d057cfc93",
+                "journal:zero_slope-G50-m5-v0-rundefined-beta0.5": "8cbcc64d6be63dabd5dabc8b137c123e6d9097506241824cc7e5160c0c70ba26",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0": "92e7375e54ecddf58bd9d7f33727fb61278d34a863bec7a01cbaabc0daa82429",
+                "journal:zero_slope-G8-m15-v0-rundefined-beta0.5": "003b74c9d967393915c0c96f8d23652ad9540ed5d5a2045f5be35f69dc06ec19",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0": "62cd75550d82299cab74d589c4b8174e1ba6d6fb011660578c1eaa78a0bc76b0",
+                "journal:zero_slope-G8-m5-v0-rundefined-beta0.5": "d8422b3c94fd120c720629e9b677e6b69db1cdb557d96f1a154078caa43f2559",
+                "manifest": "e10562b20930409e943328c593205fb9e7269d70aed33ee2092cb1a8e9f68e62",
+                "summary.json": "0855ae4e03108fcc4e3b48d97d2a313b67b264d5c3aba812a3e769e7b848803c"
+              },
+              "label": "r-check",
+              "thread_limits": {
+                "MKL_NUM_THREADS": "1",
+                "OMP_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "POLARS_MAX_THREADS": "1"
+              }
+            },
+            "outputs": {
+              "r-check.json": "03c55542e6b92c1b48f36a10e8ec1d305c0394e51730d0e4026bfe116691ea82"
+            },
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 5.391825700004119,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 15480
+                },
+                {
+                  "message": 6,
+                  "native_pid": 13712
+                },
+                {
+                  "message": 6,
+                  "native_pid": 28456
+                },
+                {
+                  "message": 6,
+                  "native_pid": 26532
+                },
+                {
+                  "message": 7,
+                  "native_pid": 26532
+                },
+                {
+                  "message": 7,
+                  "native_pid": 28456
+                },
+                {
+                  "message": 7,
+                  "native_pid": 15480
+                },
+                {
+                  "message": 7,
+                  "native_pid": 13712
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.15758199998526834,
+              "maximum_sampled_disk_bytes": 24027788,
+              "maximum_sampled_job_commit_bytes": 157220864,
+              "minimum_sampled_free_bytes": 61459607552,
+              "monitor_seconds": 5.346418500004802,
+              "os_peak_job_memory_bytes": 157286400,
+              "samples": 39,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 5.392002599983243,
+            "start_sha256": "2f2615f9e93dd924ea6e1749e4ed3daeef836c1599d5a3e80b747c52adec9f92"
+          },
+          "end_sha256": "22f9e0fdbfea80c9cd3eb6f1880011ea5a989cd6a35693e89b82b60dc5a25c9f"
+        }
+      },
+      "analysis_loop_seconds": 9.82227309999871,
+      "analysis_python_peak_working_set_bytes": 101953536,
+      "datasets": 1880,
+      "phases": {
+        "candidate": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "final_disk": {
+              "bytes": 11363489,
+              "free_bytes": 61520429056
+            },
+            "native_root_pids": [
+              18068,
+              29716,
+              17048,
+              24876
+            ],
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 51.38756820000708,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 18068
+                },
+                {
+                  "message": 6,
+                  "native_pid": 33328
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29716
+                },
+                {
+                  "message": 6,
+                  "native_pid": 3344
+                },
+                {
+                  "message": 6,
+                  "native_pid": 17048
+                },
+                {
+                  "message": 6,
+                  "native_pid": 33708
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21744
+                },
+                {
+                  "message": 6,
+                  "native_pid": 24876
+                },
+                {
+                  "message": 6,
+                  "native_pid": 14396
+                },
+                {
+                  "message": 6,
+                  "native_pid": 4908
+                },
+                {
+                  "message": 6,
+                  "native_pid": 18328
+                },
+                {
+                  "message": 6,
+                  "native_pid": 14724
+                },
+                {
+                  "message": 6,
+                  "native_pid": 23776
+                },
+                {
+                  "message": 6,
+                  "native_pid": 480
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29780
+                },
+                {
+                  "message": 6,
+                  "native_pid": 3392
+                },
+                {
+                  "message": 7,
+                  "native_pid": 23776
+                },
+                {
+                  "message": 7,
+                  "native_pid": 480
+                },
+                {
+                  "message": 7,
+                  "native_pid": 3392
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29780
+                },
+                {
+                  "message": 6,
+                  "native_pid": 6092
+                },
+                {
+                  "message": 6,
+                  "native_pid": 32896
+                },
+                {
+                  "message": 7,
+                  "native_pid": 32896
+                },
+                {
+                  "message": 7,
+                  "native_pid": 6092
+                },
+                {
+                  "message": 6,
+                  "native_pid": 25840
+                },
+                {
+                  "message": 6,
+                  "native_pid": 17836
+                },
+                {
+                  "message": 7,
+                  "native_pid": 17836
+                },
+                {
+                  "message": 7,
+                  "native_pid": 25840
+                },
+                {
+                  "message": 7,
+                  "native_pid": 4908
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29716
+                },
+                {
+                  "message": 7,
+                  "native_pid": 3344
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21744
+                },
+                {
+                  "message": 7,
+                  "native_pid": 18068
+                },
+                {
+                  "message": 7,
+                  "native_pid": 33328
+                },
+                {
+                  "message": 7,
+                  "native_pid": 18328
+                },
+                {
+                  "message": 7,
+                  "native_pid": 17048
+                },
+                {
+                  "message": 7,
+                  "native_pid": 33708
+                },
+                {
+                  "message": 7,
+                  "native_pid": 14724
+                },
+                {
+                  "message": 7,
+                  "native_pid": 24876
+                },
+                {
+                  "message": 7,
+                  "native_pid": 14396
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.17346389999147505,
+              "maximum_sampled_disk_bytes": 12313107,
+              "maximum_sampled_job_commit_bytes": 433168384,
+              "minimum_sampled_free_bytes": 61519593472,
+              "monitor_seconds": 51.34503090000362,
+              "os_peak_job_memory_bytes": 467972096,
+              "samples": 379,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 51.3878160000022
+          },
+          "end_sha256": "611ab4b64058edec0dcb99134684164e2fb19faf41fb66f7cee7203ffe88ff63",
+          "workers": [
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 21744,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122740736,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 35.36557760008145,
+                "input_generation_commit_seconds": 0.6993180000863504,
+                "outcome_commit_seconds": 1.7927821996854618,
+                "start_commit_seconds": 1.661352000082843,
+                "validation_recovery_seconds": 0.12629049996030517
+              },
+              "worker": 0,
+              "worker_seconds": 42.8537789999973
+            },
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 4908,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122294272,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 35.10591140022734,
+                "input_generation_commit_seconds": 0.7316282000101637,
+                "outcome_commit_seconds": 1.9306875000183936,
+                "start_commit_seconds": 1.6976560998882633,
+                "validation_recovery_seconds": 0.1384891999186948
+              },
+              "worker": 1,
+              "worker_seconds": 42.53551489999518
+            },
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 18328,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122654720,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 43.3607443998917,
+                "input_generation_commit_seconds": 0.7362043001339771,
+                "outcome_commit_seconds": 1.7978915001731366,
+                "start_commit_seconds": 1.5917441998026334,
+                "validation_recovery_seconds": 0.13594340012059547
+              },
+              "worker": 2,
+              "worker_seconds": 50.57878670000355
+            },
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 14724,
+              "phase": "candidate",
+              "python_peak_working_set_bytes": 122990592,
+              "r_environment": null,
+              "r_peak_working_set_bytes": null,
+              "timings": {
+                "fit_callback_seconds": 43.5267656998185,
+                "input_generation_commit_seconds": 0.7337840000691358,
+                "outcome_commit_seconds": 1.8137806996819563,
+                "start_commit_seconds": 1.6147997993975878,
+                "validation_recovery_seconds": 0.13461949996417388
+              },
+              "worker": 3,
+              "worker_seconds": 50.903544200002216
+            }
+          ]
+        },
+        "reference": {
+          "end": {
+            "caps": {
+              "disk_bytes": 536870912,
+              "job_commit_bytes": 4294967296,
+              "min_free_bytes": 1073741824,
+              "poll_seconds": 0.1,
+              "seconds": 900
+            },
+            "exit_codes": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "final_disk": {
+              "bytes": 17127907,
+              "free_bytes": 61468078080
+            },
+            "native_root_pids": [
+              30392,
+              14740,
+              25616,
+              3952
+            ],
+            "resource_guard": {
+              "abort_reason": null,
+              "active_phase_seconds": 281.4007057000126,
+              "final_active_job_processes": 0,
+              "final_job_process_ids": [],
+              "job_events": [
+                {
+                  "message": 6,
+                  "native_pid": 30392
+                },
+                {
+                  "message": 6,
+                  "native_pid": 33100
+                },
+                {
+                  "message": 6,
+                  "native_pid": 14740
+                },
+                {
+                  "message": 6,
+                  "native_pid": 26524
+                },
+                {
+                  "message": 6,
+                  "native_pid": 25616
+                },
+                {
+                  "message": 6,
+                  "native_pid": 21840
+                },
+                {
+                  "message": 6,
+                  "native_pid": 7564
+                },
+                {
+                  "message": 6,
+                  "native_pid": 3952
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29556
+                },
+                {
+                  "message": 6,
+                  "native_pid": 27196
+                },
+                {
+                  "message": 6,
+                  "native_pid": 31356
+                },
+                {
+                  "message": 6,
+                  "native_pid": 29288
+                },
+                {
+                  "message": 6,
+                  "native_pid": 25324
+                },
+                {
+                  "message": 6,
+                  "native_pid": 7528
+                },
+                {
+                  "message": 6,
+                  "native_pid": 30344
+                },
+                {
+                  "message": 6,
+                  "native_pid": 30628
+                },
+                {
+                  "message": 6,
+                  "native_pid": 24764
+                },
+                {
+                  "message": 6,
+                  "native_pid": 30984
+                },
+                {
+                  "message": 6,
+                  "native_pid": 26132
+                },
+                {
+                  "message": 6,
+                  "native_pid": 30376
+                },
+                {
+                  "message": 6,
+                  "native_pid": 20040
+                },
+                {
+                  "message": 6,
+                  "native_pid": 22928
+                },
+                {
+                  "message": 6,
+                  "native_pid": 16496
+                },
+                {
+                  "message": 6,
+                  "native_pid": 24916
+                },
+                {
+                  "message": 6,
+                  "native_pid": 24568
+                },
+                {
+                  "message": 6,
+                  "native_pid": 31908
+                },
+                {
+                  "message": 6,
+                  "native_pid": 3012
+                },
+                {
+                  "message": 6,
+                  "native_pid": 14328
+                },
+                {
+                  "message": 7,
+                  "native_pid": 3012
+                },
+                {
+                  "message": 7,
+                  "native_pid": 16496
+                },
+                {
+                  "message": 7,
+                  "native_pid": 24764
+                },
+                {
+                  "message": 7,
+                  "native_pid": 31356
+                },
+                {
+                  "message": 7,
+                  "native_pid": 25616
+                },
+                {
+                  "message": 7,
+                  "native_pid": 21840
+                },
+                {
+                  "message": 7,
+                  "native_pid": 14328
+                },
+                {
+                  "message": 7,
+                  "native_pid": 24916
+                },
+                {
+                  "message": 7,
+                  "native_pid": 30984
+                },
+                {
+                  "message": 7,
+                  "native_pid": 30376
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29288
+                },
+                {
+                  "message": 7,
+                  "native_pid": 3952
+                },
+                {
+                  "message": 7,
+                  "native_pid": 29556
+                },
+                {
+                  "message": 7,
+                  "native_pid": 31908
+                },
+                {
+                  "message": 7,
+                  "native_pid": 22928
+                },
+                {
+                  "message": 7,
+                  "native_pid": 7528
+                },
+                {
+                  "message": 7,
+                  "native_pid": 30628
+                },
+                {
+                  "message": 7,
+                  "native_pid": 27196
+                },
+                {
+                  "message": 7,
+                  "native_pid": 14740
+                },
+                {
+                  "message": 7,
+                  "native_pid": 26524
+                },
+                {
+                  "message": 7,
+                  "native_pid": 24568
+                },
+                {
+                  "message": 7,
+                  "native_pid": 20040
+                },
+                {
+                  "message": 7,
+                  "native_pid": 25324
+                },
+                {
+                  "message": 7,
+                  "native_pid": 7564
+                },
+                {
+                  "message": 7,
+                  "native_pid": 30392
+                },
+                {
+                  "message": 7,
+                  "native_pid": 33100
+                },
+                {
+                  "message": 4,
+                  "native_pid": null
+                }
+              ],
+              "largest_sample_gap_seconds": 0.2129824000003282,
+              "maximum_sampled_disk_bytes": 21321986,
+              "maximum_sampled_job_commit_bytes": 1950601216,
+              "minimum_sampled_free_bytes": 61463789568,
+              "monitor_seconds": 281.3364824000164,
+              "os_peak_job_memory_bytes": 1950879744,
+              "samples": 1905,
+              "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+            },
+            "seconds": 281.40098269999726
+          },
+          "end_sha256": "e8b2f3d56eb3e9baf3d415ca73b0bc6b2220a7ca033ccb0e2028a853b2ea6cf4",
+          "workers": [
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 7564,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 38105088,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 24568,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 430227456,
+              "timings": {
+                "fit_callback_seconds": 267.91512019973015,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 5.387900800153147,
+                "start_commit_seconds": 4.791385900171008,
+                "validation_recovery_seconds": 0.36743190002744086
+              },
+              "worker": 0,
+              "worker_seconds": 280.9530029000016
+            },
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 27196,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37842944,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 31908,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 432799744,
+              "timings": {
+                "fit_callback_seconds": 267.6203901999688,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 5.314898899610853,
+                "start_commit_seconds": 4.694730100018205,
+                "validation_recovery_seconds": 0.3650063999230042
+              },
+              "worker": 1,
+              "worker_seconds": 280.50821440000436
+            },
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 31356,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37449728,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 3012,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 432553984,
+              "timings": {
+                "fit_callback_seconds": 261.32495369864046,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 5.125800600857474,
+                "start_commit_seconds": 4.532176599226659,
+                "validation_recovery_seconds": 0.40014520002296194
+              },
+              "worker": 2,
+              "worker_seconds": 273.9320251000172
+            },
+            {
+              "manifest_sha": "b1fc0f75bc0825265edd44211ca8fa9275d1c383a2abc74b174e9289703981e3",
+              "memory_scope": "per-native-process resident high-water; not simultaneous peak or committed bytes",
+              "native_python_pid": 29288,
+              "phase": "reference",
+              "python_peak_working_set_bytes": 37515264,
+              "r_environment": {
+                "namespaces": {
+                  "MASS": "7.3.65",
+                  "Matrix": "1.7.5",
+                  "R6": "2.6.1",
+                  "RColorBrewer": "1.1.3",
+                  "Rcpp": "1.1.1.1.1",
+                  "Rdpack": "2.6.6",
+                  "S7": "0.2.2",
+                  "backports": "1.5.1",
+                  "base": "4.6.1",
+                  "boot": "1.3.32",
+                  "broom": "1.0.13",
+                  "cli": "3.6.6",
+                  "compiler": "4.6.1",
+                  "datasets": "4.6.1",
+                  "dplyr": "1.2.1",
+                  "farver": "2.1.2",
+                  "generics": "0.1.4",
+                  "ggplot2": "4.0.3",
+                  "glue": "1.8.1",
+                  "grDevices": "4.6.1",
+                  "graphics": "4.6.1",
+                  "grid": "4.6.1",
+                  "gtable": "0.3.6",
+                  "jsonlite": "2.0.0",
+                  "lattice": "0.22.9",
+                  "lifecycle": "1.0.5",
+                  "lme4": "2.0.1",
+                  "lmerTest": "3.2.1",
+                  "magrittr": "2.0.5",
+                  "methods": "4.6.1",
+                  "minqa": "1.2.8",
+                  "nlme": "3.1.169",
+                  "nloptr": "2.2.1",
+                  "numDeriv": "2016.8.1.1",
+                  "parallel": "4.6.1",
+                  "pbkrtest": "0.5.5",
+                  "pillar": "1.11.1",
+                  "pkgconfig": "2.0.3",
+                  "purrr": "1.2.2",
+                  "rbibutils": "2.4.1",
+                  "reformulas": "0.4.4",
+                  "rlang": "1.2.0",
+                  "scales": "1.4.0",
+                  "splines": "4.6.1",
+                  "stats": "4.6.1",
+                  "tibble": "3.3.1",
+                  "tidyr": "1.3.2",
+                  "tidyselect": "1.2.1",
+                  "tools": "4.6.1",
+                  "utils": "4.6.1",
+                  "vctrs": "0.7.3"
+                },
+                "native_pid": 14328,
+                "r_version": "R version 4.6.1 (2026-06-24 ucrt)"
+              },
+              "r_peak_working_set_bytes": 432795648,
+              "timings": {
+                "fit_callback_seconds": 261.84174469925347,
+                "input_generation_commit_seconds": 0.0,
+                "outcome_commit_seconds": 5.1315621998219285,
+                "start_commit_seconds": 4.5759973000967875,
+                "validation_recovery_seconds": 0.403389900107868
+              },
+              "worker": 3,
+              "worker_seconds": 274.5024700999784
+            }
+          ]
+        }
+      },
+      "r_attempts": 7520,
+      "storage": {
+        "compressed_input_payload_bytes": 4200314,
+        "compressed_outcome_payload_bytes": 4649973,
+        "journal_physical_bytes": 14745600,
+        "overhead_scope": "includes pages, unused space, indexes and metadata; not pure fixed cost",
+        "physical_minus_compressed_payload_bytes": 5895313
+      }
+    }
+  },
+  "memory_scope": "hard job committed-byte ceiling; sampled current commit and OS peak charge are distinct from per-process resident high-water; no whole-host bound",
+  "scope": "isolated Windows engineering rehearsals; descriptive independent-input secants, no production bound or calibration claim",
+  "secants": {
+    "analysis_file_bytes": {
+      "linear_intercept": 169773,
+      "per_additional_dataset": 3559.4904255319148
+    },
+    "analysis_loop_seconds": {
+      "linear_intercept": 0.21201729998574592,
+      "per_additional_dataset": 0.005111838191496258
+    },
+    "candidate_phase_seconds": {
+      "linear_intercept": 4.9675593999854755,
+      "per_additional_dataset": 0.024691625851072728
+    },
+    "capped_analysis_seconds": {
+      "linear_intercept": 1.1600254000222776,
+      "per_additional_dataset": 0.00553012159572508
+    },
+    "capped_r_verification_seconds": {
+      "linear_intercept": -0.02355159996659495,
+      "per_additional_dataset": 0.002880613936143531
+    },
+    "compressed_input_payload_bytes": {
+      "linear_intercept": 18856,
+      "per_additional_dataset": 2224.1797872340426
+    },
+    "compressed_outcome_payload_bytes": {
+      "linear_intercept": 4863,
+      "per_additional_dataset": 2470.803191489362
+    },
+    "journal_physical_bytes": {
+      "linear_intercept": 3416064,
+      "per_additional_dataset": 6026.348936170213
+    },
+    "reference_bank_phase_seconds": {
+      "linear_intercept": -26.36816589999944,
+      "per_additional_dataset": 0.16370699393616844
+    }
+  },
+  "source_count": 106,
+  "timer_scope": "phase end.seconds includes cleanup; resource_guard.active_phase_seconds stops at final job sample; analysis loop excludes setup/import/receipt verification"
+}

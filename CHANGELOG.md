@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a separate, source-frozen random-slope scaling rehearsal with Windows
+  committed-memory limits, measured time/disk guards, command-bound analysis
+  receipts and native interruption/resume controls. Full confirmation stays
+  disabled; engineering rehearsals do not establish calibration.
 - A bounded random-slope rehearsal runner with append-only durable attempt
   journals, failure-preserving resume, complete fixed-bank R diagnostics, streamed
   analysis and independent R verification. Record a fresh 188-dataset engineering
