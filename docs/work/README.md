@@ -20,8 +20,10 @@ context, credentials and sensitive local paths.
 | Record | Status at last update | Next action |
 |:---|:---|:---|
 | [Near-zero covariance recovery](2026-10-16-near-zero-column-recovery.md) | Delivered in c87b8e0; fresh pilot retains one iteration limit, 16 October 2026 | Follow the strict-control convergence diagnostic plan before numerical readiness |
-| [Strict-control convergence diagnostic](../LMM_RANDOM_SLOPE_CONVERGENCE_NEXT_STEP.md) | Completed locally; rounding-scale stagnation established, 16 October 2026 | Fresh full-method pilot with prospectively frozen control; original failed gate retained |
-| [Fresh stopping-control pilot](../LMM_RANDOM_SLOPE_STOPPING_CONTROL_NEXT_STEP.md) | Proposed after independent diagnostic review, 16 October 2026 | Freeze separate protocol/sources/fresh namespace at absolute tolerance 1e-10, all other gates unchanged |
+| [Strict-control convergence diagnostic](../LMM_RANDOM_SLOPE_CONVERGENCE_NEXT_STEP.md) | Delivered in b4cbf07; rounding-scale stagnation established, 16 October 2026 | Fresh full-method pilot with prospectively frozen control; original failed gate retained |
+| [Stopping-control pilot execution](2026-10-16-stopping-control-pilot.md) | Completed locally; original analysis abort and three numerical failures retained, 16 October 2026 | Follow boundary/covariance repair plan; preserve failed readiness and separate diagnostic results |
+| [Fresh stopping-control pilot](../LMM_RANDOM_SLOPE_STOPPING_CONTROL_NEXT_STEP.md) | Executed under separate freeze; readiness blocked, 16 October 2026 | Follow retained counterexamples and precision/recovery milestone |
+| [Boundary recovery and covariance precision](../LMM_RANDOM_SLOPE_PRECISION_RECOVERY_NEXT_STEP.md) | Planned from three fresh counterexamples, 16 October 2026 | Reproduce failures, repair causes with negative controls/budget/backend checks, then freeze separate validation |
 | [Production campaign preparation](../LMM_RANDOM_SLOPE_PRODUCTION_NEXT_STEP.md) | Conditional future plan, 16 October 2026 | Follow only after a reviewed fresh pilot meets its prospective numerical-readiness gate |
 | [Random-slope scaling and caps](2026-10-16-random-slope-scaling-caps.md) | Delivered in 10f7b78; two numerical blockers retained, 16 October 2026 | Follow the near-zero covariance recovery milestone before confirmation |
 | [Random-slope streaming harness](2026-10-16-random-slope-streaming-harness.md) | Delivered in bda59f0, 16 October 2026 | Follow separate scaling/cap and native interruption rehearsal before confirmation freeze |

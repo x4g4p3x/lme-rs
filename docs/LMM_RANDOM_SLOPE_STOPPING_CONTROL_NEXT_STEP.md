@@ -60,3 +60,15 @@ calibration claims. Run required script/docs checks and any affected API checks.
 Only a reviewed fresh pilot meeting its own gates allows proceeding to the
 [production preparation milestone](LMM_RANDOM_SLOPE_PRODUCTION_NEXT_STEP.md).
 No production campaign or release is authorized by this plan.
+
+## Execution update, 16 October 2026
+
+Executed under a separately reviewed 122-source freeze and fresh namespace;
+all 1,880 candidates report convergence, but three fail numerical gates. The
+original analysis also aborted on transient-file disk sampling. A separate
+127-source diagnostic freeze and hardened sampler completed the identical
+retained-fit analysis/R verification without changing inputs or outcomes.
+Original engineering acceptance and numerical readiness stay false. See the
+[work record](work/2026-10-16-stopping-control-pilot.md),
+[report](../scientific/STOPPING_CONTROL_PILOT_V1.md) and
+[next repair milestone](LMM_RANDOM_SLOPE_PRECISION_RECOVERY_NEXT_STEP.md).

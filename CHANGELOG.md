@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a fresh stopping-control pilot harness and a separate retained-fit analysis
+  path with disk sampling that handles transient SQLite files and rejects denied
+  directory scans, preserving historical scientific sources and outcomes.
 - Add reproducible random-slope stopping diagnostics with exact input-bit replay,
   independent high-precision likelihood checks and retained control-sensitivity
   evidence, without changing production convergence semantics.

@@ -1,0 +1,43 @@
+{
+  "bytes": 41187682,
+  "crc_verified": true,
+  "entries": 502,
+  "name": "lmm-stopping-control-pilot-v1-20261016.zip",
+  "public_copies": [
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1.json",
+      "sha256": "9638347747868d295a1958d21777c7673e4de7f5e79887577cc488f5c703d896"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_ASSESSMENT.json",
+      "sha256": "fd23f1d6b26b769daae2894c79a53fc385e9edf196648105ffa575cc5ac34fdb"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_COUNTEREXAMPLES.json",
+      "sha256": "3617e1b7349ea94df245dbf28787468ccd503b30dd5530469c8dbe49bd3d2177"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_DIAGNOSTIC_FREEZE.json",
+      "sha256": "1073830b0a4b1dd3c63be46a0d98cf632f89bd9d9df1b9b78cf7d0de93bce931"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_FREEZE.json",
+      "sha256": "7daab86e03015a71389d52f8c94dc938d1d9c923f62c072ac12435e81833d595"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_ORIGINAL_ABORT.json",
+      "sha256": "f01799e731aee19cab5e8406c8b3cc3e48ebec8a5d3b7678a01c233f036df7a3"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_R_CHECK.json",
+      "sha256": "6076caeb15c0a67b9f12dad3cdb1649a04931df8bc1382bf8641157465775e35"
+    },
+    {
+      "path": "STOPPING_CONTROL_PILOT_V1_RESOURCES.json",
+      "sha256": "dea6d59951ff657399914f1ce443846e1d74e1c34b2b5b167424a8622a27f434"
+    }
+  ],
+  "publication": "local archive; not uploaded",
+  "scope": "Original frozen pilot inputs,starts,fits,source/build identities,partial failed analysis and abort; separately frozen diagnostic sources,complete analysis and R verification;exact reused wheel/environment metadata; sanitized console logs; installed environments excluded",
+  "sha256": "e3592d83d1f27101ab4b64fda91e69e4c8500872341ae8c8e612fa59f56e3f2e"
+}
