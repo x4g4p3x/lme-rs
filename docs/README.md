@@ -22,6 +22,11 @@ contracts and reproduction commands. The [LMM calibration protocol](LMM_CALIBRAT
 has internal AI reviews, a completed
 [8,000-dataset pilot](../scientific/CALIBRATION_PILOT_0.2.7.md), and a completed
 [1,600,000-dataset confirmatory study](../scientific/CALIBRATION_CONFIRMATORY_0.2.7.md).
+The [next-milestone handoff plan](SCIENTIFIC_VALIDATION_NEXT_STEP_PLAN.md) covers
+the evidence audit, boundary explanation, supported scope and next model extension.
+The [completed post-study audit](../scientific/BOUNDARY_AUDIT_0.2.7.md) records
+the corrections and optimizer regression; the next extension has a
+[prospective random-slope pilot protocol](LMM_RANDOM_SLOPE_PILOT_PROTOCOL.md).
 
 ## Start here
 
@@ -81,6 +86,7 @@ questions. Follow each claim to its fixture, revision, or manifest.
 |:---------|:--------|
 | [Contributing](../CONTRIBUTING.md) | Setup, checks, pull requests, documentation maintenance |
 | [Agent pre-flights](../AGENTS.md) | Required validation and completion-score rules |
+| [Work records](work/README.md) | Living task plans, decisions, verification and handoffs |
 | [CI runner](../scripts/ci/README.md) | Commands shared by Task, hooks, and Actions |
 | [CI timing history](../CI_PERFORMANCE.md) | Dated hosted measurements and cache design |
 | [Fuzzing](../fuzz/README.md) | Parser and formula-pipeline fuzz targets |

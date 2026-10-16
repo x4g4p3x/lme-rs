@@ -23,6 +23,90 @@ fn close(a: &[f64], b: &[f64], tol: f64) {
 }
 
 #[test]
+fn custom_scalar_controls_recover_small_positive_reml_variance() {
+    for scale in [0.999_f64, 1.0, 1.001] {
+        let group_x = [-1.0, -1.0, 1.0, 1.0];
+        let residual = [scale, -scale, 0.0, 0.0];
+        let x: Vec<_> = group_x.into_iter().flat_map(|v| [v, v]).collect();
+        let y: Vec<_> = group_x
+            .into_iter()
+            .zip(residual)
+            .flat_map(|(v, e)| [2.0 + 0.8 * v + e - 1.0, 2.0 + 0.8 * v + e + 1.0])
+            .collect();
+        let df = df!["y" => y, "x" => x, "g" => ["a", "a", "b", "b", "c", "c", "d", "d"]].unwrap();
+        let prepared = lme_rs::prepare_lmer("y ~ x + (1 | g)", &df).unwrap();
+        let control = lme_rs::FitControl {
+            tolerance: 1e-10,
+            max_iterations: 5000,
+            ..Default::default()
+        };
+        let fit = prepared.fit(None, true, &control).unwrap();
+        let sigma2 = if scale > 1.0 {
+            2.0
+        } else {
+            (8.0 + 4.0 * scale * scale) / 6.0
+        };
+        let tau2 = if scale > 1.0 {
+            scale * scale - 1.0
+        } else {
+            0.0
+        };
+        let actual_sigma2 = fit.sigma2.unwrap();
+        let actual_tau2 = actual_sigma2 * fit.theta.as_ref().unwrap()[0].powi(2);
+        assert_eq!(fit.converged, Some(true));
+        assert!(
+            (actual_tau2 - tau2).abs() < 2e-7,
+            "scale={scale}, actual tau2={actual_tau2}, exact tau2={tau2}"
+        );
+        assert!((actual_sigma2 - sigma2).abs() < 2e-6);
+        assert!((fit.coefficients[1] - 0.8).abs() < 1e-10);
+        for budget in [1, 2] {
+            let limited = lme_rs::FitControl {
+                max_iterations: budget,
+                ..control.clone()
+            };
+            let result = prepared.fit(None, true, &limited).unwrap();
+            assert_eq!(result.converged, Some(false));
+            assert!(result.diagnostics.as_ref().unwrap().outer_iterations <= budget);
+        }
+        let invalid = lme_rs::FitControl {
+            max_iterations: 0,
+            ..control.clone()
+        };
+        assert!(prepared.fit(None, true, &invalid).is_err());
+    }
+}
+
+#[test]
+fn limited_scalar_search_retains_best_evaluated_center() {
+    let scale = 3.0_f64.sqrt();
+    let group_x = [-1.0, -1.0, 1.0, 1.0];
+    let residual = [scale, -scale, 0.0, 0.0];
+    let x: Vec<_> = group_x.into_iter().flat_map(|v| [v, v]).collect();
+    let y: Vec<_> = group_x
+        .into_iter()
+        .zip(residual)
+        .flat_map(|(v, e)| [2.0 + 0.8 * v + e - 1.0, 2.0 + 0.8 * v + e + 1.0])
+        .collect();
+    let df = df!["y" => y, "x" => x, "g" => ["a", "a", "b", "b", "c", "c", "d", "d"]].unwrap();
+    let prepared = lme_rs::prepare_lmer("y ~ x + (1 | g)", &df).unwrap();
+    let control = lme_rs::FitControl {
+        max_iterations: 1,
+        tolerance: 1e-10,
+        start: Some(Array1::from_vec(vec![0.0])),
+        ..Default::default()
+    };
+    let fit = prepared.fit(None, true, &control).unwrap();
+    assert_eq!(fit.converged, Some(false));
+    assert_eq!(
+        fit.theta.as_ref().unwrap()[0],
+        1.0,
+        "the evaluated center is the analytic optimum and must not be discarded"
+    );
+    assert!(fit.diagnostics.as_ref().unwrap().outer_iterations <= 1);
+}
+
+#[test]
 fn offsets_survive_fit_prediction_and_response_replacement() {
     let mut df = data();
     let days = df.column("Days").unwrap().cast(&DataType::Float64).unwrap();

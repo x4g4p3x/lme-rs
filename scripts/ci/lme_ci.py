@@ -1648,6 +1648,16 @@ def main(argv: list[str] | None = None) -> int:
     ).set_defaults(
         fn=lambda _: run([sys.executable, "scripts/scientific_validation.py", "--self-test"])
     )
+    p_audit = sub.add_parser(
+        "scientific-audit", help="Independently audit frozen 0.2.7 LMM evidence"
+    )
+    p_audit.add_argument("--run-dir", required=True)
+    p_audit.add_argument("--output", required=True)
+    p_audit.set_defaults(
+        fn=lambda a: run(
+            [sys.executable, "scripts/audit_lmm_evidence.py", a.run_dir, "--output", a.output]
+        )
+    )
     p_calibration = sub.add_parser(
         "scientific-calibration", help="Run the exploratory 80-case LMM pilot"
     )

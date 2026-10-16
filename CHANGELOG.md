@@ -18,11 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Honor custom controls in scalar random-intercept LMMs with the bracketed
+  profile search, preventing a clamped simplex from falsely converging at zero
+  variance when a nearby positive REML optimum exists. Preserve iteration budgets
+  and retain the best evaluated center when the search budget is exhausted.
+- Correct the confirmatory report's constrained-REML boundary explanation and
+  five transcribed artifact checksums through a dated audit addendum; preserve
+  the original data, primary decisions and non-supported scope.
+
 - Update rustls to 0.23.46 in the library, bindings, and fuzz lockfiles to address
   RUSTSEC-2026-0346, RUSTSEC-2026-0347, RUSTSEC-2026-0348, and RUSTSEC-2026-0349.
 - Update the fuzz harness's crossbeam-epoch dependency to address RUSTSEC-2026-0204.
 
 ### Added
+
+- A read-only verifier for all confirmatory records and a versioned inference
+  evidence ledger, independent rational boundary fixtures and a separate
+  Gaussian random-slope pilot protocol.
 
 - A frozen LMM confirmatory calibration harness (protocol v3), portable R 4.6.1
   dependency lock (`scientific/renv.lock`) and verifier/restorer, bounded-worker

@@ -22,6 +22,7 @@ Prefer Task for day-to-day work.
 | `task benchmarks:site` | `benchmark-site` | Regenerate checked-in dashboard data |
 | `task explorations` | `explorations` | Parser, parameter-grid, and comparison probes |
 | `task scientific:oracle` | `scientific-oracle` | Independent exact-arithmetic oracle controls |
+| `task scientific:audit -- --run-dir DIR --output NEW_JSON` | `scientific-audit` | Read-only full record/count audit of the frozen 0.2.7 confirmatory evidence |
 | `task scientific:baseline` | `scientific-baseline` | Frozen published 0.2.7, NIST and three selected paper examples |
 | `task scientific:calibration` | `scientific-calibration` | Exploratory 80-case Gaussian LMM pilot, default 100 replicates/case |
 | `task scientific:calibration:confirmatory` | `scientific-calibration-confirmatory` | Frozen 80-case Gaussian LMM confirmatory study, 20,000 replicates/case |

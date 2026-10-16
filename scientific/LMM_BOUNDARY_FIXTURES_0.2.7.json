@@ -1,0 +1,1081 @@
+{
+  "scope": "post-study deterministic diagnostics; no confirmatory observations replaced",
+  "fixtures": [
+    {
+      "id": "strict_boundary",
+      "group_x": [
+        -3.0,
+        -1.0,
+        1.0,
+        3.0
+      ],
+      "observations": [
+        [
+          -0.9,
+          1.1
+        ],
+        [
+          -0.3,
+          1.7
+        ],
+        [
+          1.3,
+          3.3
+        ],
+        [
+          3.9,
+          5.9
+        ]
+      ],
+      "expected": {
+        "n": 8,
+        "g": 4,
+        "m": 2,
+        "w": 4,
+        "q": 2,
+        "sxx": 20.0,
+        "xtx_det": 320.0,
+        "beta0": 2.0,
+        "beta1": 0.8,
+        "ssw": 8.0,
+        "ssb": 2.0,
+        "msw": 2.0,
+        "msb": 1.0,
+        "sigma2": 1.6666666666666667,
+        "v": 1.6666666666666667,
+        "tau2": 0.0,
+        "boundary": true,
+        "slope_variance": 0.041666666666666664,
+        "group_means_variance": 0.025,
+        "criterion": 25.86053713684579
+      },
+      "exact": {
+        "sxx": "20",
+        "xtx_det": "320",
+        "beta0": "2",
+        "beta1": "4/5",
+        "ssw": "8",
+        "ssb": "2",
+        "msw": "2",
+        "msb": "1",
+        "sigma2": "5/3",
+        "v": "5/3",
+        "tau2": "0",
+        "slope_variance": "1/24",
+        "group_means_variance": "1/40"
+      }
+    },
+    {
+      "id": "strict_interior",
+      "group_x": [
+        -3.0,
+        -1.0,
+        1.0,
+        3.0
+      ],
+      "observations": [
+        [
+          -0.4,
+          1.6
+        ],
+        [
+          -0.8,
+          1.2
+        ],
+        [
+          0.8,
+          2.8
+        ],
+        [
+          4.4,
+          6.4
+        ]
+      ],
+      "expected": {
+        "n": 8,
+        "g": 4,
+        "m": 2,
+        "w": 4,
+        "q": 2,
+        "sxx": 20.0,
+        "xtx_det": 320.0,
+        "beta0": 2.0,
+        "beta1": 0.8,
+        "ssw": 8.0,
+        "ssb": 8.0,
+        "msw": 2.0,
+        "msb": 4.0,
+        "sigma2": 2.0,
+        "v": 4.0,
+        "tau2": 1.0,
+        "boundary": false,
+        "slope_variance": 0.1,
+        "group_means_variance": 0.1,
+        "criterion": 28.34076083872941
+      },
+      "exact": {
+        "sxx": "20",
+        "xtx_det": "320",
+        "beta0": "2",
+        "beta1": "4/5",
+        "ssw": "8",
+        "ssb": "8",
+        "msw": "2",
+        "msb": "4",
+        "sigma2": "2",
+        "v": "4",
+        "tau2": "1",
+        "slope_variance": "1/10",
+        "group_means_variance": "1/10"
+      }
+    },
+    {
+      "id": "exact_boundary",
+      "group_x": [
+        -1.0,
+        -1.0,
+        1.0,
+        1.0
+      ],
+      "observations": [
+        [
+          1.2,
+          3.2
+        ],
+        [
+          -0.8,
+          1.2
+        ],
+        [
+          1.8,
+          3.8
+        ],
+        [
+          1.8,
+          3.8
+        ]
+      ],
+      "expected": {
+        "n": 8,
+        "g": 4,
+        "m": 2,
+        "w": 4,
+        "q": 2,
+        "sxx": 4.0,
+        "xtx_det": 64.0,
+        "beta0": 2.0,
+        "beta1": 0.8,
+        "ssw": 8.0,
+        "ssb": 4.0,
+        "msw": 2.0,
+        "msb": 2.0,
+        "sigma2": 2.0,
+        "v": 2.0,
+        "tau2": 0.0,
+        "boundary": true,
+        "slope_variance": 0.25,
+        "group_means_variance": 0.25,
+        "criterion": 25.345028565175415
+      },
+      "exact": {
+        "sxx": "4",
+        "xtx_det": "64",
+        "beta0": "2",
+        "beta1": "4/5",
+        "ssw": "8",
+        "ssb": "4",
+        "msw": "2",
+        "msb": "2",
+        "sigma2": "2",
+        "v": "2",
+        "tau2": "0",
+        "slope_variance": "1/4",
+        "group_means_variance": "1/4"
+      }
+    },
+    {
+      "id": "near_boundary_below",
+      "group_x": [
+        -1.0,
+        -1.0,
+        1.0,
+        1.0
+      ],
+      "observations": [
+        [
+          1.199,
+          3.199
+        ],
+        [
+          -0.799,
+          1.201
+        ],
+        [
+          1.8,
+          3.8
+        ],
+        [
+          1.8,
+          3.8
+        ]
+      ],
+      "expected": {
+        "n": 8,
+        "g": 4,
+        "m": 2,
+        "w": 4,
+        "q": 2,
+        "sxx": 4.0,
+        "xtx_det": 64.0,
+        "beta0": 2.0,
+        "beta1": 0.8,
+        "ssw": 8.0,
+        "ssb": 3.992004,
+        "msw": 2.0,
+        "msb": 1.996002,
+        "sigma2": 1.9986673333333334,
+        "v": 1.9986673333333334,
+        "tau2": 0.0,
+        "boundary": true,
+        "slope_variance": 0.24983341666666667,
+        "group_means_variance": 0.24950025,
+        "criterion": 25.341029232583082
+      },
+      "exact": {
+        "sxx": "4",
+        "xtx_det": "64",
+        "beta0": "2",
+        "beta1": "4/5",
+        "ssw": "8",
+        "ssb": "998001/250000",
+        "msw": "2",
+        "msb": "998001/500000",
+        "sigma2": "2998001/1500000",
+        "v": "2998001/1500000",
+        "tau2": "0",
+        "slope_variance": "2998001/12000000",
+        "group_means_variance": "998001/4000000"
+      }
+    },
+    {
+      "id": "near_boundary_above",
+      "group_x": [
+        -1.0,
+        -1.0,
+        1.0,
+        1.0
+      ],
+      "observations": [
+        [
+          1.201,
+          3.201
+        ],
+        [
+          -0.801,
+          1.199
+        ],
+        [
+          1.8,
+          3.8
+        ],
+        [
+          1.8,
+          3.8
+        ]
+      ],
+      "expected": {
+        "n": 8,
+        "g": 4,
+        "m": 2,
+        "w": 4,
+        "q": 2,
+        "sxx": 4.0,
+        "xtx_det": 64.0,
+        "beta0": 2.0,
+        "beta1": 0.8,
+        "ssw": 8.0,
+        "ssb": 4.008004,
+        "msw": 2.0,
+        "msb": 2.004002,
+        "sigma2": 2.0,
+        "v": 2.004002,
+        "tau2": 0.002001,
+        "boundary": false,
+        "slope_variance": 0.25050025,
+        "group_means_variance": 0.25050025,
+        "criterion": 25.34902656650775
+      },
+      "exact": {
+        "sxx": "4",
+        "xtx_det": "64",
+        "beta0": "2",
+        "beta1": "4/5",
+        "ssw": "8",
+        "ssb": "1002001/250000",
+        "msw": "2",
+        "msb": "1002001/500000",
+        "sigma2": "2",
+        "v": "1002001/500000",
+        "tau2": "2001/1000000",
+        "slope_variance": "1002001/4000000",
+        "group_means_variance": "1002001/4000000"
+      }
+    }
+  ],
+  "published_candidate": {
+    "candidate_version": "0.2.7",
+    "native_sha256": "fd754e69381368bf8ccd1105f71aca3fdbca740874ad5bd9c316262699edac9f",
+    "control": {
+      "tolerance": 1e-10,
+      "max_iterations": 5000
+    },
+    "results": [
+      {
+        "case": "strict_boundary",
+        "converged": true,
+        "beta0": 1.9999999999999998,
+        "beta1": 0.7999999999999999,
+        "sigma2": 1.6666666666666667,
+        "tau2": 0.0,
+        "slope_variance": 0.041666666666666664,
+        "criterion": 25.86053713684579,
+        "satterthwaite_df": 6.0000000967632605,
+        "satterthwaite_p": 0.007809331687091952,
+        "kr_variance": 0.04166666666666667,
+        "kr_df": 2.0,
+        "kr_p": 0.059365837996455575,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999998,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999999,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.6666666666666667,
+            "expected": 1.6666666666666667,
+            "limit": 1.6766666666666667e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 0.0,
+            "expected": 0.0,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.041666666666666664,
+            "expected": 0.041666666666666664,
+            "limit": 5.166666666666667e-07,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.86053713684579,
+            "expected": 25.86053713684579,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.04166666666666667,
+            "expected": 0.041666666666666664,
+            "limit": 5.166666666666667e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.0,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "strict_interior",
+        "converged": true,
+        "beta0": 2.0,
+        "beta1": 0.8,
+        "sigma2": 2.0000021580924923,
+        "tau2": 0.9999946047827448,
+        "slope_variance": 0.09999978419144955,
+        "criterion": 28.340760838736394,
+        "satterthwaite_df": 2.0000046286021216,
+        "satterthwaite_p": 0.12712792918218213,
+        "kr_variance": 0.09999978419144939,
+        "kr_df": 2.0000000000000013,
+        "kr_p": 0.12712821480219821,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 2.0,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.8,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 2.0000021580924923,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 0.9999946047827448,
+            "expected": 1.0,
+            "limit": 1.0100000000000002e-05,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.09999978419144955,
+            "expected": 0.1,
+            "limit": 1.1e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 28.340760838736394,
+            "expected": 28.34076083872941,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.09999978419144939,
+            "expected": 0.1,
+            "limit": 1.1e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.0000000000000013,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "exact_boundary",
+        "converged": true,
+        "beta0": 1.9999999999999998,
+        "beta1": 0.7999999999999998,
+        "sigma2": 2.0000000000000013,
+        "tau2": 0.0,
+        "slope_variance": 0.2500000000000001,
+        "criterion": 25.345028565175422,
+        "satterthwaite_df": 6.000000096763264,
+        "satterthwaite_p": 0.16071601803552485,
+        "kr_variance": 0.2500000000000002,
+        "kr_df": 2.000000000000001,
+        "kr_p": 0.2507313507346456,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999998,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999998,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 2.0000000000000013,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 0.0,
+            "expected": 0.0,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.2500000000000001,
+            "expected": 0.25,
+            "limit": 2.6e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.345028565175422,
+            "expected": 25.345028565175415,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.2500000000000002,
+            "expected": 0.25,
+            "limit": 2.6e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.000000000000001,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "near_boundary_below",
+        "converged": true,
+        "beta0": 1.9999999999999998,
+        "beta1": 0.7999999999999998,
+        "sigma2": 1.9986673333333336,
+        "tau2": 0.0,
+        "slope_variance": 0.24983341666666664,
+        "criterion": 25.341029232583086,
+        "satterthwaite_df": 6.000000096758714,
+        "satterthwaite_p": 0.16059835394270655,
+        "kr_variance": 0.24983341666666672,
+        "kr_df": 2.000000000000001,
+        "kr_p": 0.25062183930131837,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999998,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999998,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.9986673333333336,
+            "expected": 1.9986673333333334,
+            "limit": 2.0086673333333335e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 0.0,
+            "expected": 0.0,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.24983341666666664,
+            "expected": 0.24983341666666667,
+            "limit": 2.598334166666667e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.341029232583086,
+            "expected": 25.341029232583082,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.24983341666666672,
+            "expected": 0.24983341666666667,
+            "limit": 2.598334166666667e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.000000000000001,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "near_boundary_above",
+        "converged": true,
+        "beta0": 1.9999999999999998,
+        "beta1": 0.7999999999999998,
+        "sigma2": 2.001334,
+        "tau2": 0.0,
+        "slope_variance": 0.25016674999999994,
+        "criterion": 25.349029231101603,
+        "satterthwaite_df": 6.000000096767131,
+        "satterthwaite_p": 0.16083376426528861,
+        "kr_variance": 0.25016675,
+        "kr_df": 2.000000000000001,
+        "kr_p": 0.2508409236653506,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999998,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999998,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 2.001334,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": false
+          },
+          {
+            "metric": "tau2",
+            "actual": 0.0,
+            "expected": 0.002001,
+            "limit": 1.2001e-07,
+            "passed": false
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.25016674999999994,
+            "expected": 0.25050025,
+            "limit": 2.6050025e-06,
+            "passed": false
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.349029231101603,
+            "expected": 25.34902656650775,
+            "limit": 1e-07,
+            "passed": false
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.25016675,
+            "expected": 0.25050025,
+            "limit": 2.6050025e-06,
+            "passed": false
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.000000000000001,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      }
+    ],
+    "passed": false
+  },
+  "reference": {
+    "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+    "packages": {
+      "lme4": "2.0.1",
+      "lmerTest": "3.2.1",
+      "pbkrtest": "0.5.5"
+    },
+    "results": [
+      {
+        "case": "strict_boundary",
+        "converged": true,
+        "beta0": 1.9999999999999998,
+        "beta1": 0.7999999999999999,
+        "sigma2": 1.6666666666666672,
+        "tau2": 0,
+        "slope_variance": 0.041666666666666685,
+        "criterion": 25.86053713684579,
+        "kr_variance": 0.0416666666666667,
+        "kr_df": 1.9999999999999996,
+        "kr_p": 0.059365837996455444,
+        "satterthwaite_df": 6.000000000010683,
+        "satterthwaite_p": 0.007809331936450852,
+        "group_means_p": 0.036913175313846386,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999998,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999999,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.6666666666666672,
+            "expected": 1.6666666666666667,
+            "limit": 1.6766666666666667e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 0,
+            "expected": 0.0,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.041666666666666685,
+            "expected": 0.041666666666666664,
+            "limit": 5.166666666666667e-07,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.86053713684579,
+            "expected": 25.86053713684579,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.0416666666666667,
+            "expected": 0.041666666666666664,
+            "limit": 5.166666666666667e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 1.9999999999999996,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "strict_interior",
+        "converged": true,
+        "beta0": 1.9999999999999996,
+        "beta1": 0.7999999999999999,
+        "sigma2": 1.9999999998914548,
+        "tau2": 1.0000000002713632,
+        "slope_variance": 0.10000000001085455,
+        "criterion": 28.340760838729405,
+        "kr_variance": 0.10000000001085455,
+        "kr_df": 1.9999999999999991,
+        "kr_p": 0.1271284390673098,
+        "satterthwaite_df": 1.9999999997827083,
+        "satterthwaite_p": 0.12712843908071836,
+        "group_means_p": 0.1271284390560304,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999996,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999999,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.9999999998914548,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 1.0000000002713632,
+            "expected": 1.0,
+            "limit": 1.0100000000000002e-05,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.10000000001085455,
+            "expected": 0.1,
+            "limit": 1.1e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 28.340760838729405,
+            "expected": 28.34076083872941,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.10000000001085455,
+            "expected": 0.1,
+            "limit": 1.1e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 1.9999999999999991,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "exact_boundary",
+        "converged": true,
+        "beta0": 2,
+        "beta1": 0.7999999999999998,
+        "sigma2": 1.9999999171381613,
+        "tau2": 1.2429276829341848e-07,
+        "slope_variance": 0.2500000207154623,
+        "criterion": 25.345028565175422,
+        "kr_variance": 0.2500000207154623,
+        "kr_df": 1.9999999999999991,
+        "kr_p": 0.2507313643499483,
+        "satterthwaite_df": 5.964218121055022,
+        "satterthwaite_p": 0.16101176231162975,
+        "group_means_p": 0.25073135073464464,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 2,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999998,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.9999999171381613,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 1.2429276829341848e-07,
+            "expected": 0.0,
+            "limit": 1e-07,
+            "passed": false
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.2500000207154623,
+            "expected": 0.25,
+            "limit": 2.6e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.345028565175422,
+            "expected": 25.345028565175415,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.2500000207154623,
+            "expected": 0.25,
+            "limit": 2.6e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 1.9999999999999991,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "near_boundary_below",
+        "converged": true,
+        "beta0": 1.9999999999999998,
+        "beta1": 0.7999999999999999,
+        "sigma2": 1.9986673333333298,
+        "tau2": 4.978480843049008e-15,
+        "slope_variance": 0.24983341666666745,
+        "criterion": 25.341029232583082,
+        "kr_variance": 0.24983341666666756,
+        "kr_df": 2.000000000000001,
+        "kr_p": 0.2506218393013183,
+        "satterthwaite_df": 5.999999999865415,
+        "satterthwaite_p": 0.16059835473897013,
+        "group_means_p": 0.25040267230390034,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 1.9999999999999998,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999999,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.9986673333333298,
+            "expected": 1.9986673333333334,
+            "limit": 2.0086673333333335e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 4.978480843049008e-15,
+            "expected": 0.0,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.24983341666666745,
+            "expected": 0.24983341666666667,
+            "limit": 2.598334166666667e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.341029232583082,
+            "expected": 25.341029232583082,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.24983341666666756,
+            "expected": 0.24983341666666667,
+            "limit": 2.598334166666667e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.000000000000001,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "case": "near_boundary_above",
+        "converged": true,
+        "beta0": 2,
+        "beta1": 0.7999999999999999,
+        "sigma2": 1.9999999813439135,
+        "tau2": 0.002001028021461247,
+        "slope_variance": 0.25050025467335446,
+        "criterion": 25.34902656650775,
+        "kr_variance": 0.2505002546733544,
+        "kr_df": 2.0000000000000018,
+        "kr_p": 0.2510599284562291,
+        "satterthwaite_df": 2.0000066911042205,
+        "satterthwaite_p": 0.2510595203713701,
+        "group_means_p": 0.25105992538869115,
+        "checks": [
+          {
+            "metric": "beta0",
+            "actual": 2,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "beta1",
+            "actual": 0.7999999999999999,
+            "expected": 0.8,
+            "limit": 8.100000000000002e-06,
+            "passed": true
+          },
+          {
+            "metric": "sigma2",
+            "actual": 1.9999999813439135,
+            "expected": 2.0,
+            "limit": 2.01e-05,
+            "passed": true
+          },
+          {
+            "metric": "tau2",
+            "actual": 0.002001028021461247,
+            "expected": 0.002001,
+            "limit": 1.2001e-07,
+            "passed": true
+          },
+          {
+            "metric": "slope_variance",
+            "actual": 0.25050025467335446,
+            "expected": 0.25050025,
+            "limit": 2.6050025e-06,
+            "passed": true
+          },
+          {
+            "metric": "criterion",
+            "actual": 25.34902656650775,
+            "expected": 25.34902656650775,
+            "limit": 1e-07,
+            "passed": true
+          },
+          {
+            "metric": "kr_variance",
+            "actual": 0.2505002546733544,
+            "expected": 0.25050025,
+            "limit": 2.6050025e-06,
+            "passed": true
+          },
+          {
+            "metric": "kr_df",
+            "actual": 2.0000000000000018,
+            "expected": 2,
+            "limit": 2.01e-05,
+            "passed": true
+          }
+        ]
+      }
+    ]
+  }
+}

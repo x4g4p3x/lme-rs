@@ -10,12 +10,41 @@ repository root unless stated otherwise.
    changes; do not reset, stash, switch branches, or update dependencies as routine setup.
 2. Use `rg` and the map below to find the implementation and existing tests. Read
    relevant guides rather than scanning the whole repository before a focused fix.
+   Consult the [work record index](docs/work/README.md) and read records relevant
+   to the task before editing; verify historical claims against the current checkout.
 3. Choose required checks before editing. Reproduce bugs with focused tests, fix
    the cause, and verify both the regression and affected behavior.
 4. Update [CHANGELOG.md](CHANGELOG.md) under `Unreleased` for user-visible fixes,
    features, and compatibility changes. Instruction-only edits need no entry.
 5. Review the final diff. Report changes, validation, and failures/skips/limitations;
    do not claim unrun checks.
+
+## Durable work records
+
+- For substantial work, maintain one living repository record per task or milestone.
+  This includes correctness investigations, scientific studies, features, refactors,
+  and changes whose decisions or limitations will matter to later work.
+- Before implementation, reuse a relevant existing plan or create
+  `docs/work/YYYY-MM-DD-short-topic.md` using the
+  [template](docs/work/TEMPLATE.md). Register it in the
+  [index](docs/work/README.md). Existing plans can stay at their current paths;
+  index them instead of creating duplicate records. Do not backdate a retrospective
+  record or present decisions made after implementation as a prospective plan.
+- Record scope, acceptance criteria and intended checks first. Update material
+  findings, decisions and rationale during implementation; link canonical evidence
+  instead of copying reports, code, command output or conversation transcripts.
+- Before every commit covering that work, review and update its record with actual
+  changes, checks run and outcomes, failures/skips, limitations, status and the next
+  action. Include the record/index updates with the implementation. Mark unfinished
+  work honestly; record maintenance does not authorize a commit, push or next phase.
+- A task spanning several commits uses the same record. Trivial edits with no lasting
+  decisions need no new record; update an existing one if its facts change. On resume,
+  read relevant records and recheck facts that may have drifted. Search existing plans
+  as needed because the index is not an exhaustive archive of older work.
+- Keep records safe to publish: omit secrets, personal information and sensitive
+  local paths. Link large artifacts and state whether they are locally available or
+  publicly retrievable. These are versioned project documents; this workflow does
+  not write to personal AI memory. Git hooks do not assess their semantic completeness.
 
 ## Code map
 

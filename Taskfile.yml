@@ -40,6 +40,11 @@ tasks:
     cmds:
       - '{{.RUN}} scientific-oracle'
 
+  scientific:audit:
+    desc: Independently audit frozen 0.2.7 LMM records and primary decisions
+    cmds:
+      - '{{.RUN}} scientific-audit {{.CLI_ARGS}}'
+
   scientific:baseline:
     desc: Verify published 0.2.7 against analytic, NIST, and selected paper contracts
     cmds:

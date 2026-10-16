@@ -7,6 +7,10 @@ validation remain separate, unfinished work. See the
 [programme](../docs/SCIENTIFIC_VALIDATION_PLAN.md) and
 [AI-reviewed pilot protocol](../docs/LMM_CALIBRATION_PROTOCOL.md).
 The [initial results](RESULTS_0.2.7.md) report the actual published-wheel run.
+The [post-study audit](BOUNDARY_AUDIT_0.2.7.md) corrects the boundary explanation
+and checksum transcription, and the [inference evidence guide](INFERENCE_EVIDENCE_GUIDE.md)
+describes the tested scope and limitations without implying that either global
+scope gate passed.
 
 The [completed 0.2.7 exploratory pilot](CALIBRATION_PILOT_0.2.7.md) reports
 8,000 paired datasets, and the [completed 0.2.7 confirmatory study](CALIBRATION_CONFIRMATORY_0.2.7.md)

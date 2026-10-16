@@ -24,9 +24,12 @@ pub(crate) fn inference_lmm_data(
 /// Controls for LMM/GLMM optimization. Defaults retain the specialized optimizers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FitControl {
-    /// Maximum outer optimizer iterations per search stage.
+    /// Maximum outer optimizer iterations per search stage. For a scalar
+    /// random-intercept search with custom controls this is the combined
+    /// bracketing and Brent iteration budget.
     pub max_iterations: u64,
-    /// Standard deviation tolerance for the Nelder-Mead objective.
+    /// Standard deviation tolerance for the Nelder-Mead objective; absolute
+    /// coordinate tolerance for the scalar random-intercept Brent search.
     pub tolerance: f64,
     /// Optional inner PIRLS iteration limit; `None` uses the family-specific default.
     pub max_inner_iterations: Option<usize>,

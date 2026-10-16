@@ -238,6 +238,12 @@ pub fn optimize_theta_lmm_control(
     }
     let bounds = compute_theta_lower_bounds(&lmm.re_blocks);
     let start = control.start.clone().unwrap_or(init_theta);
+    // A projected scalar simplex can collapse onto zero before sampling a
+    // nearby positive minimum. The same bracketed profile used by the default
+    // scalar LMM path avoids that false convergence and honors caller limits.
+    if start.len() == 1 && lmm.intercept_only_re() {
+        return optimize_theta_intercept_profile(lmm, start, reml, &bounds, Some(control));
+    }
     let cost = LmmObjective {
         lmm,
         reml,
@@ -255,7 +261,7 @@ fn optimize_theta_lmm_inner(
 
     if lmm.intercept_only_re() {
         return match init_theta.len() {
-            1 => optimize_theta_intercept_profile(lmm, init_theta, reml, &lower_bounds),
+            1 => optimize_theta_intercept_profile(lmm, init_theta, reml, &lower_bounds, None),
             2 => optimize_theta_intercept_2d(lmm, init_theta, reml, &lower_bounds),
             _ => {
                 let cost = LmmObjective {
@@ -296,10 +302,17 @@ fn optimize_theta_intercept_profile(
     init_theta: Array1<f64>,
     reml: bool,
     lower_bounds: &[f64],
+    control: Option<&crate::FitControl>,
 ) -> Result<OptimizeResult, anyhow::Error> {
     const BRACKET_MAX_ITERS: u64 = 64;
     const SEARCH_MAX_ITERS: u64 = 96;
     const COORD_TOL: f64 = 1e-6;
+    let coordinate_tolerance = control.map_or(COORD_TOL, |c| c.tolerance);
+    let bracket_budget = control.map_or(BRACKET_MAX_ITERS, |c| {
+        c.max_iterations.min(BRACKET_MAX_ITERS)
+    });
+    let mut search_iterations = 0;
+    let mut bracket_iterations = 0;
 
     let mut theta = init_theta;
     clamp_theta(&mut theta, lower_bounds);
@@ -325,9 +338,14 @@ fn optimize_theta_intercept_profile(
     // upper variance constraint. Expand while the objective is still falling.
     let center = theta[0].max(lower + 1.0);
     let mut previous_cost = eval(center);
+    if previous_cost < best_cost {
+        theta[0] = center;
+        best_cost = previous_cost;
+    }
     let mut upper = center * 8.0;
     let mut bracketed = false;
-    for _ in 0..BRACKET_MAX_ITERS {
+    for _ in 0..bracket_budget {
+        bracket_iterations += 1;
         if !upper.is_finite() {
             break;
         }
@@ -344,15 +362,20 @@ fn optimize_theta_intercept_profile(
         upper *= 2.0;
     }
     let mut search_converged = false;
-    if bracketed {
+    let search_budget = control.map_or(SEARCH_MAX_ITERS, |c| {
+        c.max_iterations.saturating_sub(bracket_iterations)
+    });
+    if bracketed && search_budget > 0 {
         let objective = ScalarObjective {
             eval: RefCell::new(&mut eval),
         };
-        let solver = BrentOpt::new(lower, upper).set_tolerance(f64::EPSILON.sqrt(), COORD_TOL);
+        let solver =
+            BrentOpt::new(lower, upper).set_tolerance(f64::EPSILON.sqrt(), coordinate_tolerance);
         let result = Executor::new(objective, solver)
-            .configure(|state| state.max_iters(SEARCH_MAX_ITERS))
+            .configure(|state| state.max_iters(search_budget))
             .run()?;
         let state = result.state();
+        search_iterations = state.get_iter();
         search_converged = matches!(
             state.get_termination_reason(),
             Some(argmin::core::TerminationReason::SolverConverged)
@@ -368,7 +391,7 @@ fn optimize_theta_intercept_profile(
     // Brent's coordinate accuracy is three times its absolute-plus-relative
     // tolerance. A minimum this close to the admissible boundary is numerically
     // zero; avoid reporting a spurious positive variance due to deviance roundoff.
-    let boundary_resolution = 3.0 * (f64::EPSILON.sqrt() * theta[0].abs() + COORD_TOL);
+    let boundary_resolution = 3.0 * (f64::EPSILON.sqrt() * theta[0].abs() + coordinate_tolerance);
     if boundary_cost < f64::MAX && theta[0] - lower <= boundary_resolution {
         theta[0] = lower;
         best_cost = boundary_cost;
@@ -377,7 +400,7 @@ fn optimize_theta_intercept_profile(
     Ok(OptimizeResult {
         theta,
         converged: search_converged && best_cost.is_finite() && best_cost < f64::MAX,
-        iterations: evaluations,
+        iterations: control.map_or(evaluations, |_| bracket_iterations + search_iterations),
         final_cost: best_cost,
     })
 }

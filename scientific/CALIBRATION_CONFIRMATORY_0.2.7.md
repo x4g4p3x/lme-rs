@@ -1,5 +1,10 @@
 # Confirmatory LMM calibration study: published 0.2.7
 
+**Correction, 16 October 2026:** the boundary `max(MSB, MSW)` explanation and
+five report checksum strings below are superseded by the
+[independent audit addendum](BOUNDARY_AUDIT_0.2.7.md). Original study records,
+numerical results and primary decisions are preserved.
+
 Completed 13 October 2026 under [protocol v3](../docs/LMM_CALIBRATION_PROTOCOL.md),
 following the [exploratory pilot](CALIBRATION_PILOT_0.2.7.md),
 [AI methodological critique](../docs/LMM_CALIBRATION_AI_REVIEW.md),
