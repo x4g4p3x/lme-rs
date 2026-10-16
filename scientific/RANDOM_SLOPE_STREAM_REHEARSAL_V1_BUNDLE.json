@@ -1,0 +1,14 @@
+{
+  "name": "lmm-random-slope-stream-rehearsal-v1-20261016.zip",
+  "bytes": 2355602,
+  "sha256": "90ddba69088cd8b8cb61483108bef2bb898a4aa3d37737ad42344614da45a550",
+  "entries": 315,
+  "crc_verified": true,
+  "publication": "prepared locally; not uploaded",
+  "privacy": "synthetic data, relative source/case paths; installed environments excluded",
+  "scope": "188 candidate and752 reference attempts, source freeze, journals, worker logs, analysis and independent R check; no confirmation run",
+  "raw_directory": "benchmark-results/scientific/random-slope-pilot/20261016-stream-rehearsal-a",
+  "analysis_directory": "benchmark-results/scientific/random-slope-pilot/20261016-stream-rehearsal-a-analysis",
+  "summary_sha256": "e8e613a6a73a3e3206980c783d4416fb32b16b29761955265e5c0cd5eb483f5e",
+  "manifest_sha256": "9be5eccceb2780665520dbd469d46a16b6ba45809bae1e197b5370cd40708a7a"
+}

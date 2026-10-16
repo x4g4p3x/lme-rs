@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A bounded random-slope rehearsal runner with append-only durable attempt
+  journals, failure-preserving resume, complete fixed-bank R diagnostics, streamed
+  analysis and independent R verification. Record a fresh 188-dataset engineering
+  rehearsal with native-worker memory measurements; full confirmation stays disabled.
 - Exact random-slope confirmation planning for a 72-claim candidate family,
   independently checked in R, with failure sensitivity, case-weighted resource
   estimates and separately retained reference optimizer diagnostics. Propose a

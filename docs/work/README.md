@@ -19,7 +19,8 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
-| [Random-slope confirmation planning](2026-10-16-random-slope-confirmation-planning.md) | Planning implemented and validated locally, 16 October 2026 | Implement/test the streaming harness, fresh resource rehearsal and final freeze before campaign authorization |
+| [Random-slope streaming harness](2026-10-16-random-slope-streaming-harness.md) | Implemented; frozen 188-dataset rehearsal validated locally, 16 October 2026 | Larger fresh scaling/cap and native interruption rehearsal before confirmation freeze |
+| [Random-slope confirmation planning](2026-10-16-random-slope-confirmation-planning.md) | Delivered in 6e138f0, 16 October 2026 | Follow the streaming-harness milestone before campaign authorization |
 | [Random-slope numerical controls](2026-10-16-random-slope-numerical-controls.md) | Delivered in 2d85393, 16 October 2026 | Follow confirmation planning and its streaming-harness milestone |
 | [Random-slope optimizer boundary recovery](2026-10-16-random-slope-optimizer-fix.md) | Delivered in 580b270, 16 October 2026 | Follow the numerical-controls record and its fresh frozen pilot |
 | [Random-slope pilot and evidence publication](2026-10-16-random-slope-pilot.md) | Pilot completed; numerical blockers documented, 16 October 2026 | Follow the optimizer recovery record and remaining diagnostics before a fresh frozen pilot |

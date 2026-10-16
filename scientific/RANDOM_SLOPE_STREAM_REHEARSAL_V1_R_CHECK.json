@@ -1,0 +1,13 @@
+{
+  "scope": "independent raw-fit count/distribution/selection/GLS/CP rehearsal check",
+  "confirmation_claim": false,
+  "datasets": 188,
+  "primary_claims_checked": 72,
+  "count_rows_checked": 564,
+  "maximum_cp_error": 1.1102230246251565e-16,
+  "maximum_known_gls_error": 1.3322676295501878e-15,
+  "r_version": "R version 4.6.1 (2026-06-24 ucrt)",
+  "source_sha256": "871e969674bda5253b21bdbdb04e0a390ddb529f3aec4469521c5de47dc381ae",
+  "summary_sha256": "e8e613a6a73a3e3206980c783d4416fb32b16b29761955265e5c0cd5eb483f5e",
+  "audit_sha256": "035dc35d9a5d27db56142d39f16304bba4844060c0e90fe2b5b5e8950850d33d"
+}
