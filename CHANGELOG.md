@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Recover correlated random-slope LMM searches that collapse onto a covariance
+  boundary with an improving inward direction. Check equivalent Cholesky column
+  orientations before accepting convergence, retain true boundary optima and
+  share the caller's iteration budget across recovery attempts.
 - Honor custom controls in scalar random-intercept LMMs with the bracketed
   profile search, preventing a clamped simplex from falsely converging at zero
   variance when a nearby positive REML optimum exists. Preserve iteration budgets

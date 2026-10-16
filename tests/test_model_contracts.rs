@@ -23,6 +23,189 @@ fn close(a: &[f64], b: &[f64], tol: f64) {
 }
 
 #[test]
+fn correlated_slopes_escape_nonoptimal_covariance_faces() {
+    // Post-study selected data; expected values come from the independent global
+    // constrained-REML oracle, not another numerical fitting package.
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+        "../scientific/RANDOM_SLOPE_OPTIMUM_COUNTEREXAMPLES_V1.json"
+    ))
+    .unwrap();
+    for fixture in fixtures["fixtures"].as_array().unwrap() {
+        let values = |v: &serde_json::Value| -> Vec<f64> {
+            v.as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_f64().unwrap())
+                .collect()
+        };
+        let x = values(&fixture["case"]["x"]);
+        let y = values(&fixture["y"]);
+        let group: Vec<String> = fixture["case"]["group"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| format!("g{:03}", v.as_u64().unwrap()))
+            .collect();
+        let data = df!["x" => x, "y" => y, "group" => group].unwrap();
+        let prepared = lme_rs::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        for start in [
+            None,
+            Some(Array1::from_vec(values(&fixture["candidate"]["theta"]))),
+        ] {
+            for control in [
+                lme_rs::FitControl {
+                    start: start.clone(),
+                    ..Default::default()
+                },
+                lme_rs::FitControl {
+                    start: start.clone(),
+                    tolerance: 1e-8,
+                    max_iterations: 5000,
+                    ..Default::default()
+                },
+            ] {
+                let fit = prepared.fit(None, true, &control).unwrap();
+                let criterion = fit.reml.unwrap();
+                let expected = fixture["oracle"]["criterion"].as_f64().unwrap();
+                assert!(
+                    (criterion - expected).abs() <= 1e-6 + 1e-8 * expected.abs(),
+                    "case={}, start={start:?}, control={control:?}, criterion={criterion}, global={expected}",
+                    fixture["case"]["id"]
+                );
+                assert_eq!(fit.converged, Some(true));
+                let s = fit.sigma2.unwrap();
+                let t = fit.theta.as_ref().unwrap();
+                let covariance = [
+                    [s * t[0] * t[0], s * t[0] * t[1]],
+                    [s * t[0] * t[1], s * (t[1] * t[1] + t[2] * t[2])],
+                ];
+                for i in 0..2 {
+                    for j in 0..2 {
+                        let expected = fixture["oracle"]["covariance"][i][j].as_f64().unwrap();
+                        // The covariance gate belongs to the frozen pilot's
+                        // explicit 1e-8 controls, not the coarser default search.
+                        if control.tolerance == 1e-8 {
+                            assert!((covariance[i][j] - expected).abs() <= 1e-6 + 1e-3 * expected.abs(),
+                            "case={}, control={control:?}, covariance[{i},{j}]={}, expected={expected}",
+                            fixture["case"]["id"], covariance[i][j]);
+                        }
+                    }
+                }
+                assert!(
+                    fit.diagnostics.as_ref().unwrap().outer_iterations <= control.max_iterations
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn correlated_slopes_escape_a_wholly_zero_cholesky_column() {
+    // Independent balanced constrained REML solution: Z'Z=4I, SSW=16,
+    // between-group scaled sample covariance B=[[1,1],[1,4]]. At the
+    // diagonal face optimum, every diagonal-only inward probe raises cost.
+    let h = 6.0_f64.sqrt() / 4.0;
+    let k = 3.0 * 2.0_f64.sqrt() / 4.0;
+    let mut x = Vec::new();
+    let mut y = Vec::new();
+    let mut group = Vec::new();
+    for (g, (a, b)) in [(h, h), (-h, -h), (0.0, k), (0.0, -k)]
+        .into_iter()
+        .enumerate()
+    {
+        for (xi, e) in [(-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0)] {
+            x.push(xi);
+            y.push(2.0 + a + (0.8 + b) * xi + e);
+            group.push(format!("g{g}"));
+        }
+    }
+    let data = df!["x" => x, "y" => y, "group" => group].unwrap();
+    let prepared = lme_rs::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+    let control = lme_rs::FitControl {
+        start: Some(Array1::from_vec(vec![0.0, 0.0, 5.0 / 76.0_f64.sqrt()])),
+        tolerance: 1e-10,
+        max_iterations: 5000,
+        ..Default::default()
+    };
+    let fit = prepared.fit(None, true, &control).unwrap();
+    assert_eq!(fit.converged, Some(true));
+    assert!((fit.reml.unwrap() - 55.12635890983293).abs() < 1e-6);
+    let root = 13.0_f64.sqrt();
+    let low = (5.0 - root) / 2.0;
+    let high = (5.0 + root) / 2.0;
+    let expected_sigma2 = (47.0 - 3.0 * root) / 22.0;
+    let scale = (high - expected_sigma2) / (4.0 * root);
+    let expected = [[scale * (1.0 - low), scale], [scale, scale * (4.0 - low)]];
+    let s = fit.sigma2.unwrap();
+    assert!((s - expected_sigma2).abs() < 1e-4);
+    let t = fit.theta.unwrap();
+    let actual = [
+        [s * t[0] * t[0], s * t[0] * t[1]],
+        [s * t[0] * t[1], s * (t[1] * t[1] + t[2] * t[2])],
+    ];
+    for i in 0..2 {
+        for j in 0..2 {
+            assert!((actual[i][j] - expected[i][j]).abs() < 1e-4);
+        }
+    }
+}
+
+#[test]
+fn correlated_slopes_preserve_analytic_covariance_boundaries() {
+    // Four groups, Z'Z = 4I, within-group RSS = 16. Group coefficient
+    // deviations are +/-h*q1, +/-k*q2 for this rational orthogonal rotation.
+    // Pooling the eigenvalues of the group sample covariance with residual
+    // variance gives exact constrained REML solutions (zero, one, two bounds).
+    let q1 = [0.6, 0.8];
+    let q2 = [-0.8, 0.6];
+    for (h, k, sigma2, eigenvalues) in [
+        (1.0, 2.0, 2.0, [1.0 / 6.0, 13.0 / 6.0]),
+        (0.5, 2.0, 18.0 / 11.0, [0.0, 149.0 / 66.0]),
+        (0.25, 0.5, 37.0 / 28.0, [0.0, 0.0]),
+    ] {
+        let mut x = Vec::new();
+        let mut y = Vec::new();
+        let mut group = Vec::new();
+        for (g, (size, direction)) in [(h, q1), (-h, q1), (k, q2), (-k, q2)]
+            .into_iter()
+            .enumerate()
+        {
+            for (xi, residual) in [(-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0)] {
+                x.push(xi);
+                y.push(2.0 + size * direction[0] + (0.8 + size * direction[1]) * xi + residual);
+                group.push(format!("g{g}"));
+            }
+        }
+        let data = df!["x" => x, "y" => y, "group" => group].unwrap();
+        let prepared = lme_rs::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        let control = lme_rs::FitControl {
+            tolerance: 1e-10,
+            max_iterations: 5000,
+            ..Default::default()
+        };
+        let fit = prepared.fit(None, true, &control).unwrap();
+        assert_eq!(fit.converged, Some(true));
+        let s = fit.sigma2.unwrap();
+        assert!((s - sigma2).abs() < 1e-4, "h={h}, k={k}, s={s}");
+        let t = fit.theta.as_ref().unwrap();
+        let covariance = [
+            [s * t[0] * t[0], s * t[0] * t[1]],
+            [s * t[0] * t[1], s * (t[1] * t[1] + t[2] * t[2])],
+        ];
+        for i in 0..2 {
+            for j in 0..2 {
+                let expected = eigenvalues[0] * q1[i] * q1[j] + eigenvalues[1] * q2[i] * q2[j];
+                assert!(
+                    (covariance[i][j] - expected).abs() < 1e-4,
+                    "h={h}, k={k}, covariance[{i},{j}]={}, expected={expected}",
+                    covariance[i][j]
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn custom_scalar_controls_recover_small_positive_reml_variance() {
     for scale in [0.999_f64, 1.0, 1.001] {
         let group_x = [-1.0, -1.0, 1.0, 1.0];

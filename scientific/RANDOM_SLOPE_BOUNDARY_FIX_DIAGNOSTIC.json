@@ -1,0 +1,2250 @@
+{
+  "schema_version": 1,
+  "scope": "post-study optimizer and precision diagnostics; not pilot replacement or calibration confirmation",
+  "base_commit": "922e4600e8635c3a03cd7f3b74a9db1186b0dbe3",
+  "candidate": {
+    "environment": {
+      "version": "0.2.8.dev0",
+      "native_sha256": "2ed6b683889945bf25e772ac6d7feaddf60a5592cad7ec25053328fff4999daa",
+      "python": "3.11.15",
+      "polars": "2.0.0",
+      "platform": "Windows-10-10.0.26300-SP0"
+    },
+    "wheel": {
+      "name": "lme_python-0.2.8.dev0-cp311-cp311-win_amd64.whl",
+      "sha256": "8c2b9fe6dc01f76ece8d03e6ff312a0e0c6a3d5c28325f6c282dd817f21b9512"
+    },
+    "sources": {
+      "Cargo.lock": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+      "Cargo.toml": "36b24711c8f3f4f6f81fe31b9a5454c591f9068fce76d658e8681f9b7b8b771f",
+      "Taskfile.yml": "412760e843f13a1855e81cf56a8d656a20e94c0b8767289c2590dd8561ed9526",
+      "comparisons/scientific/lmm_random_slope.R": "f85958c9c4904d000a4b61f3b9ef90351265dd92f4ca68b9945563ff39f49934",
+      "comparisons/scientific/restore_r_environment.R": "5a8aab12842bee7933f68117eac83ae6d83e58b61ded31a712d816ab6f940512",
+      "docs/LMM_RANDOM_SLOPE_IMPLEMENTATION_REVIEW.md": "0feaf04a0592515b1fbb06b5df4e9f1f177c0a62c284d0c1cc5e3060b971ff4b",
+      "docs/LMM_RANDOM_SLOPE_PILOT_PROTOCOL.md": "93d3ac03765dc54fc46de23e18e6cf38b5848d320872e69b5aa116f93300dfd9",
+      "python/Cargo.lock": "564289edbffe6662bffaa5502b8131dc9fc2cebe975d41c02158472e14a3bb77",
+      "python/Cargo.toml": "d35737fcc68b332ee8b9642a72ea5ea8aa40a0dd4da6eb209ad3c145155d6467",
+      "python/pyproject.toml": "6534de5f89587b1f6b41af343eaf0401a823909012ace6c71af62ec1fb17ae7e",
+      "python/src/controls.rs": "abb840193c63f765f0af2f5bb02e199d507c66359492a255b79d13c2e9e35ba0",
+      "python/src/fitting.rs": "da27cbf3b7afa6830e3b324cce0d3f76d860281b4e5334237fa4feed39511cb6",
+      "python/src/input.rs": "6418c9405bf0b2432e056b2f7cfd90e58972a70fe3a7dc92cd3f7c40e55d6d99",
+      "python/src/lib.rs": "1b556740a77562d4b2c0133df20c07eaee32600545ed1b0b61d4bc78a955ead4",
+      "python/src/modeling.rs": "f03857a3213b11fe72c74795c2ed63c18216c231a29adc12ba1d9a398d7309af",
+      "scientific/renv.lock": "b66975674f03d6431e31e830548f1456030d81cec5e931714d6c3c5cce58a0f2",
+      "scripts/ci/lme_ci.py": "8343635c9b5b217079de0f2a345ba890666370d8cd45b35bac44da8d979517a7",
+      "scripts/diagnose_lmm_random_slope_fix.py": "d58013b7df2f9ad7840a8e597f9499aa5d27c8d44200e1bc5564670647fbb6b8",
+      "scripts/lmm_calibration.py": "ee1530d12dcd4f50b29c3e9763bf5b640da7cf0539767b2d5db3aa7216d9de40",
+      "scripts/lmm_random_slope.py": "94e00361f8e0cf57f4ec2287c93db29e1e75e8e3dadb24c6780dfaa6e2b97bb1",
+      "scripts/lmm_random_slope_optimum.py": "51fa3a63888c2ace21fe97899b7ba213fe55363122dfbc8951d36262bcaec363",
+      "scripts/scientific_validation.py": "fdc973f22486a216e4fac56d803c45382884dceb641878940d9919930fe6805c",
+      "scripts/tests/test_lmm_random_slope.py": "d035c393a08c7ec78d2bb0129e513dbf6a2a5a9013b3f59054c9c96068d85a9e",
+      "src/anova.rs": "29fd7d1a6b1408a35cc1b12896850cf1643f7d378ace8410f2e02928937e83b6",
+      "src/anova_contrasts.rs": "561a2251e2644f7002b634ce128c4755f9b16158128acabdc62870c112ef955e",
+      "src/basis.rs": "1e6bbf559d445af3429217d55cbd36089b0277debbc4430a16da9cf1f92c2a03",
+      "src/bootstrap.rs": "9e3e4161f4e7f8466b715ba0392e368b59be9c7350d36cbd42852a14d217cf90",
+      "src/contrast.rs": "2feb1c180d64389b6b1102238f92b55f53037f5ceedd304211ea9004d6585133",
+      "src/cv.rs": "c2f0751d79114a37a5b6eb78c19890f56ed047857c20da16f1983edfbb5d655f",
+      "src/ddf.rs": "a423883bda11b062deca6513bcf46fc3944a0cb7030c3e70a76b2563bb9efcfc",
+      "src/display.rs": "f4ab0bb2a5713eccdadbad62edaa88682d726230277473b262e2ea6308f68367",
+      "src/emmeans.rs": "81dcdc11f342760004ad2980324e13b80dfcf897cb53b9d0187042099aeb2bc9",
+      "src/execution.rs": "47fad984a8878c6700203ac6b735dd8a9efd94843c01348f45bf016341cd6206",
+      "src/family.rs": "8129fe3c9b910b093a3bda0a7bdc03aa227865971ad4b82bb67315682d397470",
+      "src/formula.rs": "bfba995bf0858803c8efa6348a753a89689e3ed348b4234d55b0fac6efad8f2d",
+      "src/glmm_math.rs": "e5b1159ac402a7389486fa9dcc255b1732fdc92f058db19f624f5aa9aff93034",
+      "src/intercept_blocked.rs": "f97168b2df26b08d5e9c63fab8c8c49a56eb3a7635e044eae11f702c27fec4e4",
+      "src/kenward_roger.rs": "72c96176f4e8666889fb5602bffc0c1542afb5756d0a22f7eed413e3f82c14b1",
+      "src/kr_modcomp.rs": "d94ceca7039cc5067465d5bd9d59b70e0176abfe1a88a72cf25508731016c87c",
+      "src/kr_vcov_adj.rs": "4e94bb5c19d3efe15bf025be13c18dd391f338cf1ba5541479b8556331b4acf8",
+      "src/lib.rs": "439e78d297cb7e9acc39ac4ccbe2a7699d2dc2560d108797c2d2046e93860b3d",
+      "src/math.rs": "7ac4549de844d5c4cef27c23814994e651334650b212b9a9f74e4f69aa4a671a",
+      "src/mcp.rs": "b3accec04e0224c1428b846c1141ba93057839d8bcede6fe393e65815ea2b123",
+      "src/model.rs": "bb0828627c0efd9a0dd1d62966e5c337a8b848936e24f711e4db09fc5f5d6941",
+      "src/model_matrix.rs": "e042c5ece66d6057da845597987fca09d5b03dda4a1f623cc858b1ae3bbdcba7",
+      "src/nlmm/block_solve.rs": "02a9eaa83a2e1adace1a70b5113d704f3f36f4c90f0b32827c16ccf4c2312a5d",
+      "src/nlmm/fit.rs": "157ec6811674ebcef043cf7cd57eda201f057cf3696b59741ca0eca45e80c5b7",
+      "src/nlmm/formula.rs": "57b82acd543c59127d7c7a42264acb5ea57ff7f3b2e20b175d10ba6e03e8b5d5",
+      "src/nlmm/mean.rs": "58635aa732a35bb851c6b6d6508569624bdb9e9c49221b02d2e2ecc36918870d",
+      "src/nlmm/mean_fn.rs": "f8869b067be18ed9e050fb705893515cbf53268168749e5d250d51634c0fa3af",
+      "src/nlmm/mod.rs": "b9d03197892c2b7b5d54aa406eed90c3df71411079c10414458a28f3e0f45cd4",
+      "src/nlmm/predict.rs": "e52d5d70ef3b75136f4f478c15636890c0c9ab0d5e4a4db8b156db84e95d226a",
+      "src/nlmm/re_cov.rs": "7ac103abd3ec37aed30445b54e587222f9a3506d496a05b52172edf64e447e6a",
+      "src/nlmm/self_start.rs": "c0db35ea3f7e0672232b1c455e97cfd88a8afadee6b96e6dd8eab2494f8ce24a",
+      "src/nlmm/ssasymp.rs": "2005a4c8900def7f16a34e03aaef53715bef1bcdd16ccf5325116e9552c87a62",
+      "src/nlmm/ssasympoff.rs": "534d908874d54efe064678c2aa2f75f6c34476b22ec036bce69809e82424c5bb",
+      "src/nlmm/ssasymporig.rs": "a56527eb57bf26ca93c9924db684e52973e72dca5ce8257dd90e0484e48194cb",
+      "src/nlmm/ssbiexp.rs": "65be516977ae99fd0bdff201f3c08a9a84f5fcd00fd6b77ad784b6eb09e290bc",
+      "src/nlmm/ssfpl.rs": "8664c8a38dd522875e490ce98916cc02659bea8b7848af2fd26c658965d8e864",
+      "src/nlmm/ssgompertz.rs": "dbe74f9a516fe350ee29ad7017413ab79e4564d5acfd3789be01b365d942730f",
+      "src/nlmm/sslogis.rs": "ef4e05c54ce47011bdd7957fb7bf443aa0dc0ffdb56a8a68e7355ca767cb9631",
+      "src/nlmm/ssmicmen.rs": "eb30156d8a0c33dfa512ba98f7426f29e1fdd2b012fa4fb92c09244dba000d79",
+      "src/nlmm/sspower.rs": "fe21e20918509209dd67acafe3e286821031bc2fd4f4d22a6799e7b7d8e96bce",
+      "src/nlmm/ssweibull.rs": "9c01eee326617146ec8db8044f490a2352fd62f316fdb704d5a4eda6276c5441",
+      "src/null_bootstrap.rs": "84d5028a5195b28385b52077247a9db160f6d90f824a80cf88fcf065ea79339d",
+      "src/ols.rs": "74f6a5cc4ec1409361deda9467c335d8180eba041be5a26ffbac08e0323abbc9",
+      "src/optimizer.rs": "7a6ce40453505604dcd5c25797df45530fbbdd1dd8d5ad005e41819ba367f913",
+      "src/optimizer/basin_backend.rs": "86c22220169e84e7bcc11039d6470616bc233d16669882474c73ac8bb7267cfa",
+      "src/perf_diag.rs": "490c208d85785d1a5297c2d73057cb8ea40ea629a028214c00d819a6857425b3",
+      "src/predict.rs": "8d55fed90d0cf3d0cc24162230a04f2734ee9755b93ecab53e93a8a463a04d08",
+      "src/prepared.rs": "df8aaa5caad73ab515773dcf411fa06d9cc5a558cd90d212fbc9d4b19e9cac3c",
+      "src/profile_ci.rs": "1a2913fb96e8c60da1b90b08892a2bec650c582d803d4a1c7aa61ca1c4d59310",
+      "src/quadrature.rs": "0902b1dfd242f355b8b0f8c498b8b5f1bc28e06bc09f86e416bbcce60a4848a2",
+      "src/robust.rs": "99e72026de5994949a340ee3bce4ba1b38ac090464c2ca86ace654c476b31998",
+      "src/satterthwaite.rs": "bc758d0ef16c1e535e10e4d2a539637632ad8f984641f00a71550cc886d7496a",
+      "src/simulate.rs": "45606c48b99a609ae52b71cafc64a2abc96fe8a83a755ca4116b88bbbfa5743e",
+      "src/studentized_range.rs": "7812440f467cbff36a3ea3a6efa0ceaf7b5cc422908aed1dfe66450a6872e076"
+    },
+    "source_manifest_sha256": "4611cdfd18967b4f5e7eeb8b43199c2a5520eb71604ad5a1d0704c641ef2f54e",
+    "source_summary_sha256": "98580c2b5877e16e04c6a337881e20338a1b8fb5f3dac499491d58cbdd946c44",
+    "control": {
+      "tolerance": 1e-08,
+      "max_iterations": 5000,
+      "require_convergence": false
+    }
+  },
+  "diagnostic": {
+    "scope": "post-study diagnostic refits; selected old inputs, not new calibration evidence",
+    "counts": {
+      "attempted": 1880,
+      "converged": 1880,
+      "singular": 548,
+      "normal_errors": 0,
+      "satterthwaite_errors": 0,
+      "kenward_roger_errors": 0,
+      "balanced": 1840,
+      "above_optimum": 0,
+      "below_oracle": 0
+    },
+    "worst_criterion_gap": {
+      "case": "interior-G50-m15-v0.05-r-0.5-beta0",
+      "replicate": 2,
+      "gap": 2.0468587536015548e-07
+    },
+    "candidate_sha256": "eb90aef51fbc2cc40831434cc27b21760ad537c13181b57d1181728013c518d4",
+    "records_sha256": "43c1634b2a529b32c61a70dde1af2d7de99de4b03fccc0f6c0833b908bd1d5e8",
+    "original_study_unchanged": true
+  },
+  "audit": {
+    "scope": "post-study audit; retained R outcomes, no R refits, no substitution into v1",
+    "summary_sha256": "9ecc7dc90a328d0b78778afb0f9f26cad7b14a55cda6cb1bd51039fc31960384",
+    "audit_source_sha256": "8b645e403d9fae8fdab9a4b384491f5153496fe2d8506c73935f6c140c1b5893",
+    "paired": 1880,
+    "reference_above_balanced_optimum": 7,
+    "rejection_disagreements": {
+      "normal": 0,
+      "satterthwaite": 0,
+      "kenward_roger": 1
+    },
+    "R_parity_flagged_pairs": 51,
+    "R_parity_flags": [
+      {
+        "case": "interior-G8-m5-v0.05-r-0.5-beta0",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.0610126921320711e-05,
+            "limit": 1.4698831096589604e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.222908461263883e-05,
+            "limit": 5.411933097175367e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 7.714360504939514e-06,
+            "limit": 4.0063129199254665e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r0-beta0.5",
+        "replicate": 5,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -0.9250238923757053,
+            "limit": 2.2247617260920692e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.05567666547880079,
+            "limit": 0.0010604947890289881,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.03790810264755507,
+            "limit": 1.0594353536753127e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": 0.09686502942072951,
+            "limit": 1.0594353536753127e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.022529925505127113,
+            "limit": 0.00022604477095022597,
+            "passed": false
+          },
+          {
+            "metric": "normal_se",
+            "difference": 0.0030279030317499345,
+            "limit": 0.00023468579501427047,
+            "passed": false
+          },
+          {
+            "metric": "normal_f",
+            "difference": -0.14547635666338454,
+            "limit": 0.011447175070845582,
+            "passed": false
+          },
+          {
+            "metric": "normal_p",
+            "difference": 0.0014482571424928592,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_se",
+            "difference": 0.0030279030317499345,
+            "limit": 0.00023468579501427047,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_f",
+            "difference": -0.14547635666338454,
+            "limit": 0.011447175070845582,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_p",
+            "difference": 0.0011834297794065043,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_df",
+            "difference": 0.20970872628431536,
+            "limit": 0.08498429798812342,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_se",
+            "difference": 0.0030279030317500177,
+            "limit": 0.00023468579501427042,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_f",
+            "difference": -0.14547635666338898,
+            "limit": 0.011447175070845587,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_p",
+            "difference": 0.0022093586649992586,
+            "limit": 0.0001,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r0.5-beta0",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.1330475289499098e-05,
+            "limit": 9.431315559905163e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r0.5-beta0.5",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.428673993004076e-06,
+            "limit": 1.6124824592939507e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r-0.5-beta0.5",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.2326690532262043e-05,
+            "limit": 8.604178123189937e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r-0.5-beta0.5",
+        "replicate": 19,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -0.7049757776267143,
+            "limit": 2.3820659386154596e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.0871643290692381,
+            "limit": 0.0016832895208145925,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.07006014954080546,
+            "limit": 1.6816079129016907e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": -0.1248451958224813,
+            "limit": 1.6816079129016907e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.02458662899136957,
+            "limit": 0.00019956557057900054,
+            "passed": false
+          },
+          {
+            "metric": "normal_se",
+            "difference": 0.0017244820095714264,
+            "limit": 0.00025940993238613065,
+            "passed": false
+          },
+          {
+            "metric": "normal_f",
+            "difference": -0.052937718201414796,
+            "limit": 0.00801309819332786,
+            "passed": false
+          },
+          {
+            "metric": "normal_p",
+            "difference": 0.0014475155332669756,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_se",
+            "difference": 0.0017244820095714264,
+            "limit": 0.00025940993238613065,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_f",
+            "difference": -0.052937718201414796,
+            "limit": 0.00801309819332786,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_df",
+            "difference": 0.31532422425452644,
+            "limit": 0.08479822940758608,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_se",
+            "difference": 0.0017244820095713709,
+            "limit": 0.00025940993238613076,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_f",
+            "difference": -0.05293771820141391,
+            "limit": 0.008013098193327855,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_p",
+            "difference": 0.001687960737595695,
+            "limit": 0.0001,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r0.5-beta0",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -7.856088125724262e-06,
+            "limit": 4.910632880310202e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.3644606604311642e-05,
+            "limit": 4.400750352841204e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+        "replicate": 19,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -0.3710747484013268,
+            "limit": 2.0811053762573298e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.02939035874920881,
+            "limit": 0.0007631154316037604,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.026030729186185514,
+            "limit": 1e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": 0.041560547700617775,
+            "limit": 1e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.005880169755149198,
+            "limit": 8.990310279677184e-05,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_p",
+            "difference": -0.00029321740041070125,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_df",
+            "difference": 0.11107316139957302,
+            "limit": 0.08444410884449378,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.05-r0-beta0",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.0582509924343501e-05,
+            "limit": 7.5689801071621075e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.05-r0-beta0.5",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -0.09082778441893424,
+            "limit": 4.660307940504681e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.002297831442621412,
+            "limit": 0.0011651305087819577,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.0015607024250099055,
+            "limit": 1.1639665422397177e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": -0.009223112893240824,
+            "limit": 1.1639665422397177e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.0010213327923082743,
+            "limit": 5.46474580382164e-05,
+            "passed": false
+          },
+          {
+            "metric": "normal_se",
+            "difference": 0.0004231839525374592,
+            "limit": 0.00012900452188234626,
+            "passed": false
+          },
+          {
+            "metric": "normal_f",
+            "difference": -0.08706490267284828,
+            "limit": 0.026467028020313317,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_se",
+            "difference": 0.0004231839525374592,
+            "limit": 0.00012900452188234626,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_f",
+            "difference": -0.08706490267284828,
+            "limit": 0.026467028020313317,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_df",
+            "difference": 0.09027526788106055,
+            "limit": 0.08496490554792828,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_se",
+            "difference": 0.00042318395253732044,
+            "limit": 0.0001290045218823464,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_f",
+            "difference": -0.08706490267281808,
+            "limit": 0.026467028020313258,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_p",
+            "difference": 0.00013337708346703933,
+            "limit": 0.0001,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r-0.5-beta0",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.1687186085279806e-05,
+            "limit": 5.495041313209153e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r-0.5-beta0",
+        "replicate": 19,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.813025288369954e-06,
+            "limit": 1.5719464271628176e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r-0.5-beta0.5",
+        "replicate": 1,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 8.410013868266706e-06,
+            "limit": 4.097165143066873e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r0-beta0.5",
+        "replicate": 13,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.6096268191651344e-05,
+            "limit": 1.1750700921616813e-05,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r0.5-beta0",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -3.5742911822403585,
+            "limit": 4.654728646559441e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.0734678775589781,
+            "limit": 0.00114391278475502,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.07766362626654717,
+            "limit": 1.1427700147402796e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": 0.06520190354339979,
+            "limit": 1.1427700147402796e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.004896914522600826,
+            "limit": 8.694946087310903e-05,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_p",
+            "difference": -0.0008124058502525233,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_df",
+            "difference": 0.13396697557247883,
+            "limit": 0.08433087562641993,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r0.5-beta0.5",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -2.44278090233405,
+            "limit": 4.909758199627643e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.08923522824880958,
+            "limit": 0.001408040427239687,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.09433757313024141,
+            "limit": 1.4066337934462403e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": 0.04012594190248121,
+            "limit": 1.4066337934462403e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.005953019617818717,
+            "limit": 0.00013728899339668496,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_p",
+            "difference": -0.00047076030707018934,
+            "limit": 0.0001,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r0.5-beta0.5",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.2513048843228961e-05,
+            "limit": 4.9284294839144166e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -7.31982096383553e-06,
+            "limit": 5.410786112467084e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -6.464428330221414e-06,
+            "limit": 3.3755657945513385e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m5-v0.25-r0-beta0",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 4.175339926232378e-06,
+            "limit": 2.0168331351349153e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m15-v0.05-r0-beta0",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.1610630396978439e-05,
+            "limit": 1.826367670609903e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m15-v0.25-r0-beta0.5",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 4.420520242259091e-06,
+            "limit": 1.6119796566123738e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m15-v0.25-r0.5-beta0.5",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 6.247823377013078e-06,
+            "limit": 2.6084532713215397e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 1,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.9066815778845444e-06,
+            "limit": 2.5633513844495625e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.05-r0-beta0",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.30466271720396e-06,
+            "limit": 1.2214959123150292e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.05-r0.5-beta0.5",
+        "replicate": 1,
+        "failed": [
+          {
+            "metric": "covariance_11",
+            "difference": 3.400493551176248e-06,
+            "limit": 2.2853203863325722e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.25-r0-beta0.5",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.059265824600582e-06,
+            "limit": 1.1922289345121476e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.05-r0-beta0.5",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.264087770527826e-06,
+            "limit": 1.7301832949155242e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.05-r0.5-beta0.5",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.473146387838932e-06,
+            "limit": 1.2707337898978884e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.25-r0-beta0",
+        "replicate": 0,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -7.4584529128679175e-06,
+            "limit": 6.286491211054174e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.25-r0-beta0.5",
+        "replicate": 2,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 5.456911739083574e-06,
+            "limit": 1.635199411975655e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.4674828063601306e-05,
+            "limit": 4.994971408020896e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 6,
+        "failed": [
+          {
+            "metric": "covariance_11",
+            "difference": -1.3897920274560244e-05,
+            "limit": 1.1824549420104075e-05,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 13,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -5.911041405920296e-06,
+            "limit": 2.613686841841441e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 5.8542148100851e-06,
+            "limit": 4.120588328003766e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -8.89363393819214e-06,
+            "limit": 6.166242095004638e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G20-m5-v0-rundefined-beta0",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_11",
+            "difference": -7.139606015231243e-06,
+            "limit": 3.0721695519805857e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G20-m15-v0-rundefined-beta0",
+        "replicate": 9,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.0687886303178715e-06,
+            "limit": 1.207871716033389e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0",
+        "replicate": 3,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.124983505169523e-06,
+            "limit": 1.9064801605172575e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0",
+        "replicate": 12,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -2.8088409184355567e-06,
+            "limit": 2.092228820920022e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.433988435439737e-05,
+            "limit": 1.1795661176238762e-05,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0.5",
+        "replicate": 6,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.275279472643143e-06,
+            "limit": 3.550186817971647e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "near_correlation-G8-m5-v0.25-r-0.95-beta0",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.1315739524160248e-05,
+            "limit": 5.423901137149045e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "exact_correlation-G8-m5-v0.25-r-1-beta0",
+        "replicate": 17,
+        "failed": [
+          {
+            "metric": "criterion",
+            "difference": -1.5767270679230307,
+            "limit": 2.4243609442675775e-06,
+            "passed": false
+          },
+          {
+            "metric": "sigma2",
+            "difference": -0.22759820915711515,
+            "limit": 0.0019411367109833332,
+            "passed": false
+          },
+          {
+            "metric": "covariance_00",
+            "difference": 0.12382166554957935,
+            "limit": 1.9391975134698633e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_01",
+            "difference": -0.1778493943486634,
+            "limit": 1.9391975134698633e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": 0.12329634231944672,
+            "limit": 0.0001340941684177277,
+            "passed": false
+          },
+          {
+            "metric": "normal_se",
+            "difference": 0.018402526993262336,
+            "limit": 0.00025594962090534444,
+            "passed": false
+          },
+          {
+            "metric": "normal_f",
+            "difference": -0.04398033261327661,
+            "limit": 0.0006770424368218518,
+            "passed": false
+          },
+          {
+            "metric": "normal_p",
+            "difference": 0.026668951375367733,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_se",
+            "difference": 0.018402526993262336,
+            "limit": 0.00025594962090534444,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_f",
+            "difference": -0.04398033261327661,
+            "limit": 0.0006770424368218518,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_p",
+            "difference": 0.02263237789677086,
+            "limit": 0.0001,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_df",
+            "difference": 1.2817040035730027,
+            "limit": 0.08449366740221517,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_se",
+            "difference": 0.018402526993262502,
+            "limit": 0.00025594962090534434,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_f",
+            "difference": -0.043980332613276996,
+            "limit": 0.0006770424368218523,
+            "passed": false
+          },
+          {
+            "metric": "kenward_roger_p",
+            "difference": 0.02526223341152778,
+            "limit": 0.0001,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -5.119586251496177e-06,
+            "limit": 2.260474168591203e-06,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0",
+        "replicate": 9,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.9899576364146464e-05,
+            "limit": 2.7582077807012794e-05,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0",
+        "replicate": 18,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.0417572562489014e-06,
+            "limit": 1.7920185609468883e-06,
+            "passed": false
+          },
+          {
+            "metric": "covariance_11",
+            "difference": -1.0226330095939305e-05,
+            "limit": 2.16443338132302e-06,
+            "passed": false
+          },
+          {
+            "metric": "satterthwaite_p",
+            "difference": 0.00017631441740861842,
+            "limit": 0.0001,
+            "passed": false
+          }
+        ]
+      },
+      {
+        "case": "imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0",
+        "replicate": 18,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.4236592904336457e-05,
+            "limit": 2.86501529879286e-06,
+            "passed": false
+          }
+        ]
+      }
+    ],
+    "balanced_oracle_variance_flagged_fits": 42,
+    "balanced_oracle_variance_flags": [
+      {
+        "case": "interior-G8-m5-v0.05-r-0.5-beta0",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.0605607509481371e-05,
+            "limit": 1.4698876446447972e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.2252151261341049e-05,
+            "limit": 5.411956163824069e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 7.709704025258071e-06,
+            "limit": 4.0063175616101455e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r0.5-beta0",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.1331186497391156e-05,
+            "limit": 9.431314892097174e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.05-r0.5-beta0.5",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.401799882599924e-06,
+            "limit": 1.6124555851835465e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r-0.5-beta0.5",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.2313593288204522e-05,
+            "limit": 8.604191220433996e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r0.5-beta0",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -7.85670107405264e-06,
+            "limit": 4.910632267361874e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m5-v0.25-r0.5-beta0.5",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.364683704048247e-05,
+            "limit": 4.400748122405034e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.05-r0-beta0",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.0574746005793771e-05,
+            "limit": 7.5689723432435576e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r-0.5-beta0",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.171032165528732e-05,
+            "limit": 5.495064448779161e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r-0.5-beta0",
+        "replicate": 19,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.8161583825311274e-06,
+            "limit": 1.5719432940686563e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r-0.5-beta0.5",
+        "replicate": 1,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 8.406783447670752e-06,
+            "limit": 4.097161912646277e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r0-beta0.5",
+        "replicate": 13,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.6075981693805183e-05,
+            "limit": 1.1750680635118968e-05
+          }
+        ]
+      },
+      {
+        "case": "interior-G8-m15-v0.25-r0.5-beta0.5",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.2524778664022018e-05,
+            "limit": 4.928417754093623e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -7.326993412857391e-06,
+            "limit": 5.410793284916106e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -6.436570793702089e-06,
+            "limit": 3.3755936520878583e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m5-v0.25-r0-beta0",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 4.159310731808989e-06,
+            "limit": 2.0168491643293386e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m15-v0.05-r0-beta0",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.1614042714894733e-05,
+            "limit": 1.8263710829278195e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m15-v0.25-r0-beta0.5",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 4.4055278118331626e-06,
+            "limit": 1.6119646641819479e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G20-m15-v0.25-r0.5-beta0.5",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 6.245797785474827e-06,
+            "limit": 2.6084552969032816e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.05-r-0.5-beta0.5",
+        "replicate": 1,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.880515531543829e-06,
+            "limit": 2.563377550495903e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.05-r0-beta0",
+        "replicate": 16,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.3164802014023333e-06,
+            "limit": 1.2214840948308309e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.05-r0.5-beta0.5",
+        "replicate": 1,
+        "failed": [
+          {
+            "metric": "covariance_11",
+            "difference": 3.453061232452752e-06,
+            "limit": 2.2852678567461228e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m5-v0.25-r0-beta0.5",
+        "replicate": 7,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.06795268364195e-06,
+            "limit": 1.1922202476531063e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.05-r0-beta0.5",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.2652412196460543e-06,
+            "limit": 1.7301844483646425e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.05-r0.5-beta0.5",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.465547600495003e-06,
+            "limit": 1.2707261911105446e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.25-r0-beta0",
+        "replicate": 0,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -7.456948526171105e-06,
+            "limit": 6.286489706667477e-06
+          }
+        ]
+      },
+      {
+        "case": "interior-G50-m15-v0.25-r0-beta0.5",
+        "replicate": 2,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 5.502796044521644e-06,
+            "limit": 1.635153527670217e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0",
+        "replicate": 10,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.4677842625825284e-05,
+            "limit": 4.994968393458672e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 6,
+        "failed": [
+          {
+            "metric": "covariance_11",
+            "difference": -1.3894608992530422e-05,
+            "limit": 1.1824546108822045e-05
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 13,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -5.916474012695539e-06,
+            "limit": 2.6136922744482166e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 14,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 5.853263971653238e-06,
+            "limit": 4.120589278842198e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -8.88988273820869e-06,
+            "limit": 6.166245841417451e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G20-m5-v0-rundefined-beta0",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_11",
+            "difference": -7.159819107286844e-06,
+            "limit": 3.0721897650726407e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G20-m15-v0-rundefined-beta0",
+        "replicate": 9,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.070095428059694e-06,
+            "limit": 1.2078704059911141e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G20-m15-v0-rundefined-beta0",
+        "replicate": 17,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 2.2944863417254796e-06,
+            "limit": 2.292727231317171e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0",
+        "replicate": 3,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 3.1211547733855406e-06,
+            "limit": 1.9064763317854737e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0",
+        "replicate": 12,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -2.8107414737563174e-06,
+            "limit": 2.092230721967366e-06
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0",
+        "replicate": 15,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -1.4342173729874758e-05,
+            "limit": 1.1795658895760826e-05
+          }
+        ]
+      },
+      {
+        "case": "zero_slope-G50-m5-v0-rundefined-beta0.5",
+        "replicate": 6,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -4.27669847812874e-06,
+            "limit": 3.5501853989661614e-06
+          }
+        ]
+      },
+      {
+        "case": "near_correlation-G8-m5-v0.25-r-0.95-beta0",
+        "replicate": 4,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": 1.1296157366140133e-05,
+            "limit": 5.423920719307066e-06
+          }
+        ]
+      },
+      {
+        "case": "exact_correlation-G8-m5-v0.25-r1-beta0",
+        "replicate": 11,
+        "failed": [
+          {
+            "metric": "covariance_01",
+            "difference": -5.187259770695436e-06,
+            "limit": 2.260541758661482e-06
+          }
+        ]
+      }
+    ]
+  },
+  "precision": {
+    "scope": "selected42 precision misses only; do not pool into pilot estimates",
+    "controls": {
+      "scope": "post-study precision diagnostic on selected misses; no calibration evidence",
+      "environment": {
+        "version": "0.2.8.dev0",
+        "native_sha256": "2ed6b683889945bf25e772ac6d7feaddf60a5592cad7ec25053328fff4999daa",
+        "python": "3.11.15",
+        "polars": "2.0.0",
+        "platform": "Windows-10-10.0.26300-SP0"
+      },
+      "control": {
+        "tolerance": 1e-12,
+        "max_iterations": 5000,
+        "require_convergence": false
+      },
+      "selected": 42,
+      "audit_sha256": "8f6e677ac6e1a807df2b49bfe8c19cf0eca0bf404b7703a0a17b85cfc6ca83d5",
+      "records_sha256": "43c1634b2a529b32c61a70dde1af2d7de99de4b03fccc0f6c0833b908bd1d5e8",
+      "script_sha256": "898b893bcb200ecce354b9c8e25b6538c76f084ea99c8ea0f02b8660cbd95ca9"
+    },
+    "attempted": 42,
+    "converged": 42,
+    "variance_flagged_fits": 0,
+    "results_sha256": "35d52c8b07fe8f93a30e3a9fcff778a046f4189f51b72f5f1dde7291b61aafc8"
+  },
+  "fair_harness": {
+    "fair-argmin-rust-first.json": {
+      "sha256": "27070d4cc55036577a6aff650fffce5e9cb34c4fcad33d33cae150fa164606aa",
+      "config": {
+        "cases": [
+          "sleepstudy_reml",
+          "sleepstudy_weighted_reml",
+          "large_random_slopes_100k"
+        ],
+        "implementations": [
+          "julia",
+          "rust"
+        ],
+        "rust_features": [],
+        "warmups": 3,
+        "repeats": 11,
+        "threads": 1,
+        "order": "rust-first",
+        "timeout_seconds": 3600,
+        "with_phases": true,
+        "target_ratio": 1.0,
+        "data_dir": "benchmark-results/fair-rust-julia-data"
+      },
+      "comparisons": [
+        {
+          "case": "sleepstudy_reml",
+          "model": "lmm",
+          "reference": "MixedModels.jl; random slopes (real fixture)",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.000618,
+              "julia_median_seconds": 0.0005174,
+              "rust_over_julia_median": 1.194433706996521,
+              "julia_over_rust_median": 0.8372168284789645,
+              "faster_implementation": "julia",
+              "meets_target": false,
+              "eligible_for_speed_claim": true,
+              "ratio_interval_95": [
+                1.135246670418308,
+                1.4103208349439504
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "passed",
+                "reasons": [],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0005725,
+              "julia_median_seconds": 0.0005174,
+              "rust_over_julia_median": 1.1064940085040587,
+              "julia_over_rust_median": 0.9037554585152838,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 1.91e-05,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        },
+        {
+          "case": "sleepstudy_weighted_reml",
+          "model": "lmm_weighted",
+          "reference": "MixedModels.jl wts=\u2026",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0005599,
+              "julia_median_seconds": 0.0006904,
+              "rust_over_julia_median": 0.8109791425260718,
+              "julia_over_rust_median": 1.2330773352384354,
+              "faster_implementation": "unverified",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "ratio_interval_95": [
+                0.7084651398203214,
+                0.9102747340003176
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "unverified",
+                "reasons": [
+                  "objective or fixed-effect estimates exceed declared tolerances"
+                ],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0004857,
+              "julia_median_seconds": 0.0006904,
+              "rust_over_julia_median": 0.703505214368482,
+              "julia_over_rust_median": 1.4214535721638872,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 2.59e-05,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        },
+        {
+          "case": "large_random_slopes_100k",
+          "model": "lmm",
+          "reference": "MixedModels.jl; synthetic correlated random slopes",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0668815,
+              "julia_median_seconds": 0.1150483,
+              "rust_over_julia_median": 0.5813341005473353,
+              "julia_over_rust_median": 1.7201812160313392,
+              "faster_implementation": "rust",
+              "meets_target": true,
+              "eligible_for_speed_claim": true,
+              "ratio_interval_95": [
+                0.5645162802711091,
+                0.6063942086093613
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "passed",
+                "reasons": [],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0424353,
+              "julia_median_seconds": 0.1150483,
+              "rust_over_julia_median": 0.368847692664733,
+              "julia_over_rust_median": 2.7111461448369636,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 0.018513,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        }
+      ]
+    },
+    "fair-argmin-julia-first.json": {
+      "sha256": "1c883b717d717177665137baad8217020d5144a5b60b44045d70dfeb66d03ff3",
+      "config": {
+        "cases": [
+          "sleepstudy_reml",
+          "sleepstudy_weighted_reml",
+          "large_random_slopes_100k"
+        ],
+        "implementations": [
+          "julia",
+          "rust"
+        ],
+        "rust_features": [],
+        "warmups": 3,
+        "repeats": 11,
+        "threads": 1,
+        "order": "julia-first",
+        "timeout_seconds": 3600,
+        "with_phases": true,
+        "target_ratio": 1.0,
+        "data_dir": "benchmark-results/fair-rust-julia-data"
+      },
+      "comparisons": [
+        {
+          "case": "sleepstudy_reml",
+          "model": "lmm",
+          "reference": "MixedModels.jl; random slopes (real fixture)",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0006128,
+              "julia_median_seconds": 0.0005077,
+              "rust_over_julia_median": 1.20701201496947,
+              "julia_over_rust_median": 0.8284921671018277,
+              "faster_implementation": "julia",
+              "meets_target": false,
+              "eligible_for_speed_claim": true,
+              "ratio_interval_95": [
+                1.1278462112728629,
+                1.2509660362009356
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "passed",
+                "reasons": [],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0005807,
+              "julia_median_seconds": 0.0005077,
+              "rust_over_julia_median": 1.1437857002166631,
+              "julia_over_rust_median": 0.8742896504219048,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 1.94e-05,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        },
+        {
+          "case": "sleepstudy_weighted_reml",
+          "model": "lmm_weighted",
+          "reference": "MixedModels.jl wts=\u2026",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.000536,
+              "julia_median_seconds": 0.0007401,
+              "rust_over_julia_median": 0.72422645588434,
+              "julia_over_rust_median": 1.3807835820895522,
+              "faster_implementation": "unverified",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "ratio_interval_95": [
+                0.6610754810064134,
+                0.7744055944055943
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "unverified",
+                "reasons": [
+                  "objective or fixed-effect estimates exceed declared tolerances"
+                ],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0004908,
+              "julia_median_seconds": 0.0007401,
+              "rust_over_julia_median": 0.6631536278881232,
+              "julia_over_rust_median": 1.5079462102689487,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 2.51e-05,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        },
+        {
+          "case": "large_random_slopes_100k",
+          "model": "lmm",
+          "reference": "MixedModels.jl; synthetic correlated random slopes",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0678494,
+              "julia_median_seconds": 0.1161431,
+              "rust_over_julia_median": 0.5841879543425309,
+              "julia_over_rust_median": 1.7117778491777376,
+              "faster_implementation": "rust",
+              "meets_target": true,
+              "eligible_for_speed_claim": true,
+              "ratio_interval_95": [
+                0.5778756623414731,
+                0.6134422348276484
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "passed",
+                "reasons": [],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0428729,
+              "julia_median_seconds": 0.1161431,
+              "rust_over_julia_median": 0.3691385885170966,
+              "julia_over_rust_median": 2.7090096541171698,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 0.0196645,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        }
+      ]
+    },
+    "fair-basin-rust-first.json": {
+      "sha256": "305104c50c6b5f18d5434db505e9345f831f81836f644eec65c77ad8040c963e",
+      "config": {
+        "cases": [
+          "sleepstudy_reml",
+          "sleepstudy_weighted_reml",
+          "large_random_slopes_100k"
+        ],
+        "implementations": [
+          "julia",
+          "rust"
+        ],
+        "rust_features": [
+          "basin"
+        ],
+        "warmups": 3,
+        "repeats": 11,
+        "threads": 1,
+        "order": "rust-first",
+        "timeout_seconds": 3600,
+        "with_phases": true,
+        "target_ratio": 1.0,
+        "data_dir": "benchmark-results/fair-rust-julia-data"
+      },
+      "comparisons": [
+        {
+          "case": "sleepstudy_reml",
+          "model": "lmm",
+          "reference": "MixedModels.jl; random slopes (real fixture)",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0005482,
+              "julia_median_seconds": 0.0005414,
+              "rust_over_julia_median": 1.0125600295530106,
+              "julia_over_rust_median": 0.987595767967895,
+              "faster_implementation": "inconclusive",
+              "meets_target": null,
+              "eligible_for_speed_claim": true,
+              "ratio_interval_95": [
+                0.8872987477638641,
+                1.0338919224251553
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "passed",
+                "reasons": [],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0005171,
+              "julia_median_seconds": 0.0005414,
+              "rust_over_julia_median": 0.9551163649796823,
+              "julia_over_rust_median": 1.0469928447108876,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 1.93e-05,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        },
+        {
+          "case": "sleepstudy_weighted_reml",
+          "model": "lmm_weighted",
+          "reference": "MixedModels.jl wts=\u2026",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0005087,
+              "julia_median_seconds": 0.0007516,
+              "rust_over_julia_median": 0.6768227780734433,
+              "julia_over_rust_median": 1.4774916453705524,
+              "faster_implementation": "unverified",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "ratio_interval_95": [
+                0.638555770470664,
+                0.7178964533224622
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "unverified",
+                "reasons": [
+                  "objective or fixed-effect estimates exceed declared tolerances"
+                ],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0004512,
+              "julia_median_seconds": 0.0007516,
+              "rust_over_julia_median": 0.6003193187865887,
+              "julia_over_rust_median": 1.6657801418439715,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 2.47e-05,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        },
+        {
+          "case": "large_random_slopes_100k",
+          "model": "lmm",
+          "reference": "MixedModels.jl; synthetic correlated random slopes",
+          "metrics": [
+            {
+              "metric": "cold_fit",
+              "rust_median_seconds": 0.0675374,
+              "julia_median_seconds": 0.1147197,
+              "rust_over_julia_median": 0.5887166720275594,
+              "julia_over_rust_median": 1.6986099553728748,
+              "faster_implementation": "rust",
+              "meets_target": true,
+              "eligible_for_speed_claim": true,
+              "ratio_interval_95": [
+                0.5648570481284719,
+                0.6940028608861425
+              ],
+              "uncertainty_scope": "within-process independent percentile bootstrap; 2000 resamples",
+              "sampling_status": "measured",
+              "fit_agreement": {
+                "status": "passed",
+                "reasons": [],
+                "objective_atol": 1e-05,
+                "objective_rtol": 1e-06,
+                "coefficient_atol": 0.0001,
+                "coefficient_rtol": 0.0001
+              }
+            },
+            {
+              "metric": "fit_prepared_vs_julia_fit",
+              "rust_median_seconds": 0.0469418,
+              "julia_median_seconds": 0.1147197,
+              "rust_over_julia_median": 0.4091869138430453,
+              "julia_over_rust_median": 2.4438709210128287,
+              "faster_implementation": "not_comparable",
+              "meets_target": null,
+              "eligible_for_speed_claim": false,
+              "timing_boundary": "Rust reuses a design; Julia reconstructs its model. Diagnostic only."
+            },
+            {
+              "metric": "prepare_lmer_rust_only",
+              "rust_median_seconds": 0.019312,
+              "julia_median_seconds": null,
+              "rust_over_julia_median": null,
+              "julia_over_rust_median": null,
+              "faster_implementation": "n/a",
+              "meets_target": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "artifacts": {
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/diagnostic/candidate.json": "eb90aef51fbc2cc40831434cc27b21760ad537c13181b57d1181728013c518d4",
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/diagnostic/summary.json": "9ecc7dc90a328d0b78778afb0f9f26cad7b14a55cda6cb1bd51039fc31960384",
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/diagnostic/audit.json": "8f6e677ac6e1a807df2b49bfe8c19cf0eca0bf404b7703a0a17b85cfc6ca83d5",
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/diagnostic/records.jsonl.gz": "43c1634b2a529b32c61a70dde1af2d7de99de4b03fccc0f6c0833b908bd1d5e8",
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/precision/controls.json": "46aa79575f7a56ca5160408feaf1b16d0a691ce57698a613c0d471a62d42ac81",
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/precision/results.json": "35d52c8b07fe8f93a30e3a9fcff778a046f4189f51b72f5f1dde7291b61aafc8",
+    "benchmark-results/scientific/random-slope-pilot/20261016-boundary-fix-joint/precision-check.py": "898b893bcb200ecce354b9c8e25b6538c76f084ea99c8ea0f02b8660cbd95ca9"
+  },
+  "local_archive": {
+    "path": "benchmark-results/scientific/random-slope-pilot/lmm-random-slope-boundary-fix-diagnostics-20261016.zip",
+    "sha256": "55de8437a4f800e83f8fd29b546c122a9a9b4f0f0e702f3188c8a68d382cacf5",
+    "bytes": 23600920,
+    "entries": 92,
+    "crc_verified": true,
+    "publication": "local only; not uploaded; full fair logs contain local filesystem paths",
+    "requires_original_v1_bundle_sha256": "4db098bc020498c58c03b89157d34f8de5572289b3da29bb011faeddda145916"
+  },
+  "additional_review_findings": [
+    {
+      "case": "zero_slope-G8-m5-v0-rundefined-beta0.5",
+      "replicate": 17,
+      "finding": "covariance entries pass but shared-threshold classification is full rank vs analytic rank one; not included in selected42 precision refits"
+    },
+    {
+      "case": "imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0",
+      "replicate": 18,
+      "finding": "Satterthwaite p differs from retained R; balanced oracle does not apply; not included in selected42 precision refits"
+    }
+  ]
+}

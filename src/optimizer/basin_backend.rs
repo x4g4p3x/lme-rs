@@ -1,4 +1,4 @@
-use super::{clamp_theta, CostFunction, OptimizeResult};
+use super::{clamp_theta, covariance_columns, CostFunction, CovarianceRestart, OptimizeResult};
 use basin::{
     run_loop_with_control, BasicSimplexState, BoxConstraints, NelderMead, Problem, RunControl,
     SimplexState, TerminationReason,
@@ -85,29 +85,6 @@ fn coordinate_simplex_with_step(theta: &Array1<f64>, step: f64) -> Vec<Array1<f6
     simplex
 }
 
-/// Column-major Cholesky coordinates, including offsets of preceding blocks.
-fn covariance_columns(blocks: &[crate::model_matrix::ReBlock]) -> Vec<Range<usize>> {
-    if blocks.iter().all(|block| block.k == 1) {
-        return Vec::new();
-    }
-    let mut offset = 0;
-    let mut columns = Vec::new();
-    for block in blocks {
-        for column in 0..block.k {
-            let end = offset + block.k - column;
-            columns.push(offset..end);
-            offset = end;
-        }
-    }
-    columns
-}
-
-struct CovarianceRestart {
-    point: Array1<f64>,
-    cost: f64,
-    step: f64,
-}
-
 fn covariance_restart<C>(
     problem: &mut Problem<BoundedObjective<C>>,
     vertices: &[Array1<f64>],
@@ -118,43 +95,9 @@ fn covariance_restart<C>(
 where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
 {
-    let best = &vertices[0];
-    let resolution = f64::EPSILON.sqrt();
-    // A restart must improve beyond the requested cost tolerance and numerical
-    // roundoff, rather than chase noise along an already satisfactory face.
-    let improvement = tolerance.max(64.0 * f64::EPSILON * best_cost.abs().max(1.0));
-    for column in columns {
-        let diagonal = column.start;
-        if !vertices.iter().all(|v| v[diagonal].abs() <= resolution) {
-            continue;
-        }
-        // At a zero diagonal, reversing the remaining column leaves Lambda *
-        // Lambda' unchanged. An inward move from the opposite orientation may
-        // improve covariance even when every ordinary coordinate probe fails.
-        // Always evaluate the actual candidate; near-zero is not exactly zero.
-        let has_orientation = (diagonal + 1..column.end).any(|i| best[i] != 0.0);
-        let mut step = 0.2;
-        while step >= resolution {
-            for reverse in [false, true] {
-                if reverse && !has_orientation {
-                    continue;
-                }
-                let mut point = best.clone();
-                if reverse {
-                    for i in diagonal + 1..column.end {
-                        point[i] = -point[i];
-                    }
-                }
-                point[diagonal] += step;
-                let cost = problem.cost(&point)?;
-                if cost.is_finite() && best_cost - cost > improvement {
-                    return Ok(Some(CovarianceRestart { point, cost, step }));
-                }
-            }
-            step *= 0.5;
-        }
-    }
-    Ok(None)
+    super::covariance_restart_with_eval(vertices, best_cost, columns, tolerance, |point| {
+        problem.cost(point)
+    })
 }
 
 pub(super) fn optimize_lmm(

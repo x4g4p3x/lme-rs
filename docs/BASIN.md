@@ -71,13 +71,21 @@ Projected Nelder–Mead can collapse a simplex onto a boundary face. Boundary an
 singular-fit tests therefore accompany the ordinary fixture tests. This feature
 does not imply that Basin is faster or more accurate for every model.
 
-For LMMs with correlated random effects, recovery uses the actual Cholesky block
-layout. At a near-zero diagonal it tests inward moves in both equivalent column
-orientations, so projection cannot hide the other covariance direction. A
-successful probe starts a smaller simplex and its cost is reused once. Recovery
-requires improvement beyond the requested cost tolerance and floating-point
-roundoff, and shares the original iteration budget. GLMM and nonlinear searches
-retain their existing boundary recovery.
+For LMMs with correlated random effects, both backends now check covariance
+boundaries using the actual Cholesky block layout. At a near-zero diagonal they
+test inward moves in both equivalent column orientations. Argmin checks its
+projected best point; Basin checks a collapsed simplex face. An entirely zero
+column also gets a local quadratic-curvature check, since diagonal-only moves
+can miss a joint improving direction. Every proposed move is evaluated and must
+improve beyond the requested cost tolerance and floating-point roundoff.
+
+A successful probe starts a new feasible simplex using the probe's step size;
+Basin reuses the probe cost once. Recovery consumes the same overall iteration
+budget, including one iteration for each accepted recovery. Exhaustion retains
+the best evaluated point with an unsuccessful convergence flag. These finite
+local checks improve boundary recovery; they do not certify global optimality.
+The additional covariance checks apply to LMMs. GLMM and nonlinear searches
+retain their existing behavior.
 
 The [covariance-recovery report](../benchmarks/basin-covariance-recovery-2026-09-11.md)
 records the corrected R-verified fit and the additional cost of checking some

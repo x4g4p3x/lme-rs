@@ -8,6 +8,7 @@ use argmin::solver::neldermead::NelderMead;
 use ndarray::{Array1, Array2};
 use sprs::CsMat;
 use std::cell::RefCell;
+use std::ops::Range;
 use std::sync::Arc;
 
 #[cfg(feature = "basin")]
@@ -114,12 +115,27 @@ pub(crate) fn nelder_mead_optimize_tolerance<C>(
 where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
 {
+    nelder_mead_argmin(init_theta, lower_bounds, max_iters, tolerance, 0.2, cost)
+}
+
+#[cfg(not(feature = "basin"))]
+fn nelder_mead_argmin<C>(
+    init_theta: Array1<f64>,
+    lower_bounds: &[f64],
+    max_iters: u64,
+    tolerance: f64,
+    step: f64,
+    cost: C,
+) -> Result<OptimizeResult, anyhow::Error>
+where
+    C: CostFunction<Param = Array1<f64>, Output = f64>,
+{
     let n = init_theta.len();
     let mut initial_simplex = vec![init_theta.to_vec()];
 
     for i in 0..n {
         let mut param = init_theta.clone();
-        param[i] += 0.2;
+        param[i] += step;
         clamp_theta(&mut param, lower_bounds);
         initial_simplex.push(param.to_vec());
     }
@@ -142,7 +158,13 @@ where
     clamp_theta(&mut best_theta, lower_bounds);
     let best_cost = state.get_best_cost();
     let iterations = state.get_iter();
-    let converged = iterations < max_iters && best_cost.is_finite() && best_cost < f64::MAX;
+    let converged = iterations < max_iters
+        && matches!(
+            state.get_termination_reason(),
+            Some(argmin::core::TerminationReason::SolverConverged)
+        )
+        && best_cost.is_finite()
+        && best_cost < f64::MAX;
 
     Ok(OptimizeResult {
         theta: best_theta,
@@ -152,7 +174,149 @@ where
     })
 }
 
+/// Column-major Cholesky coordinates, including offsets of preceding blocks.
+fn covariance_columns(blocks: &[ReBlock]) -> Vec<Range<usize>> {
+    if blocks.iter().all(|block| block.k == 1) {
+        return Vec::new();
+    }
+    let mut offset = 0;
+    let mut columns = Vec::new();
+    for block in blocks {
+        for column in 0..block.k {
+            let end = offset + block.k - column;
+            columns.push(offset..end);
+            offset = end;
+        }
+    }
+    columns
+}
+
+struct CovarianceRestart {
+    point: Array1<f64>,
+    cost: f64,
+    step: f64,
+}
+
+fn covariance_restart_with_eval(
+    vertices: &[Array1<f64>],
+    best_cost: f64,
+    columns: &[Range<usize>],
+    tolerance: f64,
+    mut eval: impl FnMut(&Array1<f64>) -> Result<f64, Error>,
+) -> Result<Option<CovarianceRestart>, anyhow::Error> {
+    let best = &vertices[0];
+    let resolution = f64::EPSILON.sqrt();
+    let improvement = tolerance.max(64.0 * f64::EPSILON * best_cost.abs().max(1.0));
+    for column in columns {
+        let diagonal = column.start;
+        if !vertices.iter().all(|v| v[diagonal].abs() <= resolution) {
+            continue;
+        }
+        // At a zero diagonal, reversing the rest of its Cholesky column
+        // preserves Lambda*Lambda'. Probe both equivalent orientations before
+        // declaring convergence on a face that the simplex cannot leave.
+        let has_orientation = (diagonal + 1..column.end).any(|i| best[i] != 0.0);
+        let mut step = 0.2;
+        while step >= resolution {
+            for reverse in [false, true] {
+                if reverse && !has_orientation {
+                    continue;
+                }
+                let mut point = best.clone();
+                if reverse {
+                    for i in diagonal + 1..column.end {
+                        point[i] = -point[i];
+                    }
+                }
+                point[diagonal] += step;
+                let cost = eval(&point)?;
+                if cost.is_finite() && best_cost - cost > improvement {
+                    return Ok(Some(CovarianceRestart { point, cost, step }));
+                }
+            }
+            step *= 0.5;
+        }
+        if column.len() > 1 && column.clone().all(|i| best[i].abs() <= resolution) {
+            if let Some(restart) =
+                zero_column_restart(best, best_cost, column.clone(), improvement, &mut eval)?
+            {
+                return Ok(Some(restart));
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// A missing covariance column is a quadratic direction at zero: coordinate
+/// probes can all increase cost while a joint direction decreases it. Estimate
+/// its small symmetric quadratic form, then verify an actual feasible step.
+/// This is a local escape check, not a certificate of global optimality.
+fn zero_column_restart(
+    best: &Array1<f64>,
+    best_cost: f64,
+    column: Range<usize>,
+    improvement: f64,
+    eval: &mut impl FnMut(&Array1<f64>) -> Result<f64, Error>,
+) -> Result<Option<CovarianceRestart>, anyhow::Error> {
+    use ndarray_linalg::{Eigh, UPLO};
+    let n = column.len();
+    'scales: for h in [0.01, 0.001] {
+        let mut singles = Vec::with_capacity(n);
+        let mut curvature = Array2::<f64>::zeros((n, n));
+        for i in 0..n {
+            let mut point = best.clone();
+            point[column.start + i] += h;
+            let cost = eval(&point)?;
+            if !cost.is_finite() || cost == f64::MAX {
+                continue 'scales;
+            }
+            singles.push(cost);
+            // The common h^2 factor does not affect eigenvectors. At an exactly
+            // zero column the cost is even under reversing the entire column.
+            curvature[(i, i)] = 2.0 * (cost - best_cost);
+            for j in 0..i {
+                point[column.start + j] += h;
+                let pair_cost = eval(&point)?;
+                if !pair_cost.is_finite() || pair_cost == f64::MAX {
+                    continue 'scales;
+                }
+                let mixed = (pair_cost - singles[i]) - (singles[j] - best_cost);
+                curvature[(i, j)] = mixed;
+                curvature[(j, i)] = mixed;
+                point[column.start + j] -= h;
+            }
+        }
+        if !curvature.iter().all(|v| v.is_finite()) {
+            continue 'scales;
+        }
+        let Ok((values, vectors)) = curvature.eigh(UPLO::Lower) else {
+            continue 'scales;
+        };
+        if values[0] >= 0.0 {
+            continue;
+        }
+        let mut direction = vectors.column(0).to_owned();
+        if direction[0] < 0.0 {
+            direction *= -1.0;
+        }
+        let mut step = 0.2;
+        while step >= f64::EPSILON.sqrt() {
+            let mut point = best.clone();
+            for i in 0..n {
+                point[column.start + i] += step * direction[i];
+            }
+            let cost = eval(&point)?;
+            if cost.is_finite() && best_cost - cost > improvement {
+                return Ok(Some(CovarianceRestart { point, cost, step }));
+            }
+            step *= 0.5;
+        }
+    }
+    Ok(None)
+}
+
 /// REML deviance objective shared by the optimizer backends.
+#[derive(Clone)]
 struct LmmObjective {
     lmm: Arc<LmmData>,
     reml: bool,
@@ -173,7 +337,48 @@ impl LmmObjective {
         }
         #[cfg(not(feature = "basin"))]
         {
-            nelder_mead_optimize_tolerance(start, bounds, max_iterations, tolerance, self)
+            let columns = covariance_columns(&self.lmm.re_blocks);
+            let mut start = start;
+            clamp_theta(&mut start, bounds);
+            let mut iterations = 0;
+            let mut step = 0.2;
+            loop {
+                let mut result = nelder_mead_argmin(
+                    start,
+                    bounds,
+                    max_iterations - iterations,
+                    tolerance,
+                    step,
+                    self.clone(),
+                )?;
+                iterations += result.iterations;
+                if result.converged && iterations < max_iterations && !columns.is_empty() {
+                    if let Some(restart) = covariance_restart_with_eval(
+                        std::slice::from_ref(&result.theta),
+                        result.final_cost,
+                        &columns,
+                        tolerance,
+                        |point| self.cost(point),
+                    )? {
+                        // Charge recovery to the same caller budget. Even if
+                        // the next simplex cannot run, retain the better probe.
+                        iterations += 1;
+                        if iterations == max_iterations {
+                            return Ok(OptimizeResult {
+                                theta: restart.point,
+                                final_cost: restart.cost,
+                                converged: false,
+                                iterations,
+                            });
+                        }
+                        start = restart.point;
+                        step = restart.step;
+                        continue;
+                    }
+                }
+                result.iterations = iterations;
+                return Ok(result);
+            }
         }
     }
 }
@@ -1108,6 +1313,134 @@ mod tests {
             effect_names: (0..k).map(|i| format!("e{i}")).collect(),
             group_map: std::collections::HashMap::new(),
         }
+    }
+
+    #[test]
+    fn covariance_recovery_checks_joint_zero_column_directions() {
+        // Every one- and two-coordinate restriction has its minimum at zero,
+        // but the full quadratic has negative curvature along (1,1,1).
+        let cost = |x: &Array1<f64>| -> Result<f64, Error> {
+            let norm = x.dot(x);
+            Ok(10.0 + norm - 1.2 * (x[0] * x[1] + x[0] * x[2] + x[1] * x[2]) + norm * norm)
+        };
+        let restart =
+            covariance_restart_with_eval(&[array![0.0, 0.0, 0.0]], 10.0, &[0..3], 1e-8, cost)
+                .unwrap()
+                .expect("joint inward direction must be tested");
+        assert!(restart.point[0] >= 0.0);
+        assert!(restart.cost < 10.0 - 1e-8);
+        assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+    }
+
+    #[test]
+    fn covariance_recovery_retries_smaller_finite_curvature_scale() {
+        let cost = |x: &Array1<f64>| -> Result<f64, Error> {
+            if x.iter().any(|v| v.abs() > 0.005) {
+                return Ok(f64::MAX);
+            }
+            let norm = x.dot(x);
+            Ok(10.0 + norm - 1.2 * (x[0] * x[1] + x[0] * x[2] + x[1] * x[2]) + norm * norm)
+        };
+        let restart =
+            covariance_restart_with_eval(&[array![0.0, 0.0, 0.0]], 10.0, &[0..3], 1e-8, cost)
+                .unwrap()
+                .expect("smaller finite differentiation scale");
+        assert!(restart.cost < 10.0 - 1e-8);
+        assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+    }
+
+    #[test]
+    fn covariance_recovery_checks_joint_lmm_zero_column() {
+        use polars::prelude::*;
+        let h = 6.0_f64.sqrt() / 4.0;
+        let k = 3.0 * 2.0_f64.sqrt() / 4.0;
+        let mut x = Vec::new();
+        let mut y = Vec::new();
+        let mut group = Vec::new();
+        for (g, (a, b)) in [(h, h), (-h, -h), (0.0, k), (0.0, -k)]
+            .into_iter()
+            .enumerate()
+        {
+            for (xi, e) in [(-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0)] {
+                x.push(xi);
+                y.push(2.0 + a + (0.8 + b) * xi + e);
+                group.push(format!("g{g}"));
+            }
+        }
+        let data = df!["x" => x, "y" => y, "group" => group].unwrap();
+        let prepared = crate::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        let objective = LmmObjective {
+            lmm: prepared.lmm.clone(),
+            reml: true,
+            lower_bounds: compute_theta_lower_bounds(&prepared.lmm.re_blocks),
+        };
+        let face = array![0.0, 0.0, 5.0 / 76.0_f64.sqrt()];
+        let face_cost = objective.cost(&face).unwrap();
+        assert!((face_cost - 55.44632022761884).abs() < 1e-10);
+        for h in [0.2, 0.1, 0.05, 0.01, 0.001] {
+            let mut diagonal_only = face.clone();
+            diagonal_only[0] = h;
+            assert!(objective.cost(&diagonal_only).unwrap() > face_cost);
+        }
+        let restart =
+            covariance_restart_with_eval(&[face], face_cost, &[0..2, 2..3], 1e-8, |point| {
+                objective.cost(point)
+            })
+            .unwrap()
+            .expect("joint LMM covariance direction");
+        assert!(restart.cost < face_cost - 1e-3);
+        assert!(restart.cost >= 55.12635890983293 - 1e-8);
+    }
+
+    #[cfg(not(feature = "basin"))]
+    #[test]
+    fn lmm_boundary_recovery_shares_iteration_budget_and_keeps_better_probe() {
+        use polars::prelude::*;
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../scientific/RANDOM_SLOPE_OPTIMUM_COUNTEREXAMPLES_V1.json"
+        ))
+        .unwrap();
+        let fixture = &fixtures["fixtures"][0];
+        let values = |v: &serde_json::Value| -> Vec<f64> {
+            v.as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_f64().unwrap())
+                .collect()
+        };
+        let groups: Vec<String> = fixture["case"]["group"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|g| format!("g{:03}", g.as_u64().unwrap()))
+            .collect();
+        let data = df!["x" => values(&fixture["case"]["x"]), "y" => values(&fixture["y"]), "group" => groups].unwrap();
+        let prepared = crate::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        let bounds = compute_theta_lower_bounds(&prepared.lmm.re_blocks);
+        let objective = LmmObjective {
+            lmm: prepared.lmm.clone(),
+            reml: true,
+            lower_bounds: bounds.clone(),
+        };
+        let start = prepared.init_theta.clone();
+        // Discover the first collapsed search's cost/iteration count rather than
+        // hard-code an optimizer trajectory. Only one recovery iteration remains.
+        let collapsed =
+            nelder_mead_argmin(start.clone(), &bounds, 1000, 1e-6, 0.2, objective.clone()).unwrap();
+        assert!(collapsed.converged);
+        assert!(collapsed.theta[0] == 0.0 || collapsed.theta[2] == 0.0);
+        let budget = collapsed.iterations + 1;
+        let recovered = objective
+            .clone()
+            .optimize(start, &bounds, budget, 1e-6)
+            .unwrap();
+        assert!(!recovered.converged, "{recovered:?}");
+        assert_eq!(recovered.iterations, budget);
+        assert!(recovered.final_cost < collapsed.final_cost - 1e-6);
+        assert_eq!(
+            objective.cost(&recovered.theta).unwrap(),
+            recovered.final_cost
+        );
     }
 
     #[test]
