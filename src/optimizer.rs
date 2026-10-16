@@ -236,11 +236,38 @@ fn covariance_restart_with_eval(
             }
             step *= 0.5;
         }
-        if column.len() > 1 && column.clone().all(|i| best[i].abs() <= resolution) {
-            if let Some(restart) =
-                zero_column_restart(best, best_cost, column.clone(), improvement, &mut eval)?
-            {
-                return Ok(Some(restart));
+        if column.len() > 1 {
+            let mut origin = best.clone();
+            for i in column.clone() {
+                origin[i] = 0.0;
+            }
+            let origin_cost = if column.clone().all(|i| best[i] == 0.0) {
+                best_cost
+            } else {
+                eval(&origin)?
+            };
+            // A tiny residual off-diagonal can exceed coordinate resolution
+            // while its covariance contribution is invisible in the objective.
+            // Test equivalence in cost, then estimate curvature at an exactly
+            // zero column, where reversing the whole column is truly even.
+            if origin_cost.is_finite() && origin_cost - best_cost <= improvement {
+                if best_cost - origin_cost > improvement {
+                    return Ok(Some(CovarianceRestart {
+                        point: origin,
+                        cost: origin_cost,
+                        step: 0.2,
+                    }));
+                }
+                if let Some(restart) = zero_column_restart(
+                    &origin,
+                    origin_cost,
+                    best_cost,
+                    column.clone(),
+                    improvement,
+                    &mut eval,
+                )? {
+                    return Ok(Some(restart));
+                }
             }
         }
     }
@@ -253,6 +280,7 @@ fn covariance_restart_with_eval(
 /// This is a local escape check, not a certificate of global optimality.
 fn zero_column_restart(
     best: &Array1<f64>,
+    origin_cost: f64,
     best_cost: f64,
     column: Range<usize>,
     improvement: f64,
@@ -273,14 +301,14 @@ fn zero_column_restart(
             singles.push(cost);
             // The common h^2 factor does not affect eigenvectors. At an exactly
             // zero column the cost is even under reversing the entire column.
-            curvature[(i, i)] = 2.0 * (cost - best_cost);
+            curvature[(i, i)] = 2.0 * (cost - origin_cost);
             for j in 0..i {
                 point[column.start + j] += h;
                 let pair_cost = eval(&point)?;
                 if !pair_cost.is_finite() || pair_cost == f64::MAX {
                     continue 'scales;
                 }
-                let mixed = (pair_cost - singles[i]) - (singles[j] - best_cost);
+                let mixed = (pair_cost - singles[i]) - (singles[j] - origin_cost);
                 curvature[(i, j)] = mixed;
                 curvature[(j, i)] = mixed;
                 point[column.start + j] -= h;
@@ -1313,6 +1341,32 @@ mod tests {
             effect_names: (0..k).map(|i| format!("e{i}")).collect(),
             group_map: std::collections::HashMap::new(),
         }
+    }
+
+    #[test]
+    fn covariance_recovery_preserves_genuinely_nonzero_column_optima() {
+        let best = array![0.0, 0.5];
+        let restart = covariance_restart_with_eval(&[best], 10.0, &[0..2], 1e-12, |x| {
+            Ok(10.0 + x[0].powi(2) + (x[1] - 0.5).powi(2))
+        })
+        .unwrap();
+        assert!(restart.is_none());
+    }
+
+    #[test]
+    fn covariance_recovery_checks_objectively_zero_columns() {
+        let cost = |x: &Array1<f64>| -> Result<f64, Error> {
+            let norm = x.dot(x);
+            Ok(10.0 + norm - 2.4 * x[0] * x[1] + norm * norm)
+        };
+        let best = array![0.0, -2.5e-7];
+        let best_cost = cost(&best).unwrap();
+        let restart = covariance_restart_with_eval(&[best], best_cost, &[0..2], 1e-12, cost)
+            .unwrap()
+            .expect("objective-equivalent zero column needs a joint probe");
+        assert!(restart.cost < best_cost - 1e-12);
+        assert!(restart.point[0] >= 0.0);
+        assert_eq!(cost(&restart.point).unwrap(), restart.cost);
     }
 
     #[test]

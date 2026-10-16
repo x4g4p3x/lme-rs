@@ -1,0 +1,137 @@
+{
+  "baseline_revision": "10f7b7817acd2ec5f2f3fc535587603cc6d5e106",
+  "cases": [
+    {
+      "after_cold_median_seconds": 0.0006112,
+      "after_over_before_cold": 1.0064218672814096,
+      "after_prepared_median_seconds": 0.0005728,
+      "argmin_fit_checks_identical": true,
+      "basin_after_cold_median_seconds": 0.0005594,
+      "basin_all_fit_checks_converged": true,
+      "before_cold_median_seconds": 0.0006073,
+      "before_prepared_median_seconds": 0.0005623,
+      "case": "sleepstudy_reml"
+    },
+    {
+      "after_cold_median_seconds": 0.0005563,
+      "after_over_before_cold": 1.0121906841339157,
+      "after_prepared_median_seconds": 0.0004959,
+      "argmin_fit_checks_identical": true,
+      "basin_after_cold_median_seconds": 0.0005359,
+      "basin_all_fit_checks_converged": true,
+      "before_cold_median_seconds": 0.0005496,
+      "before_prepared_median_seconds": 0.0004956,
+      "case": "sleepstudy_weighted_reml"
+    },
+    {
+      "after_cold_median_seconds": 0.0645168,
+      "after_over_before_cold": 1.0156527214766422,
+      "after_prepared_median_seconds": 0.0425283,
+      "argmin_fit_checks_identical": true,
+      "basin_after_cold_median_seconds": 0.0659415,
+      "basin_all_fit_checks_converged": true,
+      "before_cold_median_seconds": 0.0635225,
+      "before_prepared_median_seconds": 0.0421506,
+      "case": "large_random_slopes_100k"
+    },
+    {
+      "after_cold_median_seconds": 0.0009327,
+      "after_over_before_cold": 1.0625427204374573,
+      "after_prepared_median_seconds": 0.0002043,
+      "argmin_fit_checks_identical": true,
+      "basin_after_cold_median_seconds": 0.0011303,
+      "basin_all_fit_checks_converged": true,
+      "before_cold_median_seconds": 0.0008778,
+      "before_prepared_median_seconds": 0.000209,
+      "case": "random_intercept_10k"
+    },
+    {
+      "after_cold_median_seconds": 0.0262595,
+      "after_over_before_cold": 1.0076322110772584,
+      "after_prepared_median_seconds": 0.0232042,
+      "argmin_fit_checks_identical": true,
+      "basin_after_cold_median_seconds": 0.0263581,
+      "basin_all_fit_checks_converged": true,
+      "before_cold_median_seconds": 0.0260606,
+      "before_prepared_median_seconds": 0.0231672,
+      "case": "crossed_20k"
+    }
+  ],
+  "raw_reports": [
+    {
+      "name": "near-zero-column-20261016-before.json",
+      "sha256": "0f947a23540734875f617b1cdfe113eec96f32864b2563f66bcda6dbba3d6b74"
+    },
+    {
+      "name": "near-zero-column-20261016-after.json",
+      "sha256": "0d0ae2b5dce0f2fe3cc760fbcab04031b5f0adf8b75f546489c2b01dea6d4bd2"
+    },
+    {
+      "name": "near-zero-column-20261016-basin.json",
+      "sha256": "7527c511c3eb6fd81f217618d7ba3105416aee46904ac6ae7d12a00ddd0b186c"
+    }
+  ],
+  "scope": "five selected Rust-only fair-harness cases; one sequential before/after session,3warmups11repeats1thread; no general speed/parity/default-backend claim",
+  "source_provenance": [
+    {
+      "cargo_encoded_rustflags": null,
+      "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+      "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+      "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+      "rust_binary_sha256": "c7e7c2b79985eb4f91afd7475012567096a24869ee6c937c03a7a7a4fa823d1a",
+      "rust_build_verified_this_run": true,
+      "rustflags": null,
+      "source_content_sha256": "2fe2fc2bb7b6fb33694360694d7e06ceaf26fea8770d640fe4e32380a22eb637",
+      "thread_environment": {
+        "JULIA_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "POLARS_MAX_THREADS": "1",
+        "RAYON_NUM_THREADS": "1"
+      },
+      "working_tree_dirty": true,
+      "working_tree_status": "M docs/work/README.md\n?? docs/work/2026-10-16-near-zero-column-recovery.md"
+    },
+    {
+      "cargo_encoded_rustflags": null,
+      "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+      "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+      "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+      "rust_binary_sha256": "9744916c09182871a6f0a4a3ed6e82e44de39b97ab5b9b60e18dbed55c50ff91",
+      "rust_build_verified_this_run": true,
+      "rustflags": null,
+      "source_content_sha256": "3f118114275a4de9b403c3a715b78a06e5d69e950898ab18fdb3f62b6f9d8c8c",
+      "thread_environment": {
+        "JULIA_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "POLARS_MAX_THREADS": "1",
+        "RAYON_NUM_THREADS": "1"
+      },
+      "working_tree_dirty": true,
+      "working_tree_status": "M CHANGELOG.md\n M docs/work/README.md\n M src/optimizer.rs\n M tests/test_model_contracts.rs\n?? docs/LMM_RANDOM_SLOPE_REPAIR_PILOT_PROTOCOL.md\n?? docs/work/2026-10-16-near-zero-column-recovery.md\n?? scripts/complete_lmm_repair.py\n?? scripts/lmm_random_slope_repair.py\n?? scripts/report_lmm_random_slope_repair.py\n?? scripts/tests/test_lmm_random_slope_repair.py"
+    },
+    {
+      "cargo_encoded_rustflags": null,
+      "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+      "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+      "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+      "rust_binary_sha256": "2dad8c7832c3efe28d89eef86d8c9632635ab78aaf049d2d608b9b63525d81dd",
+      "rust_build_verified_this_run": true,
+      "rustflags": null,
+      "source_content_sha256": "3f118114275a4de9b403c3a715b78a06e5d69e950898ab18fdb3f62b6f9d8c8c",
+      "thread_environment": {
+        "JULIA_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "POLARS_MAX_THREADS": "1",
+        "RAYON_NUM_THREADS": "1"
+      },
+      "working_tree_dirty": true,
+      "working_tree_status": "M CHANGELOG.md\n M docs/work/README.md\n M src/optimizer.rs\n M tests/test_model_contracts.rs\n?? docs/LMM_RANDOM_SLOPE_REPAIR_PILOT_PROTOCOL.md\n?? docs/work/2026-10-16-near-zero-column-recovery.md\n?? scripts/complete_lmm_repair.py\n?? scripts/lmm_random_slope_repair.py\n?? scripts/report_lmm_random_slope_repair.py\n?? scripts/tests/test_lmm_random_slope_repair.py"
+    }
+  ]
+}

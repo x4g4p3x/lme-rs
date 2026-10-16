@@ -78,3 +78,14 @@ bootstrap reporting, and actual production caps. The present runner only permits
 implementation/protocol, review the concrete campaign and obtain explicit campaign
 authorization before generating confirmatory inputs. AI review does not constitute
 human statistical peer review.
+
+## Dated implementation update, 16 October 2026
+
+The [near-zero column repair milestone](work/2026-10-16-near-zero-column-recovery.md)
+reproduced and fixed both cases, with Rust/default/Basin and independent fresh
+pilot evidence. Original failures remain unchanged. The fresh pilot has no
+converged-candidate balanced numerical miss, but one honest iteration-limit
+failure keeps numerical readiness false. Follow the separate
+[convergence diagnostic plan](LMM_RANDOM_SLOPE_CONVERGENCE_NEXT_STEP.md) before
+the conditional production preparation milestone. This update does not change
+the completed pilot's controls, failed outcomes or acceptance gate.

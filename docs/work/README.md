@@ -19,7 +19,10 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
-| [Random-slope scaling and caps](2026-10-16-random-slope-scaling-caps.md) | Resource milestone completed; two numerical blockers retained, 16 October 2026 | Follow the linked optimizer regression/repair plan before confirmation |
+| [Near-zero covariance recovery](2026-10-16-near-zero-column-recovery.md) | Implemented locally and reviewed; fresh pilot retains one iteration limit, 16 October 2026 | Follow the strict-control convergence diagnostic plan before numerical readiness |
+| [Strict-control convergence diagnostic](../LMM_RANDOM_SLOPE_CONVERGENCE_NEXT_STEP.md) | Planned after retained pilot failure, 16 October 2026 | Diagnose stopping/evaluation precision without changing completed outcomes or gates |
+| [Production campaign preparation](../LMM_RANDOM_SLOPE_PRODUCTION_NEXT_STEP.md) | Conditional future plan, 16 October 2026 | Follow only after a reviewed fresh pilot meets its prospective numerical-readiness gate |
+| [Random-slope scaling and caps](2026-10-16-random-slope-scaling-caps.md) | Delivered in 10f7b78; two numerical blockers retained, 16 October 2026 | Follow the near-zero covariance recovery milestone before confirmation |
 | [Random-slope streaming harness](2026-10-16-random-slope-streaming-harness.md) | Delivered in bda59f0, 16 October 2026 | Follow separate scaling/cap and native interruption rehearsal before confirmation freeze |
 | [Random-slope confirmation planning](2026-10-16-random-slope-confirmation-planning.md) | Delivered in 6e138f0, 16 October 2026 | Follow the streaming-harness milestone before campaign authorization |
 | [Random-slope numerical controls](2026-10-16-random-slope-numerical-controls.md) | Delivered in 2d85393, 16 October 2026 | Follow confirmation planning and its streaming-harness milestone |

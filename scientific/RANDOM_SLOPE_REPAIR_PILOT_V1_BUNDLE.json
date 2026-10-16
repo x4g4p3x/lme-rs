@@ -1,0 +1,35 @@
+{
+  "budget_diagnostic_sha256": "b0408a94ef2b6dba60803a0662e125eb17d68f35e4a3a94de5ef2d991f356192",
+  "bytes": 39888649,
+  "crc_verified": true,
+  "entries": 543,
+  "name": "lmm-random-slope-repair-pilot-v1-20261016.zip",
+  "performance_sha256": "acc0adbedf0b227ea83987129bf0dda7997c1a337a67f6cdd19ff47e6b648403",
+  "privacy": "synthetic data; installed environments excluded; public receipts omit sensitive context",
+  "public_copies": [
+    {
+      "path": "RANDOM_SLOPE_REPAIR_PILOT_V1_FREEZE.json",
+      "sha256": "41b58a3667a0ee4efa8510dfad827bdb3b93ebd032159a65bbf53f8e12b0c63e"
+    },
+    {
+      "path": "RANDOM_SLOPE_REPAIR_PILOT_V1.json",
+      "sha256": "6c430d07476091ac13789dffccf8732e68ed7d255cda6eaa1b6c0264cf099a57"
+    },
+    {
+      "path": "RANDOM_SLOPE_REPAIR_PILOT_V1_R_CHECK.json",
+      "sha256": "815d268ac014dc749d414b7c3c52e8f55f5574ad71578706056ac2ed80ba8baf"
+    },
+    {
+      "path": "RANDOM_SLOPE_REPAIR_PILOT_V1_ACCEPTANCE.json",
+      "sha256": "ebd33521284bacc0f26e584dbbf410e0ce885c813ec56b3f5990d625ecd8b728"
+    },
+    {
+      "path": "RANDOM_SLOPE_REPAIR_PILOT_V1_BUILD_INPUTS.json",
+      "sha256": "4e3ca2396701aca57e71cc9ea19ae7f04e8db92679cec6a295ad740bc4bb1096"
+    }
+  ],
+  "publication": "prepared locally; not uploaded",
+  "resources_sha256": "7447aaa7d40b1048d7acf8c7bb8182b2497050992b040cdc153e2ba72e2581c4",
+  "scope": "all original fresh repair-pilot inputs/attempts/results and source/build freezes,wheel,logs,analysis,Rchecks,regression evidence and performance reports; no confirmation",
+  "sha256": "84190e615ad7b436135e0ebcf10c98b9ed16d7bfc42716e5f4ad192fd9149aa8"
+}

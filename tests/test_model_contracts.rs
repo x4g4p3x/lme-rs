@@ -100,6 +100,98 @@ fn correlated_slopes_escape_nonoptimal_covariance_faces() {
 }
 
 #[test]
+fn correlated_slopes_recover_near_zero_column_scaling_counterexample() {
+    check_near_zero_column_counterexample(0);
+}
+
+#[test]
+fn correlated_slopes_recover_near_zero_column_zero_slope_counterexample() {
+    check_near_zero_column_counterexample(1);
+}
+
+fn check_near_zero_column_counterexample(index: usize) {
+    // Frozen post-study diagnostics; the expected values are independent
+    // constrained balanced REML solutions, not refits by this optimizer.
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+        "../scientific/RANDOM_SLOPE_SCALING_V1_COUNTEREXAMPLES.json"
+    ))
+    .unwrap();
+    let fixture = &fixtures["counterexamples"][index];
+    let values = |v: &serde_json::Value| -> Vec<f64> {
+        v.as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_f64().unwrap())
+            .collect()
+    };
+    let oracle = &fixture["candidate_numerical"]["oracle"];
+    for (response_scale, predictor_scale) in [
+        (1.0_f64, 1.0_f64),
+        (0.01, 1.0),
+        (100.0, 1.0),
+        (1.0, 0.1),
+        (1.0, 10.0),
+    ] {
+        let x: Vec<_> = values(&fixture["case"]["x"])
+            .iter()
+            .map(|v| v * predictor_scale)
+            .collect();
+        let y: Vec<_> = values(&fixture["y"])
+            .iter()
+            .map(|v| v * response_scale)
+            .collect();
+        let groups: Vec<_> = fixture["case"]["group"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| format!("g{:03}", v.as_u64().unwrap()))
+            .collect();
+        let n = y.len();
+        let data = df!["x" => x, "y" => y, "group" => groups].unwrap();
+        let prepared = lme_rs::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        let mut archived_start = values(&fixture["candidate"]["theta"]);
+        archived_start[1] /= predictor_scale;
+        archived_start[2] /= predictor_scale;
+        for start in [None, Some(Array1::from_vec(archived_start))] {
+            let control = lme_rs::FitControl {
+                start,
+                tolerance: 1e-12,
+                max_iterations: 5000,
+                ..Default::default()
+            };
+            let fit = prepared.fit(None, true, &control).unwrap();
+            let expected = oracle["criterion"].as_f64().unwrap()
+                + 2.0 * (n - 2) as f64 * response_scale.ln()
+                + 2.0 * predictor_scale.ln();
+            let criterion = fit.reml.unwrap();
+            assert!((criterion - expected).abs() <= 1e-6 + 1e-8 * expected.abs(),
+                "case={}, yscale={response_scale}, xscale={predictor_scale}, control={control:?}, criterion={criterion}, optimum={expected}",
+                fixture["case"]["id"]);
+            assert_eq!(fit.converged, Some(true));
+            assert!(fit.diagnostics.as_ref().unwrap().outer_iterations <= control.max_iterations);
+            let s = fit.sigma2.unwrap();
+            let expected_s = oracle["sigma2"].as_f64().unwrap();
+            assert!((s / response_scale.powi(2) - expected_s).abs() <= 1e-6 + 1e-3 * expected_s);
+            let t = fit.theta.as_ref().unwrap();
+            let actual = [
+                [s * t[0] * t[0], s * t[0] * t[1]],
+                [s * t[0] * t[1], s * (t[1] * t[1] + t[2] * t[2])],
+            ];
+            for i in 0..2 {
+                for j in 0..2 {
+                    let expected = oracle["covariance"][i][j].as_f64().unwrap();
+                    let unscaled = actual[i][j] / response_scale.powi(2)
+                        * predictor_scale.powi((i + j) as i32);
+                    assert!((unscaled - expected).abs() <= 1e-6 + 1e-3 * expected.abs(),
+                        "case={}, yscale={response_scale}, xscale={predictor_scale}, covariance[{i},{j}]={unscaled}, expected={expected}",
+                        fixture["case"]["id"]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn correlated_slopes_escape_a_wholly_zero_cholesky_column() {
     // Independent balanced constrained REML solution: Z'Z=4I, SSW=16,
     // between-group scaled sample covariance B=[[1,1],[1,4]]. At the

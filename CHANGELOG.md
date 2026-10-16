@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Recover correlated random-slope fits whose practically zero Cholesky column
+  retains a tiny off-diagonal and falsely reports convergence. Classify the
+  zero-column probe by its objective cost and verify joint improvements against
+  the original best fit, preserving caller budgets and true boundary optima.
 - Recover correlated random-slope LMM searches that collapse onto a covariance
   boundary with an improving inward direction. Check equivalent Cholesky column
   orientations before accepting convergence, retain true boundary optima and
