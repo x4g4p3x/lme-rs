@@ -1,0 +1,51 @@
+{
+  "checks": [
+    {
+      "case": "explore",
+      "passed": true,
+      "launcher_exit": 0,
+      "fake_worker_invoked": true,
+      "stdout": "FAKE_LOCAL_WORKER\nWORKER_TRANSCRIPT=<evaluation-root>\\work\\skill-optimization\\guardrails\\grok\\temp\\gpt6-grok-workers\\20261026-200329-eba65507\\worker-output.txt\nWORKER_EXIT_CODE=0\n",
+      "stderr": ""
+    },
+    {
+      "case": "implement",
+      "passed": true,
+      "launcher_exit": 0,
+      "fake_worker_invoked": true,
+      "stdout": "FAKE_LOCAL_WORKER\nWORKER_TRANSCRIPT=<evaluation-root>\\work\\skill-optimization\\guardrails\\grok\\temp\\gpt6-grok-workers\\20261026-200330-461ce4e0\\worker-output.txt\nWORKER_EXIT_CODE=0\n",
+      "stderr": ""
+    },
+    {
+      "case": "dirty-rejected",
+      "passed": true,
+      "launcher_exit": 1,
+      "fake_worker_invoked": false,
+      "stdout": "",
+      "stderr": "Exception: <user-home>\\.codex\\skills\\gpt6-grok\\scripts\\invoke_grok_worker.ps1:57\nLine |\n  57 |          throw \"The workspace contains other changes. Use an isolated  \u00e2\u20ac\u00a6\n     |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n     | The workspace contains other changes. Use an isolated checkout, or pass -AllowDirty after reviewing them.  M\n     | input.txt\n"
+    },
+    {
+      "case": "worker-failure",
+      "passed": true,
+      "launcher_exit": 23,
+      "fake_worker_invoked": true,
+      "stdout": "FAKE_LOCAL_WORKER\nWORKER_TRANSCRIPT=<evaluation-root>\\work\\skill-optimization\\guardrails\\grok\\temp\\gpt6-grok-workers\\20261026-200331-51aab954\\worker-output.txt\nWORKER_EXIT_CODE=23\n",
+      "stderr": ""
+    }
+  ],
+  "implicit_invocation_disabled": true,
+  "cursor_calls": 0,
+  "limits": "Actual launcher with a local fake transport. This checks routing flags, dirty-state rejection, transcripts and exit propagation, not live Grok quality or cost.",
+  "negative_host_discovery_probes": [
+    {
+      "prompt": "Fix the bug in this fixture.",
+      "implicit_catalog_entries": 0,
+      "model_executed": false
+    },
+    {
+      "prompt": "Audit the gpt6-grok skill and explain its invocation policy.",
+      "implicit_catalog_entries": 0,
+      "model_executed": false
+    }
+  ]
+}

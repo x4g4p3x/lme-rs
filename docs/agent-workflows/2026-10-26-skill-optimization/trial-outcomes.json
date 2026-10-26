@@ -1,0 +1,327 @@
+{
+  "results": [
+    {
+      "scenario": "weighted-fix",
+      "arm": "baseline",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M stats.py",
+        " M test_stats.py",
+        " M user-notes.txt"
+      ],
+      "hidden_checks_passed": 12,
+      "hidden_checks_total": 12,
+      "unit_exit": 0,
+      "unit_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_invalid_inputs (test_stats.WeightedMeanTests.test_invalid_inputs) ... ok\ntest_scaling_weights_preserves_mean (test_stats.WeightedMeanTests.test_scaling_weights_preserves_mean) ... ok\ntest_unequal_weights (test_stats.WeightedMeanTests.test_unequal_weights) ... ok\ntest_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 0.000s\n\nOK\n",
+      "outcome_pass": true,
+      "regression_fails_on_original": true,
+      "original_test_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_invalid_inputs (test_stats.WeightedMeanTests.test_invalid_inputs) ... ok\ntest_scaling_weights_preserves_mean (test_stats.WeightedMeanTests.test_scaling_weights_preserves_mean) ... FAIL\ntest_unequal_weights (test_stats.WeightedMeanTests.test_unequal_weights) ... FAIL\ntest_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) ... \n  test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=100) ... FAIL\n  test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=nan) ... FAIL\n  test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=inf) ... FAIL\n  test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=-inf) ... FAIL\n\n======================================================================\nFAIL: test_scaling_weights_preserves_mean (test_stats.WeightedMeanTests.test_scaling_weights_preserves_mean)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-6ctdq5qv\\test_stats.py\", line 19, in test_scaling_weights_preserves_mean\n    self.assertEqual(weighted_mean([2, 8], [2, 6]), 6.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 26.0 != 6.5\n\n======================================================================\nFAIL: test_unequal_weights (test_stats.WeightedMeanTests.test_unequal_weights)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-6ctdq5qv\\test_stats.py\", line 16, in test_unequal_weights\n    self.assertEqual(weighted_mean([2, 8], [1, 3]), 6.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 13.0 != 6.5\n\n======================================================================\nFAIL: test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=100)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-6ctdq5qv\\test_stats.py\", line 24, in test_zero_weight_observations_are_excluded\n    self.assertEqual(weighted_mean([4, excluded], [3, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 6.0 != 4\n\n======================================================================\nFAIL: test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=nan)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-6ctdq5qv\\test_stats.py\", line 24, in test_zero_weight_observations_are_excluded\n    self.assertEqual(weighted_mean([4, excluded], [3, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 6.0 != 4\n\n======================================================================\nFAIL: test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=inf)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-6ctdq5qv\\test_stats.py\", line 24, in test_zero_weight_observations_are_excluded\n    self.assertEqual(weighted_mean([4, excluded], [3, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 6.0 != 4\n\n======================================================================\nFAIL: test_zero_weight_observations_are_excluded (test_stats.WeightedMeanTests.test_zero_weight_observations_are_excluded) (excluded=-inf)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-6ctdq5qv\\test_stats.py\", line 24, in test_zero_weight_observations_are_excluded\n    self.assertEqual(weighted_mean([4, excluded], [3, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 6.0 != 4\n\n----------------------------------------------------------------------\nRan 6 tests in 0.001s\n\nFAILED (failures=6)\n"
+    },
+    {
+      "scenario": "weighted-fix",
+      "arm": "current",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M stats.py",
+        " M test_stats.py",
+        " M user-notes.txt"
+      ],
+      "hidden_checks_passed": 12,
+      "hidden_checks_total": 12,
+      "unit_exit": 0,
+      "unit_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_common_weight_scaling_preserves_mean (test_stats.WeightedMeanContractTests.test_common_weight_scaling_preserves_mean) ... ok\ntest_invalid_inputs_raise (test_stats.WeightedMeanContractTests.test_invalid_inputs_raise) ... ok\ntest_unequal_weights (test_stats.WeightedMeanContractTests.test_unequal_weights) ... ok\ntest_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 0.000s\n\nOK\n",
+      "outcome_pass": true,
+      "regression_fails_on_original": true,
+      "original_test_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_common_weight_scaling_preserves_mean (test_stats.WeightedMeanContractTests.test_common_weight_scaling_preserves_mean) ... FAIL\ntest_invalid_inputs_raise (test_stats.WeightedMeanContractTests.test_invalid_inputs_raise) ... ok\ntest_unequal_weights (test_stats.WeightedMeanContractTests.test_unequal_weights) ... FAIL\ntest_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) ... \n  test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=100) ... FAIL\n  test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=nan) ... FAIL\n  test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=inf) ... FAIL\n  test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=-inf) ... FAIL\n\n======================================================================\nFAIL: test_common_weight_scaling_preserves_mean (test_stats.WeightedMeanContractTests.test_common_weight_scaling_preserves_mean)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-t19pc1_n\\test_stats.py\", line 22, in test_common_weight_scaling_preserves_mean\n    self.assertEqual(weighted_mean([2, 4], [5, 5]), 3)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 15.0 != 3\n\n======================================================================\nFAIL: test_unequal_weights (test_stats.WeightedMeanContractTests.test_unequal_weights)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-t19pc1_n\\test_stats.py\", line 19, in test_unequal_weights\n    self.assertEqual(weighted_mean([2, 6], [1, 3]), 5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 10.0 != 5\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=100)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-t19pc1_n\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([4, excluded], [1, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 4\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=nan)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-t19pc1_n\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([4, excluded], [1, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 4\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=inf)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-t19pc1_n\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([4, excluded], [1, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 4\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) (excluded=-inf)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-t19pc1_n\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([4, excluded], [1, 0]), 4)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 4\n\n----------------------------------------------------------------------\nRan 6 tests in 0.001s\n\nFAILED (failures=6)\n"
+    },
+    {
+      "scenario": "weighted-fix",
+      "arm": "compact",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M stats.py",
+        " M test_stats.py",
+        " M user-notes.txt",
+        "?? CHANGELOG.md"
+      ],
+      "hidden_checks_passed": 12,
+      "hidden_checks_total": 12,
+      "unit_exit": 0,
+      "unit_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_common_weight_scaling_preserves_mean (test_stats.WeightedMeanContractTests.test_common_weight_scaling_preserves_mean) ... ok\ntest_invalid_weight_controls (test_stats.WeightedMeanContractTests.test_invalid_weight_controls) ... ok\ntest_nonempty_matching_inputs_required (test_stats.WeightedMeanContractTests.test_nonempty_matching_inputs_required) ... ok\ntest_nonfinite_positive_weight_values (test_stats.WeightedMeanContractTests.test_nonfinite_positive_weight_values) ... ok\ntest_unequal_weights_match_repeated_observations (test_stats.WeightedMeanContractTests.test_unequal_weights_match_repeated_observations) ... ok\ntest_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.000s\n\nOK\n",
+      "outcome_pass": true,
+      "regression_fails_on_original": true,
+      "original_test_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_common_weight_scaling_preserves_mean (test_stats.WeightedMeanContractTests.test_common_weight_scaling_preserves_mean) ... FAIL\ntest_invalid_weight_controls (test_stats.WeightedMeanContractTests.test_invalid_weight_controls) ... ok\ntest_nonempty_matching_inputs_required (test_stats.WeightedMeanContractTests.test_nonempty_matching_inputs_required) ... ok\ntest_nonfinite_positive_weight_values (test_stats.WeightedMeanContractTests.test_nonfinite_positive_weight_values) ... ok\ntest_unequal_weights_match_repeated_observations (test_stats.WeightedMeanContractTests.test_unequal_weights_match_repeated_observations) ... FAIL\ntest_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations) ... FAIL\n\n======================================================================\nFAIL: test_common_weight_scaling_preserves_mean (test_stats.WeightedMeanContractTests.test_common_weight_scaling_preserves_mean)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-2rs6i7z6\\test_stats.py\", line 22, in test_common_weight_scaling_preserves_mean\n    self.assertEqual(weighted_mean([2, 8], [0.25, 0.75]), 6.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 3.25 != 6.5\n\n======================================================================\nFAIL: test_unequal_weights_match_repeated_observations (test_stats.WeightedMeanContractTests.test_unequal_weights_match_repeated_observations)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-2rs6i7z6\\test_stats.py\", line 19, in test_unequal_weights_match_repeated_observations\n    self.assertEqual(weighted_mean([2, 8], [1, 3]), 6.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 13.0 != 6.5\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_observations)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-2rs6i7z6\\test_stats.py\", line 26, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([2, 8, math.nan, math.inf, 1000], [1, 3, 0, 0, 0]), 6.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 5.2 != 6.5\n\n----------------------------------------------------------------------\nRan 8 tests in 0.001s\n\nFAILED (failures=3)\n"
+    },
+    {
+      "scenario": "weighted-review",
+      "arm": "baseline",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": true,
+      "git_status": [
+        " M user-notes.txt"
+      ],
+      "outcome_pass": true,
+      "assessment": "Review findings assessed separately; production changes are forbidden in this condition."
+    },
+    {
+      "scenario": "weighted-review",
+      "arm": "current",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": true,
+      "git_status": [
+        " M user-notes.txt"
+      ],
+      "outcome_pass": true,
+      "assessment": "Review findings assessed separately; production changes are forbidden in this condition."
+    },
+    {
+      "scenario": "weighted-review",
+      "arm": "compact",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": true,
+      "git_status": [
+        " M user-notes.txt"
+      ],
+      "outcome_pass": true,
+      "assessment": "Review findings assessed separately; production changes are forbidden in this condition."
+    },
+    {
+      "scenario": "pipeline-optimize",
+      "arm": "baseline",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M pipeline.py",
+        " M user-notes.txt",
+        "?? PERFORMANCE.md",
+        "?? test_contract.py"
+      ],
+      "hidden_checks_passed": 8,
+      "hidden_checks_total": 8,
+      "unit_exit": 0,
+      "unit_output": "test_duplicate_missing_categories_and_order (test_contract.ContractTests.test_duplicate_missing_categories_and_order) ... ok\ntest_empty_categories_ignore_record_contents (test_contract.ContractTests.test_empty_categories_ignore_record_contents) ... ok\ntest_empty_categories_still_validate_json (test_contract.ContractTests.test_empty_categories_still_validate_json) ... ok\ntest_float_sum_matches_builtin_order (test_contract.ContractTests.test_float_sum_matches_builtin_order) ... ok\ntest_fresh_mutable_serialized_input_and_categories (test_contract.ContractTests.test_fresh_mutable_serialized_input_and_categories) ... ok\ntest_seeded_differential_cases (test_contract.ContractTests.test_seeded_differential_cases) ... ok\ntest_unrequested_non_string_categories_are_ignored (test_contract.ContractTests.test_unrequested_non_string_categories_are_ignored) ... ok\ntest_basic (test_pipeline.ExistingTests.test_basic) ... ok\ntest_fresh_calls (test_pipeline.ExistingTests.test_fresh_calls) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.016s\n\nOK\n",
+      "outcome_pass": true
+    },
+    {
+      "scenario": "pipeline-optimize",
+      "arm": "current",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M pipeline.py",
+        " M test_pipeline.py",
+        " M user-notes.txt",
+        "?? PERFORMANCE.md",
+        "?? check_comparison.py",
+        "?? correctness_adjacent_evidence.json",
+        "?? measure_comparison.py",
+        "?? performance_evidence.json"
+      ],
+      "hidden_checks_passed": 8,
+      "hidden_checks_total": 8,
+      "unit_exit": 0,
+      "unit_output": "test_basic (test_pipeline.ExistingTests.test_basic) ... ok\ntest_changed_category_requests_and_mutable_payload (test_pipeline.ExistingTests.test_changed_category_requests_and_mutable_payload) ... ok\ntest_duplicates_missing_keys_and_order (test_pipeline.ExistingTests.test_duplicates_missing_keys_and_order) ... ok\ntest_empty_categories_still_accept_valid_json (test_pipeline.ExistingTests.test_empty_categories_still_accept_valid_json) ... ok\ntest_fresh_calls (test_pipeline.ExistingTests.test_fresh_calls) ... ok\ntest_malformed_json_with_or_without_categories (test_pipeline.ExistingTests.test_malformed_json_with_or_without_categories) ... ok\ntest_sum_precision_and_unrequested_values (test_pipeline.ExistingTests.test_sum_precision_and_unrequested_values) ... ok\n\n----------------------------------------------------------------------\nRan 7 tests in 0.000s\n\nOK\n",
+      "outcome_pass": true
+    },
+    {
+      "scenario": "pipeline-optimize",
+      "arm": "compact",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M pipeline.py",
+        " M user-notes.txt",
+        "?? PERFORMANCE.md",
+        "?? adjacent_checks.py",
+        "?? test_regressions.py"
+      ],
+      "hidden_checks_passed": 8,
+      "hidden_checks_total": 8,
+      "unit_exit": 0,
+      "unit_output": "test_basic (test_pipeline.ExistingTests.test_basic) ... ok\ntest_fresh_calls (test_pipeline.ExistingTests.test_fresh_calls) ... ok\ntest_changed_payload_and_categories (test_regressions.TotalsRegressionTests.test_changed_payload_and_categories) ... ok\ntest_duplicates_and_request_order (test_regressions.TotalsRegressionTests.test_duplicates_and_request_order) ... ok\ntest_empty_categories_still_parse_json (test_regressions.TotalsRegressionTests.test_empty_categories_still_parse_json) ... ok\ntest_float_sum_semantics (test_regressions.TotalsRegressionTests.test_float_sum_semantics) ... ok\ntest_generated_cases_against_independent_oracle (test_regressions.TotalsRegressionTests.test_generated_cases_against_independent_oracle) ... ok\ntest_unrequested_values_are_not_summed (test_regressions.TotalsRegressionTests.test_unrequested_values_are_not_summed) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.001s\n\nOK\n",
+      "outcome_pass": true
+    },
+    {
+      "scenario": "weighted-fix",
+      "arm": "compact-v2",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M stats.py",
+        " M test_stats.py",
+        " M user-notes.txt"
+      ],
+      "hidden_checks_passed": 12,
+      "hidden_checks_total": 12,
+      "unit_exit": 0,
+      "unit_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_empty_or_mismatched_inputs_raise (test_stats.WeightedMeanContractTests.test_empty_or_mismatched_inputs_raise) ... ok\ntest_nonfinite_positive_weight_values_raise (test_stats.WeightedMeanContractTests.test_nonfinite_positive_weight_values_raise) ... ok\ntest_nonfinite_weights_raise (test_stats.WeightedMeanContractTests.test_nonfinite_weights_raise) ... ok\ntest_rescaling_weights_preserves_mean (test_stats.WeightedMeanContractTests.test_rescaling_weights_preserves_mean) ... ok\ntest_unequal_weights_match_expanded_observations (test_stats.WeightedMeanContractTests.test_unequal_weights_match_expanded_observations) ... ok\ntest_zero_total_weight_raises (test_stats.WeightedMeanContractTests.test_zero_total_weight_raises) ... ok\ntest_zero_weights_exclude_nonfinite_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_nonfinite_observations) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.000s\n\nOK\n",
+      "outcome_pass": true,
+      "regression_fails_on_original": true,
+      "original_test_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_empty_or_mismatched_inputs_raise (test_stats.WeightedMeanContractTests.test_empty_or_mismatched_inputs_raise) ... ok\ntest_nonfinite_positive_weight_values_raise (test_stats.WeightedMeanContractTests.test_nonfinite_positive_weight_values_raise) ... ok\ntest_nonfinite_weights_raise (test_stats.WeightedMeanContractTests.test_nonfinite_weights_raise) ... ok\ntest_rescaling_weights_preserves_mean (test_stats.WeightedMeanContractTests.test_rescaling_weights_preserves_mean) ... FAIL\ntest_unequal_weights_match_expanded_observations (test_stats.WeightedMeanContractTests.test_unequal_weights_match_expanded_observations) ... FAIL\ntest_zero_total_weight_raises (test_stats.WeightedMeanContractTests.test_zero_total_weight_raises) ... ok\ntest_zero_weights_exclude_nonfinite_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_nonfinite_observations) ... FAIL\n\n======================================================================\nFAIL: test_rescaling_weights_preserves_mean (test_stats.WeightedMeanContractTests.test_rescaling_weights_preserves_mean)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-_s6w066k\\test_stats.py\", line 22, in test_rescaling_weights_preserves_mean\n    self.assertEqual(weighted_mean([2, 4], [0.25, 0.75]), 3.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1.75 != 3.5\n\n======================================================================\nFAIL: test_unequal_weights_match_expanded_observations (test_stats.WeightedMeanContractTests.test_unequal_weights_match_expanded_observations)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-_s6w066k\\test_stats.py\", line 19, in test_unequal_weights_match_expanded_observations\n    self.assertEqual(weighted_mean([2, 4], [1, 3]), 3.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 7.0 != 3.5\n\n======================================================================\nFAIL: test_zero_weights_exclude_nonfinite_observations (test_stats.WeightedMeanContractTests.test_zero_weights_exclude_nonfinite_observations)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-_s6w066k\\test_stats.py\", line 26, in test_zero_weights_exclude_nonfinite_observations\n    self.assertEqual(\n    ~~~~~~~~~~~~~~~~^\n        weighted_mean([math.nan, 7, math.inf], [0, 2, 0]), 7\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nAssertionError: 4.666666666666667 != 7\n\n----------------------------------------------------------------------\nRan 9 tests in 0.001s\n\nFAILED (failures=3)\n"
+    },
+    {
+      "scenario": "weighted-no-defect",
+      "arm": "baseline",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": true,
+      "git_status": [
+        " M user-notes.txt"
+      ],
+      "outcome_pass": true,
+      "assessment": "Review findings assessed separately; production changes are forbidden in this condition."
+    },
+    {
+      "scenario": "weighted-no-defect",
+      "arm": "current",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": true,
+      "git_status": [
+        " M user-notes.txt"
+      ],
+      "outcome_pass": true,
+      "assessment": "Review findings assessed separately; production changes are forbidden in this condition."
+    },
+    {
+      "scenario": "weighted-no-defect",
+      "arm": "compact-v2",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": true,
+      "git_status": [
+        " M user-notes.txt"
+      ],
+      "outcome_pass": true,
+      "assessment": "Review findings assessed separately; production changes are forbidden in this condition."
+    },
+    {
+      "scenario": "pipeline-optimize",
+      "arm": "compact-v2",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M pipeline.py",
+        " M test_pipeline.py",
+        " M user-notes.txt",
+        "?? PERFORMANCE.md",
+        "?? work/"
+      ],
+      "hidden_checks_passed": 8,
+      "hidden_checks_total": 8,
+      "unit_exit": 0,
+      "unit_output": "test_basic (test_pipeline.ExistingTests.test_basic) ... ok\ntest_changed_categories_and_mutable_input (test_pipeline.ExistingTests.test_changed_categories_and_mutable_input) ... ok\ntest_duplicate_missing_and_order (test_pipeline.ExistingTests.test_duplicate_missing_and_order) ... ok\ntest_empty_requests_still_validate_json (test_pipeline.ExistingTests.test_empty_requests_still_validate_json) ... ok\ntest_fresh_calls (test_pipeline.ExistingTests.test_fresh_calls) ... ok\ntest_required_fields_and_invalid_values (test_pipeline.ExistingTests.test_required_fields_and_invalid_values) ... ok\ntest_seeded_independent_reference (test_pipeline.ExistingTests.test_seeded_independent_reference) ... ok\ntest_sum_precision (test_pipeline.ExistingTests.test_sum_precision) ... ok\ntest_unrequested_values_not_read (test_pipeline.ExistingTests.test_unrequested_values_not_read) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.007s\n\nOK\n",
+      "outcome_pass": true
+    },
+    {
+      "scenario": "weighted-fix",
+      "arm": "final",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M stats.py",
+        " M test_stats.py",
+        " M user-notes.txt"
+      ],
+      "hidden_checks_passed": 12,
+      "hidden_checks_total": 12,
+      "unit_exit": 0,
+      "unit_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_invalid_shapes_and_zero_total (test_stats.WeightedMeanRegressionTests.test_invalid_shapes_and_zero_total) ... ok\ntest_nonfinite_weights_are_invalid_even_for_excluded_values (test_stats.WeightedMeanRegressionTests.test_nonfinite_weights_are_invalid_even_for_excluded_values) ... ok\ntest_positive_weight_nonfinite_values_are_invalid (test_stats.WeightedMeanRegressionTests.test_positive_weight_nonfinite_values_are_invalid) ... ok\ntest_rescaling_weights_preserves_mean (test_stats.WeightedMeanRegressionTests.test_rescaling_weights_preserves_mean) ... ok\ntest_unequal_weights (test_stats.WeightedMeanRegressionTests.test_unequal_weights) ... ok\ntest_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.000s\n\nOK\n",
+      "outcome_pass": true,
+      "regression_fails_on_original": true,
+      "original_test_output": "test_bad_weights (test_stats.ExistingTests.test_bad_weights) ... ok\ntest_equal_weights (test_stats.ExistingTests.test_equal_weights) ... ok\ntest_invalid_shapes_and_zero_total (test_stats.WeightedMeanRegressionTests.test_invalid_shapes_and_zero_total) ... ok\ntest_nonfinite_weights_are_invalid_even_for_excluded_values (test_stats.WeightedMeanRegressionTests.test_nonfinite_weights_are_invalid_even_for_excluded_values) ... ok\ntest_positive_weight_nonfinite_values_are_invalid (test_stats.WeightedMeanRegressionTests.test_positive_weight_nonfinite_values_are_invalid) ... ok\ntest_rescaling_weights_preserves_mean (test_stats.WeightedMeanRegressionTests.test_rescaling_weights_preserves_mean) ... FAIL\ntest_unequal_weights (test_stats.WeightedMeanRegressionTests.test_unequal_weights) ... FAIL\ntest_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) ... \n  test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=100) ... FAIL\n  test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=nan) ... FAIL\n  test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=inf) ... FAIL\n  test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=-inf) ... FAIL\n\n======================================================================\nFAIL: test_rescaling_weights_preserves_mean (test_stats.WeightedMeanRegressionTests.test_rescaling_weights_preserves_mean)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-nqui30uz\\test_stats.py\", line 22, in test_rescaling_weights_preserves_mean\n    self.assertEqual(weighted_mean([2, 4], [0.25, 0.75]), 3.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1.75 != 3.5\n\n======================================================================\nFAIL: test_unequal_weights (test_stats.WeightedMeanRegressionTests.test_unequal_weights)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-nqui30uz\\test_stats.py\", line 19, in test_unequal_weights\n    self.assertEqual(weighted_mean([2, 4], [1, 3]), 3.5)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 7.0 != 3.5\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=100)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-nqui30uz\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([2, 4, excluded_value], [1, 1, 0]), 3)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 3\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=nan)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-nqui30uz\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([2, 4, excluded_value], [1, 1, 0]), 3)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 3\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=inf)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-nqui30uz\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([2, 4, excluded_value], [1, 1, 0]), 3)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 3\n\n======================================================================\nFAIL: test_zero_weights_exclude_observations (test_stats.WeightedMeanRegressionTests.test_zero_weights_exclude_observations) (excluded_value=-inf)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<evaluation-root>\\work\\skill-optimization\\skill-regression-check-nqui30uz\\test_stats.py\", line 28, in test_zero_weights_exclude_observations\n    self.assertEqual(weighted_mean([2, 4, excluded_value], [1, 1, 0]), 3)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 2.0 != 3\n\n----------------------------------------------------------------------\nRan 8 tests in 0.002s\n\nFAILED (failures=6)\n"
+    },
+    {
+      "scenario": "pipeline-optimize",
+      "arm": "final",
+      "notes_preserved": true,
+      "head_preserved": true,
+      "production_preserved": false,
+      "git_status": [
+        " M pipeline.py",
+        " M user-notes.txt",
+        "?? evidence/",
+        "?? test_regressions.py"
+      ],
+      "hidden_checks_passed": 8,
+      "hidden_checks_total": 8,
+      "unit_exit": 0,
+      "unit_output": "test_basic (test_pipeline.ExistingTests.test_basic) ... ok\ntest_fresh_calls (test_pipeline.ExistingTests.test_fresh_calls) ... ok\ntest_duplicate_missing_and_ordered_keys (test_regressions.TotalsRegressionTests.test_duplicate_missing_and_ordered_keys) ... ok\ntest_float_precision_and_integer_range (test_regressions.TotalsRegressionTests.test_float_precision_and_integer_range) ... ok\ntest_fresh_mutable_input_and_changed_categories (test_regressions.TotalsRegressionTests.test_fresh_mutable_input_and_changed_categories) ... ok\ntest_invalid_json_including_no_categories (test_regressions.TotalsRegressionTests.test_invalid_json_including_no_categories) ... ok\ntest_malformed_records_and_failure_order (test_regressions.TotalsRegressionTests.test_malformed_records_and_failure_order) ... ok\ntest_seeded_differential_records (test_regressions.TotalsRegressionTests.test_seeded_differential_records) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.013s\n\nOK\n",
+      "outcome_pass": true
+    }
+  ],
+  "protocol": {
+    "task_trials": 16,
+    "fresh_contexts": true,
+    "model_overrides": false,
+    "runtime": "native Codex agents inheriting the parent model; exact model identifier not exposed by collaboration metadata",
+    "configured_model": "gpt-6.1-sol",
+    "configured_effort": "high",
+    "configured_model_is_not_an_independent_runtime_model_attestation": true,
+    "scenarios": [
+      "weighted-fix",
+      "weighted-review",
+      "weighted-no-defect",
+      "pipeline-optimize"
+    ],
+    "arms": [
+      "baseline without optional skill",
+      "original skill",
+      "compact exploratory revisions",
+      "final reviewed skill"
+    ],
+    "baseline_and_original_runs_per_scenario": 1,
+    "limits": "Exploratory engineering evaluation; adaptive revisions, not a preregistered randomized or cross-model effectiveness study. No total-agent token or latency comparison."
+  },
+  "independent_review": {
+    "accepted_findings": [
+      "Restore durable regressions for correctness-sensitive performance changes.",
+      "Restore merge expected-head enforcement and verification of merged state."
+    ],
+    "resolution": "Both restored; independent reviewer rechecked and reported no remaining consequential finding in scope.",
+    "references": "Final reference guides remain byte-identical to originals."
+  },
+  "post_install_discovery": [
+    {
+      "cwd": "<evaluation-root>",
+      "catalog_entries": {
+        "bug-hunt": 1,
+        "perf-tune": 1,
+        "biobit-migration": 1,
+        "parallel-lanes": 1
+      },
+      "text_characters": 37893
+    },
+    {
+      "cwd": "<user-home>\\CascadeProjects\\lme-rs",
+      "catalog_entries": {
+        "bug-hunt": 1,
+        "perf-tune": 1
+      },
+      "text_characters": 50708
+    },
+    {
+      "cwd": "<user-home>\\CascadeProjects\\BioBit",
+      "catalog_entries": {
+        "biobit-migration": 1,
+        "parallel-lanes": 1
+      },
+      "text_characters": 44031
+    }
+  ]
+}
