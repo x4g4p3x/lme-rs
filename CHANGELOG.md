@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Remove implicit CSV/IPC compression codecs from the default Rust and Python
+  dependency graphs. Python frame interchange now explicitly uses uncompressed
+  IPC; Rust consumers needing compressed CSV must enable Polars IO's `decompress`
+  feature. Update compatible TLS and Tokio dependencies to patched versions.
+- Update certifi, filelock and comparison-environment Pillow in the Python locks.
+  Security auditing uses Python 3.11+, retaining Python 3.10 runtime/test support.
 - Upgrade Rust and Python bindings together to Polars 0.55.2 and statrs 0.19.1,
   adapting frame construction and chunked-array iteration. Raise the supported
   Rust minimum to 1.95 and check native and shared-ABI bindings on that compiler.

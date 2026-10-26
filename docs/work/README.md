@@ -19,7 +19,8 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
-| [Codex workflow skill optimization](2026-10-26-codex-skill-optimization.md) | Instruction/evidence checks pass; dependency audit blocks push, 26 October 2026 | Resolve the separate dependency gate before normal publication |
+| [Dependency security remediation](2026-10-26-dependency-security.md) | Implemented and validated for publication, 26 October 2026 | Publish with normal hooks and verify remote branch identity |
+| [Codex workflow skill optimization](2026-10-26-codex-skill-optimization.md) | Skill/evidence committed in 6130e26; dependency gate resolved separately, 26 October 2026 | Publish both commits and verify the remote branch |
 | [Near-zero covariance recovery](2026-10-16-near-zero-column-recovery.md) | Delivered in c87b8e0; fresh pilot retains one iteration limit, 16 October 2026 | Follow the strict-control convergence diagnostic plan before numerical readiness |
 | [Strict-control convergence diagnostic](../LMM_RANDOM_SLOPE_CONVERGENCE_NEXT_STEP.md) | Delivered in b4cbf07; rounding-scale stagnation established, 16 October 2026 | Fresh full-method pilot with prospectively frozen control; original failed gate retained |
 | [Stopping-control pilot execution](2026-10-16-stopping-control-pilot.md) | Completed locally; original analysis abort and three numerical failures retained, 16 October 2026 | Follow boundary/covariance repair plan; preserve failed readiness and separate diagnostic results |

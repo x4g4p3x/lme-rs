@@ -173,6 +173,16 @@ The library and Python extension require eager Polars frames. Lazy expressions
 remain available in development tests/examples or through the `polars-lazy` Cargo
 feature. See [the toolchain evidence](benchmarks/toolchain-2026-10-10.md) for the
 dependency footprint and bounded compiler-cache measurements.
+Default Rust builds enable uncompressed eager CSV, without Polars IO's optional
+decompression codecs. Model APIs consume eager frames; compressed-file ingestion
+belongs to the calling application. Adding Polars IO's `decompress` feature in
+an application changes its dependency graph and requires a fresh security audit.
+The Python bridge explicitly writes uncompressed IPC and reads every record batch
+through `polars-arrow`, retaining frame schema and row order without those codecs.
+Security auditing uses the pinned Python 3.11 environment. The `pip-audit` dev
+extra is enabled on Python 3.11 and newer so its file-locking dependency can use
+the patched release; runtime and source-build tests continue to support 3.10.
+
 `task consumer:smoke` additionally installs the wheel in a dependency-only
 environment and runs the portable examples. CI tests source builds on Python
 3.10–3.14; the full identity/consumer flow is centered on 3.11. Windows and macOS

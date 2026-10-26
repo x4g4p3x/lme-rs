@@ -71,7 +71,13 @@ lockfile refresh. No advisory exception or hook bypass was added.
 
 ## Limitations and next action
 
-Retain the scoped commit and resolve the dependency gate separately before a normal
-push can succeed. Do not publish local configuration or claim that all models,
+Follow-up on 26 October 2026: the user authorized a separate
+[dependency security repair](2026-10-26-dependency-security.md). The skill/evidence
+change is retained in commit `6130e26`; the separate dependency repair has passed
+Cargo/Python audits, the consolidated CI mirror, affected Python reruns and normal
+preflight. Publication and final remote verification follow with hooks enabled.
+
+Retain the separate commits and verify the normal push. Do not publish local
+configuration or claim that all models,
 providers, or bundled skills have been optimized. The primary checkout's unrelated
 28 pending paths were checked byte-for-byte unchanged.

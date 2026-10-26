@@ -39,7 +39,8 @@ ci-consolidated-tests = []
 # Enable eager CSV through polars-io. Polars' csv feature also enables its
 # streaming engine and cloud stack, neither needed for local eager CSV reads.
 polars = { version = "0.55.2", default-features = false, features = ["polars-io", "fmt", "zip_with"] }
-polars-io = { version = "0.55.2", features = ["csv", "temporal", "dtype-duration"] }
+# Local fixtures are uncompressed; decompression is an explicit downstream opt-in.
+polars-io = { version = "0.55.2", default-features = false, features = ["csv", "temporal", "dtype-duration"] }
 ndarray = "0.17.2"
 
 statrs = { version = "0.19", default-features = false }
