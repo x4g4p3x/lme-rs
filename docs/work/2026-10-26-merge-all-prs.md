@@ -5,7 +5,9 @@
 - Created prospectively on 26 October 2026 (Europe/Berlin).
 - Starting revision: `29811d4`, clean delivery worktree; default `master` is
   `93dc06acec14671348432a1155d3efc80b62261c`.
-- Status: in progress; user authorizes integration and merge into the default branch.
+- Status: integration implemented; validation and delivery tracked in
+  [PR #48](https://github.com/x4g4p3x/lme-rs/pull/48). The user authorizes merge
+  into the default branch after verification.
 - Preserve the primary checkout's 28 unrelated pending files.
 
 ## Scope and acceptance criteria
@@ -48,7 +50,7 @@ are historical and do not validate the new integration head.
 
 ## Implementation and observed validation
 
-The three heads combined without conflicts in an uncommitted octopus merge.
+The three heads combined without conflicts in octopus merge commit `393644b`.
 Root/Python sprs resolve to 0.11.6; the fuzz lock was updated from 0.11.4 to the
 same version. Existing security fixes remain intact; all three Cargo audits pass.
 PyO3 0.30.1 compiles but deprecates 13 `skip_from_py_object` flags because that
@@ -56,9 +58,20 @@ behavior is now the default. Remove those flags while retaining explicit
 `from_py_object` opt-ins on cloned Python classes.
 
 The exact replacement release-policy command passed all 161 harness tests, with
-two existing unavailable-R skips. The initial PyO3 compilation passed with the
-deprecation warnings; a warning-free rerun, full combined validation and fresh
-hosted matrix remain pending. No merge has been made into the default branch.
+two existing unavailable-R skips. After removing the deprecated flags, PyO3
+compilation passed without warnings. Workflow lint and normal pre-commit/pre-push
+hooks passed. Every original PR head and `29811d4` is an ancestor of `393644b`.
+
+Rust 1.95 checks passed for all root targets with `basin,polars-lazy`, native and
+stable-ABI Python bindings, and fuzz-target compilation. This is not a fuzz run.
+At this checkpoint, 13 of 19 hosted validation jobs passed on `393644b`, including
+release policy, all security audits, both compiler compatibility jobs, Python
+3.10–3.14 on Ubuntu, and initial Windows/macOS binding jobs. Remaining hosted jobs
+and the full local consolidated CI mirror were running without observed failures.
+
+This is a commit-time checkpoint. Final immutable check results and the merge
+state are recorded in PR #48; publication into `master` is gated on fresh success
+for the final head, including this documentation update. No release is authorized.
 
 ## Limitations and next action
 
