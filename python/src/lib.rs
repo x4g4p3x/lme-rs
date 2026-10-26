@@ -97,7 +97,7 @@ impl PyGlmerPrepared {
 }
 
 /// Per-fold metrics from grouped cross-validation.
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyCvFoldMetric {
     #[pyo3(get)]
@@ -121,7 +121,7 @@ pub struct PyCvFoldMetric {
 }
 
 /// Out-of-fold predictions and metrics from grouped cross-validation.
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyCvGroupedResult {
     #[pyo3(get)]
@@ -145,7 +145,7 @@ pub struct PyCvGroupedResult {
 }
 
 /// One bootstrap refit from [`boot_lmer`].
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyBootReplicate {
     #[pyo3(get)]
@@ -240,7 +240,7 @@ impl PyBootLmerResult {
 }
 
 /// Percentile bootstrap confidence intervals.
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyBootConfintResult {
     #[pyo3(get)]
@@ -274,7 +274,7 @@ impl PyBootConfintResult {
 type RanefRow = (String, String, String, f64);
 
 /// Wald confidence intervals (`LmeFit::confint`).
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyConfintResult {
     #[pyo3(get)]
@@ -328,7 +328,7 @@ impl PyConfintResult {
 }
 
 /// Parametric simulation draws (`LmeFit::simulate`).
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PySimulateResult {
     #[pyo3(get)]
@@ -388,7 +388,7 @@ impl PySimulateBatches {
 }
 
 /// Fixed-effects ANOVA table (`LmeFit::anova_typed`).
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyFixedEffectsAnova {
     #[pyo3(get)]
@@ -428,7 +428,7 @@ impl PyFixedEffectsAnova {
 }
 
 /// Wald contrast test (`LmeFit::test_contrast`).
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyContrastTest {
     #[pyo3(get)]
@@ -454,7 +454,7 @@ impl PyContrastTest {
 }
 
 /// Multiple-comparison table (`LmeFit::glht`).
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyGlhtResult {
     #[pyo3(get)]
@@ -496,7 +496,7 @@ impl PyGlhtResult {
 }
 
 /// Estimated marginal means for a categorical fixed-effect term.
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyEmmeansResult {
     #[pyo3(get)]
@@ -536,7 +536,7 @@ impl PyEmmeansResult {
 }
 
 /// Pairwise comparisons among estimated marginal means.
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyEmmeansPairsResult {
     #[pyo3(get)]
@@ -577,7 +577,7 @@ impl PyEmmeansPairsResult {
 }
 
 /// Likelihood-ratio test between nested models (`lme_rs::anova`).
-#[pyclass(skip_from_py_object)]
+#[pyclass]
 #[derive(Clone)]
 pub struct PyLikelihoodRatioAnova {
     #[pyo3(get)]
@@ -621,7 +621,7 @@ impl PyLikelihoodRatioAnova {
 }
 
 /// GLMM / LMM family selector (mirrors [`lme_rs::family::Family`]).
-#[pyclass(eq, eq_int, skip_from_py_object)]
+#[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PyFamily {
     Binomial,

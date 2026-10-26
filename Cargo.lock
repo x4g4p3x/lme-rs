@@ -3043,9 +3043,9 @@ dependencies = [
 
 [[package]]
 name = "sprs"
-version = "0.11.5"
+version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70d5a5663aa9f18d287877b8a889ee6cc2314e3a3778193ccc580d048d7d4abc"
+checksum = "59468ff1d42d9e2439415c7dbb6d9d965253dac6986f29dbcda72c2e36e94fb7"
 dependencies = [
  "alga",
  "ndarray",
@@ -3646,7 +3646,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
