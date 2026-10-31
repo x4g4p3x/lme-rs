@@ -18,7 +18,13 @@ def test_lmer_sleepstudy():
 
     # Check that REML objective is embedded in the summary string
     assert "1743.6" in summary
-    assert "611.9033" in summary  # Intercept variance
+    # Compare with an independent lme4/bobyqa REML fit on the same rows;
+    # also check the rendered summary agrees with the structured result.
+    intercept_variance = next(
+        row[3] for row in model.var_corr if row[:3] == ("Subject", "(Intercept)", "(Intercept)")
+    )
+    assert intercept_variance == pytest.approx(612.089748274669, abs=0.05)
+    assert f"{intercept_variance:.4f}" in summary
 
     # Check properties
     assert model.converged is True

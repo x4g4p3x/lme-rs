@@ -1,0 +1,886 @@
+{
+  "analysis": {
+    "path": "analysis-executions/analysis-1792180638550690200-end.json",
+    "receipt": {
+      "caps": {
+        "disk_bytes": 536870912,
+        "job_commit_bytes": 4294967296,
+        "min_free_bytes": 1073741824,
+        "poll_seconds": 0.1,
+        "seconds": 900
+      },
+      "exit_codes": [
+        0
+      ],
+      "final_disk": {
+        "bytes": 27185249,
+        "free_bytes": 47482265600
+      },
+      "identity": {
+        "caps": {
+          "disk_bytes": 536870912,
+          "job_commit_bytes": 4294967296,
+          "min_free_bytes": 1073741824,
+          "poll_seconds": 0.1,
+          "seconds": 900
+        },
+        "command": {
+          "argv_sha256": "fb987cf8de2cd7b1a180dd0fe6b75a749432e8fd289209aa391356be7dd192ed",
+          "executable": {
+            "name": "python.exe",
+            "sha256": "ae7e969410d751d010c2ca03394fe5c53230fbf48ca7d368b897e455eca14fba"
+          },
+          "script_sources": {
+            "1": {
+              "name": "report_lmm_covariance_precision_pilot.py",
+              "sha256": "21232017bbe0264bd243da09c05bbf5cf3056de4a0dd3ed915149aa8b4bfa9aa"
+            }
+          }
+        },
+        "inputs": {
+          "journal:exact_correlation-G20-m5-v0.25-r-1-beta0": "ac28a1bbdfb40afc5e015b7d20024f5e00400fb4f1d8b2d34da1241fb7b9eaca",
+          "journal:exact_correlation-G20-m5-v0.25-r1-beta0": "f0f3f573e62305694dc1cbd2c39a6d332aa4d88ce1479a2540d478661b415724",
+          "journal:exact_correlation-G8-m5-v0.25-r-1-beta0": "69f5e956c85b47af0cf9b84262b00d4d872d8c9643334ece97ce5c5f2b67ea75",
+          "journal:exact_correlation-G8-m5-v0.25-r1-beta0": "a6f4050c25ae24eb6af9bf372be3552b67b6afc5dc0604415edabd60b7107719",
+          "journal:imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0": "f939327a2efba5d72e351d4afb6c82ec3676f29c09a4c9bf4d422fe9321514c0",
+          "journal:imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0": "8fb4602079479d393b1a8eea04024df534b34cf8af00cf7d08ef8ff5d06ce482",
+          "journal:interior-G20-m15-v0.05-r-0.5-beta0": "07a22fcb9f0e9d14d9e407514ea70405678139568439912ddaec5ccd5688d349",
+          "journal:interior-G20-m15-v0.05-r-0.5-beta0.5": "dff64941b0c45371fea8f764b227e14af157de9093873ea03757dfca32a519f1",
+          "journal:interior-G20-m15-v0.05-r0-beta0": "41254ca5ac6c43a35ae2e4203fffe97439ecfe04788c1bf1da77e1eb3f7d739a",
+          "journal:interior-G20-m15-v0.05-r0-beta0.5": "71c172e525812e612a181f75ae3fee1634e6958ead9fc733c17013c924a33de3",
+          "journal:interior-G20-m15-v0.05-r0.5-beta0": "0b787b9723343882320146b9003608c56a791ddb5f31081291f64a3eeef0646a",
+          "journal:interior-G20-m15-v0.05-r0.5-beta0.5": "8ca6810f4b399bfc46a651b2f3acae555bb1b0ab151a96d6faf2d36bd9c2f746",
+          "journal:interior-G20-m15-v0.25-r-0.5-beta0": "e9f9e625603e22ab915b677645d6d7c79e77113823053498ac3ff7ba32bcef4e",
+          "journal:interior-G20-m15-v0.25-r-0.5-beta0.5": "dc0509a1639e4733ef5fe2931bd7f4f75f91585f70ce6d5859ec31ca74b0420a",
+          "journal:interior-G20-m15-v0.25-r0-beta0": "af861bb901b006034ab24fe116312e286cb8c184e58aeee4fd87f47f063e92de",
+          "journal:interior-G20-m15-v0.25-r0-beta0.5": "e27666889110696e8aa19679f765945db83641969f7555bb91a2eca29db0a015",
+          "journal:interior-G20-m15-v0.25-r0.5-beta0": "458488c881c9be572c82351dba27b20a61ae1052e7ff9a127e65b0f69bf827e0",
+          "journal:interior-G20-m15-v0.25-r0.5-beta0.5": "d1c7663af313c2b5b4071b4e77ec06cf480cd0fd997b7d86f7f197bba2837a14",
+          "journal:interior-G20-m5-v0.05-r-0.5-beta0": "86169c76ec3d734019de0170eaff1ec39e093dd07a7200196e755bbe35653998",
+          "journal:interior-G20-m5-v0.05-r-0.5-beta0.5": "2cc5f8fa5e5923d8f8ce3b7dcf5b729ffdd1a2a9c447693f6d6d4b96142bcccc",
+          "journal:interior-G20-m5-v0.05-r0-beta0": "4056e639f090c2ed16494b330cff26b5cc84b24c5e9b011d8231833926c307f7",
+          "journal:interior-G20-m5-v0.05-r0-beta0.5": "ba720ee3a93fbf5433d1599d5a1b0249e4f8aa4351517394df5944c4a5aa0dde",
+          "journal:interior-G20-m5-v0.05-r0.5-beta0": "0c1a380c774183392b6cab43195fbb59fd7c2e31b64f5c3045eb9ba601b82f24",
+          "journal:interior-G20-m5-v0.05-r0.5-beta0.5": "ee03f3b9b19ae1ed782b54425c46788b4e1013018e1647904223134a8e18b353",
+          "journal:interior-G20-m5-v0.25-r-0.5-beta0": "51468bb36baca17254a1ada3fd681845965e0116257493c4de227733126e890c",
+          "journal:interior-G20-m5-v0.25-r-0.5-beta0.5": "036a06cb164a1d617d7d6a809bcdc092f798a122ceec80c96e295daed8f553e8",
+          "journal:interior-G20-m5-v0.25-r0-beta0": "5b1799e09fcdb35d15f02b11c4c52c0987216b263c1450df7fa0093b156e0021",
+          "journal:interior-G20-m5-v0.25-r0-beta0.5": "eadc4892c3ac748b1b8b79947c326046b4aaea1ad42b714e8e1e7c3b9929b12d",
+          "journal:interior-G20-m5-v0.25-r0.5-beta0": "a49c89f33c2230a2207d9189e0f997ee79e588040b022ef7534106fb04d03259",
+          "journal:interior-G20-m5-v0.25-r0.5-beta0.5": "affba3a84ff2e5f4caf779b843d7c6b1676bd11806f2358bc43077e046e7e8b6",
+          "journal:interior-G50-m15-v0.05-r-0.5-beta0": "c128ab80690f9518a56acc3ecaac7599db258a12bc344497cd84ba44345ebeee",
+          "journal:interior-G50-m15-v0.05-r-0.5-beta0.5": "ca76b5e6611f48ecc22af51a3734f1a0d8aa2b7b03eea6f6d0b9f9394cb7d3dc",
+          "journal:interior-G50-m15-v0.05-r0-beta0": "481ec3750d46847b6b1d30f6b811ba6f0eef7ebd8cfab39c1c027a6936dce7e0",
+          "journal:interior-G50-m15-v0.05-r0-beta0.5": "9a164d24f1d2355adf077823e052b6a4675e126471b0e08a42965b0014b7105b",
+          "journal:interior-G50-m15-v0.05-r0.5-beta0": "46f630103d201b7ad61f8bf034c9f8555095eb171e400875177b18e0773b1d5d",
+          "journal:interior-G50-m15-v0.05-r0.5-beta0.5": "079478d5bc0db354d89fc1d217f7441e81a0c52d7cadfb52de0722dae3355a9c",
+          "journal:interior-G50-m15-v0.25-r-0.5-beta0": "7f6bf29bf5bbeb8a09fde0d5599f39ac9aad541c8d0505c41d2cccac03153dac",
+          "journal:interior-G50-m15-v0.25-r-0.5-beta0.5": "638d7f0a144ff271eebd8e8ab580b13e5b5f38fac6c34b1e20fe78c7b2ccab00",
+          "journal:interior-G50-m15-v0.25-r0-beta0": "dd1205a977a7486768a9eda5469094c05aa33a88c2fe82e25fb329174e4d262b",
+          "journal:interior-G50-m15-v0.25-r0-beta0.5": "de2313571af4d8d890bac8d02817870142ac1b01246da1dccc54e332e7a72e7b",
+          "journal:interior-G50-m15-v0.25-r0.5-beta0": "61d2f1bd7d610b0d1b126a3e82f0a7520cd6cef70e61ad693fbb62df0e9e6e76",
+          "journal:interior-G50-m15-v0.25-r0.5-beta0.5": "5b59bdd578e2e50b4019a61bdb0c38a485b6eb882bd87024fffeb1dfe7b77315",
+          "journal:interior-G50-m5-v0.05-r-0.5-beta0": "c99d2c40a3651974d3ac8a1df613597b7573b39d1218836fa7f48f96469de54c",
+          "journal:interior-G50-m5-v0.05-r-0.5-beta0.5": "42a6bf1bd1f709cd224f1f5ee023823e2725cce0cfb53a6110eaa250c64dad3e",
+          "journal:interior-G50-m5-v0.05-r0-beta0": "98abdb8abd7bc64bce5a60f2d40139f93414dbbdd865071b51f671772a12bf99",
+          "journal:interior-G50-m5-v0.05-r0-beta0.5": "e49f3e5096a6662fa9afe2fec779e567791fd9d1e3e391aa1c9fb752254323b6",
+          "journal:interior-G50-m5-v0.05-r0.5-beta0": "5e3507aa9e2820f3b61aff036d7a2719d47fe0c8531eac54a2b365d9275635ef",
+          "journal:interior-G50-m5-v0.05-r0.5-beta0.5": "43f0a22caff542cea14f6521f4d4d66888dc145c835739be91e0c9dd1970b7e0",
+          "journal:interior-G50-m5-v0.25-r-0.5-beta0": "c6c80fc3c5a67ac21060f6f3ccf550725cc83cf2400a6eb614c8aa9bd7c16be7",
+          "journal:interior-G50-m5-v0.25-r-0.5-beta0.5": "265b96376dedbb4d8c8eb49c949b792e1c193cffe3e52b6191209ac65d4ee480",
+          "journal:interior-G50-m5-v0.25-r0-beta0": "8a366b73a970c8ad31aa34cc43a85d57b151e48cb02ea8abf33adbce3f289359",
+          "journal:interior-G50-m5-v0.25-r0-beta0.5": "18af861a784f16b04c340433768e125dec10d0b6560283d3cc53f2d77ff7d87d",
+          "journal:interior-G50-m5-v0.25-r0.5-beta0": "73753e0f7f2575fd1541b7e8d587dd9ea51dc8cc5c1f4b20f39badb488eccb3e",
+          "journal:interior-G50-m5-v0.25-r0.5-beta0.5": "7806d97943b13ac6c4717ba309b65f1fd944833e8cb46c76dbbaf495c1acdc10",
+          "journal:interior-G8-m15-v0.05-r-0.5-beta0": "0bfbf9163edb942b3216e28911e23fc5d8210a27394a50d05480cc02dc900abf",
+          "journal:interior-G8-m15-v0.05-r-0.5-beta0.5": "567249f7cbf5b20aa77fd6b478967409c67f15cc25ccadab49eded01f01b1d91",
+          "journal:interior-G8-m15-v0.05-r0-beta0": "75005f3d535aac61faff2dde65a38bd19c2e684c51dc818a535c77afabfa6ed9",
+          "journal:interior-G8-m15-v0.05-r0-beta0.5": "536b71f7adbde6a806fb5557529bf02fb077f8989419b9f83d4aeb9cbe006564",
+          "journal:interior-G8-m15-v0.05-r0.5-beta0": "5bbd76615b8f0160b05719e28f7ba68567f57967d362c0a549cdabc660fb0936",
+          "journal:interior-G8-m15-v0.05-r0.5-beta0.5": "bc1066ba59b1757d87df27dda337cf6a8d8bb838b815b451f8ab834a39332d7c",
+          "journal:interior-G8-m15-v0.25-r-0.5-beta0": "62817e206069a943463a26234363bcb5fef766a2021ee1fdb2745f90ec735a65",
+          "journal:interior-G8-m15-v0.25-r-0.5-beta0.5": "497a7758a74267a697983bd0f0f2f5432642a676a87b3da65909aaac90a1ad4b",
+          "journal:interior-G8-m15-v0.25-r0-beta0": "4273c2b2ed5087e0142c5e4590f1659de22ade3c1ad54384d1cf1e1fa857bc5f",
+          "journal:interior-G8-m15-v0.25-r0-beta0.5": "f7aef826482d5407d9fd64c6da8a7459db250aaa6c13a6adcbca894ce0f71b1d",
+          "journal:interior-G8-m15-v0.25-r0.5-beta0": "d7da0f05f0c34f2635777f2e0b63b009b3d1372231a7857dcc36e90fa4f2624f",
+          "journal:interior-G8-m15-v0.25-r0.5-beta0.5": "93ad70afce48f068c583d6cfecece45d92ff781b8e9e1a94e7ed10352b27baf4",
+          "journal:interior-G8-m5-v0.05-r-0.5-beta0": "8c8539416078ce7533a0d0a78c53ea5dec98ab24d9f91d5730a732417e4ad08b",
+          "journal:interior-G8-m5-v0.05-r-0.5-beta0.5": "01e5fa5f610bb9a8b98d66b201534775635b233667940b76ba35e32eeddedd2b",
+          "journal:interior-G8-m5-v0.05-r0-beta0": "64b43edfd9689420baf9b700c3a4c32d0065f235a9757d465036baf135087461",
+          "journal:interior-G8-m5-v0.05-r0-beta0.5": "bc778c73665fcbe7dfe0c39a7f57c79e6b9aea4ed49646cccc60171d49a97c2c",
+          "journal:interior-G8-m5-v0.05-r0.5-beta0": "9e9c897c151c38004a006434613232d7fba0558f6072fe1338ede4d93bd7c5d9",
+          "journal:interior-G8-m5-v0.05-r0.5-beta0.5": "a3b2f6f4cbf0ecb31e4e8a3afaf6c13f5b4a34f95ac0c73d36fa2f982a887057",
+          "journal:interior-G8-m5-v0.25-r-0.5-beta0": "2d391ec48999d54c436ef974fbf2247ba652b82c9cce7d862252fa81c900a125",
+          "journal:interior-G8-m5-v0.25-r-0.5-beta0.5": "ce7335f9adc9caf54400bdc3ba9396fa02ff838d4667448b1e02b4404b9b2a5a",
+          "journal:interior-G8-m5-v0.25-r0-beta0": "bd56b0c132f0dd1ff2b2144937915a986f721eea804a60437a2326fca442b9cb",
+          "journal:interior-G8-m5-v0.25-r0-beta0.5": "d131181df22634de2caa4502a9fb44598a7a2fb373243e594fc74dfd0c207dd2",
+          "journal:interior-G8-m5-v0.25-r0.5-beta0": "55274ad4441f28679c914787e3031d15b566b461b31b9b132471c112193dfbbf",
+          "journal:interior-G8-m5-v0.25-r0.5-beta0.5": "3fd14708403a975856b28fbeca0698c5d54b420cca765c87edaa55fc727a7f79",
+          "journal:near_correlation-G20-m5-v0.25-r-0.95-beta0": "87ec065aa7e52966c288452c1d91da6048bcd1d8376ddcec630d4be119927fc7",
+          "journal:near_correlation-G20-m5-v0.25-r0.95-beta0": "90f1f9a73751426dfa455a97baeab564fcc76e0f548d0f398cdc35f71aba3b98",
+          "journal:near_correlation-G8-m5-v0.25-r-0.95-beta0": "865d7039eea484354bae18a3319cc75012426e37113fd0ddc04f363de8760f87",
+          "journal:near_correlation-G8-m5-v0.25-r0.95-beta0": "4022e9ded8ecc1d193ebdec7495cdf4e34718714d7ef742ac54515002e5ee048",
+          "journal:zero_slope-G20-m15-v0-rundefined-beta0": "825d151b3b80b1c16d883bdfccfa3ac486cf77c4841e6186ec67faf5f0851c3b",
+          "journal:zero_slope-G20-m15-v0-rundefined-beta0.5": "a026259358452ecbe6b4354104e6c71a9c27ed4dd9e58966db6b4c4fefd9299f",
+          "journal:zero_slope-G20-m5-v0-rundefined-beta0": "c30380f62bc47694381db19153d3ef330512fec99f8b725d635b241ab6fe3441",
+          "journal:zero_slope-G20-m5-v0-rundefined-beta0.5": "d3cdb1e7d577683b4291c7f64f03b5bdf067913336c66cb312bb396e22161036",
+          "journal:zero_slope-G50-m15-v0-rundefined-beta0": "bafc4c2b96336ed2495d267d74fd19471dd7beeb92db511e86e3a284d77344ab",
+          "journal:zero_slope-G50-m15-v0-rundefined-beta0.5": "3d6410ef5109bebdd877965d0a1a0b07c5910380d8573c23f7b1568b01e51f4e",
+          "journal:zero_slope-G50-m5-v0-rundefined-beta0": "03366a8816b2ccc6f62ac13f5ae1532e903c8375c5d869168a55f5aeec80756e",
+          "journal:zero_slope-G50-m5-v0-rundefined-beta0.5": "83476f0b2bb6c12b5bc153d7d214c46d9268f2c48715a8814f958ae1a6d491c4",
+          "journal:zero_slope-G8-m15-v0-rundefined-beta0": "1b72c3c140da0a1697740e0d1a751054271a40acbc719610b9809599dc573e41",
+          "journal:zero_slope-G8-m15-v0-rundefined-beta0.5": "bd135255c9b78daac7ec5801309b53d1cb765d71f6e3dec230965240eb33ca49",
+          "journal:zero_slope-G8-m5-v0-rundefined-beta0": "d4759ad5f49dd0a9f6829ac4a81af713ed4ba99e79445a85e42ea5298d202ba0",
+          "journal:zero_slope-G8-m5-v0-rundefined-beta0.5": "e2781c1fa3dfa797a12f1ba9a4bfad8b8a123ad7a0dbc3e520f8c46e8f2fa511",
+          "manifest": "e2fc7350febe768f570fb1c25d55d56205fb499ec8f3e21a4ea961fd3a976513"
+        },
+        "label": "analysis",
+        "thread_limits": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1",
+          "POLARS_MAX_THREADS": "1"
+        }
+      },
+      "outputs": {
+        "audit.jsonl.gz": "46faa9358bfc5b947b7255ee6fe587c76f3af88464ed86cb5d07f01032ff55d0",
+        "flags.jsonl": "6f0613ab74824c8c2fdf665f4e98c56f5295d6875d70b2bdd330539d35a87451",
+        "summary.json": "193cdd1654870bd3dce5d7918cec5d786ce94fdb82c1669aca41a62899189a6a"
+      },
+      "resource_guard": {
+        "abort_reason": null,
+        "active_phase_seconds": 9.97574589998112,
+        "final_active_job_processes": 0,
+        "final_job_process_ids": [],
+        "job_events": [
+          {
+            "message": 6,
+            "native_pid": 32460
+          },
+          {
+            "message": 6,
+            "native_pid": 21116
+          },
+          {
+            "message": 6,
+            "native_pid": 17176
+          },
+          {
+            "message": 7,
+            "native_pid": 17176
+          },
+          {
+            "message": 7,
+            "native_pid": 32460
+          },
+          {
+            "message": 7,
+            "native_pid": 21116
+          },
+          {
+            "message": 4,
+            "native_pid": null
+          }
+        ],
+        "largest_sample_gap_seconds": 0.1386484999966342,
+        "maximum_sampled_disk_bytes": 27185249,
+        "maximum_sampled_job_commit_bytes": 80240640,
+        "minimum_sampled_free_bytes": 47482265600,
+        "monitor_seconds": 9.943000999977812,
+        "os_peak_job_memory_bytes": 84856832,
+        "samples": 78,
+        "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+      },
+      "seconds": 9.975862599996617,
+      "start_sha256": "b4e9b391b9a4ad1134c40fe2c6e90b9f8c83e24f1c10db4099919abefaffb4d0"
+    },
+    "sha256": "34e19790693d1ec4cab6bf3db32943c6bd96305ffe6c83c82244610b06caa9de"
+  },
+  "candidate": {
+    "path": "executions/candidate-1792180314599458900-end.json",
+    "receipt": {
+      "caps": {
+        "disk_bytes": 536870912,
+        "job_commit_bytes": 4294967296,
+        "min_free_bytes": 1073741824,
+        "poll_seconds": 0.1,
+        "seconds": 900
+      },
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "final_disk": {
+        "bytes": 14547411,
+        "free_bytes": 47498539008
+      },
+      "native_root_pids": [
+        5044,
+        9668,
+        33652,
+        18096
+      ],
+      "resource_guard": {
+        "abort_reason": null,
+        "active_phase_seconds": 52.82181010002387,
+        "final_active_job_processes": 0,
+        "final_job_process_ids": [],
+        "job_events": [
+          {
+            "message": 6,
+            "native_pid": 5044
+          },
+          {
+            "message": 6,
+            "native_pid": 13260
+          },
+          {
+            "message": 6,
+            "native_pid": 9668
+          },
+          {
+            "message": 6,
+            "native_pid": 19096
+          },
+          {
+            "message": 6,
+            "native_pid": 33652
+          },
+          {
+            "message": 6,
+            "native_pid": 28556
+          },
+          {
+            "message": 6,
+            "native_pid": 30928
+          },
+          {
+            "message": 6,
+            "native_pid": 18096
+          },
+          {
+            "message": 6,
+            "native_pid": 21632
+          },
+          {
+            "message": 6,
+            "native_pid": 27776
+          },
+          {
+            "message": 6,
+            "native_pid": 24000
+          },
+          {
+            "message": 6,
+            "native_pid": 9872
+          },
+          {
+            "message": 6,
+            "native_pid": 23904
+          },
+          {
+            "message": 6,
+            "native_pid": 1816
+          },
+          {
+            "message": 6,
+            "native_pid": 29164
+          },
+          {
+            "message": 6,
+            "native_pid": 30672
+          },
+          {
+            "message": 7,
+            "native_pid": 23904
+          },
+          {
+            "message": 7,
+            "native_pid": 1816
+          },
+          {
+            "message": 7,
+            "native_pid": 30672
+          },
+          {
+            "message": 7,
+            "native_pid": 29164
+          },
+          {
+            "message": 6,
+            "native_pid": 16500
+          },
+          {
+            "message": 6,
+            "native_pid": 32444
+          },
+          {
+            "message": 6,
+            "native_pid": 24648
+          },
+          {
+            "message": 6,
+            "native_pid": 9344
+          },
+          {
+            "message": 7,
+            "native_pid": 32444
+          },
+          {
+            "message": 7,
+            "native_pid": 24648
+          },
+          {
+            "message": 7,
+            "native_pid": 16500
+          },
+          {
+            "message": 7,
+            "native_pid": 9344
+          },
+          {
+            "message": 7,
+            "native_pid": 27776
+          },
+          {
+            "message": 7,
+            "native_pid": 9668
+          },
+          {
+            "message": 7,
+            "native_pid": 19096
+          },
+          {
+            "message": 7,
+            "native_pid": 30928
+          },
+          {
+            "message": 7,
+            "native_pid": 5044
+          },
+          {
+            "message": 7,
+            "native_pid": 13260
+          },
+          {
+            "message": 7,
+            "native_pid": 9872
+          },
+          {
+            "message": 7,
+            "native_pid": 18096
+          },
+          {
+            "message": 7,
+            "native_pid": 21632
+          },
+          {
+            "message": 7,
+            "native_pid": 24000
+          },
+          {
+            "message": 7,
+            "native_pid": 33652
+          },
+          {
+            "message": 7,
+            "native_pid": 28556
+          },
+          {
+            "message": 4,
+            "native_pid": null
+          }
+        ],
+        "largest_sample_gap_seconds": 0.14166869997279719,
+        "maximum_sampled_disk_bytes": 15236635,
+        "maximum_sampled_job_commit_bytes": 468463616,
+        "minimum_sampled_free_bytes": 47469404160,
+        "monitor_seconds": 52.78226090001408,
+        "os_peak_job_memory_bytes": 468525056,
+        "samples": 420,
+        "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+      },
+      "seconds": 52.82250190002378
+    },
+    "sha256": "38a148a7c600f06822928c3ee5949a4f71117a5be5f16ab79436ca6c65217b14"
+  },
+  "r_check": {
+    "path": "analysis-executions/r-check-1792180648659138400-end.json",
+    "receipt": {
+      "caps": {
+        "disk_bytes": 536870912,
+        "job_commit_bytes": 4294967296,
+        "min_free_bytes": 1073741824,
+        "poll_seconds": 0.1,
+        "seconds": 900
+      },
+      "exit_codes": [
+        0
+      ],
+      "final_disk": {
+        "bytes": 27210214,
+        "free_bytes": 47482228736
+      },
+      "identity": {
+        "caps": {
+          "disk_bytes": 536870912,
+          "job_commit_bytes": 4294967296,
+          "min_free_bytes": 1073741824,
+          "poll_seconds": 0.1,
+          "seconds": 900
+        },
+        "command": {
+          "argv_sha256": "6bf4cccfe6e2319bbd7a954fa8fd609cb87588e9294923bec2e5d67815c5b564",
+          "executable": {
+            "name": "Rscript.exe",
+            "sha256": "d829bcf7e9fa1d7e3e828c565c3cdbb1ed416f551f4fa6fd4dfcdf231e33e5e8"
+          },
+          "script_sources": {
+            "2": {
+              "name": "lmm_random_slope_stream_check.R",
+              "sha256": "871e969674bda5253b21bdbdb04e0a390ddb529f3aec4469521c5de47dc381ae"
+            }
+          }
+        },
+        "inputs": {
+          "audit.jsonl.gz": "46faa9358bfc5b947b7255ee6fe587c76f3af88464ed86cb5d07f01032ff55d0",
+          "flags.jsonl": "6f0613ab74824c8c2fdf665f4e98c56f5295d6875d70b2bdd330539d35a87451",
+          "journal:exact_correlation-G20-m5-v0.25-r-1-beta0": "ac28a1bbdfb40afc5e015b7d20024f5e00400fb4f1d8b2d34da1241fb7b9eaca",
+          "journal:exact_correlation-G20-m5-v0.25-r1-beta0": "f0f3f573e62305694dc1cbd2c39a6d332aa4d88ce1479a2540d478661b415724",
+          "journal:exact_correlation-G8-m5-v0.25-r-1-beta0": "69f5e956c85b47af0cf9b84262b00d4d872d8c9643334ece97ce5c5f2b67ea75",
+          "journal:exact_correlation-G8-m5-v0.25-r1-beta0": "a6f4050c25ae24eb6af9bf372be3552b67b6afc5dc0604415edabd60b7107719",
+          "journal:imbalanced-G20-mcycle3-5-10-v0.25-r0-beta0": "f939327a2efba5d72e351d4afb6c82ec3676f29c09a4c9bf4d422fe9321514c0",
+          "journal:imbalanced-G8-mcycle3-5-10-v0.25-r0-beta0": "8fb4602079479d393b1a8eea04024df534b34cf8af00cf7d08ef8ff5d06ce482",
+          "journal:interior-G20-m15-v0.05-r-0.5-beta0": "07a22fcb9f0e9d14d9e407514ea70405678139568439912ddaec5ccd5688d349",
+          "journal:interior-G20-m15-v0.05-r-0.5-beta0.5": "dff64941b0c45371fea8f764b227e14af157de9093873ea03757dfca32a519f1",
+          "journal:interior-G20-m15-v0.05-r0-beta0": "41254ca5ac6c43a35ae2e4203fffe97439ecfe04788c1bf1da77e1eb3f7d739a",
+          "journal:interior-G20-m15-v0.05-r0-beta0.5": "71c172e525812e612a181f75ae3fee1634e6958ead9fc733c17013c924a33de3",
+          "journal:interior-G20-m15-v0.05-r0.5-beta0": "0b787b9723343882320146b9003608c56a791ddb5f31081291f64a3eeef0646a",
+          "journal:interior-G20-m15-v0.05-r0.5-beta0.5": "8ca6810f4b399bfc46a651b2f3acae555bb1b0ab151a96d6faf2d36bd9c2f746",
+          "journal:interior-G20-m15-v0.25-r-0.5-beta0": "e9f9e625603e22ab915b677645d6d7c79e77113823053498ac3ff7ba32bcef4e",
+          "journal:interior-G20-m15-v0.25-r-0.5-beta0.5": "dc0509a1639e4733ef5fe2931bd7f4f75f91585f70ce6d5859ec31ca74b0420a",
+          "journal:interior-G20-m15-v0.25-r0-beta0": "af861bb901b006034ab24fe116312e286cb8c184e58aeee4fd87f47f063e92de",
+          "journal:interior-G20-m15-v0.25-r0-beta0.5": "e27666889110696e8aa19679f765945db83641969f7555bb91a2eca29db0a015",
+          "journal:interior-G20-m15-v0.25-r0.5-beta0": "458488c881c9be572c82351dba27b20a61ae1052e7ff9a127e65b0f69bf827e0",
+          "journal:interior-G20-m15-v0.25-r0.5-beta0.5": "d1c7663af313c2b5b4071b4e77ec06cf480cd0fd997b7d86f7f197bba2837a14",
+          "journal:interior-G20-m5-v0.05-r-0.5-beta0": "86169c76ec3d734019de0170eaff1ec39e093dd07a7200196e755bbe35653998",
+          "journal:interior-G20-m5-v0.05-r-0.5-beta0.5": "2cc5f8fa5e5923d8f8ce3b7dcf5b729ffdd1a2a9c447693f6d6d4b96142bcccc",
+          "journal:interior-G20-m5-v0.05-r0-beta0": "4056e639f090c2ed16494b330cff26b5cc84b24c5e9b011d8231833926c307f7",
+          "journal:interior-G20-m5-v0.05-r0-beta0.5": "ba720ee3a93fbf5433d1599d5a1b0249e4f8aa4351517394df5944c4a5aa0dde",
+          "journal:interior-G20-m5-v0.05-r0.5-beta0": "0c1a380c774183392b6cab43195fbb59fd7c2e31b64f5c3045eb9ba601b82f24",
+          "journal:interior-G20-m5-v0.05-r0.5-beta0.5": "ee03f3b9b19ae1ed782b54425c46788b4e1013018e1647904223134a8e18b353",
+          "journal:interior-G20-m5-v0.25-r-0.5-beta0": "51468bb36baca17254a1ada3fd681845965e0116257493c4de227733126e890c",
+          "journal:interior-G20-m5-v0.25-r-0.5-beta0.5": "036a06cb164a1d617d7d6a809bcdc092f798a122ceec80c96e295daed8f553e8",
+          "journal:interior-G20-m5-v0.25-r0-beta0": "5b1799e09fcdb35d15f02b11c4c52c0987216b263c1450df7fa0093b156e0021",
+          "journal:interior-G20-m5-v0.25-r0-beta0.5": "eadc4892c3ac748b1b8b79947c326046b4aaea1ad42b714e8e1e7c3b9929b12d",
+          "journal:interior-G20-m5-v0.25-r0.5-beta0": "a49c89f33c2230a2207d9189e0f997ee79e588040b022ef7534106fb04d03259",
+          "journal:interior-G20-m5-v0.25-r0.5-beta0.5": "affba3a84ff2e5f4caf779b843d7c6b1676bd11806f2358bc43077e046e7e8b6",
+          "journal:interior-G50-m15-v0.05-r-0.5-beta0": "c128ab80690f9518a56acc3ecaac7599db258a12bc344497cd84ba44345ebeee",
+          "journal:interior-G50-m15-v0.05-r-0.5-beta0.5": "ca76b5e6611f48ecc22af51a3734f1a0d8aa2b7b03eea6f6d0b9f9394cb7d3dc",
+          "journal:interior-G50-m15-v0.05-r0-beta0": "481ec3750d46847b6b1d30f6b811ba6f0eef7ebd8cfab39c1c027a6936dce7e0",
+          "journal:interior-G50-m15-v0.05-r0-beta0.5": "9a164d24f1d2355adf077823e052b6a4675e126471b0e08a42965b0014b7105b",
+          "journal:interior-G50-m15-v0.05-r0.5-beta0": "46f630103d201b7ad61f8bf034c9f8555095eb171e400875177b18e0773b1d5d",
+          "journal:interior-G50-m15-v0.05-r0.5-beta0.5": "079478d5bc0db354d89fc1d217f7441e81a0c52d7cadfb52de0722dae3355a9c",
+          "journal:interior-G50-m15-v0.25-r-0.5-beta0": "7f6bf29bf5bbeb8a09fde0d5599f39ac9aad541c8d0505c41d2cccac03153dac",
+          "journal:interior-G50-m15-v0.25-r-0.5-beta0.5": "638d7f0a144ff271eebd8e8ab580b13e5b5f38fac6c34b1e20fe78c7b2ccab00",
+          "journal:interior-G50-m15-v0.25-r0-beta0": "dd1205a977a7486768a9eda5469094c05aa33a88c2fe82e25fb329174e4d262b",
+          "journal:interior-G50-m15-v0.25-r0-beta0.5": "de2313571af4d8d890bac8d02817870142ac1b01246da1dccc54e332e7a72e7b",
+          "journal:interior-G50-m15-v0.25-r0.5-beta0": "61d2f1bd7d610b0d1b126a3e82f0a7520cd6cef70e61ad693fbb62df0e9e6e76",
+          "journal:interior-G50-m15-v0.25-r0.5-beta0.5": "5b59bdd578e2e50b4019a61bdb0c38a485b6eb882bd87024fffeb1dfe7b77315",
+          "journal:interior-G50-m5-v0.05-r-0.5-beta0": "c99d2c40a3651974d3ac8a1df613597b7573b39d1218836fa7f48f96469de54c",
+          "journal:interior-G50-m5-v0.05-r-0.5-beta0.5": "42a6bf1bd1f709cd224f1f5ee023823e2725cce0cfb53a6110eaa250c64dad3e",
+          "journal:interior-G50-m5-v0.05-r0-beta0": "98abdb8abd7bc64bce5a60f2d40139f93414dbbdd865071b51f671772a12bf99",
+          "journal:interior-G50-m5-v0.05-r0-beta0.5": "e49f3e5096a6662fa9afe2fec779e567791fd9d1e3e391aa1c9fb752254323b6",
+          "journal:interior-G50-m5-v0.05-r0.5-beta0": "5e3507aa9e2820f3b61aff036d7a2719d47fe0c8531eac54a2b365d9275635ef",
+          "journal:interior-G50-m5-v0.05-r0.5-beta0.5": "43f0a22caff542cea14f6521f4d4d66888dc145c835739be91e0c9dd1970b7e0",
+          "journal:interior-G50-m5-v0.25-r-0.5-beta0": "c6c80fc3c5a67ac21060f6f3ccf550725cc83cf2400a6eb614c8aa9bd7c16be7",
+          "journal:interior-G50-m5-v0.25-r-0.5-beta0.5": "265b96376dedbb4d8c8eb49c949b792e1c193cffe3e52b6191209ac65d4ee480",
+          "journal:interior-G50-m5-v0.25-r0-beta0": "8a366b73a970c8ad31aa34cc43a85d57b151e48cb02ea8abf33adbce3f289359",
+          "journal:interior-G50-m5-v0.25-r0-beta0.5": "18af861a784f16b04c340433768e125dec10d0b6560283d3cc53f2d77ff7d87d",
+          "journal:interior-G50-m5-v0.25-r0.5-beta0": "73753e0f7f2575fd1541b7e8d587dd9ea51dc8cc5c1f4b20f39badb488eccb3e",
+          "journal:interior-G50-m5-v0.25-r0.5-beta0.5": "7806d97943b13ac6c4717ba309b65f1fd944833e8cb46c76dbbaf495c1acdc10",
+          "journal:interior-G8-m15-v0.05-r-0.5-beta0": "0bfbf9163edb942b3216e28911e23fc5d8210a27394a50d05480cc02dc900abf",
+          "journal:interior-G8-m15-v0.05-r-0.5-beta0.5": "567249f7cbf5b20aa77fd6b478967409c67f15cc25ccadab49eded01f01b1d91",
+          "journal:interior-G8-m15-v0.05-r0-beta0": "75005f3d535aac61faff2dde65a38bd19c2e684c51dc818a535c77afabfa6ed9",
+          "journal:interior-G8-m15-v0.05-r0-beta0.5": "536b71f7adbde6a806fb5557529bf02fb077f8989419b9f83d4aeb9cbe006564",
+          "journal:interior-G8-m15-v0.05-r0.5-beta0": "5bbd76615b8f0160b05719e28f7ba68567f57967d362c0a549cdabc660fb0936",
+          "journal:interior-G8-m15-v0.05-r0.5-beta0.5": "bc1066ba59b1757d87df27dda337cf6a8d8bb838b815b451f8ab834a39332d7c",
+          "journal:interior-G8-m15-v0.25-r-0.5-beta0": "62817e206069a943463a26234363bcb5fef766a2021ee1fdb2745f90ec735a65",
+          "journal:interior-G8-m15-v0.25-r-0.5-beta0.5": "497a7758a74267a697983bd0f0f2f5432642a676a87b3da65909aaac90a1ad4b",
+          "journal:interior-G8-m15-v0.25-r0-beta0": "4273c2b2ed5087e0142c5e4590f1659de22ade3c1ad54384d1cf1e1fa857bc5f",
+          "journal:interior-G8-m15-v0.25-r0-beta0.5": "f7aef826482d5407d9fd64c6da8a7459db250aaa6c13a6adcbca894ce0f71b1d",
+          "journal:interior-G8-m15-v0.25-r0.5-beta0": "d7da0f05f0c34f2635777f2e0b63b009b3d1372231a7857dcc36e90fa4f2624f",
+          "journal:interior-G8-m15-v0.25-r0.5-beta0.5": "93ad70afce48f068c583d6cfecece45d92ff781b8e9e1a94e7ed10352b27baf4",
+          "journal:interior-G8-m5-v0.05-r-0.5-beta0": "8c8539416078ce7533a0d0a78c53ea5dec98ab24d9f91d5730a732417e4ad08b",
+          "journal:interior-G8-m5-v0.05-r-0.5-beta0.5": "01e5fa5f610bb9a8b98d66b201534775635b233667940b76ba35e32eeddedd2b",
+          "journal:interior-G8-m5-v0.05-r0-beta0": "64b43edfd9689420baf9b700c3a4c32d0065f235a9757d465036baf135087461",
+          "journal:interior-G8-m5-v0.05-r0-beta0.5": "bc778c73665fcbe7dfe0c39a7f57c79e6b9aea4ed49646cccc60171d49a97c2c",
+          "journal:interior-G8-m5-v0.05-r0.5-beta0": "9e9c897c151c38004a006434613232d7fba0558f6072fe1338ede4d93bd7c5d9",
+          "journal:interior-G8-m5-v0.05-r0.5-beta0.5": "a3b2f6f4cbf0ecb31e4e8a3afaf6c13f5b4a34f95ac0c73d36fa2f982a887057",
+          "journal:interior-G8-m5-v0.25-r-0.5-beta0": "2d391ec48999d54c436ef974fbf2247ba652b82c9cce7d862252fa81c900a125",
+          "journal:interior-G8-m5-v0.25-r-0.5-beta0.5": "ce7335f9adc9caf54400bdc3ba9396fa02ff838d4667448b1e02b4404b9b2a5a",
+          "journal:interior-G8-m5-v0.25-r0-beta0": "bd56b0c132f0dd1ff2b2144937915a986f721eea804a60437a2326fca442b9cb",
+          "journal:interior-G8-m5-v0.25-r0-beta0.5": "d131181df22634de2caa4502a9fb44598a7a2fb373243e594fc74dfd0c207dd2",
+          "journal:interior-G8-m5-v0.25-r0.5-beta0": "55274ad4441f28679c914787e3031d15b566b461b31b9b132471c112193dfbbf",
+          "journal:interior-G8-m5-v0.25-r0.5-beta0.5": "3fd14708403a975856b28fbeca0698c5d54b420cca765c87edaa55fc727a7f79",
+          "journal:near_correlation-G20-m5-v0.25-r-0.95-beta0": "87ec065aa7e52966c288452c1d91da6048bcd1d8376ddcec630d4be119927fc7",
+          "journal:near_correlation-G20-m5-v0.25-r0.95-beta0": "90f1f9a73751426dfa455a97baeab564fcc76e0f548d0f398cdc35f71aba3b98",
+          "journal:near_correlation-G8-m5-v0.25-r-0.95-beta0": "865d7039eea484354bae18a3319cc75012426e37113fd0ddc04f363de8760f87",
+          "journal:near_correlation-G8-m5-v0.25-r0.95-beta0": "4022e9ded8ecc1d193ebdec7495cdf4e34718714d7ef742ac54515002e5ee048",
+          "journal:zero_slope-G20-m15-v0-rundefined-beta0": "825d151b3b80b1c16d883bdfccfa3ac486cf77c4841e6186ec67faf5f0851c3b",
+          "journal:zero_slope-G20-m15-v0-rundefined-beta0.5": "a026259358452ecbe6b4354104e6c71a9c27ed4dd9e58966db6b4c4fefd9299f",
+          "journal:zero_slope-G20-m5-v0-rundefined-beta0": "c30380f62bc47694381db19153d3ef330512fec99f8b725d635b241ab6fe3441",
+          "journal:zero_slope-G20-m5-v0-rundefined-beta0.5": "d3cdb1e7d577683b4291c7f64f03b5bdf067913336c66cb312bb396e22161036",
+          "journal:zero_slope-G50-m15-v0-rundefined-beta0": "bafc4c2b96336ed2495d267d74fd19471dd7beeb92db511e86e3a284d77344ab",
+          "journal:zero_slope-G50-m15-v0-rundefined-beta0.5": "3d6410ef5109bebdd877965d0a1a0b07c5910380d8573c23f7b1568b01e51f4e",
+          "journal:zero_slope-G50-m5-v0-rundefined-beta0": "03366a8816b2ccc6f62ac13f5ae1532e903c8375c5d869168a55f5aeec80756e",
+          "journal:zero_slope-G50-m5-v0-rundefined-beta0.5": "83476f0b2bb6c12b5bc153d7d214c46d9268f2c48715a8814f958ae1a6d491c4",
+          "journal:zero_slope-G8-m15-v0-rundefined-beta0": "1b72c3c140da0a1697740e0d1a751054271a40acbc719610b9809599dc573e41",
+          "journal:zero_slope-G8-m15-v0-rundefined-beta0.5": "bd135255c9b78daac7ec5801309b53d1cb765d71f6e3dec230965240eb33ca49",
+          "journal:zero_slope-G8-m5-v0-rundefined-beta0": "d4759ad5f49dd0a9f6829ac4a81af713ed4ba99e79445a85e42ea5298d202ba0",
+          "journal:zero_slope-G8-m5-v0-rundefined-beta0.5": "e2781c1fa3dfa797a12f1ba9a4bfad8b8a123ad7a0dbc3e520f8c46e8f2fa511",
+          "manifest": "e2fc7350febe768f570fb1c25d55d56205fb499ec8f3e21a4ea961fd3a976513",
+          "summary.json": "193cdd1654870bd3dce5d7918cec5d786ce94fdb82c1669aca41a62899189a6a"
+        },
+        "label": "r-check",
+        "thread_limits": {
+          "MKL_NUM_THREADS": "1",
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1",
+          "POLARS_MAX_THREADS": "1"
+        }
+      },
+      "outputs": {
+        "r-check.json": "8b8cfd9804c99d93b4b2ca156df6b87ff27dee5c9edb1250e4638e030568be1b"
+      },
+      "resource_guard": {
+        "abort_reason": null,
+        "active_phase_seconds": 4.636903999984497,
+        "final_active_job_processes": 0,
+        "final_job_process_ids": [],
+        "job_events": [
+          {
+            "message": 6,
+            "native_pid": 6412
+          },
+          {
+            "message": 6,
+            "native_pid": 23844
+          },
+          {
+            "message": 6,
+            "native_pid": 18048
+          },
+          {
+            "message": 6,
+            "native_pid": 11820
+          },
+          {
+            "message": 7,
+            "native_pid": 11820
+          },
+          {
+            "message": 7,
+            "native_pid": 18048
+          },
+          {
+            "message": 7,
+            "native_pid": 6412
+          },
+          {
+            "message": 7,
+            "native_pid": 23844
+          },
+          {
+            "message": 4,
+            "native_pid": null
+          }
+        ],
+        "largest_sample_gap_seconds": 0.1384935999813024,
+        "maximum_sampled_disk_bytes": 27210214,
+        "maximum_sampled_job_commit_bytes": 158384128,
+        "minimum_sampled_free_bytes": 47482187776,
+        "monitor_seconds": 4.609527300024638,
+        "os_peak_job_memory_bytes": 159064064,
+        "samples": 38,
+        "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+      },
+      "seconds": 4.637072899990017,
+      "start_sha256": "fc3f68154f483caccbcd288c60a69f506fd4010c40a50a096d804fc901cc004b"
+    },
+    "sha256": "20e271b45eafc9d0e0e7815e6370c8405cf70ecaf8be99c6d80b290bfb65a01a"
+  },
+  "reference": {
+    "path": "executions/reference-1792180388277231200-end.json",
+    "receipt": {
+      "caps": {
+        "disk_bytes": 536870912,
+        "job_commit_bytes": 4294967296,
+        "min_free_bytes": 1073741824,
+        "poll_seconds": 0.1,
+        "seconds": 900
+      },
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "final_disk": {
+        "bytes": 20299439,
+        "free_bytes": 47489155072
+      },
+      "native_root_pids": [
+        21320,
+        15336,
+        30756,
+        25224
+      ],
+      "resource_guard": {
+        "abort_reason": null,
+        "active_phase_seconds": 242.9635813999921,
+        "final_active_job_processes": 0,
+        "final_job_process_ids": [],
+        "job_events": [
+          {
+            "message": 6,
+            "native_pid": 21320
+          },
+          {
+            "message": 6,
+            "native_pid": 6260
+          },
+          {
+            "message": 6,
+            "native_pid": 15336
+          },
+          {
+            "message": 6,
+            "native_pid": 548
+          },
+          {
+            "message": 6,
+            "native_pid": 30756
+          },
+          {
+            "message": 6,
+            "native_pid": 31140
+          },
+          {
+            "message": 6,
+            "native_pid": 24120
+          },
+          {
+            "message": 6,
+            "native_pid": 25224
+          },
+          {
+            "message": 6,
+            "native_pid": 16768
+          },
+          {
+            "message": 6,
+            "native_pid": 21860
+          },
+          {
+            "message": 6,
+            "native_pid": 7636
+          },
+          {
+            "message": 6,
+            "native_pid": 10880
+          },
+          {
+            "message": 6,
+            "native_pid": 4040
+          },
+          {
+            "message": 6,
+            "native_pid": 31484
+          },
+          {
+            "message": 6,
+            "native_pid": 21244
+          },
+          {
+            "message": 6,
+            "native_pid": 29208
+          },
+          {
+            "message": 6,
+            "native_pid": 16872
+          },
+          {
+            "message": 6,
+            "native_pid": 3160
+          },
+          {
+            "message": 6,
+            "native_pid": 10576
+          },
+          {
+            "message": 6,
+            "native_pid": 33064
+          },
+          {
+            "message": 6,
+            "native_pid": 25264
+          },
+          {
+            "message": 6,
+            "native_pid": 10768
+          },
+          {
+            "message": 6,
+            "native_pid": 29996
+          },
+          {
+            "message": 6,
+            "native_pid": 16484
+          },
+          {
+            "message": 6,
+            "native_pid": 19424
+          },
+          {
+            "message": 6,
+            "native_pid": 23660
+          },
+          {
+            "message": 6,
+            "native_pid": 27396
+          },
+          {
+            "message": 6,
+            "native_pid": 27652
+          },
+          {
+            "message": 7,
+            "native_pid": 23660
+          },
+          {
+            "message": 7,
+            "native_pid": 10768
+          },
+          {
+            "message": 7,
+            "native_pid": 21244
+          },
+          {
+            "message": 7,
+            "native_pid": 16872
+          },
+          {
+            "message": 7,
+            "native_pid": 10880
+          },
+          {
+            "message": 7,
+            "native_pid": 25224
+          },
+          {
+            "message": 7,
+            "native_pid": 16768
+          },
+          {
+            "message": 7,
+            "native_pid": 27396
+          },
+          {
+            "message": 7,
+            "native_pid": 16484
+          },
+          {
+            "message": 7,
+            "native_pid": 29208
+          },
+          {
+            "message": 7,
+            "native_pid": 33064
+          },
+          {
+            "message": 7,
+            "native_pid": 7636
+          },
+          {
+            "message": 7,
+            "native_pid": 30756
+          },
+          {
+            "message": 7,
+            "native_pid": 31140
+          },
+          {
+            "message": 7,
+            "native_pid": 27652
+          },
+          {
+            "message": 7,
+            "native_pid": 29996
+          },
+          {
+            "message": 7,
+            "native_pid": 4040
+          },
+          {
+            "message": 7,
+            "native_pid": 24120
+          },
+          {
+            "message": 7,
+            "native_pid": 21320
+          },
+          {
+            "message": 7,
+            "native_pid": 6260
+          },
+          {
+            "message": 7,
+            "native_pid": 19424
+          },
+          {
+            "message": 7,
+            "native_pid": 25264
+          },
+          {
+            "message": 7,
+            "native_pid": 31484
+          },
+          {
+            "message": 7,
+            "native_pid": 3160
+          },
+          {
+            "message": 7,
+            "native_pid": 21860
+          },
+          {
+            "message": 7,
+            "native_pid": 15336
+          },
+          {
+            "message": 7,
+            "native_pid": 548
+          },
+          {
+            "message": 4,
+            "native_pid": null
+          }
+        ],
+        "largest_sample_gap_seconds": 0.14043129998026416,
+        "maximum_sampled_disk_bytes": 24794275,
+        "maximum_sampled_job_commit_bytes": 1944023040,
+        "minimum_sampled_free_bytes": 47484182528,
+        "monitor_seconds": 242.91118039999856,
+        "os_peak_job_memory_bytes": 1947422720,
+        "samples": 1830,
+        "scope": "hard job committed-memory limit; time/disk polled, may overshoot; parent and separately capped analysis outside this job; OS peak charge can include denied allocations"
+      },
+      "seconds": 242.96380739999586
+    },
+    "sha256": "780118fd5058426ccf5aa594175fc11dbb32f8fe076e02c66cb0851d45f53c0f"
+  },
+  "scope": "four sequential capped jobs; parent/build/environment/archive outside jobs; time/disk sampled, memory hard Windows job committed limit; no whole-host claim"
+}

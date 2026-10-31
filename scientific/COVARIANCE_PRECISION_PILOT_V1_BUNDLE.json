@@ -1,0 +1,49 @@
+{
+  "bytes": 42985066,
+  "crc_verified": true,
+  "entries": 637,
+  "name": "lmm-covariance-precision-pilot-v1-20261016.zip",
+  "public_copies": [
+    {
+      "path": "COVARIANCE_PRECISION_PILOT_V1.json",
+      "sha256": "193cdd1654870bd3dce5d7918cec5d786ce94fdb82c1669aca41a62899189a6a"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_PILOT_V1_ACCEPTANCE.json",
+      "sha256": "9db15ec72484e1121b842a547b3be0692b67ef942efed957edcf0fa9308d8fe9"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_PILOT_V1_BUILD_INPUTS.json",
+      "sha256": "579d4dfe6c0b860886040251172ac8a2aef08bb09fe97aa967fb4cf7de1554c8"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_PILOT_V1_FREEZE.json",
+      "sha256": "e2fc7350febe768f570fb1c25d55d56205fb499ec8f3e21a4ea961fd3a976513"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_PILOT_V1_R_CHECK.json",
+      "sha256": "8b8cfd9804c99d93b4b2ca156df6b87ff27dee5c9edb1250e4638e030568be1b"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_PILOT_V1_RESOURCES.json",
+      "sha256": "680cecc36a773059d067f0fa963dd129a8170057dccb2e5f0156d4821e28e702"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_REPAIR_DIAGNOSTIC.json",
+      "sha256": "852698cf2dc033c5375591a70a0cd08192662e6289b695a8d41967dcf0471c69"
+    },
+    {
+      "path": "COVARIANCE_PRECISION_REPAIR_PERFORMANCE.json",
+      "sha256": "85f3b6636f15e879300668dc08bcb8e50935d4d51a77e047e71a984ac12343bc",
+      "archive_original_sha256": "6f2d47c4b00d476bd2678c8bbeedb09ef70ac55568a68682f69d0459cb10e737",
+      "redaction": "Two machine-local data_dir paths replaced with the repository-relative fixture directory; archived original remains unchanged."
+    },
+    {
+      "path": "COVARIANCE_PRECISION_REPAIR_RAW_POINTS.json",
+      "sha256": "d69312a015d51dae27e6d844ccefb4c26611024b2c55103a32dfd72fa96ba3b6"
+    }
+  ],
+  "publication": "local archive; not uploaded",
+  "scope": "Frozen study inputs,9,400 durable starts/outcomes,136 sources,64 engine pre-build hashes,new wheel and package versions,all execution/analysis/R-check/cap-control receipts; independent fixed-point diagnostics,all retained performance attempts and fixtures,sanitized console logs and baseline optimizer source snapshots. Installed environments excluded.",
+  "sha256": "ca3a1a675b7bbc9c3520c88378f54b3a0d9e8f2ff051806d0eb0d97e2e4fe69d"
+}

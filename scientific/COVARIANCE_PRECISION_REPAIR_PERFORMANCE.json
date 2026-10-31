@@ -1,0 +1,393 @@
+{
+  "excluded_observations": "Earlier prototype and final reports retained in local raw archive. The earlier final pair overlapped another verification job; excluded from comparisons here.",
+  "inputs": [
+    {
+      "after": {
+        "name": "covariance-precision-20261016-serial.json",
+        "provenance": {
+          "cargo_encoded_rustflags": null,
+          "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+          "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+          "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+          "rust_binary_sha256": "5f5029ce722b329fac6b25ad52704b880bcc3428151abc51578186f47845e014",
+          "rust_build_verified_this_run": true,
+          "rustflags": null,
+          "source_content_sha256": "2b1106a3b61224d4aec02c16ac0e2de5baca635d4c3e8d7831f9a7caf37342bf",
+          "thread_environment": {
+            "JULIA_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "POLARS_MAX_THREADS": "1",
+            "RAYON_NUM_THREADS": "1"
+          },
+          "working_tree_dirty": true,
+          "working_tree_status": "M CHANGELOG.md\n M docs/work/README.md\n M src/optimizer.rs\n M src/optimizer/basin_backend.rs\n M tests/test_model_contracts.rs\n?? docs/LMM_COVARIANCE_PRECISION_PILOT_PROTOCOL.md\n?? docs/work/2026-10-16-covariance-precision-recovery.md\n?? examples/diagnose_covariance_precision.rs\n?? scripts/complete_lmm_covariance_precision.py\n?? scripts/diagnose_lmm_covariance_precision.py\n?? scripts/lmm_covariance_precision_pilot.py\n?? scripts/report_lmm_covariance_precision_pilot.py\n?? scripts/tests/test_lmm_covariance_precision_pilot.py\n?? scripts/verify_lmm_covariance_caps.py\n?? tests/data/stopping_control_counterexample_bits.json"
+        },
+        "sha256": "21986096410cd41f6c8bea53fe25c3be3b9929d503a9104d87283ca4b691e235"
+      },
+      "backend": "argmin",
+      "before": {
+        "name": "covariance-precision-20261016-before.json",
+        "provenance": {
+          "cargo_encoded_rustflags": null,
+          "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+          "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+          "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+          "rust_binary_sha256": "e59c09c90326460778945716141cb07e03dc96509c64c0826042c6e232db6834",
+          "rust_build_verified_this_run": true,
+          "rustflags": null,
+          "source_content_sha256": "3f118114275a4de9b403c3a715b78a06e5d69e950898ab18fdb3f62b6f9d8c8c",
+          "thread_environment": {
+            "JULIA_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "POLARS_MAX_THREADS": "1",
+            "RAYON_NUM_THREADS": "1"
+          },
+          "working_tree_dirty": true,
+          "working_tree_status": "M docs/work/README.md\n M tests/test_model_contracts.rs\n?? docs/work/2026-10-16-covariance-precision-recovery.md\n?? tests/data/stopping_control_counterexample_bits.json"
+        },
+        "sha256": "48619c6792c48883438f96c03d832b00629770ff2ead339fea879f13cac015ef"
+      },
+      "config": {
+        "cases": [
+          "sleepstudy_reml",
+          "sleepstudy_weighted_reml",
+          "large_random_slopes_100k",
+          "random_intercept_10k",
+          "crossed_20k"
+        ],
+        "data_dir": "benchmark-results/fair-rust-julia-data",
+        "implementations": [
+          "rust"
+        ],
+        "order": "rust-first",
+        "repeats": 11,
+        "rust_features": [],
+        "target_ratio": 1.0,
+        "threads": 1,
+        "timeout_seconds": 3600,
+        "warmups": 3,
+        "with_phases": true
+      },
+      "machine": {
+        "cpu_count": 12,
+        "cpu_model": "AMD Ryzen 5 8600G w/ Radeon 760M Graphics",
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26300-SP0",
+        "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+        "python_version": "3.11.15",
+        "release": "10",
+        "system": "Windows"
+      },
+      "runtime_versions": {
+        "julia": "julia version 1.12.6",
+        "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)"
+      }
+    },
+    {
+      "after": {
+        "name": "covariance-precision-20261016-basin-serial.json",
+        "provenance": {
+          "cargo_encoded_rustflags": null,
+          "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+          "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+          "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+          "rust_binary_sha256": "c5dadcc583493cee567134c2cdcd106b432e2961e12ab9b9ed80fe560c9e5c79",
+          "rust_build_verified_this_run": true,
+          "rustflags": null,
+          "source_content_sha256": "2b1106a3b61224d4aec02c16ac0e2de5baca635d4c3e8d7831f9a7caf37342bf",
+          "thread_environment": {
+            "JULIA_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "POLARS_MAX_THREADS": "1",
+            "RAYON_NUM_THREADS": "1"
+          },
+          "working_tree_dirty": true,
+          "working_tree_status": "M CHANGELOG.md\n M docs/work/README.md\n M src/optimizer.rs\n M src/optimizer/basin_backend.rs\n M tests/test_model_contracts.rs\n?? docs/LMM_COVARIANCE_PRECISION_PILOT_PROTOCOL.md\n?? docs/work/2026-10-16-covariance-precision-recovery.md\n?? examples/diagnose_covariance_precision.rs\n?? scripts/complete_lmm_covariance_precision.py\n?? scripts/diagnose_lmm_covariance_precision.py\n?? scripts/lmm_covariance_precision_pilot.py\n?? scripts/report_lmm_covariance_precision_pilot.py\n?? scripts/tests/test_lmm_covariance_precision_pilot.py\n?? scripts/verify_lmm_covariance_caps.py\n?? tests/data/stopping_control_counterexample_bits.json"
+        },
+        "sha256": "868a6c9477ab877550e8c223a58919367e2082e595d72314b37df99cd7dcc10a"
+      },
+      "backend": "basin",
+      "before": {
+        "name": "covariance-precision-20261016-basin-before.json",
+        "provenance": {
+          "cargo_encoded_rustflags": null,
+          "cargo_lock_sha256": "ff0f30a70adee84914267493d738f8a1fcc6200485e504a9246b26a77e58c3b3",
+          "evidence_code_sha256": "adb1ca1e715ca24e6c734a8631a613723cfb9abb0fc2cbe5cb0567cf81603205",
+          "harness_sha256": "3635653ce4f5b6293c79ce7c1e177e6a0acd92827016025b3b9d3fc2c2346621",
+          "rust_binary_sha256": "242247184745331c1e727634dde0b077bc1d13424b2ef4f0a66a80a19572ddf0",
+          "rust_build_verified_this_run": true,
+          "rustflags": null,
+          "source_content_sha256": "3f118114275a4de9b403c3a715b78a06e5d69e950898ab18fdb3f62b6f9d8c8c",
+          "thread_environment": {
+            "JULIA_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "POLARS_MAX_THREADS": "1",
+            "RAYON_NUM_THREADS": "1"
+          },
+          "working_tree_dirty": true,
+          "working_tree_status": "M docs/work/README.md\n M tests/test_model_contracts.rs\n?? docs/work/2026-10-16-covariance-precision-recovery.md\n?? tests/data/stopping_control_counterexample_bits.json"
+        },
+        "sha256": "6df444e336ec89e7715b2ac5dd5aa1365dfd49974081da107c3358d2a2a992c1"
+      },
+      "config": {
+        "cases": [
+          "sleepstudy_reml",
+          "sleepstudy_weighted_reml",
+          "large_random_slopes_100k",
+          "random_intercept_10k",
+          "crossed_20k"
+        ],
+        "data_dir": "benchmark-results/fair-rust-julia-data",
+        "implementations": [
+          "rust"
+        ],
+        "order": "rust-first",
+        "repeats": 11,
+        "rust_features": [
+          "basin"
+        ],
+        "target_ratio": 1.0,
+        "threads": 1,
+        "timeout_seconds": 3600,
+        "warmups": 3,
+        "with_phases": true
+      },
+      "machine": {
+        "cpu_count": 12,
+        "cpu_model": "AMD Ryzen 5 8600G w/ Radeon 760M Graphics",
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26300-SP0",
+        "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+        "python_version": "3.11.15",
+        "release": "10",
+        "system": "Windows"
+      },
+      "runtime_versions": {
+        "julia": "julia version 1.12.6",
+        "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)"
+      }
+    }
+  ],
+  "measurement_policy": "3 warmups/11 repeats, one numerical thread, same fixtures; final serial runs without concurrent tests/builds/fits; baseline first, not a randomized order-balanced campaign",
+  "results": [
+    {
+      "all_converged": true,
+      "backend": "argmin",
+      "case": "sleepstudy_reml",
+      "iterations_after": 71,
+      "iterations_before": 68,
+      "max_coefficient_change": 8.810729923425242e-13,
+      "objective_change": -8.276938388007693e-07,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.3837093563370937,
+          "after_seconds": 0.0008341,
+          "before_seconds": 0.0006028
+        },
+        "fit_prepared": {
+          "after_over_before": 1.3875589725668356,
+          "after_seconds": 0.0007941,
+          "before_seconds": 0.0005723
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "argmin",
+      "case": "sleepstudy_weighted_reml",
+      "iterations_after": 59,
+      "iterations_before": 56,
+      "max_coefficient_change": 1.2434497875801753e-13,
+      "objective_change": -1.8466346318746218e-06,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.4143447779974834,
+          "after_seconds": 0.0007868,
+          "before_seconds": 0.0005563
+        },
+        "fit_prepared": {
+          "after_over_before": 1.4500611496127191,
+          "after_seconds": 0.0007114,
+          "before_seconds": 0.0004906
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "argmin",
+      "case": "large_random_slopes_100k",
+      "iterations_after": 92,
+      "iterations_before": 90,
+      "max_coefficient_change": 3.142337501316206e-10,
+      "objective_change": -1.3336539268493652e-06,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.1279103954990906,
+          "after_seconds": 0.0763416,
+          "before_seconds": 0.0676841
+        },
+        "fit_prepared": {
+          "after_over_before": 1.1961591701974428,
+          "after_seconds": 0.0511559,
+          "before_seconds": 0.0427668
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "argmin",
+      "case": "random_intercept_10k",
+      "iterations_after": 24,
+      "iterations_before": 24,
+      "max_coefficient_change": 0.0,
+      "objective_change": 0.0,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 0.945706929363036,
+          "after_seconds": 0.0008448,
+          "before_seconds": 0.0008933
+        },
+        "fit_prepared": {
+          "after_over_before": 1.0087527352297592,
+          "after_seconds": 0.0002305,
+          "before_seconds": 0.0002285
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "argmin",
+      "case": "crossed_20k",
+      "iterations_after": 74,
+      "iterations_before": 74,
+      "max_coefficient_change": 0.0,
+      "objective_change": 0.0,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 0.9762357626325292,
+          "after_seconds": 0.0262789,
+          "before_seconds": 0.0269186
+        },
+        "fit_prepared": {
+          "after_over_before": 0.9881886747480251,
+          "after_seconds": 0.0232169,
+          "before_seconds": 0.0234944
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "basin",
+      "case": "sleepstudy_reml",
+      "iterations_after": 71,
+      "iterations_before": 68,
+      "max_coefficient_change": 1.9895196601282805e-13,
+      "objective_change": -8.276797416328918e-07,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.3922491850778704,
+          "after_seconds": 0.0007688,
+          "before_seconds": 0.0005522
+        },
+        "fit_prepared": {
+          "after_over_before": 1.4299749566557503,
+          "after_seconds": 0.0007423,
+          "before_seconds": 0.0005191
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "basin",
+      "case": "sleepstudy_weighted_reml",
+      "iterations_after": 60,
+      "iterations_before": 56,
+      "max_coefficient_change": 5.684341886080802e-14,
+      "objective_change": -1.8466705569153419e-06,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.5608813297255508,
+          "after_seconds": 0.0008076,
+          "before_seconds": 0.0005174
+        },
+        "fit_prepared": {
+          "after_over_before": 1.6125139664804469,
+          "after_seconds": 0.0007216,
+          "before_seconds": 0.0004475
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "basin",
+      "case": "large_random_slopes_100k",
+      "iterations_after": 93,
+      "iterations_before": 90,
+      "max_coefficient_change": 3.164239981146011e-10,
+      "objective_change": -1.3467943063005805e-06,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.0985210052414796,
+          "after_seconds": 0.071237,
+          "before_seconds": 0.0648481
+        },
+        "fit_prepared": {
+          "after_over_before": 1.2632189410557053,
+          "after_seconds": 0.0530389,
+          "before_seconds": 0.0419871
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "basin",
+      "case": "random_intercept_10k",
+      "iterations_after": 24,
+      "iterations_before": 24,
+      "max_coefficient_change": 0.0,
+      "objective_change": 0.0,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 1.007076266427047,
+          "after_seconds": 0.0008966,
+          "before_seconds": 0.0008903
+        },
+        "fit_prepared": {
+          "after_over_before": 0.9021879021879021,
+          "after_seconds": 0.0002103,
+          "before_seconds": 0.0002331
+        }
+      }
+    },
+    {
+      "all_converged": true,
+      "backend": "basin",
+      "case": "crossed_20k",
+      "iterations_after": 74,
+      "iterations_before": 74,
+      "max_coefficient_change": 0.0,
+      "objective_change": 0.0,
+      "timings": {
+        "cold_fit": {
+          "after_over_before": 0.994098363152464,
+          "after_seconds": 0.0261089,
+          "before_seconds": 0.0262639
+        },
+        "fit_prepared": {
+          "after_over_before": 0.9978870409499241,
+          "after_seconds": 0.023094,
+          "before_seconds": 0.0231429
+        }
+      }
+    }
+  ],
+  "scope": "local correctness/performance tradeoff; Rust-only cases, no Julia comparison or general parity/speed claim"
+}

@@ -75,11 +75,15 @@ fn coordinate_simplex(theta: &Array1<f64>) -> Vec<Array1<f64>> {
     coordinate_simplex_with_step(theta, 0.2)
 }
 
-fn coordinate_simplex_with_step(theta: &Array1<f64>, step: f64) -> Vec<Array1<f64>> {
+fn coordinate_simplex_with_step(
+    theta: &Array1<f64>,
+    step: impl Into<super::SimplexStep>,
+) -> Vec<Array1<f64>> {
+    let step = step.into();
     let mut simplex = vec![theta.clone()];
     for i in 0..theta.len() {
         let mut vertex = theta.clone();
-        vertex[i] += step;
+        vertex[i] += step.at(i);
         simplex.push(vertex);
     }
     simplex

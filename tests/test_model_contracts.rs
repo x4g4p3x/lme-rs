@@ -105,6 +105,124 @@ fn correlated_slopes_recover_near_zero_column_scaling_counterexample() {
 }
 
 #[test]
+fn correlated_slopes_recover_small_nonzero_diagonal_counterexample() {
+    check_stopping_control_counterexample(0);
+}
+
+#[test]
+fn correlated_slopes_resolve_small_covariance_entry_counterexample() {
+    check_stopping_control_counterexample(1);
+}
+
+#[test]
+fn correlated_slopes_resolve_large_sample_covariance_entry_counterexample() {
+    check_stopping_control_counterexample(2);
+}
+
+fn check_stopping_control_counterexample(index: usize) {
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+        "data/stopping_control_counterexample_bits.json"
+    ))
+    .unwrap();
+    let raw = &fixtures["fixtures"][index];
+    let doubles = |key: &str| -> Vec<f64> {
+        raw[key]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| f64::from_bits(v.as_u64().unwrap()))
+            .collect()
+    };
+    let original_x = doubles("x_bits");
+    let original_y = doubles("y_bits");
+    let original_groups: Vec<_> = raw["group"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| format!("g{:03}", v.as_u64().unwrap()))
+        .collect();
+    let expected = &raw["oracle"];
+    let criterion = expected["criterion"].as_f64().unwrap();
+    for (yscale, xscale, reverse, custom_start) in [
+        (1.0_f64, 1.0_f64, false, false),
+        (0.1, 1.0, false, false),
+        (10.0, 1.0, false, false),
+        (1.0, 0.25, false, false),
+        (1.0, 4.0, false, false),
+        (1.0, 1.0, true, false),
+        (1.0, 1.0, false, true),
+    ] {
+        let mut x: Vec<_> = original_x.iter().map(|v| v * xscale).collect();
+        let mut y: Vec<_> = original_y.iter().map(|v| v * yscale).collect();
+        let mut groups = original_groups.clone();
+        if reverse {
+            x.reverse();
+            y.reverse();
+            groups.reverse();
+        }
+        let data = df!["x" => x, "y" => y, "group" => groups].unwrap();
+        let prepared = lme_rs::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        let control = lme_rs::FitControl {
+            tolerance: 1e-10,
+            max_iterations: 5000,
+            start: custom_start.then(|| Array1::from_vec(vec![0.1, 0.05, 0.2])),
+            ..Default::default()
+        };
+        let fit = prepared.fit(None, true, &control).unwrap();
+        // REML transforms by the residual degrees of freedom and fixed-design determinant.
+        let shift = 2.0 * (data.height() - 2) as f64 * yscale.ln() + 2.0 * xscale.ln();
+        assert!((fit.reml.unwrap() - shift - criterion).abs() <= 1e-6 + 1e-8 * criterion.abs(),
+            "case={}, scales=({yscale},{xscale}), reverse={reverse}, custom={custom_start}, criterion={}, expected={criterion}", raw["case"], fit.reml.unwrap()-shift);
+        assert_eq!(fit.converged, Some(true));
+        assert!(fit.diagnostics.as_ref().unwrap().outer_iterations <= control.max_iterations);
+        let s = fit.sigma2.unwrap() / yscale.powi(2);
+        let t = fit.theta.unwrap();
+        let actual = [
+            [s * t[0] * t[0], s * t[0] * t[1] * xscale],
+            [
+                s * t[0] * t[1] * xscale,
+                s * (t[1] * t[1] + t[2] * t[2]) * xscale.powi(2),
+            ],
+        ];
+        let expected_sigma = expected["sigma2"].as_f64().unwrap();
+        let expected_covariance = [
+            [
+                expected["covariance"][0][0].as_f64().unwrap(),
+                expected["covariance"][0][1].as_f64().unwrap(),
+            ],
+            [
+                expected["covariance"][1][0].as_f64().unwrap(),
+                expected["covariance"][1][1].as_f64().unwrap(),
+            ],
+        ];
+        let scale = 1.0_f64
+            .max(s)
+            .max(expected_sigma)
+            .max(actual[0][0] + actual[1][1])
+            .max(expected_covariance[0][0] + expected_covariance[1][1]);
+        assert!((s - expected_sigma).abs() <= 1e-6 * scale + 1e-3 * expected_sigma.abs());
+        let rank = |matrix: [[f64; 2]; 2], sigma: f64| {
+            let half = (matrix[0][0] + matrix[1][1]) / 2.0;
+            let radius = ((matrix[0][0] - matrix[1][1]) / 2.0).hypot(matrix[0][1]);
+            let scale = (matrix[0][0] + matrix[1][1]).max(sigma);
+            assert!(half - radius >= -1e-12 * scale);
+            [half - radius, half + radius]
+                .iter()
+                .filter(|v| **v > 1e-8 * scale)
+                .count()
+        };
+        assert_eq!(rank(actual, s), rank(expected_covariance, expected_sigma));
+        for i in 0..2 {
+            for j in 0..2 {
+                let target = expected["covariance"][i][j].as_f64().unwrap();
+                assert!((actual[i][j] - target).abs() <= 1e-6 * scale + 1e-3 * target.abs(),
+                "case={}, scales=({yscale},{xscale}), reverse={reverse}, custom={custom_start}, covariance[{i},{j}]={}, expected={target}", raw["case"], actual[i][j]);
+            }
+        }
+    }
+}
+
+#[test]
 fn correlated_slopes_recover_near_zero_column_zero_slope_counterexample() {
     check_near_zero_column_counterexample(1);
 }

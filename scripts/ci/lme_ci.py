@@ -1730,6 +1730,23 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     os.chdir(ROOT)
+    if args.command in {"ci", "windows-lld-ci", "preflight"} and not os.environ.get(
+        "LME_CI_RETENTION_CHILD"
+    ):
+        env = os.environ.copy()
+        env["LME_CI_RETENTION_CHILD"] = "1"
+        original = list(sys.argv[1:] if argv is None else argv)
+        return subprocess.call(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "ci" / "ci_artifact_retention.py"),
+                sys.executable,
+                str(Path(__file__).resolve()),
+                *original,
+            ],
+            cwd=ROOT,
+            env=env,
+        )
     os.environ.setdefault("CARGO_TERM_COLOR", "always")
     r_project = ROOT / "comparisons" / "r"
     os.environ.setdefault("RENV_PROJECT", str(r_project))

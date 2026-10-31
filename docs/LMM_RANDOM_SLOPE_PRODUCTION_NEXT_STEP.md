@@ -2,7 +2,10 @@
 
 Created 16 October 2026. Start this milestone only after the repaired engine's
 fresh numerical pilot and independent review have no candidate/selected-reference
-blocker. Follow the [repair record](work/2026-10-16-near-zero-column-recovery.md).
+blocker. The [covariance-precision pilot](../scientific/COVARIANCE_PRECISION_PILOT_V1.md)
+now passes that bounded numerical gate and independent result audit; preserve all
+earlier failed pilots. Follow the current
+[repair record](work/2026-10-16-covariance-precision-recovery.md).
 This plan authorizes no confirmation inputs, production campaign or release.
 
 ## Fixed scientific target

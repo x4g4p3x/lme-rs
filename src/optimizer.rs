@@ -124,18 +124,19 @@ fn nelder_mead_argmin<C>(
     lower_bounds: &[f64],
     max_iters: u64,
     tolerance: f64,
-    step: f64,
+    step: impl Into<SimplexStep>,
     cost: C,
 ) -> Result<OptimizeResult, anyhow::Error>
 where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
 {
     let n = init_theta.len();
+    let step = step.into();
     let mut initial_simplex = vec![init_theta.to_vec()];
 
     for i in 0..n {
         let mut param = init_theta.clone();
-        param[i] += step;
+        param[i] += step.at(i);
         clamp_theta(&mut param, lower_bounds);
         initial_simplex.push(param.to_vec());
     }
@@ -191,10 +192,30 @@ fn covariance_columns(blocks: &[ReBlock]) -> Vec<Range<usize>> {
     columns
 }
 
+enum SimplexStep {
+    Uniform(f64),
+    Coordinates(Array1<f64>),
+}
+
+impl From<f64> for SimplexStep {
+    fn from(step: f64) -> Self {
+        Self::Uniform(step)
+    }
+}
+
+impl SimplexStep {
+    fn at(&self, index: usize) -> f64 {
+        match self {
+            Self::Uniform(step) => *step,
+            Self::Coordinates(steps) => steps[index],
+        }
+    }
+}
+
 struct CovarianceRestart {
     point: Array1<f64>,
     cost: f64,
-    step: f64,
+    step: SimplexStep,
 }
 
 fn covariance_restart_with_eval(
@@ -209,20 +230,50 @@ fn covariance_restart_with_eval(
     let improvement = tolerance.max(64.0 * f64::EPSILON * best_cost.abs().max(1.0));
     for column in columns {
         let diagonal = column.start;
-        if !vertices.iter().all(|v| v[diagonal].abs() <= resolution) {
-            continue;
+        let at_boundary = vertices.iter().all(|v| v[diagonal].abs() <= resolution);
+        let mut origin = best.clone();
+        for i in column.clone() {
+            origin[i] = 0.0;
         }
-        // At a zero diagonal, reversing the rest of its Cholesky column
-        // preserves Lambda*Lambda'. Probe both equivalent orientations before
-        // declaring convergence on a face that the simplex cannot leave.
-        let has_orientation = (diagonal + 1..column.end).any(|i| best[i] != 0.0);
+        let origin_cost = if column.clone().all(|i| best[i] == 0.0) {
+            best_cost
+        } else {
+            eval(&origin)?
+        };
+        // A residual diagonal, as well as an off-diagonal, can exceed coordinate
+        // resolution while the entire column is invisible in the objective.
+        let equivalent = origin_cost.is_finite()
+            && origin_cost != f64::MAX
+            && origin_cost - best_cost <= improvement;
+        // A feasible centered precision stencil cannot straddle this diagonal.
+        // Check feasible directions from its face instead, even when the tiny
+        // origin penalty exceeds the requested cost tolerance. This is a probe,
+        // not a declaration that the origin and incumbent are equivalent.
+        let stencil_boundary = best[diagonal] < covariance_difference_step(best[diagonal]);
+        if equivalent && best_cost - origin_cost > improvement {
+            return Ok(Some(CovarianceRestart {
+                point: origin,
+                cost: origin_cost,
+                step: 0.2.into(),
+            }));
+        }
+        let base = if at_boundary {
+            best
+        } else if equivalent || stencil_boundary {
+            &origin
+        } else {
+            continue;
+        };
+        // Reverse a nonzero column only on its zero-diagonal face. At the
+        // objective-equivalent exact origin both orientations coincide.
+        let has_orientation = (diagonal + 1..column.end).any(|i| base[i] != 0.0);
         let mut step = 0.2;
         while step >= resolution {
             for reverse in [false, true] {
                 if reverse && !has_orientation {
                     continue;
                 }
-                let mut point = best.clone();
+                let mut point = base.clone();
                 if reverse {
                     for i in diagonal + 1..column.end {
                         point[i] = -point[i];
@@ -231,47 +282,119 @@ fn covariance_restart_with_eval(
                 point[diagonal] += step;
                 let cost = eval(&point)?;
                 if cost.is_finite() && best_cost - cost > improvement {
-                    return Ok(Some(CovarianceRestart { point, cost, step }));
+                    return Ok(Some(CovarianceRestart {
+                        point,
+                        cost,
+                        step: step.into(),
+                    }));
                 }
             }
             step *= 0.5;
         }
-        if column.len() > 1 {
-            let mut origin = best.clone();
-            for i in column.clone() {
-                origin[i] = 0.0;
-            }
-            let origin_cost = if column.clone().all(|i| best[i] == 0.0) {
-                best_cost
-            } else {
-                eval(&origin)?
-            };
-            // A tiny residual off-diagonal can exceed coordinate resolution
-            // while its covariance contribution is invisible in the objective.
-            // Test equivalence in cost, then estimate curvature at an exactly
-            // zero column, where reversing the whole column is truly even.
-            if origin_cost.is_finite() && origin_cost - best_cost <= improvement {
-                if best_cost - origin_cost > improvement {
-                    return Ok(Some(CovarianceRestart {
-                        point: origin,
-                        cost: origin_cost,
-                        step: 0.2,
-                    }));
-                }
-                if let Some(restart) = zero_column_restart(
-                    &origin,
-                    origin_cost,
-                    best_cost,
-                    column.clone(),
-                    improvement,
-                    &mut eval,
-                )? {
-                    return Ok(Some(restart));
-                }
+        // Estimate joint curvature at an exactly zero column, where reversing
+        // the whole column is truly even; always compare against the incumbent.
+        if (equivalent || stencil_boundary) && column.len() > 1 {
+            if let Some(restart) = zero_column_restart(
+                &origin,
+                origin_cost,
+                best_cost,
+                column.clone(),
+                improvement,
+                &mut eval,
+            )? {
+                return Ok(Some(restart));
             }
         }
     }
-    Ok(None)
+    covariance_precision_restart(best, best_cost, columns, &mut eval)
+}
+
+fn covariance_difference_step(value: f64) -> f64 {
+    // Balances truncation and subtraction error for centered second differences.
+    f64::EPSILON.sqrt().sqrt() * (1.0 + value.abs())
+}
+
+/// A small simplex cost spread need not resolve weak covariance coordinates.
+/// Try bounded coordinate-wise quadratic corrections using feasible centered
+/// stencils. This is a local precision heuristic, not a stationarity certificate.
+fn covariance_precision_restart(
+    best: &Array1<f64>,
+    best_cost: f64,
+    columns: &[Range<usize>],
+    eval: &mut impl FnMut(&Array1<f64>) -> Result<f64, Error>,
+) -> Result<Option<CovarianceRestart>, anyhow::Error> {
+    if !best_cost.is_finite() || best_cost == f64::MAX {
+        return Ok(None);
+    }
+    let mut point = best.clone();
+    let mut cost = best_cost;
+    let mut steps = best.mapv(|v| f64::EPSILON.sqrt() * (1.0 + v.abs()));
+    for i in 0..point.len() {
+        let center = point[i];
+        let h = covariance_difference_step(center);
+        let plus = center + h;
+        let minus = center - h;
+        if !plus.is_finite()
+            || !minus.is_finite()
+            || plus == center
+            || minus == center
+            || (columns.iter().any(|column| column.start == i) && minus < 0.0)
+        {
+            continue;
+        }
+        point[i] = plus;
+        let upper = eval(&point)?;
+        point[i] = minus;
+        let lower = eval(&point)?;
+        point[i] = center;
+        let valid = |v: f64| v.is_finite() && v != f64::MAX;
+        let scale = [cost, upper, lower]
+            .into_iter()
+            .filter(|v| valid(*v))
+            .map(f64::abs)
+            .fold(1.0, f64::max);
+        let floor = 64.0 * f64::EPSILON * scale;
+        let mut retained = center;
+        let mut retained_cost = cost;
+        // Every sampled point is real evidence, even if curvature is unresolved
+        // or negative. Preserve the best verified endpoint before interpolation.
+        for (value, sampled) in [(plus, upper), (minus, lower)] {
+            if valid(sampled) && retained_cost - sampled > floor {
+                retained = value;
+                retained_cost = sampled;
+            }
+        }
+        let curvature = (upper - cost) + (lower - cost);
+        if valid(upper) && valid(lower) && curvature.is_finite() && curvature > floor {
+            let delta = (0.5 * h * ((lower - cost) - (upper - cost)) / curvature).clamp(-h, h);
+            let candidate = center + delta;
+            if candidate.is_finite() && candidate != center {
+                point[i] = candidate;
+                let candidate_cost = eval(&point)?;
+                if valid(candidate_cost) && retained_cost - candidate_cost > floor {
+                    retained = candidate;
+                    retained_cost = candidate_cost;
+                }
+            }
+        }
+        point[i] = retained;
+        if retained != center {
+            steps[i] = (retained - center).abs().max(steps[i]);
+            cost = retained_cost;
+        }
+    }
+    if cost < best_cost {
+        // Use the verified displacement for changed coordinates; the others
+        // get a representable local step in their own units, not the largest
+        // coordinate's scale. The caller still charges a shared restart iteration.
+        Ok(Some(CovarianceRestart {
+            point,
+            cost,
+            step: SimplexStep::Coordinates(steps),
+        }))
+    } else {
+        Ok(None)
+    }
 }
 
 /// A missing covariance column is a quadratic direction at zero: coordinate
@@ -287,7 +410,11 @@ fn zero_column_restart(
     eval: &mut impl FnMut(&Array1<f64>) -> Result<f64, Error>,
 ) -> Result<Option<CovarianceRestart>, anyhow::Error> {
     use ndarray_linalg::{Eigh, UPLO};
+    if !origin_cost.is_finite() || origin_cost == f64::MAX {
+        return Ok(None);
+    }
     let n = column.len();
+    let mut retained: Option<CovarianceRestart> = None;
     'scales: for h in [0.01, 0.001] {
         let mut singles = Vec::with_capacity(n);
         let mut curvature = Array2::<f64>::zeros((n, n));
@@ -298,6 +425,13 @@ fn zero_column_restart(
             if !cost.is_finite() || cost == f64::MAX {
                 continue 'scales;
             }
+            if best_cost - cost > improvement && retained.as_ref().is_none_or(|r| cost < r.cost) {
+                retained = Some(CovarianceRestart {
+                    point: point.clone(),
+                    cost,
+                    step: h.into(),
+                });
+            }
             singles.push(cost);
             // The common h^2 factor does not affect eigenvectors. At an exactly
             // zero column the cost is even under reversing the entire column.
@@ -307,6 +441,15 @@ fn zero_column_restart(
                 let pair_cost = eval(&point)?;
                 if !pair_cost.is_finite() || pair_cost == f64::MAX {
                     continue 'scales;
+                }
+                if best_cost - pair_cost > improvement
+                    && retained.as_ref().is_none_or(|r| pair_cost < r.cost)
+                {
+                    retained = Some(CovarianceRestart {
+                        point: point.clone(),
+                        cost: pair_cost,
+                        step: h.into(),
+                    });
                 }
                 let mixed = (pair_cost - singles[i]) - (singles[j] - origin_cost);
                 curvature[(i, j)] = mixed;
@@ -335,12 +478,19 @@ fn zero_column_restart(
             }
             let cost = eval(&point)?;
             if cost.is_finite() && best_cost - cost > improvement {
-                return Ok(Some(CovarianceRestart { point, cost, step }));
+                return Ok(Some(match retained {
+                    Some(sample) if sample.cost < cost => sample,
+                    _ => CovarianceRestart {
+                        point,
+                        cost,
+                        step: step.into(),
+                    },
+                }));
             }
             step *= 0.5;
         }
     }
-    Ok(None)
+    Ok(retained)
 }
 
 /// REML deviance objective shared by the optimizer backends.
@@ -369,7 +519,7 @@ impl LmmObjective {
             let mut start = start;
             clamp_theta(&mut start, bounds);
             let mut iterations = 0;
-            let mut step = 0.2;
+            let mut step = SimplexStep::Uniform(0.2);
             loop {
                 let mut result = nelder_mead_argmin(
                     start,
@@ -1344,6 +1494,188 @@ mod tests {
     }
 
     #[test]
+    fn covariance_recovery_checks_small_nonzero_diagonal() {
+        let cost = |x: &Array1<f64>| -> Result<f64, Error> {
+            let norm = x.dot(x);
+            Ok(10.0 + norm - 2.4 * x[0] * x[1] + norm * norm)
+        };
+        for best in [array![3e-6, -2e-7], array![2e-5, 2e-7]] {
+            let best_cost = cost(&best).unwrap();
+            let restart = covariance_restart_with_eval(
+                &[best],
+                best_cost,
+                std::slice::from_ref(&(0..2)),
+                1e-10,
+                cost,
+            )
+            .unwrap()
+            .expect("objective equivalence must not depend on a diagonal cutoff");
+            assert!(restart.cost < best_cost - 1e-10);
+            assert!(restart.point[0] >= 0.0);
+            assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+        }
+    }
+
+    #[test]
+    fn covariance_recovery_resolves_interior_quadratic_precision() {
+        let target = array![0.8, 0.01, 0.5];
+        let cost = |x: &Array1<f64>| -> Result<f64, Error> {
+            assert!(x[0] >= 0.0 && x[2] >= 0.0);
+            Ok(10.0
+                + (x[0] - target[0]).powi(2)
+                + 0.05 * (x[1] - target[1]).powi(2)
+                + (x[2] - target[2]).powi(2))
+        };
+        let best = &target + &array![1e-5, 2e-5, -1e-5];
+        let best_cost = cost(&best).unwrap();
+        let restart = covariance_restart_with_eval(&[best], best_cost, &[0..2, 2..3], 1e-10, cost)
+            .unwrap()
+            .expect("resolved local descent after small cost spread");
+        assert!(restart.cost < best_cost - 1e-12);
+        assert!((&restart.point - &target).mapv(f64::abs).sum() < 1e-6);
+        assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+    }
+
+    #[test]
+    fn covariance_precision_rejects_unresolved_or_invalid_curvature() {
+        let best = array![0.5, 0.1, 0.5];
+        for kind in 0..5 {
+            let mut cost = |x: &Array1<f64>| -> Result<f64, Error> {
+                let norm = (x - &best).mapv(|v| v * v).sum();
+                Ok(match kind {
+                    0 => 10.0 + norm,
+                    1 => 1e8 + 1e-14 * norm,
+                    2 => {
+                        10.0 + (if norm == 0.0 {
+                            0.0
+                        } else if x[1] > best[1] {
+                            4.0 * f64::EPSILON * 10.0
+                        } else {
+                            -4.0 * f64::EPSILON * 10.0
+                        })
+                    }
+                    3 => {
+                        if norm == 0.0 {
+                            10.0
+                        } else {
+                            f64::MAX
+                        }
+                    }
+                    _ => {
+                        if norm == 0.0 {
+                            10.0
+                        } else {
+                            f64::NAN
+                        }
+                    }
+                })
+            };
+            let best_cost = cost(&best).unwrap();
+            assert!(
+                covariance_precision_restart(&best, best_cost, &[0..2, 2..3], &mut cost)
+                    .unwrap()
+                    .is_none(),
+                "kind={kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn covariance_precision_retains_sampled_descent_without_positive_curvature() {
+        for concave in [false, true] {
+            let best = array![0.5];
+            let mut cost = |x: &Array1<f64>| -> Result<f64, Error> {
+                Ok(if concave {
+                    10.0 - (x[0] - 0.5).powi(2)
+                } else {
+                    10.0 - x[0]
+                })
+            };
+            let initial = cost(&best).unwrap();
+            let restart = covariance_precision_restart(
+                &best,
+                initial,
+                std::slice::from_ref(&(0..1)),
+                &mut cost,
+            )
+            .unwrap()
+            .expect("retain evaluated descent even without positive curvature");
+            assert!(restart.cost < initial);
+            assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+        }
+    }
+
+    #[cfg(not(feature = "basin"))]
+    #[test]
+    fn covariance_precision_restart_shares_budget_and_retains_best() {
+        use polars::prelude::*;
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../tests/data/stopping_control_counterexample_bits.json"
+        ))
+        .unwrap();
+        let raw = &fixtures["fixtures"][1];
+        let values = |key: &str| -> Vec<f64> {
+            raw[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| f64::from_bits(v.as_u64().unwrap()))
+                .collect()
+        };
+        let group: Vec<_> = raw["group"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| format!("g{}", v.as_u64().unwrap()))
+            .collect();
+        let data = df!["x" => values("x_bits"), "y" => values("y_bits"), "group" => group].unwrap();
+        let prepared = crate::prepare_lmer("y ~ x + (1 + x | group)", &data).unwrap();
+        let bounds = compute_theta_lower_bounds(&prepared.lmm.re_blocks);
+        let objective = LmmObjective {
+            lmm: prepared.lmm.clone(),
+            reml: true,
+            lower_bounds: bounds.clone(),
+        };
+        let start = prepared.init_theta.clone();
+        let collapsed =
+            nelder_mead_argmin(start.clone(), &bounds, 5000, 1e-10, 0.2, objective.clone())
+                .unwrap();
+        assert!(collapsed.converged && collapsed.theta[0] > 0.1 && collapsed.theta[2] > 0.1);
+        let budget = collapsed.iterations + 1;
+        let result = objective
+            .clone()
+            .optimize(start, &bounds, budget, 1e-10)
+            .unwrap();
+        assert!(!result.converged);
+        assert_eq!(result.iterations, budget);
+        assert!(result.final_cost < collapsed.final_cost);
+        assert_eq!(objective.cost(&result.theta).unwrap(), result.final_cost);
+    }
+
+    #[test]
+    fn covariance_precision_uses_feasible_and_resolved_stencils() {
+        let best = array![1e-8, 0.01, 1e12];
+        let mut cost = |x: &Array1<f64>| -> Result<f64, Error> {
+            assert!(x[0] >= 0.0 && x[2] >= 0.0, "infeasible {x:?}");
+            Ok(10.0
+                + (x[0] - 1e-8).powi(2)
+                + (x[1] - 0.01001).powi(2)
+                + ((x[2] - 1e12) / 1e12).powi(2))
+        };
+        let initial = cost(&best).unwrap();
+        let restart = covariance_precision_restart(&best, initial, &[0..2, 2..3], &mut cost)
+            .unwrap()
+            .unwrap();
+        assert_eq!(restart.point[0], best[0]);
+        assert!((restart.point[1] - 0.01001).abs() < 1e-9);
+        assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+        for (i, &v) in restart.point.iter().enumerate() {
+            assert!(v + restart.step.at(i) > v);
+        }
+        assert!(restart.step.at(1) < 1e-4);
+    }
+
+    #[test]
     fn covariance_recovery_preserves_genuinely_nonzero_column_optima() {
         let best = array![0.0, 0.5];
         let restart = covariance_restart_with_eval(&[best], 10.0, &[0..2], 1e-12, |x| {
@@ -1384,6 +1716,34 @@ mod tests {
         assert!(restart.point[0] >= 0.0);
         assert!(restart.cost < 10.0 - 1e-8);
         assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+    }
+
+    #[test]
+    fn covariance_recovery_retains_improved_single_and_pair_curvature_samples() {
+        // A narrow even well lies on a differentiation sample, between the
+        // dyadic line-search points. Actual improvements must not be discarded.
+        for paired in [false, true] {
+            let cost = |x: &Array1<f64>| -> Result<f64, Error> {
+                let distance = ((x[0].abs() - 0.01) / 0.0001).powi(2)
+                    + if paired {
+                        ((x[1].abs() - 0.01) / 0.0001).powi(2)
+                    } else {
+                        0.0
+                    };
+                Ok(10.0 + x.dot(x) - 0.1 * (-distance).exp())
+            };
+            let restart = covariance_restart_with_eval(
+                &[array![0.0, 0.0]],
+                10.0,
+                std::slice::from_ref(&(0..2)),
+                1e-10,
+                cost,
+            )
+            .unwrap()
+            .unwrap();
+            assert!(restart.cost < 9.91, "paired={paired}");
+            assert_eq!(cost(&restart.point).unwrap(), restart.cost);
+        }
     }
 
     #[test]

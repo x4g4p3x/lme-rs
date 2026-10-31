@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a separately frozen covariance-precision pilot with a newly identified
+  engine, unchanged numerical gates and independently verified resource controls.
 - Add a fresh stopping-control pilot harness and a separate retained-fit analysis
   path with disk sampling that handles transient SQLite files and rejects denied
   directory scans, preserving historical scientific sources and outcomes.
@@ -18,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Use isolated local CI build generations and remove completed generations
+  after seven days without CI use; leave existing and explicitly configured
+  Cargo targets untouched.
 - Upgrade Rust and Python bindings together to Polars 0.55.2 and statrs 0.19.1,
   adapting frame construction and chunked-array iteration. Raise the supported
   Rust minimum to 1.95 and check native and shared-ABI bindings on that compiler.
@@ -27,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Recover random-slope covariance columns whose small nonzero diagonal bypassed
+  boundary checks, and refine resolved local covariance directions after simplex
+  convergence. Verify feasible objective decreases, retain true optima and share
+  the caller's iteration budget without changing its absolute stopping tolerance.
 - Recover correlated random-slope fits whose practically zero Cholesky column
   retains a tiny off-diagonal and falsely reports convergence. Classify the
   zero-column probe by its objective cost and verify joint improvements against
