@@ -60,9 +60,13 @@ integration has not yet been validated.
 
 ## Limitations and next action
 
-Commit the migration with normal hooks, integrate the updated default branch,
-and rerun affected validation and security audits against the combined head.
-Full `task lint`, `task rust`, local preflight, minimum-Rust, and hosted validation
-are still pending on the final integration. The prior base's Python lock has a
+The migration commit passed normal pre-commit hooks. The updated default
+branch was integrated, retaining both work-record index entries. On this
+combined tree, `task preflight` passed, including both Cargo audits; both locked
+Python environments also passed `pip-audit`. The Basin feature suite was repeated against the changed dependency locks:
+`task basin:check` passed again. Documentation links and staged whitespace
+checks passed on the combined tree.
+`task rust`, minimum-Rust, and hosted validation remain pending on the final
+integration; preflight included `task lint`. The prior base's Python lock has a
 known audit finding; do not merge until the repaired lock and fresh checks pass.
 Preserve unrelated work in the primary checkout.

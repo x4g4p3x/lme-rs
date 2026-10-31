@@ -5,7 +5,7 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "maturin>=1.8,<2",
     "polars>=1",
-    "pandas>=2",
+    "pandas>=3.1.0",
     "pyarrow>=14",
     "statsmodels>=0.14",
     "pip-audit>=2.6",
