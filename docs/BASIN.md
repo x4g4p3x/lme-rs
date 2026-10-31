@@ -110,6 +110,10 @@ The earlier [contributor comparison](../benchmarks/basin-optimizer-2026-09-10.md
 contains paired measurements and validation results for Basin 1.10.0 and Argmin
 on its recorded upstream revision.
 
+The Basin 3 backend disables Basin's additional default simplex stopping rules
+and retains the strict sample-standard-deviation tolerance specified by
+`FitControl`. Objective errors retain their original type.
+
 `task basin:check` runs feature-enabled Clippy, all-target checks, tests, and
 documentation. Ubuntu CI and `task ci` run it alongside the default backend.
 

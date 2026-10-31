@@ -1,7 +1,8 @@
 use super::{clamp_theta, covariance_columns, CostFunction, CovarianceRestart, OptimizeResult};
 use basin::{
-    run_loop_with_control, BasicSimplexState, BoxConstraints, NelderMead, Problem, RunControl,
-    SimplexState, TerminationReason,
+    run_loop_with_control, ApplicationStop, BoxBounds, ConstraintDescription, ConstraintSet,
+    ConstraintSolveError, Constraints, NelderMead, Problem, RunControl, SimplexProgress,
+    Termination,
 };
 use ndarray::Array1;
 use std::cell::RefCell;
@@ -42,16 +43,14 @@ where
     }
 }
 
-impl<C> BoxConstraints for BoundedObjective<C>
+impl<C> Constraints for BoundedObjective<C>
 where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
 {
-    fn lower(&self) -> &Self::Param {
-        &self.lower
-    }
+    type Set = ConstraintSet<BoxBounds<Array1<f64>>>;
 
-    fn upper(&self) -> &Self::Param {
-        &self.upper
+    fn constraints(&self) -> <Self::Set as ConstraintDescription>::Borrowed<'_> {
+        ConstraintSet::new().with_bounds(BoxBounds::new(Some(&self.lower), Some(&self.upper)))
     }
 }
 
@@ -120,7 +119,7 @@ pub(super) fn optimize_lmm(
 
 fn boundary_restart<C>(
     problem: &mut Problem<BoundedObjective<C>>,
-    state: &BasicSimplexState<Array1<f64>>,
+    state: &SimplexProgress<Array1<f64>>,
 ) -> Result<Option<Vec<Array1<f64>>>, anyhow::Error>
 where
     C: CostFunction<Param = Array1<f64>, Output = f64>,
@@ -206,20 +205,32 @@ where
     loop {
         let mut control = RunControl::new()
             .max_iter(max_iters - iterations)
-            .stop_when(move |state: &BasicSimplexState<Array1<f64>>| {
+            .stop_when(move |state: &SimplexProgress<Array1<f64>>| {
                 CostStandardDeviation(tolerance)
                     .converged(state.costs())
-                    .then_some(TerminationReason::SolverConverged)
+                    .then(|| ApplicationStop::new("lme.strict_cost_sd"))
             });
         let result = run_loop_with_control(
             &mut problem,
-            BasicSimplexState::from_simplex(simplex),
-            &mut NelderMead::new().projected(),
+            SimplexProgress::from_simplex(simplex),
+            // Basin 3 enables extra simplex stopping rules by default. The
+            // FitControl contract uses only the strict cost-SD hook above.
+            &mut NelderMead::new()
+                .with_absolute_simplex_size_tolerance(None)
+                .with_relative_simplex_size_tolerance(None)
+                .with_absolute_simplex_cost_tolerance(None)
+                .with_relative_simplex_cost_tolerance(None)
+                .projected(),
             &mut control,
-        )?;
+        )
+        .map_err(|error| match error {
+            ConstraintSolveError::Evaluation(error) => error,
+            ConstraintSolveError::InvalidConstraints(error) => anyhow::Error::new(error),
+            other => anyhow::anyhow!("constraint solver failed: {other}"),
+        })?;
         iterations += result.iter();
         let final_cost = result.best_cost();
-        let converged = result.reason == TerminationReason::SolverConverged
+        let converged = matches!(&result.report.termination, Termination::Application(stop) if stop.code == "lme.strict_cost_sd")
             && final_cost.is_finite()
             && final_cost < f64::MAX;
         if converged && iterations < max_iters {
@@ -274,6 +285,86 @@ where
 mod tests {
     use super::*;
     use ndarray::array;
+
+    struct StrictToleranceQuadratic;
+
+    impl CostFunction for StrictToleranceQuadratic {
+        type Param = Array1<f64>;
+        type Output = f64;
+
+        fn cost(&self, theta: &Self::Param) -> Result<f64, anyhow::Error> {
+            Ok((theta[0] - 1.3).powi(2) + (theta[1] + 2.0).powi(2))
+        }
+    }
+
+    #[test]
+    fn tight_cost_tolerance_is_not_preempted_by_simplex_collapse() {
+        let result = optimize(
+            array![0.0, 0.0],
+            &[f64::NEG_INFINITY, f64::NEG_INFINITY],
+            1000,
+            1e-20,
+            StrictToleranceQuadratic,
+        )
+        .unwrap();
+        assert!(result.converged, "{result:?}");
+        assert!(result.final_cost < 1e-18, "{result:?}");
+    }
+
+    struct InitialSpreadExactlyOne;
+
+    impl CostFunction for InitialSpreadExactlyOne {
+        type Param = Array1<f64>;
+        type Output = f64;
+
+        fn cost(&self, theta: &Self::Param) -> Result<f64, anyhow::Error> {
+            Ok(5.0 * theta[0] + 10.0 * theta[1])
+        }
+    }
+
+    #[test]
+    fn exact_tolerance_at_initial_simplex_does_not_stop() {
+        // The initial objective values are 0, 1, 2; their sample SD is 1.
+        let result = optimize(
+            array![0.0, 0.0],
+            &[f64::NEG_INFINITY, f64::NEG_INFINITY],
+            1,
+            1.0,
+            InitialSpreadExactlyOne,
+        )
+        .unwrap();
+        assert!(!result.converged, "{result:?}");
+        assert_eq!(result.iterations, 1);
+    }
+
+    #[derive(Debug)]
+    struct ObjectiveSentinel;
+
+    impl std::fmt::Display for ObjectiveSentinel {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("objective sentinel")
+        }
+    }
+
+    impl std::error::Error for ObjectiveSentinel {}
+
+    struct FailingObjective;
+
+    impl CostFunction for FailingObjective {
+        type Param = Array1<f64>;
+        type Output = f64;
+
+        fn cost(&self, _: &Self::Param) -> Result<f64, anyhow::Error> {
+            Err(anyhow::Error::new(ObjectiveSentinel))
+        }
+    }
+
+    #[test]
+    fn objective_error_preserves_its_original_type() {
+        let error =
+            optimize(array![1.0, 1.0], &[0.0, 0.0], 10, 1e-6, FailingObjective).unwrap_err();
+        assert!(error.is::<ObjectiveSentinel>(), "{error:#}");
+    }
 
     struct CovarianceQuadratic([f64; 3]);
 

@@ -4,7 +4,7 @@
 
 Created prospectively on 30 October 2026 (Europe/Berlin). Integration is in
 progress in an isolated worktree based on `c4f7d7c`; the primary checkout has
-unrelated work. No integration commit or PR has been created.
+unrelated work. PR #53 integrated the compatible updates and was merged on 31 October 2026.
 
 ## Scope and acceptance criteria
 
@@ -55,10 +55,17 @@ not pass. An attempt to clean the interrupted comparison's isolated build target
 was rejected by the execution environment. Git hooks, full CI, and final hosted
 checks remain pending. Original hosted checks do not validate the integrated head.
 
+PR #53 was merged at `df3020a47fe8d9d6483d282a45a18f1696556d3b` after
+all 19 hosted validation checks succeeded on integration head
+`03bb63ce89170500b4dd28a0ecadc3ac61c01704`; two release publication jobs were
+skipped for the PR. GitHub marked #49, #50 and #52 merged. Normal pre-commit
+hooks and the pre-push preflight passed. The local, tracking and live branch
+SHAs matched before merge; fetched and live default-branch SHAs matched after.
+Full local CI and its isolated-wheel pass were not run on this integration.
+
 ## Limitations and next action
 
-Run the normal hooks, publish the compatible integration, and obtain fresh
-hosted validation before any guarded merge. Investigate Basin independently; its new constraint,
+Continue Basin independently; its new constraint,
 solver state and termination interfaces require a behavioral migration. Do not
 weaken convergence, bounds, or iteration contracts. No Basin migration is
 included in this head.
