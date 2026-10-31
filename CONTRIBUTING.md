@@ -63,6 +63,19 @@ Use `--no-verify` only when explicitly necessary and report the bypass.
 `task ci:fast` reuses the editable Python environment and skips the isolated
 wheel pass; it is not equivalent to full `task ci`.
 
+Local `task ci`, its variants, and `task preflight` use CI-owned Cargo target
+generations under `.local-ci-generations`, separate from the usual `target`.
+A generation is reused within
+its week and a new one starts with a cold build. After each completed run,
+completed generations unused for at least seven days are removed under an
+exclusive local CI lock. Interrupted generations are preserved. Existing
+targets and benchmark evidence are never swept. Hosted CI, explicitly configured
+Cargo targets and build directories, and runs where offline Cargo metadata is
+unavailable retain their normal build paths and skip this cleanup. Concurrent
+local CI runs against the same checkout are rejected. An explicit
+`CARGO_TARGET_DIR` opts out. This does not coordinate commands run manually
+against the CI-owned directories; do not use them for other builds.
+
 `task lint:scripts` checks all repository Python tooling. `task lint:workflows`
 uses actionlint 1.7.12, with optional ShellCheck/Pyflakes disabled for portable
 results. Both checks run in normal CI; script lint also runs in preflight.

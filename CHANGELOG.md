@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Use isolated local CI build generations and remove completed generations
+  after seven days without CI use; leave existing and explicitly configured
+  Cargo targets untouched.
 - Upgrade the optional Basin optimizer to 3.0 while preserving the existing
   bounds, strict cost-tolerance rule, and objective error reporting.
 - Upgrade sprs to 0.11.6 across Rust, Python and fuzz locks and PyO3 to 0.30.1;

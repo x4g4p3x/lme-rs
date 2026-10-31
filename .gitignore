@@ -1,4 +1,5 @@
 /target
+.local-ci-generations/
 /fuzz/artifacts/
 /fuzz/coverage/
 /fuzz/target/

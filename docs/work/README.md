@@ -19,6 +19,7 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
+| [Local CI build-artifact retention](2026-10-30-local-ci-artifact-retention.md) | Cleanup-only checks passed, 31 October 2026 | Deliver and verify the remote branch |
 | [Basin 3 dependency migration](2026-10-31-basin-3-migration.md) | Implemented; final integration validation pending, 31 October 2026 | Validate updated base and deliver |
 | [Dependency pull requests](2026-10-30-dependency-prs.md) | PRs #49, #50, and #52 merged via #53, 31 October 2026 | Complete Basin 3 migration separately |
 | [Merge all open PRs](2026-10-26-merge-all-prs.md) | Integrated; validation/delivery tracked in PR #48 | Require fresh final-head checks, then verify merged PRs and default branch |
