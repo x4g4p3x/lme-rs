@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Upgrade the optional Basin optimizer to 3.0 while preserving the existing
+  bounds, strict cost-tolerance rule, and objective error reporting.
 - Upgrade sprs to 0.11.6 across Rust, Python and fuzz locks and PyO3 to 0.30.1;
   refresh the pinned CI installer action and run release-policy harness tests in
   the locked comparison environment so mandatory NumPy/SciPy imports are present.
