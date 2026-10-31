@@ -55,18 +55,31 @@ The untracked, locally available report is `benchmark-results/basin3-migration.j
 it identifies the dirty pre-integration source by SHA-256
 `a73e30f9dd69b12c8cdbb1ca2533199194548cd407bbd9324d5c4652cba242f7`.
 This is a single Rust-only run, not an equivalent before/after performance
-claim. Existing PR checks also fail a separate Python security audit; the final
-integration has not yet been validated.
+claim. The original dependency PR also failed a separate Python security audit.
+
+On combined head `200ae5f8acecbcbc25a11046dbfd79a59f983a5d`,
+`task rust` passed. Rust 1.95 compiled the Basin-enabled library. Both release
+golden-parity variants passed again (two tests each), and the same three
+Rust-only fair-harness cases completed again with all 11 recorded fits per case
+converged and no reported failures. The untracked, locally available report is
+`benchmark-results/basin3-migration-final.json`; it records a clean source tree,
+source-content SHA-256
+`a73e30f9dd69b12c8cdbb1ca2533199194548cd407bbd9324d5c4652cba242f7`,
+and the build and input identities. These unpaired timings do not establish a
+speedup. The fuzz Cargo lock also passed its audit. The normal merge-commit and
+pre-push hooks passed; full local `task ci` and its isolated-wheel pass were not
+run. PR #54 requires fresh hosted validation of its final head before merge.
 
 ## Limitations and next action
 
 The migration commit passed normal pre-commit hooks. The updated default
 branch was integrated, retaining both work-record index entries. On this
 combined tree, `task preflight` passed, including both Cargo audits; both locked
-Python environments also passed `pip-audit`. The Basin feature suite was repeated against the changed dependency locks:
+Python environments also passed `pip-audit`. The Basin feature suite was
+repeated against the changed dependency locks:
 `task basin:check` passed again. Documentation links and staged whitespace
-checks passed on the combined tree.
-`task rust`, minimum-Rust, and hosted validation remain pending on the final
-integration; preflight included `task lint`. The prior base's Python lock has a
-known audit finding; do not merge until the repaired lock and fresh checks pass.
+checks passed on the combined tree. Preflight included `task lint`; hosted
+validation remains pending on the final integration. The prior base's Python
+lock had a known audit finding; the repaired lock now passes audit. Require fresh hosted
+checks on the final integration before merge.
 Preserve unrelated work in the primary checkout.
