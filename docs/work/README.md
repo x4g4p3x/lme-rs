@@ -19,6 +19,7 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
+| [Dependency pull requests](2026-10-30-dependency-prs.md) | Integration in progress; validation incomplete, 30 October 2026 | Recover disk space, validate and deliver; investigate Basin 3 |
 | [Merge all open PRs](2026-10-26-merge-all-prs.md) | Integrated; validation/delivery tracked in PR #48 | Require fresh final-head checks, then verify merged PRs and default branch |
 | [Dependency security remediation](2026-10-26-dependency-security.md) | Implemented and validated for publication, 26 October 2026 | Publish with normal hooks and verify remote branch identity |
 | [Codex workflow skill optimization](2026-10-26-codex-skill-optimization.md) | Skill/evidence committed in 6130e26; dependency gate resolved separately, 26 October 2026 | Publish both commits and verify the remote branch |
