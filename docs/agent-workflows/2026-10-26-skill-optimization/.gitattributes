@@ -1,0 +1,3 @@
+# Preserve exact historical source bytes used by recorded SHA256 identities.
+pipeline/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+original-instructions/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

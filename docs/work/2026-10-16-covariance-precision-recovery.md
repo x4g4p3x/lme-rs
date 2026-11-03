@@ -219,3 +219,55 @@ On the original working tree, the follow-up `cargo test --locked --test
 test_model_contracts` passed all 31 tests before integration with newer master.
 This local commit must be integrated with the separately delivered dependency
 and CI changes; validate the combined head before remote delivery.
+
+After integrating later dependency, Python-binding, CI and Basin changes, nine
+of the 136 historical frozen inputs differ from the combined checkout:
+`Cargo.lock`, `Cargo.toml`, `python/Cargo.lock`, `python/Cargo.toml`,
+`python/pyproject.toml`, `python/src/input.rs`, `python/src/lib.rs`,
+`scripts/ci/lme_ci.py` and `src/optimizer/basin_backend.rs`. The historical
+archive and frozen identities remain unchanged; its pilot and timing results
+do not validate this new combined source. Re-run applicable software checks
+on the combined tree and do not treat historical measurements as current.
+
+
+## Integration regression investigation
+
+The combined checkout passed `task preflight`, but `task rust` failed three
+previously passing precision contract cases. The small-nonzero-diagonal case
+reproduced alone with criterion 118.3728812168659 versus independent expected
+118.37133605909438. The original committed pre-merge snapshot passed the same
+focused test in a separate worktree. The dependency and configuration changes
+are being isolated; the combined tree is not ready for delivery. Do not loosen
+tolerances or represent historical pilot results as validation of this tree.
+
+The focused case also passed with the newer complete dependency configuration in
+an isolated checkout. Both checkouts had shared a Cargo target directory during
+this investigation, so a forced rebuild of the integrated checkout was required
+to distinguish its artifacts. After rebuilding the integrated library, all 31
+model-contract cases passed, including the three earlier failures. This is
+consistent with stale cross-worktree artifacts, but does not establish exactly
+which previous artifact caused the failure. The integrated checks below passed; the historical pilot remains historical.
+
+
+## Integrated validation and delivery
+
+The combined tree passed `task preflight`, a fresh `task rust`, `task
+basin:check`, `task lint:python`, and `task python` including its isolated-wheel
+tests (95 passed, one skipped). `task docs:check` passed; the documentation links
+and staged whitespace were checked. Release golden parity passed both default
+and Basin configurations (two tests each). The initial failed `task rust` and
+the shared-target investigation are retained above rather than omitted.
+
+The Rust-only fair harness ran sleepstudy REML, weighted sleepstudy REML and
+the 100,000-row random-slopes case, for both optimizer backends, with three
+warmups and eleven recorded fits per case. All recorded fits converged and both
+reports had zero failures. The reports are locally available under
+`benchmark-results/integrated-followup-default.json` and
+`benchmark-results/integrated-followup-basin.json`; they are not published.
+They record the dirty integrated source content hash
+`d3aedba240943ad57ef61091825d0bef7898a9e358e7a8dea900ce96f8f08770`. These
+unpaired Rust-only runs establish no cross-language or speedup claim. The
+historical pilot and archive remain scoped to their original frozen inputs.
+
+Status: integrated software checks complete; delivery is pending the normal
+merge-commit and push hooks. No release or new scientific validation is claimed.

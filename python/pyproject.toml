@@ -35,7 +35,8 @@ pandas = ["pandas>=2.0", "pyarrow>=14.0"]
 dev = [
     "maturin>=1.8,<2.0",
     "pytest>=7.0",
-    "pip-audit>=2.6",
+    # Patched audit-tool file locking requires 3.11; runtime/tests still support 3.10.
+    "pip-audit>=2.6; python_version >= '3.11'",
     "pandas>=2.0",
     "pyarrow>=14.0",
 ]

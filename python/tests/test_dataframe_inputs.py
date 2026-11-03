@@ -8,6 +8,50 @@ FORMULA = "Reaction ~ Days + (Days | Subject)"
 DATA_PATH = "../tests/data/sleepstudy.csv"
 
 
+def test_internal_ipc_is_uncompressed_and_preserves_all_batches(monkeypatch):
+    pa = pytest.importorskip("pyarrow")
+    df = pl.read_csv(DATA_PATH)
+    ref = _reference_fit(df)
+    chunked = pl.concat([df[:60], df[60:120], df[120:]], rechunk=False)
+    assert chunked.n_chunks() == 3
+    original = pl.DataFrame.write_ipc
+    batch_counts = []
+
+    def checked_write(frame, buffer, **kwargs):
+        assert kwargs["compression"] == "uncompressed"
+        result = original(frame, buffer, **kwargs)
+        # Polars can coalesce source chunks into one IPC batch. Force distinct
+        # batches independently so a reader dropping later batches cannot pass.
+        table = pa.ipc.open_file(buffer.getvalue()).read_all()
+        sink = pa.BufferOutputStream()
+        with pa.ipc.new_file(sink, table.schema) as writer:
+            writer.write_table(table, max_chunksize=60)
+        payload = sink.getvalue()
+        batch_counts.append(pa.ipc.open_file(payload).num_record_batches)
+        buffer.seek(0)
+        buffer.truncate(0)
+        buffer.write(payload.to_pybytes())
+        return result
+
+    monkeypatch.setattr(pl.DataFrame, "write_ipc", checked_write)
+    fit = _reference_fit(chunked)
+    assert fit.num_obs == len(df)
+    assert fit.coefficients == pytest.approx(ref.coefficients, rel=1e-9, abs=1e-6)
+    assert fit.predict(chunked) == pytest.approx(ref.predict(df), abs=1e-6)
+    assert max(batch_counts) >= 3
+
+
+def test_invalid_internal_ipc_returns_python_error(monkeypatch):
+    df = pl.read_csv(DATA_PATH)
+
+    def invalid_write(frame, buffer, **kwargs):
+        buffer.write(b"invalid IPC")
+
+    monkeypatch.setattr(pl.DataFrame, "write_ipc", invalid_write)
+    with pytest.raises(ValueError, match="Failed to parse dataframe from IPC"):
+        _reference_fit(df)
+
+
 def _reference_fit(df_pl: pl.DataFrame) -> lme_python.PyLmeFit:
     return lme_python.lmer(FORMULA, data=df_pl, reml=True)
 

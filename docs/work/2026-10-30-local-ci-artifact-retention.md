@@ -2,9 +2,8 @@
 
 ## Status and context
 
-Created prospectively on 30 October 2026 (Europe/Berlin). Implementation in
-progress on 31 October from `93dc06a`; the primary checkout contains unrelated pending work.
-No delivery is authorized by this record.
+Created prospectively on 30 October 2026 (Europe/Berlin). Started on 31 October from `93dc06a`; the primary checkout contains unrelated
+pending work. A cleanup-only delivery checkout is based on `4bfb737`.
 
 ## Scope and acceptance criteria
 
@@ -52,7 +51,7 @@ policy. The standalone runner and Task use the same path. Existing targets and
 benchmark evidence remain outside the cleanup root. Parallel managed CI in one
 checkout is rejected, and each new generation incurs a cold build.
 
-The cross-project implementation is uncommitted. Focused tests exercise the
+The original cross-project implementation was tested in the working checkouts. Focused tests exercise the
 seven-day boundary, ownership, interruption, a real Windows junction, process
 locking, configured targets, resolved-path containment and runner delegation.
 Script lint and the resumed documentation check passed. `task preflight` reached
@@ -79,9 +78,22 @@ primary checkout contains unrelated numerical changes; the same focused test
 passed in a clean, newer integration checkout, but that comparison does not
 isolate the cause. The run omitted the isolated-wheel pass. The separate preflight security audit remains failing on the old lock.
 
+The cleanup-only delivery checkout based on `4bfb737` passed all 20 focused
+retention and runner tests, `task preflight` (including security audits),
+`task docs:check`, and `git diff --check`. Its preflight used an explicitly
+configured existing Cargo target and therefore bypassed retention during that
+run. Full `task ci` and its isolated-wheel pass were not rerun there. The five
+standalone adapter, benchmark and site repositories were committed and pushed;
+BioBit-rs passed its cleanup-only CI and was pushed separately.
+
 ## Limitations and next action
 
-Finish independent integration checks in every project. The cleanup lock only
+Finish delivery with normal hooks and verify the remote branch. The cleanup lock only
 coordinates participating CI wrappers: unrelated commands must not use managed
 target generations. Offline metadata failure skips retention rather than changing
 the configured build. Existing shared build targets need separate manual cleanup.
+
+The cleanup-only change was delivered in `299208e`. The previously failing
+Python summary assertion was subsequently replaced with an independent lme4
+reference and a structured-result rendering check; the original working tree
+passed 93 Python tests with one skip. Validate the combined integration head.

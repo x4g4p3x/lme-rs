@@ -1,0 +1,18 @@
+[
+  {
+    "skill": "bug-hunt",
+    "before_characters": 5920,
+    "after_characters": 2574,
+    "character_reduction_percent": 56.52027027027027,
+    "final_lf_normalized_sha256": "616630eda29bf222eaa1e76d368547694db6eea94dca318de0817f70c4d975f6",
+    "original_snapshot_raw_sha256": "65061c2ea03044ac979af713d0fd2ab7613a7888b66b266113ebab00c41b7f73"
+  },
+  {
+    "skill": "perf-tune",
+    "before_characters": 6368,
+    "after_characters": 2935,
+    "character_reduction_percent": 53.910175879396995,
+    "final_lf_normalized_sha256": "69dbb2a790b74ef804e76932e136d0caff3d0e99e9bab2c1cb3d2f976f801605",
+    "original_snapshot_raw_sha256": "ed1c801a5a60b93cfb3225f0c3a9a64314167351449992ce3ca53b5670de4990"
+  }
+]

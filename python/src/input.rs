@@ -143,15 +143,40 @@ pub(super) fn read_dataframe(
     }
     let io = py.import("io")?;
     let buffer = io.call_method0("BytesIO")?;
-    pl_df.call_method1("write_ipc", (&buffer,))?;
+    let options = PyDict::new(py);
+    options.set_item("compression", "uncompressed")?;
+    pl_df.call_method("write_ipc", (&buffer,), Some(&options))?;
     let value = buffer.call_method0("getvalue")?;
     let bytes = value.cast::<PyBytes>()?;
     let raw = bytes.as_bytes();
     py.detach(|| {
-        IpcReader::new(Cursor::new(raw)).finish().map_err(|e| {
+        read_uncompressed_ipc(raw).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!(
                 "Failed to parse dataframe from IPC: {e}"
             ))
         })
     })
+}
+
+/// Read every record batch, including an empty file's declared schema. Only the
+/// uncompressed IPC transport produced above is enabled in our dependency graph.
+fn read_uncompressed_ipc(raw: &[u8]) -> PolarsResult<DataFrame> {
+    use polars_arrow::io::ipc::read::{read_file_metadata, FileReader};
+
+    let mut cursor = Cursor::new(raw);
+    let metadata = read_file_metadata(&mut cursor)?;
+    let mut frame = DataFrame::empty_with_schema(&Schema::from_arrow_schema(&metadata.schema));
+    for batch in FileReader::new(cursor, metadata, None, None) {
+        let batch = batch?;
+        let height = batch.height();
+        let (schema, arrays) = batch.into_schema_and_arrays();
+        let columns = schema
+            .iter_values()
+            .zip(arrays)
+            .map(|(field, array)| Series::try_from((field, array)).map(Series::into_column))
+            .collect::<PolarsResult<Vec<_>>>()?;
+        frame.vstack_mut(&DataFrame::new(height, columns)?)?;
+    }
+    frame.rechunk_mut();
+    Ok(frame)
 }

@@ -19,7 +19,12 @@ context, credentials and sensitive local paths.
 
 | Record | Status at last update | Next action |
 |:---|:---|:---|
-| [Local CI build-artifact retention](2026-10-30-local-ci-artifact-retention.md) | Investigating, 30 October 2026 | Design concurrency-safe seven-day retention and validate across projects |
+| [Local CI build-artifact retention](2026-10-30-local-ci-artifact-retention.md) | Delivered in 299208e; combined validation pending | Validate current integration |
+| [Basin 3 dependency migration](2026-10-31-basin-3-migration.md) | Merged via PR #54, 31 October 2026 | Preserve compatibility and regression coverage |
+| [Dependency pull requests](2026-10-30-dependency-prs.md) | PRs #49-#52 merged via #53 and #54, 31 October 2026 | Continue normal dependency monitoring |
+| [Merge all open PRs](2026-10-26-merge-all-prs.md) | Integrated; validation/delivery tracked in PR #48 | Require fresh final-head checks, then verify merged PRs and default branch |
+| [Dependency security remediation](2026-10-26-dependency-security.md) | Implemented and validated for publication, 26 October 2026 | Publish with normal hooks and verify remote branch identity |
+| [Codex workflow skill optimization](2026-10-26-codex-skill-optimization.md) | Skill/evidence committed in 6130e26; dependency gate resolved separately, 26 October 2026 | Publish both commits and verify the remote branch |
 | [Near-zero covariance recovery](2026-10-16-near-zero-column-recovery.md) | Delivered in c87b8e0; fresh pilot retains one iteration limit, 16 October 2026 | Follow the strict-control convergence diagnostic plan before numerical readiness |
 | [Strict-control convergence diagnostic](../LMM_RANDOM_SLOPE_CONVERGENCE_NEXT_STEP.md) | Delivered in b4cbf07; rounding-scale stagnation established, 16 October 2026 | Fresh full-method pilot with prospectively frozen control; original failed gate retained |
 | [Stopping-control pilot execution](2026-10-16-stopping-control-pilot.md) | Delivered in 93dc06a; original analysis abort and three numerical failures retained, 16 October 2026 | Follow boundary/covariance repair plan; preserve failed readiness and separate diagnostic results |

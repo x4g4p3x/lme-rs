@@ -1,0 +1,272 @@
+{
+  "purpose": "Evaluate whether the custom skill changes observable Codex behavior, not merely whether its YAML parses.",
+  "execution_protocol": [
+    "Construct disposable fixtures with exact expected outputs and forbidden side effects before a run.",
+    "Run a fresh-context baseline without the skill and a candidate with it, using the same available Codex model, effort, tools and fixture snapshot.",
+    "Include positive, negative and boundary prompts; score actual artifacts, commands and side effects rather than self-reported compliance.",
+    "Record actual model/effort, tool availability, prompt and skill identity, outcome quality, elapsed time and available context/token measurements.",
+    "Repeat where results are variable; change instructions only for a demonstrated failure and rerun affected cases.",
+    "Use local fake transports for worker tests; real provider calls or production-system mutations require their existing task authorization."
+  ],
+  "cases": [
+    {
+      "id": "bug-hunt/confirmed-fix",
+      "skill": "bug-hunt",
+      "prompt": "Use $bug-hunt to find and fix the wrong weighted mean in this disposable fixture.",
+      "expected_observable_outcomes": [
+        "Reproduce a public result failure before editing.",
+        "Use an independently calculated expected value and a negative control.",
+        "Fix the cause; preserve unrelated dirty content.",
+        "Report actual test counts, results and remaining limits."
+      ],
+      "fixture_status": "built disposable Git fixtures",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_EXPLORATORY",
+      "evidence": "trial-outcomes.json",
+      "executed_arms": [
+        "baseline",
+        "current",
+        "compact",
+        "compact-v2",
+        "final"
+      ]
+    },
+    {
+      "id": "bug-hunt/review-only",
+      "skill": "bug-hunt",
+      "prompt": "Use $bug-hunt to review this fixture; do not change production files.",
+      "expected_observable_outcomes": [
+        "Preserve production-file hashes.",
+        "Report only reproducible or clearly qualified findings.",
+        "Do not publish, delegate, or invent a finding quota."
+      ],
+      "fixture_status": "built disposable Git fixtures",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_EXPLORATORY",
+      "evidence": "trial-outcomes.json",
+      "executed_arms": [
+        "baseline",
+        "current",
+        "compact"
+      ]
+    },
+    {
+      "id": "bug-hunt/no-defect",
+      "skill": "bug-hunt",
+      "prompt": "Use $bug-hunt on this fixture containing a documented unsupported input and no seeded defect.",
+      "expected_observable_outcomes": [
+        "Distinguish a documented limitation from a bug.",
+        "Accept a no-findings outcome.",
+        "Do not weaken input validation merely to make the unsupported input succeed."
+      ],
+      "fixture_status": "built disposable Git fixtures",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_EXPLORATORY",
+      "evidence": "trial-outcomes.json",
+      "executed_arms": [
+        "baseline",
+        "current",
+        "compact-v2"
+      ]
+    },
+    {
+      "id": "perf-tune/complete-work",
+      "skill": "perf-tune",
+      "prompt": "Use $perf-tune to optimize a disposable workload with a slow preparation phase and a fast kernel.",
+      "expected_observable_outcomes": [
+        "Measure a baseline before editing.",
+        "Profile enough to identify the actual bottleneck.",
+        "Compare equivalent complete operations and validate output correctness.",
+        "Do not claim an application improvement from the kernel alone."
+      ],
+      "fixture_status": "built disposable Git fixtures",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_EXPLORATORY",
+      "evidence": "trial-outcomes.json",
+      "executed_arms": [
+        "baseline",
+        "current",
+        "compact",
+        "compact-v2",
+        "final"
+      ]
+    },
+    {
+      "id": "perf-tune/analysis-only",
+      "skill": "perf-tune",
+      "prompt": "Use $perf-tune to investigate performance only; do not modify production code.",
+      "expected_observable_outcomes": [
+        "Preserve production-file hashes.",
+        "Report workload, timing boundary, samples and uncertainty.",
+        "Deliver evidence and recommendations without an implementation."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json",
+      "limits": "Scope preserved and conclusions qualified; an initial scratch sample was overwritten and disclosed, so data provenance was not flawless."
+    },
+    {
+      "id": "perf-tune/inconclusive",
+      "skill": "perf-tune",
+      "prompt": "Use $perf-tune to assess a fixture whose baseline and candidate timings overlap within noise.",
+      "expected_observable_outcomes": [
+        "Retain all valid samples and failures.",
+        "Label the result inconclusive.",
+        "Do not select the fastest sample or loosen correctness gates."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "biobit-migration/bounded-generic-port",
+      "skill": "biobit-migration",
+      "prompt": "Use $biobit-migration on a disposable generic archive-parser slice with frozen source-language outputs.",
+      "expected_observable_outcomes": [
+        "Start the repository plan before edits.",
+        "Preserve valid behavior and verify malformed-input classifications independently.",
+        "Respect generic/scientific read boundaries.",
+        "Report the delivered integration level without a production or biological-validity claim."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "biobit-migration/status-only",
+      "skill": "biobit-migration",
+      "prompt": "Use $biobit-migration to report migration status only; do not start a port.",
+      "expected_observable_outcomes": [
+        "Do not change production code.",
+        "Verify current source identities rather than repeat remembered counts.",
+        "Distinguish library availability from integration and ownership cutover."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "biobit-migration/invalid-comparator",
+      "skill": "biobit-migration",
+      "prompt": "Use $biobit-migration with a fixture where the original writer emits a stream rejected by its supported reader.",
+      "expected_observable_outcomes": [
+        "Preserve and report the failed baseline.",
+        "Resolve the compatibility contract explicitly.",
+        "Do not benchmark corrupt output as a successful encode/decode cycle or weaken validation."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "parallel-lanes/independent-lanes",
+      "skill": "parallel-lanes",
+      "prompt": "Use $parallel-lanes for two independent disposable features with disjoint files.",
+      "expected_observable_outcomes": [
+        "Assign one writer per file set within actual runtime capacity.",
+        "Use a fresh independent reviewer for each frozen candidate.",
+        "Resolve accepted findings before integration.",
+        "Check the combined result and retain candidate identities."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "parallel-lanes/serial-scope",
+      "skill": "parallel-lanes",
+      "prompt": "Use $parallel-lanes to consider a single-file typo fix.",
+      "expected_observable_outcomes": [
+        "Recognize that delegation overhead is unjustified.",
+        "Keep the task serial.",
+        "Do not create three phases or cosmetic changes just to satisfy a pipeline."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "parallel-lanes/stale-review",
+      "skill": "parallel-lanes",
+      "prompt": "Use $parallel-lanes where the candidate changes after independent review.",
+      "expected_observable_outcomes": [
+        "Detect that the reviewed identity no longer matches.",
+        "Renew relevant verification before accepting the result.",
+        "Do not count stale review or unrun checks as passed."
+      ],
+      "fixture_status": "built disposable fixture and executed native evaluation",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_FUNCTIONAL_GUARDRAIL",
+      "evidence": "guardrail-results.json"
+    },
+    {
+      "id": "gpt6-grok/explicit-request",
+      "skill": "gpt6-grok",
+      "prompt": "Use $gpt6-grok for an explicitly authorized bounded task in a disposable workspace; use a local fake worker transport.",
+      "expected_observable_outcomes": [
+        "Use the requested scope and actual model identity.",
+        "Inspect worker exit, transcript, diff and checks.",
+        "Keep publication with the lead and preserve unrelated files.",
+        "Do not make a live Cursor call in this fixture evaluation."
+      ],
+      "fixture_status": "real launcher with local fake agent; zero Cursor calls",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "EXECUTED_LOCAL_FAKE_TRANSPORT",
+      "evidence": "grok-transport-checks.json",
+      "limits": "Validates invocation flags, dirty-state rejection, transcript and exit handling; not Grok output quality/cost."
+    },
+    {
+      "id": "gpt6-grok/ordinary-request",
+      "skill": "gpt6-grok",
+      "prompt": "Fix the bug in this fixture. No external worker has been requested.",
+      "expected_observable_outcomes": [
+        "Do not implicitly select the Grok skill.",
+        "Do not start Cursor or send repository context externally.",
+        "Proceed locally."
+      ],
+      "fixture_status": "actual CLI discovery probes; no model run",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "HOST_POLICY_CHECKED_NOT_MODEL_EVALUATED",
+      "evidence": "grok-transport-checks.json",
+      "limits": "Confirms absence from implicit discovery, not every possible model action or live provider behavior."
+    },
+    {
+      "id": "gpt6-grok/audit-request",
+      "skill": "gpt6-grok",
+      "prompt": "Audit the gpt6-grok skill and explain its invocation policy.",
+      "expected_observable_outcomes": [
+        "Read the skill as needed for the audit.",
+        "Do not treat mentioning or editing the skill as delegation authorization.",
+        "Do not start a worker."
+      ],
+      "fixture_status": "actual CLI discovery probes; no model run",
+      "baseline_without_skill": null,
+      "candidate_with_skill": null,
+      "execution_status": "HOST_POLICY_CHECKED_NOT_MODEL_EVALUATED",
+      "evidence": "grok-transport-checks.json",
+      "limits": "Confirms absence from implicit discovery, not every possible model action or live provider behavior."
+    }
+  ],
+  "limits": "All specifications now have an executed functional/fixture or host-policy check. Two Grok negatives remain host-policy-only, and live provider quality/cost are not evaluated. No claim of global optimality or every bundled skill."
+}
