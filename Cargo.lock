@@ -276,9 +276,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "basin"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dfdde9e56c189dd68cf7570c05920ab272d1e45d023214466fe200944f73aa5"
+checksum = "9614873e06f84533eb94d679e138f5d44dd3124ec5a80a46cb6d2dcd0c12f789"
 dependencies = [
  "ndarray",
  "num-traits",
@@ -1601,9 +1601,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.34"
+version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "matrixmultiply"
